@@ -22,6 +22,7 @@ import { createStage, type Stage } from './stage/stage';
 import { useUi } from '../state/ui';
 import { typing } from '../ui/keys';
 import { useLive } from '../live/LiveConnection';
+import { usePrefs } from '../settings/prefs';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
@@ -77,6 +78,7 @@ export function ArenaScreen({
   const seenReactions = useRef(new Set<string>());
   const ended = useRef(false);
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, 0));
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
@@ -206,7 +208,7 @@ export function ArenaScreen({
       setSize({ w, h });
     };
     const biome = run.content.sectors.find((s) => s.id === run.sector)?.biome ?? 'nebula';
-    void createStage(canvas, run.content, { reduced, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom() }).then((stage) => {
+    void createStage(canvas, run.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom() }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -232,6 +234,7 @@ export function ArenaScreen({
 
   // Ajustes → Movimiento can change from the pause: the stage follows without restarting the run.
   useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
+  useEffect(() => stageRef.current?.setColorVision(colorVision), [colorVision]);
 
   // The HUD reads the simulation a few times per second.
   useEffect(() => {

@@ -14,13 +14,14 @@ import { RelicPicker } from '../RelicPicker';
 import { SetsPanel } from '../SetsPanel';
 import { SkillsChip, skillTags } from '../SkillTags';
 import { StepHead } from './WherePanel';
+import { tierHex } from '../../a11y/color-vision';
+import { usePrefs } from '../../settings/prefs';
 
 // Step 3, with what (GDD §8.4): the relic slots along the lobby's foot. A relic is a card with its galaxy as the
 // backdrop coming in from the side, edged in its tier's colour: its name, tier and power, and one chip with its powers
 // that opens what each does (pressing the card changes the relic); an empty slot asks for one; the next slot shows what opens it (and «Abrir
 // ranura» once it is earned); the rest are small locks. The sets the relics make open in their own window.
 
-const TIER_COLOR: Record<string, string> = { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' };
 
 export function relicInput(g: GalaxySummary): RelicInput {
   return { id: g.id, seed: g.seed, tier: TIERS.indexOf(g.tier), level: g.level, traits: g.traits };
@@ -100,6 +101,7 @@ function NextSlot({ next }: { next: NonNullable<HangarView['nextSlot']> }) {
 }
 
 export function RelicStrip({ view }: { view: HangarView }) {
+  const colorVision = usePrefs((p) => p.colorVision);
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
   const [sets, setSets] = useState(false);
@@ -145,7 +147,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
             .filter((x) => x.kind !== 'power')
             .map((x) => x.name);
           return (
-            <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': TIER_COLOR[g.tier] ?? '#c9d0ea' } as CSSProperties}>
+            <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': tierHex(g.tier, colorVision) } as CSSProperties}>
               <RelicArt seed={g.seed} />
               <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} aria-label={copy.lobby.swapRelic(g.name)} title={copy.lobby.swapRelic(g.name)} />
               <span className="lobby-slot-body">

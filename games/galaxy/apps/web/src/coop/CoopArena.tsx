@@ -26,6 +26,7 @@ import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld }
 import { playMark } from './sfx';
 import { ReportDialog } from './ReportDialog';
 import { TeamResults, teamRows } from './TeamResults';
+import { usePrefs } from '../settings/prefs';
 
 // A co-op run in the browser (multiplayer plan, phase 6). The play socket says hello with the run and the sealed log
 // so far; from then on it brings the sealed events and the tick the server closed. The run is simulated only up to
@@ -258,6 +259,7 @@ function CoopWorld({
   const lastSent = useRef<string>('');
   const seenReactions = useRef(new Set<string>());
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, slot));
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
@@ -354,6 +356,7 @@ function CoopWorld({
     const biome = start.content.sectors.find((s) => s.id === start.sector)?.biome ?? 'nebula';
     void createStage(canvas, start.content, {
       reduced,
+      colorVision,
       vision: relicVision(sim, sim.probes[slot]!),
       probe: slot,
       me: slot,
@@ -385,6 +388,7 @@ function CoopWorld({
 
   // Ajustes → Movimiento can change from the pause: the stage follows without restarting the run.
   useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
+  useEffect(() => stageRef.current?.setColorVision(colorVision), [colorVision]);
 
   // The HUD a few times per second; friends see the layer.
   useEffect(() => {

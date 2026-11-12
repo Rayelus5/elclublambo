@@ -3,7 +3,8 @@ import type { Content, HudSnapshot } from '@galaxy/sim';
 import { useEffect } from 'react';
 import { describeOffer } from '../arena/hud/LevelUp';
 import { spriteDataUrl } from '../arena/sprites';
-import { TEAM_TINT } from '../arena/stage/stage';
+import { teamTint } from '../arena/stage/palette';
+import { usePrefs } from '../settings/prefs';
 import { copy } from '../copy/es';
 import { typing } from '../ui/keys';
 
@@ -76,6 +77,7 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
 }
 
 export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: CoopPlayer[]; slot: number }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const team = hud.coop?.team ?? [];
   return (
     <aside className="coop-team" aria-label={t.team}>
@@ -84,7 +86,7 @@ export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: C
           const name = m.index === slot ? t.you : (players[m.index]?.username ?? '');
           const frac = m.maxHp > 0 ? Math.max(0, Math.min(1, m.hp / m.maxHp)) : 0;
           return (
-            <li key={m.index} className={`coop-mate ${m.life}`} style={{ ['--mate' as string]: hex(TEAM_TINT[m.index % TEAM_TINT.length]!) }}>
+            <li key={m.index} className={`coop-mate ${m.life}`} style={{ ['--mate' as string]: hex(teamTint(m.index, cvd)) }}>
               <span className="coop-mate-name">
                 <b>{name}</b>
                 <small>{m.life === 'up' ? copy.social.level(m.level) : t.life[m.life]}</small>
@@ -132,12 +134,13 @@ export function SpectateBar({
   watching: number;
   onWatch: (slot: number) => void;
 }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const can = spectatable(hud, me);
   const at = Math.max(0, can.indexOf(watching));
   const step = (d: number) => onWatch(can[(at + d + can.length) % can.length]!);
   const name = players[watching]?.username ?? '';
   return (
-    <div className="coop-spectate" style={{ ['--tint' as string]: hex(TEAM_TINT[watching % TEAM_TINT.length]!) }}>
+    <div className="coop-spectate" style={{ ['--tint' as string]: hex(teamTint(watching, cvd)) }}>
       {can.length > 1 ? (
         <button type="button" className="coop-spectate-arrow" aria-label={t.watchPrev} onClick={() => step(-1)}>
           ‹

@@ -1,3 +1,4 @@
+import { ELEMENT_GLYPH } from '../stage/palette';
 import { P } from './palette';
 import { grid, type SpriteDef } from './types';
 
@@ -82,6 +83,8 @@ export const ITEMS: Record<string, SpriteDef> = {
     grid('.....', '..k..', '.kwk.', '..k..', '.....'),
   ),
   'mark-pip': still(grid('.w.', 'www', '.w.')),
+  // Plan «escáner pro», part C: each element's mark has its own 3×3 shape, so it never relies on colour alone.
+  ...Object.fromEntries(Object.entries(ELEMENT_GLYPH).map(([id, g]) => [`mark-${id}`, still(grid(...[0, 3, 6].map((k) => g.slice(k, k + 3).replace(/1/g, 'w').replace(/0/g, '.'))))])),
   // Nov plan B3: the magnetic harpoon's head (it turns with its line; the line itself is drawn) and the mortar's shell,
   // its fuse sparking (it is lobbed: the arena lifts it along its arc).
   harpoon: still(grid('...kk.....', '..kYTkkk..', 'kkkTYwwwwk', '..kYTkkk..', '...kk.....')),

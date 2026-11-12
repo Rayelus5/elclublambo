@@ -2,7 +2,8 @@ import { COOP_MARKS, type CoopMark, type CoopPlayer } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import type { Camera } from '../arena/stage/camera';
 import { edgePoint } from '../arena/stage/edge';
-import { TEAM_TINT } from '../arena/stage/stage';
+import { teamTint } from '../arena/stage/palette';
+import { usePrefs } from '../settings/prefs';
 import { copy } from '../copy/es';
 
 // Quick marks in a group run (multiplayer plan, phase 6c): a tap of Q marks «Aquí» where the pointer is; held, a wheel
@@ -56,6 +57,7 @@ export function MarkWheel({ at, choice }: { at: { x: number; y: number }; choice
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
 export function CoopMarks({ marks, camera, width, height, players, me }: { marks: ShownMark[]; camera: Camera | null; width: number; height: number; players: CoopPlayer[]; me: number }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const zoom = camera?.zoom ?? 2;
   const field = { width, height, bars: camera?.bars ?? 0 };
   return (
@@ -69,7 +71,7 @@ export function CoopMarks({ marks, camera, width, height, players, me }: { marks
               className={`coop-mark k-${k.kind}${inside ? '' : ' edge'}`}
               role="img"
               aria-label={m.label(who, m.kinds[k.kind])}
-              style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px`, '--tint': hex(TEAM_TINT[k.slot] ?? 0xffffff) } as CSSProperties}
+              style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px`, '--tint': hex(teamTint(k.slot, cvd)) } as CSSProperties}
             >
               {inside ? <i className="coop-mark-pin" aria-hidden="true" /> : <i className="coop-mark-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />}
               <b aria-hidden="true">{m.kinds[k.kind]}</b>
