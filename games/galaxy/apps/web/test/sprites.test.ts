@@ -29,7 +29,9 @@ test('existen los sprites y los iconos que nombra el contenido, y los del botín
   ];
   const engine = ['xp-1', 'xp-5', 'xp-25', 'coin', 'dust', 'repair', 'bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'blade', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'foe-bullet', 'rock-1', 'rock-2', 'rock-3',
     // M3b-1: the arsenal's shots and the enemies' states.
-    'missile', 'shard', 'split-shard', 'mine', 'disc', 'turret', 'strike-mark', 'stun-star', 'mark-pip'];
+    'missile', 'shard', 'split-shard', 'mine', 'disc', 'turret', 'strike-mark', 'stun-star', 'mark-pip',
+    // Nov plan B3: the harpoon's head and the mortar's shell (the sling's body, the hologram and the beam are drawn).
+    'harpoon', 'mortar-shell'];
   for (const id of [...named, ...engine]) expect(SPRITES[id], id).toBeDefined();
 });
 

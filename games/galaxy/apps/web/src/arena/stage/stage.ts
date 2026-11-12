@@ -48,9 +48,41 @@ export interface Stage {
   destroy(): void;
 }
 
-/** Sprite per shot kind (systems/weapons.ts SHOT; the beam is drawn as a line, not a sprite). */
-const SHOT_SPRITE = ['bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'blade', 'bolt', 'missile', 'shard', 'mine', 'disc', 'turret', 'split-shard'];
-const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar, SHOT.missile, SHOT.shard, SHOT.split, SHOT.turret]);
+/**
+ * Sprite per shot kind (systems/weapons.ts SHOT). Drawn otherwise: the beam and the lighthouse's beam (lines), a body
+ * the sling threw (the enemy itself, in a grip of gravity) and a hologram (its probe's own drawing).
+ */
+const SHOT_SPRITE = [
+  'bolt',
+  'lance',
+  'arc',
+  'drone-bolt',
+  'orb',
+  'drone',
+  'relic-ray',
+  'jet',
+  'quasar',
+  'chaos',
+  'reflected',
+  'blade',
+  'bolt',
+  'missile',
+  'shard',
+  'mine',
+  'disc',
+  'turret',
+  'split-shard',
+  'harpoon',
+  'bolt',
+  'bolt',
+  'bolt',
+  'mortar-shell',
+];
+const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar, SHOT.missile, SHOT.shard, SHOT.split, SHOT.turret, SHOT.harpoon]);
+/** The November arsenal's light (Nov plan B3): the lighthouse's warm beam, the hologram's cyan, the sling's lilac. */
+const PHOTON = 0xffc94a;
+const HOLO = 0x6fe3ff;
+const GRAVITY = 0xb39dff;
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
 const ELEMENT_COLOR: Record<string, number> = {
   burn: 0xff9a3c,
@@ -369,6 +401,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       } else if (kind === AREA.blast) {
         const k = Math.max(0, Math.min(1, t / 12));
         beams.circle(x, y, r * (1.1 - 0.4 * k)).fill({ color: 0xffc94a, alpha: 0.18 * k }).stroke({ width: 2, color: 0xff9a3c, alpha: k });
+      } else if (kind === AREA.bomblet) {
+        // A cluster bomblet (Nov plan B3): a small charge whose ring closes in, blinking faster just before it blows.
+        const k = Math.max(0, Math.min(1, t / 30));
+        const blink = opts.reduced ? 0.8 : t < 12 ? (Math.sin(clock * 40) > 0 ? 1 : 0.3) : 0.6 + 0.3 * Math.sin(clock * 14);
+        areas.circle(x, y, r).stroke({ width: 1, color: 0xff9a3c, alpha: 0.5 });
+        areas.circle(x, y, Math.max(1, r * k)).stroke({ width: 1, color: 0xffc94a, alpha: 0.85 });
+        areas.rect(x - 1, y - 1, 2, 2).fill({ color: 0xffc94a, alpha: blink });
       } else if (kind === AREA.slowField) {
         areas.circle(x, y, r).fill({ color: 0x6fb7ff, alpha: 0.12 }).stroke({ width: 1, color: 0x6fb7ff, alpha: 0.5 });
       } else if (kind === AREA.aura) {
@@ -615,9 +654,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   function drawShots(sim: Sim, alpha: number): void {
     const s = sim.shots;
+    // Wakes only while the run advances (not under a level-up card).
+    const live = sim.status === 'running' && clock - tickAt < 0.1;
     for (let i = 0; i < s.top; i++) {
       if (!s.alive[i]) continue;
       const kind = s.kind[i]!;
+      if (drawNovember(sim, i, kind, alpha, live)) continue;
       if (kind === SHOT.beam) {
         // A beam: a white core inside a halo of its element's colour, from the probe along its aim.
         if (shotPool.list[i]) shotPool.list[i]!.visible = false;
@@ -636,6 +678,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const sp = shotPool.at(i);
       sp.texture = atlas.frames[id]![frameOf(id, i)]!;
       sp.anchor.set(0.5);
+      // A slot a hologram used keeps nothing of it.
+      sp.tint = 0xffffff;
+      sp.alpha = 1;
+      sp.scale.set(1);
       sp.position.set(Math.round(lerp(s.px[i]!, s.x[i]!, alpha)), Math.round(lerp(s.py[i]!, s.y[i]!, alpha)));
       sp.rotation = ROTATES.has(kind)
         ? s.angle[i]! * STEP_RAD
@@ -655,6 +701,107 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       sp.position.set(Math.round(lerp(f.px[i]!, f.x[i]!, alpha)), Math.round(lerp(f.py[i]!, f.y[i]!, alpha)));
     }
     foePool.hideFrom(f.alive, f.top);
+  }
+
+  /**
+   * The November arsenal's shots (Nov plan B3); true when drawn whole. The harpoon adds its line and goes on to its
+   * sprite; the lighthouse's beam, the thrown body, the hologram and the lobbed shell are drawn here.
+   */
+  function drawNovember(sim: Sim, i: number, kind: number, alpha: number, live: boolean): boolean {
+    const s = sim.shots;
+    const x = lerp(s.px[i]!, s.x[i]!, alpha);
+    const y = lerp(s.py[i]!, s.y[i]!, alpha);
+    const hide = () => {
+      if (shotPool.list[i]) shotPool.list[i]!.visible = false;
+    };
+    if (kind === SHOT.harpoon) {
+      // Its magnetic line back to the probe, with beads of light running along it.
+      const owner = sim.probes[s.owner[i]!];
+      if (owner) {
+        const ox = lerp(owner.px, owner.x, alpha);
+        const oy = lerp(owner.py, owner.y, alpha);
+        beams.moveTo(ox, oy).lineTo(x, y).stroke({ width: 1, color: HOLO, alpha: 0.6 });
+        for (let k = 0; k < 3; k++) {
+          const f = ((opts.reduced ? 0 : clock * 1.8) + k / 3) % 1;
+          beams.rect(Math.round(ox + (x - ox) * f) - 1, Math.round(oy + (y - oy) * f) - 1, 2, 2).fill({ color: 0xf3f5ff, alpha: 0.75 });
+        }
+      }
+      return false;
+    }
+    if (kind === SHOT.photon) {
+      // The lighthouse's beam: a long thin ray of warm light out of the probe (which stays in sight), a faint wake
+      // behind its turn and a spark at its tip. Its turning angle (fractional) keeps it smooth between ticks.
+      hide();
+      const len = Math.hypot(s.tx[i]! - s.x[i]!, s.ty[i]! - s.y[i]!);
+      const a = s.reach[i]! * STEP_RAD;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const x0 = x + cos * 8;
+      const y0 = y + sin * 8;
+      const x1 = x + cos * len;
+      const y1 = y + sin * len;
+      const color = ELEMENT_COLOR[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? PHOTON;
+      const flick = opts.reduced ? 0.32 : 0.26 + 0.08 * Math.sin(clock * 37 + i);
+      const back = a - 0.06;
+      beams.moveTo(x0, y0).lineTo(x1, y1).lineTo(x + Math.cos(back) * len, y + Math.sin(back) * len).lineTo(x + Math.cos(back) * 8, y + Math.sin(back) * 8).closePath().fill({ color, alpha: 0.04 });
+      beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: s.radius[i]! + 2, color, alpha: flick });
+      beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 1, color: 0xfff3c4, alpha: 0.95 });
+      beams.circle(x1, y1, 2).fill({ color: 0xfff3c4, alpha: 0.9 });
+      return true;
+    }
+    if (kind === SHOT.sling) {
+      // A thrown body: the enemy flies by itself; two arcs of gravity turn around it and it leaves a lilac wake.
+      hide();
+      const r = s.radius[i]! + 3;
+      const spin = opts.reduced ? 0 : clock * 9;
+      arcFrom(beams, x, y, r, spin, spin + 2).stroke({ width: 2, color: GRAVITY, alpha: 0.85 });
+      arcFrom(beams, x, y, r, spin + Math.PI, spin + Math.PI + 2).stroke({ width: 2, color: GRAVITY, alpha: 0.85 });
+      if (live) fx.trail(i, x, y, GRAVITY, frameDt);
+      return true;
+    }
+    if (kind === SHOT.decoy) {
+      // A hologram: its probe's own drawing, see-through and cyan, scanlines running down it and the reach of its lure
+      // faint on the ground; it flickers red when it is about to blow.
+      const owner = sim.probes[s.owner[i]!];
+      const view = probeView(owner?.def.sprite ?? 'probe-lumen', s.angle[i]! * STEP_RAD);
+      const sp = shotPool.at(i);
+      sp.texture = atlas.frames[view.id]![frameOf(view.id)]!;
+      sp.anchor.set(0.5);
+      sp.position.set(Math.round(x), Math.round(y));
+      sp.rotation = 0;
+      sp.scale.set(view.flip, 1);
+      const ending = s.ttl[i]! < 30 && (opts.reduced || Math.sin(clock * 30) > 0);
+      sp.tint = ending ? 0xff6b7a : HOLO;
+      sp.alpha = opts.reduced ? 0.55 : 0.42 + 0.14 * Math.sin(clock * 11 + i);
+      const half = Math.ceil((atlas.defs[view.id]?.h ?? 16) / 2);
+      for (let k = 0; k < 3; k++) {
+        const ly = Math.round(y - half + ((opts.reduced ? k * 5 : clock * 18 + k * 6) % (half * 2)));
+        beams.moveTo(x - half + 2, ly).lineTo(x + half - 2, ly).stroke({ width: 1, color: HOLO, alpha: 0.22 });
+      }
+      areas.circle(x, y, s.reach[i]!).stroke({ width: 1, color: HOLO, alpha: 0.07 });
+      return true;
+    }
+    if (kind === SHOT.shell) {
+      // A lobbed shell: its shadow runs along the ground while the shell rises and falls on its arc (its flight's
+      // progress), towards a ring that closes on where it will land.
+      const life = Math.max(1, s.life[i]!);
+      const t = Math.max(0, Math.min(1, (life - s.ttl[i]! - 1 + alpha) / life));
+      const span = life * Math.hypot(s.vx[i]!, s.vy[i]!);
+      const lift = Math.min(70, span * 0.35) * 4 * t * (1 - t);
+      marks.ellipse(x, y, 4, 2).fill({ color: 0x03040e, alpha: 0.45 });
+      marks.circle(s.tx[i]!, s.ty[i]!, s.reach[i]! * (1.15 - 0.15 * t)).stroke({ width: 1, color: 0xff9a3c, alpha: 0.25 + 0.5 * t });
+      const sp = shotPool.at(i);
+      sp.texture = atlas.frames['mortar-shell']![frameOf('mortar-shell', i)]!;
+      sp.anchor.set(0.5);
+      sp.position.set(Math.round(x), Math.round(y - lift));
+      sp.rotation = 0;
+      sp.tint = 0xffffff;
+      sp.alpha = 1;
+      sp.scale.set(1);
+      if (live) fx.trail(i, x, y - lift, 0xb9bfe6, frameDt);
+      return true;
+    }
+    return false;
   }
 
   function drawProbes(sim: Sim, alpha: number): void {

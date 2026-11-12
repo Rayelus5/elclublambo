@@ -133,6 +133,77 @@ export const ICONS: Record<string, SpriteDef> = {
     'kTTTTTTTTk..',
     'kkkkkkkkkk..',
   ),
+  // Weapons of the November arsenal (Nov plan B3): a barbed steel harpoon on its magnetic line; a gravity loop flinging a Static-red body; a hologram over its projector; a striped tower and its two beams; a tube, its shell and the arc between.
+  'icon-harpoon': icon(
+    '.........kk.',
+    '........kwwk',
+    '.....k.kwYTk',
+    '....kYkkYTk.',
+    '.....kYYTk..',
+    '......kTkTk.',
+    '.....kTk.kk.',
+    '....kTk.....',
+    '...kTk......',
+    '.kkTk.......',
+    'kcikk.......',
+    '.kk.........',
+  ),
+  'icon-sling': icon(
+    '........kkk.',
+    '.......kmnnk',
+    '..k.k.kmwwnk',
+    '...U.U.kmnmk',
+    '..k.k...kkk.',
+    '...kkkkk....',
+    '..kUuuuUk...',
+    '.kUk...kUk..',
+    '.kUk...kak..',
+    '..kUuuuak...',
+    '...kkkkk....',
+    '............',
+  ),
+  'icon-decoy': icon(
+    '....kkkk....',
+    '...kcwwck...',
+    '..kciiicck..',
+    '..kbbbbbbk..',
+    '..kcicciik..',
+    '..kbbbbbbk..',
+    '...kccick...',
+    '....kbbk....',
+    '...k.kk.k...',
+    '..k.kYYk.k..',
+    '.k.kTYYTk.k.',
+    '...kkkkkk...',
+  ),
+  'icon-lighthouse': icon(
+    'ow...kk...wo',
+    '.sw.kssk.ws.',
+    '..swkwskws..',
+    '...kkkkkk...',
+    '....kmmk....',
+    '....kwwk....',
+    '...kmmmmk...',
+    '...kwwwwk...',
+    '..kmmmmmmk..',
+    '..kTTTTTTk..',
+    '.kttttttttk.',
+    '.kkkkkkkkkk.',
+  ),
+  'icon-mortar': icon(
+    '............',
+    '....k.k.kkk.',
+    '..k.....kosk',
+    '........ksok',
+    '....kk...kk.',
+    '...kYwk.....',
+    '..kYTTk.....',
+    '.kYTTk......',
+    'kYTTk.k.....',
+    'kTtk.kTk....',
+    '.kkkkkTkk...',
+    'kttttttttk..',
+  ),
   // Passives added in M3b-1 (arsenal).
   'icon-plating': icon(
     '..kkkkkkkk..',
@@ -586,7 +657,7 @@ export const ICONS: Record<string, SpriteDef> = {
 };
 
 /** The weapons that evolve (GDD §5.3): their icons get a gold twin, `<icon>-evo`. */
-const EVOLVING = ['icon-pulse', 'icon-nova', 'icon-lance', 'icon-orbit', 'icon-trail', 'icon-arc', 'icon-drone', 'icon-beam', 'icon-cone', 'icon-shards', 'icon-homing', 'icon-mine', 'icon-boomerang', 'icon-field', 'icon-strike', 'icon-turret'];
+const EVOLVING = ['icon-pulse', 'icon-nova', 'icon-lance', 'icon-orbit', 'icon-trail', 'icon-arc', 'icon-drone', 'icon-beam', 'icon-cone', 'icon-shards', 'icon-homing', 'icon-mine', 'icon-boomerang', 'icon-field', 'icon-strike', 'icon-turret', 'icon-harpoon', 'icon-sling', 'icon-decoy', 'icon-lighthouse', 'icon-mortar'];
 
 /** An evolved weapon's icon: the same drawing outlined in gold instead of night blue, so it shines in the kit. */
 export function evolvedIcon(base: SpriteDef): SpriteDef {

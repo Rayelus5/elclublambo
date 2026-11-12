@@ -82,6 +82,14 @@ export const ITEMS: Record<string, SpriteDef> = {
     grid('.....', '..k..', '.kwk.', '..k..', '.....'),
   ),
   'mark-pip': still(grid('.w.', 'www', '.w.')),
+  // Nov plan B3: the magnetic harpoon's head (it turns with its line; the line itself is drawn) and the mortar's shell,
+  // its fuse sparking (it is lobbed: the arena lifts it along its arc).
+  harpoon: still(grid('...kk.....', '..kYTkkk..', 'kkkTYwwwwk', '..kYTkkk..', '...kk.....')),
+  'mortar-shell': loop(
+    10,
+    grid('...w...', '..kok..', '.ktYTk.', 'ktYwTtk', 'koooook', 'kttTttk', '.kkkkk.'),
+    grid('...s...', '..kok..', '.ktYTk.', 'ktYwTtk', 'koooook', 'kttTttk', '.kkkkk.'),
+  ),
   'foe-bullet': loop(
     8,
     grid('..kkk..', '.kmmmk.', 'kmnwnmk', 'kmwwwmk', 'kmnwnmk', '.kmmmk.', '..kkk..'),
