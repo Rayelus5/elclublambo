@@ -500,13 +500,12 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
       .where('id', '=', a.id)
       .execute();
     await revokeAllSessions(trx, a.id);
-    await trx.deleteFrom('galaxy.account_ips').where('account_id', '=', a.id).execute();
+    // What the API may not delete itself (chat messages, IPs, TOTP, reserving the name) goes through the database's
+    // own function, which only acts on an account marked deleted just above.
+    await sql`select galaxy.erase_account(${a.id}::uuid, ${req.reserveName ? a.username : null}::text)`.execute(trx);
     await trx.deleteFrom('galaxy.account_roles').where('account_id', '=', a.id).execute();
-    await trx.deleteFrom('galaxy.admin_totp').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.friendships').where((eb) => eb.or([eb('a', '=', a.id), eb('b', '=', a.id)])).execute();
     await trx.deleteFrom('galaxy.blocks').where((eb) => eb.or([eb('blocker', '=', a.id), eb('blocked', '=', a.id)])).execute();
-    await trx.deleteFrom('galaxy.social_prefs').where('account_id', '=', a.id).execute();
-    await trx.deleteFrom('galaxy.chat_messages').where('author_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.loadouts').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.exhibits').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.backdrops').where('account_id', '=', a.id).execute();
@@ -518,7 +517,6 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
       .where('status', '=', 'open')
       .where((eb) => eb.or([eb('a_id', '=', a.id), eb('b_id', '=', a.id)]))
       .executeTakeFirst();
-    if (req.reserveName) await trx.insertInto('galaxy.reserved_usernames').values({ username: a.username.toLowerCase() }).onConflict((oc) => oc.doNothing()).execute();
     await writeAudit(trx, {
       actor,
       action: 'player.delete',
