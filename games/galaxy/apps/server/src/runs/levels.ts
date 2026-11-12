@@ -71,19 +71,18 @@ export async function chooseSkin(deps: RunsDeps, accountId: string, probe: strin
   await requireOwned(deps.db, accountId, probe, content, cfg);
   if (skin !== null && skinParts(skin)?.probe !== probe) throw new HttpError(400, 'invalid_input');
   if (skin !== null && !cosmetics.skins.find((k) => k.id === skin)?.enabled) throw new HttpError(409, 'cosmetic_locked');
+  if (skin !== null) {
+    const owned = await deps.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', 'skin').where('value', '=', skin).executeTakeFirst();
+    if (!owned) throw new HttpError(409, 'cosmetic_locked');
+  }
+  // A refund racing this can leave the name here after taking the skin: harmless, every read joins the player's
+  // skins (levelsWithSkin), so a skin no longer theirs never flies.
   const now = deps.now();
-  await deps.db.transaction().execute(async (trx) => {
-    // The skin row stays locked until the probe wears it: a refund taking it away waits, then takes it off.
-    if (skin !== null) {
-      const owned = await trx.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', 'skin').where('value', '=', skin).forShare().executeTakeFirst();
-      if (!owned) throw new HttpError(409, 'cosmetic_locked');
-    }
-    await trx
-      .insertInto('galaxy.probe_levels')
-      .values({ account_id: accountId, probe, skin, updated_at: now })
-      .onConflict((oc) => oc.columns(['account_id', 'probe']).doUpdateSet({ skin, updated_at: now }))
-      .execute();
-  });
+  await deps.db
+    .insertInto('galaxy.probe_levels')
+    .values({ account_id: accountId, probe, skin, updated_at: now })
+    .onConflict((oc) => oc.columns(['account_id', 'probe']).doUpdateSet({ skin, updated_at: now }))
+    .execute();
   return hangarView(deps, accountId);
 }
 
