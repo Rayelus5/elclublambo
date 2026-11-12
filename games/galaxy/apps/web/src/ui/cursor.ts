@@ -403,14 +403,31 @@ export function applyCursor(s: CursorSettings): void {
   root.classList.add('custom-cursor');
 }
 
+let current: CursorSettings | null = null;
+const listeners = new Set<(s: CursorSettings) => void>();
+
+/** The cursor as it is now (the same object until it changes, as React's external stores want). */
+export function getCursor(): CursorSettings {
+  current ??= readCursor();
+  return current;
+}
+
+/** Hears every change (the account's settings sync, the open Ajustes screen). */
+export function onCursor(fn: (s: CursorSettings) => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 /** Saves a change, applies it at once and returns the new settings. */
 export function saveCursor(next: Partial<CursorSettings>): CursorSettings {
-  const s = { ...readCursor(), ...next };
+  const s = { ...getCursor(), ...next };
+  current = s;
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
     // Private windows: the choice lasts for this page only.
   }
   applyCursor(s);
+  for (const fn of listeners) fn(s);
   return s;
 }

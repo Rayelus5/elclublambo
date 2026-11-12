@@ -99,6 +99,7 @@ truncate table
   galaxy.season_results,
   galaxy.season_route_claims,
   galaxy.sessions,
+  galaxy.settings,
   galaxy.shop_alerts,
   galaxy.shop_blocks,
   galaxy.shop_stripe_events,

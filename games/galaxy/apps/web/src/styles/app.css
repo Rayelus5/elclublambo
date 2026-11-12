@@ -2200,6 +2200,13 @@
   /* Ajustes (DESIGN_SYSTEM §8 tertricies; redesigned in the «escáner pro» plan, part A): one panel with a column of tabs
      and, beside it, the chosen tab's rows — what each setting is and does on the left, its control on the right. */
   .settings { gap: 16px; inline-size: min(100% - 32px, 1040px); }
+  /* Where the settings are kept (plan «ajustes en la cuenta»): a quiet line at the header's end. */
+  .settings > .collection-bar { flex-wrap: wrap; row-gap: 6px; }
+  .settings-sync { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 0 auto; color: var(--color-ink-mute); font-size: 14.5px; font-weight: 600; white-space: nowrap; }
+  .settings-sync .ico { font-size: 18px; }
+  .settings-sync.is-saved .ico { color: var(--color-terminal); }
+  .settings-sync.is-offline { color: var(--color-ink-soft); }
+  .settings-sync.is-offline .ico { color: var(--color-solar); }
   .settings-shell { --r: 26px; display: grid; grid-template-columns: 248px minmax(0, 1fr); min-block-size: 540px; padding: 0; overflow: hidden; }
   .settings-nav { position: relative; display: grid; align-content: start; gap: 6px; padding: 20px 14px; background: linear-gradient(180deg, rgb(0 0 0 / .26), rgb(0 0 0 / .14)); border-inline-end: 2px solid rgb(255 255 255 / .05); }
   .settings-tab { position: relative; display: flex; align-items: center; gap: 12px; block-size: 52px; padding: 0 16px; border: 0; border-radius: 15px; background: transparent; color: var(--color-ink-soft); font: 600 16.5px var(--font-sans); text-align: start; cursor: pointer; transition: background .15s ease, color .15s ease, transform .18s var(--ease-bounce), box-shadow .15s ease; }

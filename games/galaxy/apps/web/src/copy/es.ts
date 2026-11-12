@@ -2387,6 +2387,8 @@ export const copy = {
   settings: {
     title: 'Ajustes',
     back: 'Volver',
+    /** Where the settings are kept (plan «ajustes en la cuenta»). */
+    sync: { saved: 'Guardados en tu cuenta', saving: 'Guardando en tu cuenta', offline: 'Sin conexión. Se guardarán al volver' } as Record<'saved' | 'saving' | 'offline', string>,
     sound: 'Sonido',
     music: 'Música',
     effects: 'Efectos',

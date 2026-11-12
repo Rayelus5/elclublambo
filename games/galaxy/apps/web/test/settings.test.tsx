@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { getSettings, readSettings, setSettings } from '../src/audio/mixer';
@@ -6,8 +6,9 @@ import { copy } from '../src/copy/es';
 import { SettingsScreen } from '../src/hub/SettingsScreen';
 import { PauseMenu } from '../src/arena/hud/PauseMenu';
 import { getPrefs, resetPrefs } from '../src/settings/prefs';
+import { SettingsSync } from '../src/settings/SettingsSync';
 import { readCursor } from '../src/ui/cursor';
-import { LocationProbe, locationOf, renderAt } from './render';
+import { jsonResponse, LocationProbe, locationOf, mockApi, renderAt } from './render';
 
 // Ajustes (GDD §17.4; M8a; redesigned in the «escáner pro» plan, part A): the volumes and the mute live in this
 // browser and survive a reload; the scanner's old mute still counts; PERKINS and the first steps can come back. The
@@ -153,4 +154,34 @@ test('en la pausa, el apuntado manual cambia al momento', async () => {
   await userEvent.click(screen.getByRole('tab', { name: t.arena }));
   await userEvent.click(screen.getByRole('switch', { name: t.manualAim }));
   expect(onAim).toHaveBeenCalledWith(true);
+});
+
+// Plan «ajustes en la cuenta»: signed in, the account's settings replace this browser's, and Ajustes says they are kept
+// on the account; signed out nothing is asked for.
+test('con sesión, los ajustes de la cuenta se aplican y Ajustes dice que se guardan en ella', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, { id: 'a1', username: 'vega', roles: [], mfa: false }),
+    'GET /galaxy/api/settings': () => jsonResponse(200, { settings: { v: 1, colorVision: 'tritan', music: 0.2 }, updatedAt: '2026-11-12T10:00:00.000Z' }),
+  });
+  renderAt('/ajustes', {
+    '/ajustes': (
+      <>
+        <SettingsSync />
+        <SettingsScreen />
+      </>
+    ),
+  });
+  await waitFor(() => expect(getPrefs().colorVision).toBe('tritan'));
+  expect(getSettings().music).toBe(0.2);
+  expect(await screen.findByText(t.sync.saved)).toBeInTheDocument();
+  // Nothing went back up: what came from the account is not sent again.
+  expect(fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')).toEqual([]);
+});
+
+test('sin sesión no se piden ni se guardan ajustes en ninguna cuenta', async () => {
+  const fetch = mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(401, { error: 'unauthorized' }) });
+  renderAt('/', { '/': <SettingsSync /> });
+  await waitFor(() => expect(fetch).toHaveBeenCalled());
+  await new Promise((r) => setTimeout(r, 50));
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/galaxy/api/auth/me']);
 });

@@ -1,15 +1,17 @@
+import { SETTINGS_COLOR_VISIONS, SETTINGS_MOTIONS } from '@galaxy/shared';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { CSS_TOKENS, cssTokens } from '../a11y/color-vision';
 
-// The game's own preferences (plan «escáner pro», part A): the pro scanner, motion and colour vision. They live in this
-// browser under one versioned key, like the rest of the settings, are checked on the way in (a hand-edited or older
-// value falls back to the usual one) and keep working in memory when storage is blocked (private windows). The audio,
-// the cursor and the aiming keep their own keys (audio/mixer.ts, ui/cursor.ts, arena/settings.ts).
+// The game's own preferences (plan «escáner pro», part A): the pro scanner, motion and colour vision, and the last
+// release note seen. They live in this browser under one versioned key, like the rest of the settings, are checked on
+// the way in (a hand-edited or older value falls back to the usual one) and keep working in memory when storage is
+// blocked (private windows). The audio, the cursor and the aiming keep their own keys (audio/mixer.ts, ui/cursor.ts,
+// arena/settings.ts). Signed in, all of them are also kept on the account (settings/sync.ts).
 
-export const MOTIONS = ['system', 'reduced', 'full'] as const;
+export const MOTIONS = SETTINGS_MOTIONS;
 export type Motion = (typeof MOTIONS)[number];
-export const COLOR_VISIONS = ['none', 'protan', 'deutan', 'tritan'] as const;
+export const COLOR_VISIONS = SETTINGS_COLOR_VISIONS;
 export type ColorVision = (typeof COLOR_VISIONS)[number];
 
 export interface Prefs {
@@ -19,9 +21,12 @@ export interface Prefs {
   motion: Motion;
   /** The colour-blind palettes (part C). */
   colorVision: ColorVision;
+  /** The highest «Notas de versión» opened (`1.4`), or none yet. */
+  notesSeen: string | null;
 }
 
-export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none' });
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null });
+const NOTE_VERSION = /^\d{1,3}\.\d{1,3}$/;
 
 const KEY = 'galaxy.prefs';
 const VERSION = 1;
@@ -35,6 +40,7 @@ function sanitize(raw: unknown): Prefs {
     scannerPro: typeof r['scannerPro'] === 'boolean' ? r['scannerPro'] : DEFAULT_PREFS.scannerPro,
     motion: oneOf(MOTIONS, r['motion'], DEFAULT_PREFS.motion),
     colorVision: oneOf(COLOR_VISIONS, r['colorVision'], DEFAULT_PREFS.colorVision),
+    notesSeen: typeof r['notesSeen'] === 'string' && NOTE_VERSION.test(r['notesSeen']) ? r['notesSeen'] : null,
   };
 }
 
