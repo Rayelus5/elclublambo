@@ -2059,7 +2059,7 @@ export const copy = {
     openSlot: 'Abrir ranura',
     slotProgress: (n: number, of: number) => `${n} de ${of}`,
     stacking: 'Desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior',
-    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
+    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte', evasion: 'esquiva', bossDamage: 'daño a Núcleos y élites', execute: 'remate', knockback: 'empuje', movingDamage: 'daño en marcha' } as Record<string, string>,
     bonuses: (list: readonly { stat: string; value: number }[]) => {
       const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
       return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
@@ -2567,6 +2567,8 @@ export const copy = {
     beaconOpen: 'Baliza de extracción abierta',
     reachBeacon: 'Llega a la baliza',
     extracting: 'Extrayendo',
+    // Fase cuántica (Nov plan B2): a hit that went through the probe.
+    evaded: '¡Fase!',
     beaconLeft: (s: number) => `Cierra en ${s} s`,
     beaconDistance: (u: number) => `${u} u`,
     closeRadio: 'Cerrar mensaje',
@@ -2589,6 +2591,19 @@ export const copy = {
         anvil: 'PERKINS: El Yunque. Embiste en línea recta y deja minas. Muévete de lado',
         'echo-core': 'PERKINS: Esto es más hondo que un Núcleo. Lo llamo el Eco. No me gusta cómo me mira',
         signal: 'PERKINS: La Señal. Desaparece y vuelve donde menos quieres. Mira dónde parpadea el suelo',
+        // Nov plan B4: the second and third forms of each Core.
+        'hive-swarm': 'PERKINS: El Nido Voraz. Te va a rodear con un anillo. Busca el hueco y sal por ahí',
+        'hive-queen': 'PERKINS: La Colmena tiene reina. Pone filas de explosiones que caminan hacia ti. Apártate de lado',
+        'glacier-egg': 'PERKINS: El Huevo de Escarcha. Si marca una línea, sal de ella hacia el lado contrario al giro',
+        'glacier-daughter': 'PERKINS: Algo ha salido del huevo. Es rápido y cierra anillos. No te quedes en el centro',
+        'anemone-spore': 'PERKINS: La Flor de Esporas. Los círculos de la fila estallan en orden. Cruza cuando pase la onda',
+        'anemone-maw': 'PERKINS: La Boca del Arrecife. Escupe la luz que se bebió en un rayo que barre. Ponte detrás de la línea',
+        'anvil-hammer': 'PERKINS: El Martinete. Golpea a compás hacia ti. Muévete de lado, no hacia atrás',
+        'anvil-furnace': 'PERKINS: La Fragua Ciega. No te ve, pero corta. Mira hacia dónde gira el rayo',
+        'echo-choir': 'PERKINS: El Eco ha vuelto con compañía. Tres voces y un anillo que se cierra. Sal por el hueco',
+        'echo-mirror': 'PERKINS: El Reflejo Profundo. Dispara rayos como los de nuestras sondas. No me preguntes de dónde los ha sacado',
+        'signal-carrier': 'PERKINS: La Onda Portadora. La Señal emite en línea recta. Sal del haz antes de que gire',
+        'signal-answer': 'PERKINS: La Respuesta. Está en braille y sé lo que dice. Tú esquiva',
       } as Record<string, string>,
     },
     announce: {

@@ -30,11 +30,18 @@ export const SHOT = {
   disc: 16,
   turret: 17,
   split: 18,
+  // The November arsenal (Nov plan B3, systems/arsenal-nov.ts): a harpoon on its line, an enemy the sling threw (the
+  // shot carries the body), a hologram, a lighthouse beam and a mortar shell.
+  harpoon: 19,
+  sling: 20,
+  decoy: 21,
+  photon: 22,
+  shell: 23,
 } as const;
-/** Area kinds (sim.areas.kind). */
-export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6, cone: 7, field: 8, strike: 9 } as const;
+/** Area kinds (sim.areas.kind). `bomblet`: a cluster shell's bomblet, a warned blast like the strike's. */
+export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6, cone: 7, field: 8, strike: 9, bomblet: 10 } as const;
 
-const RADIUS: Record<number, number> = { 0: 3, 1: 4, 2: 3, 3: 2.5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5, 9: 3, 10: 4, 11: 5, 12: 6, 13: 4, 14: 3, 15: 5, 16: 7, 17: 6, 18: 2.5 };
+const RADIUS: Record<number, number> = { 0: 3, 1: 4, 2: 3, 3: 2.5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5, 9: 3, 10: 4, 11: 5, 12: 6, 13: 4, 14: 3, 15: 5, 16: 7, 17: 6, 18: 2.5, 19: 3, 20: 6, 21: 6, 22: 4, 23: 4 };
 /** Reach to pick the first target of an arc. */
 const ARC_ACQUIRE = 260;
 const DRONE_ORBIT = 26;
@@ -389,9 +396,9 @@ export function persistentFor(sim: Sim, p: ProbeState, wi: number): number[] {
   return out;
 }
 
-const PERSISTENT = new Set<number>([SHOT.orb, SHOT.drone, SHOT.beam, SHOT.turret, SHOT.mine, SHOT.disc]);
+const PERSISTENT = new Set<number>([SHOT.orb, SHOT.drone, SHOT.beam, SHOT.turret, SHOT.mine, SHOT.disc, SHOT.photon]);
 
-/** Keeps exactly `count` persistent shots of `kind` for weapon `wi` (orbs, drones). */
+/** Keeps exactly `count` persistent shots of `kind` for weapon `wi` (orbs, drones, lighthouse beams). */
 function keepPersistent(sim: Sim, p: ProbeState, wi: number, kind: number, count: number, element: number): void {
   const s = sim.shots;
   const mine: number[] = [];
@@ -414,6 +421,11 @@ export function fireWeapons(sim: Sim, p: ProbeState): void {
     }
     if (def.kind === 'drone') {
       keepPersistent(sim, p, wi, SHOT.drone, lvl.count + p.stats.projectiles + extraDrones(p), elementCode(def.element ?? null));
+      return;
+    }
+    // A lighthouse's beams turn all the time, like orbs (systems/arsenal-nov.ts).
+    if (def.kind === 'lighthouse') {
+      keepPersistent(sim, p, wi, SHOT.photon, lvl.count, elementCode(def.element ?? null));
       return;
     }
     if (w.echo && w.echo > 0) {

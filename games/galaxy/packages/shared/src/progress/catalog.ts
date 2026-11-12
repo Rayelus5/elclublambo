@@ -58,8 +58,11 @@ export const catalogClaimParamsSchema = z.object({ percent: z.coerce.number().in
 
 /** The Códice's progress (GDD §15; M7b-2): what opens its entries, from runs that are not suspicious. */
 export interface CodexProgress {
-  /** Per sector played: the longest run (seconds) and the Cores purged there. */
-  sectors: Record<string, { maxSeconds: number; bossKills: number }>;
+  /**
+   * Per sector played: the longest run (seconds), the Cores purged there and (Nov plan B4) the most purged in one run,
+   * which says how deep a form of its Core has been beaten (absent from an older server: none).
+   */
+  sectors: Record<string, { maxSeconds: number; bossKills: number; maxBossKills?: number }>;
   bossKills: number;
   maxDepth: number;
   level: number;

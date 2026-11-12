@@ -59,6 +59,11 @@ export interface Fx {
    * flying back against its course and fading fast, at a steady rate over `dt` seconds. `key` keeps each probe's own.
    */
   thrust(key: number, x: number, y: number, angle: number, dt: number): void;
+  /**
+   * A shot's wake (Nov plan B3: a mortar shell's smoke, a thrown body's pull): slow motes left where it passes, at a
+   * steady rate over `dt` seconds, fading fast. `key` keeps each shot's own rate.
+   */
+  trail(key: number, x: number, y: number, color: number, dt: number): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
   update(dt: number): { x: number; y: number };
 }
@@ -80,6 +85,8 @@ const THRUST_SPEED = 34;
 /** The flame at the nozzle (white-hot, slow, brief) and the embers it sheds behind (orange to red, longer). */
 const FLAME_COLORS = [0xffffff, 0xfff3c4, 0xffd36e];
 const EMBER_COLORS = [0xffd36e, 0xff9d2e, 0xff9d2e, 0xff6b3d, 0xe8453c];
+/** A shot's wake: motes per second (a third with reduced motion). */
+const TRAIL_RATE = 40;
 
 /** Reaction colours by what they do (the name is always shown too: never colour alone). */
 const REACTION_COLOR: Record<string, number> = {
@@ -105,6 +112,7 @@ export function createFx(reduced: boolean): Fx {
   const labels: FxLabel[] = [];
   const rings: FxRing[] = [];
   const thrusters = new Map<number, number>();
+  const trails = new Map<number, number>();
   // A small deterministic wobble (no Math.random: frames stay comparable in screenshots and tests).
   let seed = 1;
   const rand = () => {
@@ -166,6 +174,23 @@ export function createFx(reduced: boolean): Fx {
         });
       }
       thrusters.set(key, Math.min(due, 1));
+    },
+    trail(key, x, y, color, dt) {
+      let due = (trails.get(key) ?? 0) + dt * (reduced ? TRAIL_RATE / 3 : TRAIL_RATE);
+      while (due >= 1 && particles.length < MAX_PARTICLES) {
+        due -= 1;
+        particles.push({
+          x: x + (rand() - 0.5) * 2,
+          y: y + (rand() - 0.5) * 2,
+          vx: (rand() - 0.5) * 6,
+          vy: (rand() - 0.5) * 6,
+          color,
+          age: 0,
+          life: 0.25 + rand() * 0.2,
+          size: rand() < 0.3 ? 2 : 1,
+        });
+      }
+      trails.set(key, Math.min(due, 1));
     },
     update(dt) {
       for (let i = numbers.length - 1; i >= 0; i--) {

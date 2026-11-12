@@ -115,3 +115,21 @@ test('cada sonda lleva su propia turbina, y con movimiento reducido echa menos',
   expect(calm.particles.length).toBeGreaterThan(0);
   expect(calm.particles.length).toBeLessThan(lively.particles.length / 2);
 });
+
+test('la estela de un disparo suelta motas lentas a ritmo constante que se apagan pronto, y menos con movimiento reducido', () => {
+  const fx = createFx(false);
+  // A mortar shell (Nov plan B3): 40 motes a second over half a second.
+  for (let i = 0; i < 30; i++) fx.trail(3, 10, 10, 0xff9a3c, 1 / 60);
+  expect(fx.particles.length).toBeGreaterThanOrEqual(18);
+  expect(fx.particles.length).toBeLessThanOrEqual(21);
+  expect(fx.particles.every((p) => Math.abs(p.x - 10) <= 1 && Math.abs(p.y - 10) <= 1 && Math.hypot(p.vx, p.vy) <= 5)).toBe(true);
+  expect(fx.particles.every((p) => p.color === 0xff9a3c)).toBe(true);
+  fx.update(0.5);
+  expect(fx.particles.length).toBe(0);
+  const calm = createFx(true);
+  calm.trail(0, 0, 0, 0xffffff, 0.5);
+  const lively = createFx(false);
+  lively.trail(0, 0, 0, 0xffffff, 0.5);
+  expect(calm.particles.length).toBeGreaterThan(0);
+  expect(calm.particles.length).toBeLessThan(lively.particles.length / 2);
+});

@@ -57,6 +57,11 @@ export function deriveStats(sim: Sim, p: ProbeState): Stats {
     elemental: 1 + d('elemental'),
     barrier: d('barrier'),
     curse: d('curse'),
+    evasion: d('evasion'),
+    bossDamage: d('bossDamage'),
+    execute: d('execute'),
+    knockback: d('knockback'),
+    movingDamage: d('movingDamage'),
   };
 }
 

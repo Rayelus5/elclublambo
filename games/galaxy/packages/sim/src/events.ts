@@ -16,7 +16,20 @@ export type SimEvent =
   | { t: 'levelUp'; probe: number; level: number }
   | { t: 'evolve'; probe: number; from: string; to: string }
   | { t: 'fire'; weapon: string; x: number; y: number }
-  | { t: 'telegraph'; kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink'; x: number; y: number; angle: number; ticks: number; radius: number }
+  /**
+   * A warning before a strike. Nov plan B4: `laser` is a beam `radius` long from (x, y) along `angle` that will turn `arc`
+   * steps (signed); `closing` is a ring of `radius` around (x, y) closing in, its way out `arc` steps wide around `angle`.
+   */
+  | {
+      t: 'telegraph';
+      kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink' | 'laser' | 'closing';
+      x: number;
+      y: number;
+      angle: number;
+      ticks: number;
+      radius: number;
+      arc?: number;
+    }
   /** A healer's or corruptor's pulse (GDD §5.5). */
   | { t: 'support'; x: number; y: number; range: number; effect: 'heal' | 'shield' }
   /** A warned teleport has landed (fauna or a Core). */
@@ -40,4 +53,6 @@ export type SimEvent =
   | { t: 'offerAuto'; probe: number; index: number }
   | { t: 'element'; x: number; y: number; element: ElementId }
   | { t: 'reaction'; id: string; x: number; y: number }
-  | { t: 'quirk'; probe: number; kind: string };
+  | { t: 'quirk'; probe: number; kind: string }
+  /** Fase cuántica (Nov plan B2): a hit went through the probe without harm. */
+  | { t: 'evade'; probe: number };

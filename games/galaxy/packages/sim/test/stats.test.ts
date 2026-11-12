@@ -29,6 +29,11 @@ test('sin mejoras: los valores de la sonda, crítico base del 5 % y ×1,5', () =
     elemental: 1,
     barrier: 0,
     curse: 0,
+    evasion: 0,
+    bossDamage: 0,
+    execute: 0,
+    knockback: 0,
+    movingDamage: 0,
   });
 });
 

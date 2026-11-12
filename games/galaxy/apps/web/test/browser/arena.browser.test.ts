@@ -1,5 +1,5 @@
 import { coopRulesOf, parseConfig } from '@galaxy/shared';
-import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
 import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -115,7 +115,7 @@ test.skipIf(!import.meta.env['VITE_ARENA_SHOTS'])('hoja de sprites a 4× para re
   await page.screenshot({ path: '__shots__/sprites.png', element: sheet });
 });
 
-test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una reacción, sin avisos', async () => {
+test('dibuja el arsenal: las armas de M3b-1 y las de noviembre, marcas, aturdimiento, rotura y una reacción, sin avisos', async () => {
   const warn = vi.spyOn(console, 'warn');
   const content = structuredClone(DEFAULT_CONTENT);
   const sim = createSim({ seed: '7', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
@@ -139,13 +139,21 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
       k++;
     }
   };
-  for (let t = 0; t < 40 * 60 && sim.status !== 'dead'; t++) {
+  for (let t = 0; t < 45 * 60 && sim.status !== 'dead'; t++) {
     if (t === 20 * 60) {
       states();
       stage.render(sim, 1);
       expect(distinctColours(canvas)).toBeGreaterThan(12);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-a.png', element: canvas });
       p.weapons = ['field', 'strike', 'turret', 'ion-ray', 'solar-breath', 'pulse-storm'].map((id) => ({ id, level: 1, t: 0 }));
+    }
+    if (t === 32 * 60) {
+      stage.render(sim, 1);
+      expect(distinctColours(canvas)).toBeGreaterThan(12);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-b.png', element: canvas });
+      // Nov plan B3: the five November weapons and an evolution of theirs.
+      p.weapons = [...['harpoon', 'sling', 'decoy', 'lighthouse', 'mortar'].map((id) => ({ id, level: 5, t: 0 })), { id: 'singularity-catapult', level: 1, t: 0 }];
+      p.hp = 1e9;
     }
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
     else step(sim, [botInput(sim, 0, 99)]);
@@ -156,7 +164,7 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
   stage.feed([{ t: 'evolve', probe: 0, from: 'beam', to: 'ion-ray' }]);
   stage.render(sim, 1);
   expect(distinctColours(canvas)).toBeGreaterThan(12);
-  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-b.png', element: canvas });
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-c.png', element: canvas });
   // Destroy and create again: the fonts are uninstalled, so PixiJS has nothing to warn about.
   stage.destroy();
   stage = null;
@@ -166,6 +174,60 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
   stage.render(sim, 1);
   expect(warn.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => m.includes('gs-dmg') || m.includes('gs-react'))).toEqual([]);
   warn.mockRestore();
+}, 120_000);
+
+// Nov plan B3: a harpoon reeling its catch in, a body in the sling's flight, holograms, the lighthouse's beams, a shell
+// on its arc and its bomblets, all on screen at once.
+test('dibuja las armas de noviembre en plena acción', async () => {
+  // Quick reloads, so a throw, a shell in the air and the last one's bomblets meet on screen.
+  const content = structuredClone(DEFAULT_CONTENT);
+  for (const w of content.weapons) if (w.id === 'sling' || w.id === 'siege-mortar') for (const l of w.levels) l.cooldown = 0.4;
+  const sim = createSim({ seed: '11', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const p = sim.probes[0]!;
+  p.hp = 1e9;
+  p.weapons = [
+    { id: 'tow-harpoon', level: 1, t: 0 },
+    { id: 'sling', level: 5, t: 0 },
+    { id: 'mirage-legion', level: 1, t: 0 },
+    { id: 'binary-lighthouse', level: 1, t: 0 },
+    { id: 'siege-mortar', level: 1, t: 0 },
+    { id: 'harpoon', level: 5, t: 0 },
+  ];
+  const mite = content.enemies.find((e) => e.id === 'mite')!;
+  for (let k = 0; k < 36; k++) {
+    const a = (k / 36) * Math.PI * 2;
+    const r = 70 + (k % 4) * 40;
+    const e = spawnEnemy(sim, mite, Math.cos(a) * r, Math.sin(a) * r);
+    sim.enemies.hp[e] = 400;
+    sim.enemies.maxHp[e] = 400;
+  }
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, content, { reduced: false, vision: 0, probe: 0, seed: '11', preserve: true });
+  stage.resize(1280, 720);
+  const kinds = () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i]) seen.add(sim.shots.kind[i]!);
+    return seen;
+  };
+  const bomblets = () => {
+    for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.bomblet) return true;
+    return false;
+  };
+  const wanted = [SHOT.harpoon, SHOT.sling, SHOT.decoy, SHOT.photon, SHOT.shell];
+  let all = false;
+  for (let t = 0; t < 900 && !all; t++) {
+    if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
+    else step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
+    stage.feed(sim.events, sim.tick);
+    // Some frames between keep the effects (wakes, blasts) going as in a real run.
+    if (t % 6 === 0) stage.render(sim, 1);
+    const k = kinds();
+    all = wanted.every((w) => k.has(w)) && bomblets();
+  }
+  expect(all).toBe(true);
+  stage.render(sim, 0.5);
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-noviembre.png', element: canvas });
 }, 120_000);
 
 test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas', async () => {

@@ -15,6 +15,8 @@ import { enemiesNear } from './weapons';
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
 
 export const FLASH_TICKS = 6;
+/** Repulsor: units a hit pushes an ordinary enemy at knockback 1 (a geometric glide, like an area's push). */
+const KNOCK_PER_HIT = 4;
 
 /** After a hit has landed (systems/arsenal.ts: `chain` evolutions). */
 export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: number, y: number, src: HitSource) => void } = { afterHit: () => {} };
@@ -34,6 +36,23 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
   }
   dmg *= damageFactor(sim, e, element);
+  if (p) {
+    // Cazanúcleos and Inercia (Nov plan B2).
+    if (p.stats.bossDamage > 0 && (en.boss[e] || en.elite[e]! > 0)) dmg *= 1 + p.stats.bossDamage;
+    if (p.stats.movingDamage > 0 && p.moving) dmg *= 1 + p.stats.movingDamage;
+    // Repulsor: a push away from where the hit came, once per hit flash (beams that tick fast push no harder);
+    // half on elites, never on a Núcleo.
+    if (p.stats.knockback > 0 && !en.boss[e] && en.flashT[e] === 0) {
+      const ox = src.x ?? p.x;
+      const oy = src.y ?? p.y;
+      const dx = en.x[e]! - ox;
+      const dy = en.y[e]! - oy;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const push = KNOCK_PER_HIT * p.stats.knockback * (en.elite[e]! > 0 ? 0.5 : 1);
+      en.kx[e] = en.kx[e]! + (dx / d) * push * 0.15;
+      en.ky[e] = en.ky[e]! + (dy / d) * push * 0.15;
+    }
+  }
   let crit = false;
   if (p) {
     // Pure damage adds to the critical stats, still within their caps (GDD §8.6).
@@ -47,6 +66,8 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const absorbed = Math.min(en.shield[e]!, dmg);
   en.shield[e] = en.shield[e]! - absorbed;
   en.hp[e] = en.hp[e]! - (dmg - absorbed);
+  // Protocolo de purga (Nov plan B2): an ordinary enemy left this weak is finished off.
+  if (p && p.stats.execute > 0 && en.hp[e]! > 0 && !en.boss[e] && !(en.elite[e]! > 0) && en.hp[e]! <= en.maxHp[e]! * p.stats.execute) en.hp[e] = 0;
   en.flashT[e] = FLASH_TICKS;
   const x = en.x[e]!;
   const y = en.y[e]!;

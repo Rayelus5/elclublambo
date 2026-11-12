@@ -113,7 +113,8 @@ export function botInput(sim: Sim, probe: number, extractFrom = 1): ProbeInput {
   return input;
 }
 
-const WEAPON_ORDER = ['nova', 'orbit', 'arc', 'lance', 'drone', 'field', 'boomerang', 'homing', 'beam', 'cone', 'mine', 'shards', 'strike', 'turret', 'trail', 'pulse'];
+// The November arsenal (Nov plan B3) goes last: the calibration's bot keeps the builds it was tuned with.
+const WEAPON_ORDER = ['nova', 'orbit', 'arc', 'lance', 'drone', 'field', 'boomerang', 'homing', 'beam', 'cone', 'mine', 'shards', 'strike', 'turret', 'trail', 'pulse', 'lighthouse', 'mortar', 'harpoon', 'sling', 'decoy'];
 const PASSIVE_ORDER = [
   'armor',
   'regen',

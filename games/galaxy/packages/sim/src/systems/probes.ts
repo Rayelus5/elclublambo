@@ -55,6 +55,12 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
 export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
   if (dodge(sim, p)) return;
+  // Fase cuántica (Nov plan B2): the hit goes through; the usual breather follows, so contact does not hit next tick.
+  if (p.stats.evasion > 0 && sim.rng.combat.chance(p.stats.evasion)) {
+    p.invulnT = ticks(INVULN_SECONDS);
+    sim.events.push({ t: 'evade', probe: p.index });
+    return;
+  }
   let dmg = amount * (1 - p.stats.armor);
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
@@ -88,6 +94,10 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
       const e = near[k]!;
       // A Core away in its blink touches nothing (systems/boss.ts `bossAway`, inline: boss.ts imports this file).
       if (!en.alive[e] || en.hackT[e]! > 0 || en.fuseT[e]! > 0 || (sim.boss?.index === e && sim.boss.active?.kind === 'blink')) continue;
+      // On a harpoon's line or thrown by the sling (inline `heldBy`, enemies.ts imports this file): it is the probe's
+      // projectile now and touches nobody (review B, I1).
+      const h = en.held[e]!;
+      if (h > 0 && sim.shots.alive[h - 1] && sim.shots.gen[h - 1] === en.heldGen[e]) continue;
       const dx = en.x[e]! - p.x;
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;

@@ -2,6 +2,7 @@ import { CELL, CELLET, HIVE, MITE, PROBE_LUMEN, RAY, SHELL, SPITTER } from './fa
 import { BOSSES } from './bosses';
 import { DECOR } from './decor';
 import { FAUNA2 } from './fauna2';
+import { FORMS } from './forms';
 import { ICONS } from './icons';
 import { PROBES } from './probes';
 import { ITEMS } from './items';
@@ -24,6 +25,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   ...PROBES,
   ...FAUNA2,
   ...BOSSES,
+  ...FORMS,
   ...DECOR,
   ...ITEMS,
   ...PROPS,

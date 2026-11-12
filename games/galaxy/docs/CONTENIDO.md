@@ -117,8 +117,10 @@ Al añadir una entrada, actualiza estos números en el mismo commit:
 
 | Test | Qué fija |
 |---|---|
-| `packages/sim/test/upgrades.test.ts` | 16 armas, cada una con su evolución |
-| `packages/sim/test/content.test.ts` | 20 pasivas, 25 enemigos, listas de sondas, Núcleos, sectores y biomas |
+| `packages/sim/test/upgrades.test.ts` | 21 armas, cada una con su evolución (y las cinco de noviembre con su pasiva) |
+| `packages/sim/test/content.test.ts` | 25 pasivas, 25 enemigos, listas de sondas, los 18 Núcleos (3 formas por cada uno de los 6), sectores y biomas |
+| `packages/sim/test/passives-nov.test.ts` | las 5 pasivas de noviembre y que el contenido publicado antes sigue validando |
+| `packages/sim/test/difficulty.test.ts` | la curva de dificultad (`GALAXY_CALIBRATE=1`): quien empieza 5, medio 15 y veterano 30 minutos en la Nebulosa, y cada sector más corto que el anterior |
 | `packages/sim/test/variants.test.ts` | 16 variantes, en los niveles 4 y 8 de cada arma inicial |
 | `apps/web/test/weapon-art.test.ts` | 24 tiras de arte del Hangar |
 | `packages/sim/test/anomalies.test.ts`, `quirks.test.ts` | listas exactas de ids |

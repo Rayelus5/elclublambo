@@ -479,6 +479,11 @@ export const VALUES: Record<string, string> = {
   elemental: 'Potencia elemental',
   barrier: 'Barrera',
   curse: 'Maldición',
+  evasion: 'Esquiva',
+  bossDamage: 'Daño a Núcleos y élites',
+  execute: 'Remate',
+  knockback: 'Empuje',
+  movingDamage: 'Daño en marcha',
 };
 
 export const valueName = (v: unknown): string => (typeof v === 'string' ? (VALUES[v] ?? v) : String(v));
