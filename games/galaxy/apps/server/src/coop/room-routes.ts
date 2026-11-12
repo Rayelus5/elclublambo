@@ -100,8 +100,12 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
   }
 
   async function memberOf(s: { accountId: string; username: string }): Promise<MemberInit> {
-    const [level, hangar] = await Promise.all([accountLevel(db, s.accountId, await deps.config.get('account')), ensureHangar(db, s.accountId)]);
-    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe };
+    const [level, hangar, look] = await Promise.all([
+      accountLevel(db, s.accountId, await deps.config.get('account')),
+      ensureHangar(db, s.accountId),
+      db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
+    ]);
+    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
   }
 
   async function sectorOpenTo(accountId: string, sector: string): Promise<boolean> {

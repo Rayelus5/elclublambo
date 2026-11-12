@@ -49,7 +49,7 @@ async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: strin
     .leftJoin('galaxy.account_xp as x', 'x.account_id', 'm.author_id')
     .leftJoin('galaxy.clan_members as cm', 'cm.account_id', 'm.author_id')
     .leftJoin('galaxy.clans as c', 'c.id', 'cm.clan_id')
-    .select(['m.id', 'm.channel', 'm.body', 'm.created_at', 'a.username', 'x.xp', 'c.tag'])
+    .select(['m.id', 'm.channel', 'm.body', 'm.created_at', 'a.username', 'a.avatar', 'a.frame', 'x.xp', 'c.tag'])
     .where('m.channel', '=', key)
     .where('m.hidden_at', 'is', null);
   if (opts.before) q = q.where('m.id', '<', opts.before);
@@ -58,7 +58,7 @@ async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: strin
   return rows.reverse().map((r) => ({
     id: String(r.id),
     channel: asChannel(r.channel),
-    author: { username: r.username, level: levels(Number(r.xp ?? 0)), clan: r.tag ?? null },
+    author: { username: r.username, level: levels(Number(r.xp ?? 0)), clan: r.tag ?? null, avatar: r.avatar, frame: r.frame },
     body: r.body,
     at: new Date(r.created_at).toISOString(),
   }));

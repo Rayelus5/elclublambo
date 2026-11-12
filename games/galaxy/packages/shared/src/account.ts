@@ -33,6 +33,6 @@ export type Role = 'superadmin' | 'admin' | 'moderator';
 export const ROLES: readonly Role[] = ['superadmin', 'admin', 'moderator'];
 
 /** `level`: the account level (M5a), sent by `/auth/me`; the sign-in answers leave it out. */
-export type MeResponse = { id: string; username: string; roles: Role[]; mfa: boolean; level?: number };
+export type MeResponse = { id: string; username: string; roles: Role[]; mfa: boolean; level?: number; avatar?: string | null; frame?: string | null };
 
 export type LoginResponse = { status: 'ok'; me: MeResponse } | { status: 'totp_required'; challenge: string };
