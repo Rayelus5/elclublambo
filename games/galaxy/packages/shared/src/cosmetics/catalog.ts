@@ -48,7 +48,7 @@ export const ART_FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown
 export const SKIN_PROBES = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'] as const;
 export type SkinProbe = (typeof SKIN_PROBES)[number];
 /** Chatarra and Coral are still (won playing), Aurora and Leyenda animated (the season route and the shop). */
-export const SKIN_LINES = ['chatarra', 'coral'] as const;
+export const SKIN_LINES = ['chatarra', 'coral', 'aurora', 'leyenda'] as const;
 export type SkinLine = (typeof SKIN_LINES)[number];
 export type SkinId = `skin-${SkinProbe}-${SkinLine}`;
 export const ART_SKINS = SKIN_PROBES.flatMap((p) => SKIN_LINES.map((l) => `skin-${p}-${l}` as const)) as readonly SkinId[];
@@ -90,7 +90,8 @@ export type SkinItem = z.output<typeof skinItem>;
 
 const A = (id: AvatarId, name: string, rarity: Rarity, source: CosmeticSource, hint: string, animated = false): AvatarItem => ({ id, name, rarity, source, hint, enabled: true, animated });
 const F = (id: (typeof ART_FRAMES)[number], name: string, rarity: Rarity, source: CosmeticSource, hint: string, animated = false): FrameItem => ({ id, name, rarity, source, hint, enabled: true, animated });
-const S = (id: SkinId, name: string, rarity: Rarity, hint: string): SkinItem => ({ id, name, rarity, source: 'reward', hint, enabled: true, animated: false });
+const S = (id: SkinId, name: string, rarity: Rarity, hint: string, source: CosmeticSource = 'reward', animated = false): SkinItem => ({ id, name, rarity, source, hint, enabled: true, animated });
+const AURORA_HINT = 'Ruta de temporada';
 const T = (text: string, rarity: Rarity, source: CosmeticSource, hint: string, style: TitleStyle): TitleItem => ({ text, rarity, source, hint, style, enabled: true });
 
 const DEFAULT_HINT = 'De serie: es tuyo desde el primer día';
@@ -171,6 +172,23 @@ export const DEFAULT_COSMETICS = {
     S('skin-prism-coral', 'Prisma de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
     S('skin-comet-coral', 'Cometa de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
     S('skin-echo-coral', 'Eco de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    // Part C2: the animated ones. Aurora rides the season route; Leyenda is the shop's.
+    S('skin-lumen-aurora', 'Lumen aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-bastion-aurora', 'Bastión aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-spark-aurora', 'Chispa aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-sentinel-aurora', 'Vigía aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-anchor-aurora', 'Áncora aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-prism-aurora', 'Prisma aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-comet-aurora', 'Cometa aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-echo-aurora', 'Eco aurora', 'epic', AURORA_HINT, 'reward', true),
+    S('skin-lumen-leyenda', 'Lumen leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-bastion-leyenda', 'Bastión leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-spark-leyenda', 'Chispa leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-sentinel-leyenda', 'Vigía leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-anchor-leyenda', 'Áncora leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-prism-leyenda', 'Prisma leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-comet-leyenda', 'Cometa leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    S('skin-echo-leyenda', 'Eco leyenda', 'legendary', SHOP_HINT, 'shop', true),
   ],
 } satisfies { avatars: AvatarItem[]; frames: FrameItem[]; titles: TitleItem[]; skins: SkinItem[] };
 

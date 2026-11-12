@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ART_AVATARS, ART_FRAMES } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS } from '../cosmetics/catalog';
 
 // The resource shop (shop and lab plan, F4): coins, star dust and components for real money, paid with Stripe. Its
 // catalogue is live config (`shop`), so the admin edits everything: what each product gives, its price shown and the
@@ -57,7 +57,7 @@ export const shopProductSchema = z
     /** Its first purchase gets `firstPurchase.percent` more, when that is on. */
     firstBonus: z.boolean().default(false),
     /** A cosmetic's piece (Nov plan C5): an avatar or frame with art, or a title. */
-    cosmetic: z.object({ kind: z.enum(['avatar', 'frame', 'title']), id: z.string().trim().min(1).max(32) }).strict().nullable().default(null),
+    cosmetic: z.object({ kind: z.enum(['avatar', 'frame', 'title', 'skin']), id: z.string().trim().min(1).max(32) }).strict().nullable().default(null),
     /** How many times one account can buy it (null: no limit; the welcome pack is always once). */
     maxPerAccount: z.number().int().min(1).max(100).nullable().default(null),
   })
@@ -160,6 +160,15 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
   cosmetic('style-pioneer', 'Título «Pionero del ECN»', { kind: 'title', id: 'Pionero del ECN' }, 149),
   cosmetic('style-guardian', 'Título «Guardián de la nebulosa»', { kind: 'title', id: 'Guardián de la nebulosa' }, 99),
   cosmetic('style-voyager', 'Título «Viajero del vacío»', { kind: 'title', id: 'Viajero del vacío' }, 99),
+  // Plan «skins», part C2: the Leyenda skins (animated), from 1,99 to 3,99 €, off until their Stripe prices are set.
+  cosmetic('style-skin-lumen', 'Lumen leyenda', { kind: 'skin', id: 'skin-lumen-leyenda' }, 399, 'new'),
+  cosmetic('style-skin-bastion', 'Bastión leyenda', { kind: 'skin', id: 'skin-bastion-leyenda' }, 299),
+  cosmetic('style-skin-spark', 'Chispa leyenda', { kind: 'skin', id: 'skin-spark-leyenda' }, 299),
+  cosmetic('style-skin-sentinel', 'Vigía leyenda', { kind: 'skin', id: 'skin-sentinel-leyenda' }, 199),
+  cosmetic('style-skin-anchor', 'Áncora leyenda', { kind: 'skin', id: 'skin-anchor-leyenda' }, 199),
+  cosmetic('style-skin-prism', 'Prisma leyenda', { kind: 'skin', id: 'skin-prism-leyenda' }, 399, 'popular'),
+  cosmetic('style-skin-comet', 'Cometa leyenda', { kind: 'skin', id: 'skin-comet-leyenda' }, 299),
+  cosmetic('style-skin-echo', 'Eco leyenda', { kind: 'skin', id: 'skin-echo-leyenda' }, 299),
 ];
 
 const total = (p: Pick<ShopProduct, 'grants' | 'bonus'>, c: ShopCurrency) => p.grants[c] + p.bonus[c];
@@ -175,7 +184,8 @@ function shopIssues(shop: { enabled: boolean; limits: { dailyCents: number }; pr
     const given = SHOP_CURRENCIES.filter((c) => total(p, c) > 0);
     // A cosmetic gives its piece and nothing else; only a cosmetic has a piece, and the piece must have art.
     const piece = p.cosmetic;
-    const known = !piece || piece.kind === 'title' || (piece.kind === 'avatar' ? (ART_AVATARS as readonly string[]) : (ART_FRAMES as readonly string[])).includes(piece.id);
+    const art: Record<'avatar' | 'frame' | 'skin', readonly string[]> = { avatar: ART_AVATARS, frame: ART_FRAMES, skin: ART_SKINS };
+    const known = !piece || piece.kind === 'title' || art[piece.kind].includes(piece.id);
     if ((p.kind === 'cosmetic') !== (piece != null) || !known) ctx.addIssue({ code: 'custom', path: [...at, 'cosmetic'], message: 'shop_cosmetic_piece' });
     if (p.kind === 'cosmetic' && given.length > 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'shop_cosmetic_grants' });
     if (p.kind !== 'cosmetic' && given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
