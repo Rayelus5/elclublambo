@@ -1,10 +1,20 @@
 import type { BackdropView, CosmeticsView, ProfileCosmeticsRequest } from '@galaxy/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
 // «Personalizar» (Nov plan C2): what I wear and have with the live catalog, and saving what changed. The catalog also
 // tells everyone's titles their style.
 export const COSMETICS_KEY = ['cosmetics'] as const;
+
+/**
+ * Something gave me pieces (a purchase, a claimed reward): what shows them reads again, at once, without a reload:
+ * «Personalizar» and the Hangar, whose probes list the skins I have (plan «skins»; the owner: «debería actualizarse en
+ * tiempo real»).
+ */
+export function refreshPieces(qc: QueryClient): void {
+  void qc.invalidateQueries({ queryKey: COSMETICS_KEY });
+  void qc.invalidateQueries({ queryKey: ['hangar'] });
+}
 
 export function useCosmeticsView(enabled = true) {
   return useQuery({ queryKey: COSMETICS_KEY, queryFn: () => api<CosmeticsView>('/profile/cosmetics'), staleTime: 60_000, enabled });

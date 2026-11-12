@@ -21,6 +21,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-11-al-momento',
+    version: '1.11',
+    date: '2026-11-13',
+    title: 'Lo que consigues, al momento',
+    summary: 'Una skin comprada o ganada sale enseguida en tu sonda, sin recargar la página',
+    items: [
+      { kind: 'arreglo', text: 'Al comprar una skin en la tienda o ganar un premio, sale al momento en el Taller, en el lobby y en Personalizar, sin recargar' },
+    ],
+  },
+  {
     id: 'v1-10-sondas-en-el-perfil',
     version: '1.10',
     date: '2026-11-12',
