@@ -28,12 +28,14 @@ import { inTransaction } from '../db/tx';
 import { madridDay, nextMadridMidnight } from '../economy/day';
 import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { WithLive } from '../realtime/notices';
 import { isListed, isTraded } from '../market/escrow';
 
 // The hangar (GDD §5.1, §8.4): the probe and sector for the next run, and the galaxies equipped as relics in the open
 // slots. A loadout only ever shows live galaxies the player still owns.
 
-export type RunsDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
+/** `live`: the live hub, for an achievement's notice (real-time notices plan). */
+export type RunsDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date } & WithLive;
 
 const LIVE = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'] as const;
 

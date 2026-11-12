@@ -6,6 +6,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
+import type { LiveBroadcast } from '../realtime/notices';
 import { confirmPassword } from './players';
 
 // Communication for admins (GDD §16.5; M6d-1): sending news with gifts to everyone or a segment (with the password when
@@ -13,7 +14,8 @@ import { confirmPassword } from './players';
 // evaluated once, when the message is sent (with `inAudience`, over the accounts that exist then; the beta has few), and
 // fixed as one receipt per recipient: what the preview and the audit say is what reaches the mailboxes.
 
-export type CommunicationDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
+/** `live`: the live hub, so a new mail reaches who is connected at once (real-time notices plan); none in the CLI. */
+export type CommunicationDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; live?: LiveBroadcast };
 
 const iso = (d: Date | string) => new Date(d).toISOString();
 
@@ -45,7 +47,7 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
   const to = reached(await accounts(deps), req.audience, now);
   const recipients = to.length;
   const expiresAt = new Date(now.getTime() + req.expiresInDays * 86_400_000);
-  return inTransaction(deps.db, async (trx) => {
+  const sent = await inTransaction(deps.db, async (trx) => {
     const row = await trx
       .insertInto('galaxy.mailbox_messages')
       .values({ title: req.title, body: req.body, gifts: JSON.stringify(req.gifts), audience: JSON.stringify(req.audience), created_by: actor.id, created_at: now, expires_at: expiresAt })
@@ -67,6 +69,12 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
     });
     return { id: row.id, recipients };
   });
+  // Saved: every recipient connected now hears of it.
+  deps.live?.sendMany(
+    to.map((a) => a.id),
+    { type: 'notice', notice: { kind: 'mail', id: sent.id, title: req.title } },
+  );
+  return sent;
 }
 
 /** Withdraws a live message: it leaves every mailbox and its gift can no longer be claimed. */

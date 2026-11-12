@@ -120,25 +120,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerSessionReader(api, deps.db, now);
     registerMaintenanceGate(api, config);
     registerHealth(api, deps.db);
-    // The live hub is made further down; a logout only happens once the app is up.
-    registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now, onLogout: (id) => live.dropSession(id) });
-    registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
-    // Shop and lab plan F4: the resource shop's gateway (closed without Stripe's keys).
-    const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
-    registerGachaRoutes(api, { db: deps.db, config, now, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
-    registerCollectionRoutes(api, { db: deps.db, config });
     // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join), and
     // (phase 6c) the room chat, which reaches who is in the room now. A probe chosen in the hangar shows in the room.
     const rooms = createRooms(config);
-    registerRunRoutes(api, { db: deps.db, config, now, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });
-    registerStationRoutes(api, { db: deps.db, config, now });
-    registerLabRoutes(api, { db: deps.db, config, now });
-    registerPlanetariumRoutes(api, { db: deps.db, config });
-    registerSocialRoutes(api, { db: deps.db, config, now });
-    registerClanRoutes(api, { db: deps.db, config, now });
-    const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? []);
-    api.addHook('onClose', async () => hub.close());
-    // Plan phase 3: the live socket (friends, presence, later rooms), beside the chat's.
+    // Plan phase 3: the live socket (friends, presence, rooms and, real-time notices plan, every notice), made before the
+    // routes whose changes send notices.
     const live = new LiveHub({
       friendsOf: (id) => friendIdsOf(deps.db, id),
       showsStatus: async (id) => (await prefsOf(deps.db, id)).showStatus,
@@ -148,6 +134,20 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       },
     });
     api.addHook('onClose', async () => live.close());
+    registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now, onLogout: (id) => live.dropSession(id) });
+    registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
+    // Shop and lab plan F4: the resource shop's gateway (closed without Stripe's keys).
+    const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
+    registerGachaRoutes(api, { db: deps.db, config, now, live, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
+    registerCollectionRoutes(api, { db: deps.db, config, live });
+    registerRunRoutes(api, { db: deps.db, config, now, live, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });
+    registerStationRoutes(api, { db: deps.db, config, now, live });
+    registerLabRoutes(api, { db: deps.db, config, now });
+    registerPlanetariumRoutes(api, { db: deps.db, config });
+    registerSocialRoutes(api, { db: deps.db, config, now });
+    registerClanRoutes(api, { db: deps.db, config, now, live });
+    const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? []);
+    api.addHook('onClose', async () => hub.close());
     // Phase 6c: who left a group run hears its result on the live socket when it ends.
     coop.notify = (id, event) => live.send(id, event);
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
@@ -170,7 +170,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerOnboardingRoutes(api, { db: deps.db });
     registerTutorialRoutes(api, { db: deps.db, config });
     registerSeasonRoutes(api, { db: deps.db, config, now });
-    registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now });
+    registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });

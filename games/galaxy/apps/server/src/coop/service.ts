@@ -299,7 +299,7 @@ export class CoopService {
     try {
       await this.saveLast(run);
       const results = await settleCoop(
-        { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log },
+        { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log, live: { send: (id, e) => this.notify(id, e) } },
         { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome, idle: run.slots.map((_, i) => run.idle(i)) },
       );
       for (let slot = 0; slot < run.slots.length; slot++) {
@@ -397,7 +397,7 @@ export class CoopService {
     // How it really ended, if its log reaches the end (a payment retried after a failure); otherwise interrupted.
     const status = replayer.sim.status;
     const real: CoopOutcome = status === 'dead' ? 'died' : status === 'extracted' ? 'extracted' : outcome;
-    await settleCoop({ db: this.deps.db, config: this.deps.config, now: () => now, log: this.deps.log }, { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: real });
+    await settleCoop({ db: this.deps.db, config: this.deps.config, now: () => now, log: this.deps.log, live: { send: (id, e) => this.notify(id, e) } }, { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: real });
   }
 
   private async contentOf(version: number): Promise<Content> {

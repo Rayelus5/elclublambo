@@ -3,6 +3,7 @@ import type { Kysely } from 'kysely';
 import type { DB } from '../db/schema';
 import { credit } from '../economy/wallet';
 import { countStats, type MissionConfigs } from '../missions/service';
+import type { Notices } from '../realtime/notices';
 
 // What every paid run adds beyond its loot (solo and co-op): the season currency for the points it scored (M7d-1),
 // and the missions and achievements for what it did as kept, if it was not suspicious (M7a).
@@ -16,7 +17,7 @@ export interface ExtrasContext {
 }
 
 /** `extra`: what only the caller knows (a group run's revives, phase 7), added to the run's own counts. */
-export async function creditRunExtras(trx: Kysely<DB>, accountId: string, runId: string, r: RunResult, key: string, ctx: ExtrasContext, extra: MissionCounts = {}): Promise<void> {
+export async function creditRunExtras(trx: Kysely<DB>, accountId: string, runId: string, r: RunResult, key: string, ctx: ExtrasContext, extra: MissionCounts = {}, out?: Notices): Promise<void> {
   const shards = shardsFor(r.progress.points, ctx.perPoint);
   if (shards > 0) {
     await credit(trx, accountId, seasonCurrency(ctx.season.id), shards, 'season_run', { run: runId }, key);
@@ -39,6 +40,7 @@ export async function creditRunExtras(trx: Kysely<DB>, accountId: string, runId:
         coopRuns: kept.coop_run_id ? 1 : 0,
       },
       ctx.now,
+      out,
     );
   }
 }

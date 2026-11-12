@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { requireSession } from '../auth/guards';
 import { operationExists, runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
+import { withNotices } from '../realtime/notices';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
@@ -160,12 +161,14 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onPro
     ]);
     const now = deps.now();
     const mcfg = await missionConfigs(deps.config);
-    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
-      const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
-      // The season currency for its points, and the missions for what it did (runs/extras.ts).
-      await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now });
-      return r;
-    });
+    const result = await withNotices(deps.live, (out) =>
+      runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
+        const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
+        // The season currency for its points, and the missions for what it did (runs/extras.ts).
+        await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now }, {}, out);
+        return r;
+      }),
+    );
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();
     return result;

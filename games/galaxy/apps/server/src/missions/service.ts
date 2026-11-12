@@ -21,6 +21,7 @@ import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { invalidateLeaderboard } from '../social/leaderboard';
 import { grantCosmetics } from '../cosmetics/service';
+import type { Notices } from '../realtime/notices';
 
 // Missions and achievements (GDD §12.1, §12.3, §14.1; M7a). What a run, a pull, a fusion, a disintegration or the
 // refinery does is counted where it happens (countStats, in the same transaction); the day's and the week's missions are
@@ -64,8 +65,11 @@ async function clanOf(db: Kysely<DB>, accountId: string): Promise<string | null>
 const grow = (stat: MissionStat, table: 'galaxy.mission_progress' | 'galaxy.achievement_progress' | 'galaxy.clan_event_progress', amount: number) =>
   stat === 'depth' ? sql<number>`greatest(${sql.ref(`${table}.progress`)}, ${amount})` : sql<number>`${sql.ref(`${table}.progress`)} + ${amount}`;
 
-/** Adds what just happened to the account's missions of now and its achievements (in the caller's transaction). */
-export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: string, counts: MissionCounts, now: Date): Promise<void> {
+/**
+ * Adds what just happened to the account's missions of now and its achievements (in the caller's transaction). An
+ * achievement it unlocks goes to `out` as a notice (real-time notices plan), once: the unlock happens only once.
+ */
+export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: string, counts: MissionCounts, now: Date, out?: Notices): Promise<void> {
   const stats = (Object.keys(counts) as MissionStat[]).filter((k) => (counts[k] ?? 0) > 0);
   if (stats.length === 0) return;
   const p = periodsOf(c, now);
@@ -110,14 +114,16 @@ export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: 
       .values({ account_id: accountId, achievement: a.id, progress: amount, updated_at: now })
       .onConflict((oc) => oc.columns(['account_id', 'achievement']).doUpdateSet({ progress: grow(a.stat, 'galaxy.achievement_progress', amount), updated_at: now }))
       .execute();
-    await trx
+    const unlocked = await trx
       .updateTable('galaxy.achievement_progress')
       .set({ unlocked_at: now })
       .where('account_id', '=', accountId)
       .where('achievement', '=', a.id)
       .where('unlocked_at', 'is', null)
       .where('progress', '>=', a.target)
-      .execute();
+      .returning('achievement')
+      .executeTakeFirst();
+    if (unlocked) out?.add(accountId, { kind: 'achievement', id: a.id, name: a.name, tier: a.tier });
   }
 }
 
