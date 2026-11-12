@@ -9,6 +9,7 @@ import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { playEquip } from '../../workshop/sfx';
 import padUrl from '../lobby-art/launchpad.png';
+import { Avatar } from '../../hub/Avatar';
 
 // The lobby's stage: solo or in a group over it (the two buttons, centred), my probe floating over its launch pad in the middle (the pad painted
 // in Aseprite, art/lobby/paint-lobby.lua), and in a room my teammates on their own pads at its sides. The probe is the
@@ -141,6 +142,7 @@ function Mate({ m, k, lead, busy, probeOf, onKick, onLead }: { m: RoomMember | n
               <Icon name="trophy" />
             </span>
           ) : null}
+          <Avatar name={m.username} avatar={m.avatar} frame={m.frame} />
           <b>{m.username}</b>
         </span>
         <small>{copy.social.level(m.level)}</small>

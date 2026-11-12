@@ -1557,6 +1557,9 @@
   .friends-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .friend { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); }
   .friend-dot { inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--color-ink-mute); }
+  /* Nov plan C2: the friend's avatar with their presence dot on its corner. */
+  .friend-face { position: relative; display: inline-grid; flex: none; }
+  .friend-face .friend-dot { position: absolute; inset-block-end: -3px; inset-inline-end: -3px; box-shadow: 0 0 0 2px var(--color-panel); }
   .friend.on .friend-dot { background: var(--color-terminal); box-shadow: 0 0 8px color-mix(in oklab, var(--color-terminal) 70%, transparent); }
   .friend-main { display: grid; min-inline-size: 0; }
   .friend-name { font-weight: 800; color: var(--color-ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2917,6 +2920,7 @@
   .lobby-mate.empty .lobby-pad { opacity: .45; filter: grayscale(1); animation: none; }
   .lobby-mate-tag { display: grid; justify-items: center; gap: 2px; padding: 6px 12px; border-radius: 14px; background: rgb(7 10 28 / .7); border: 2px solid rgb(255 255 255 / .07); min-inline-size: 0; max-inline-size: 180px; }
   .lobby-mate-name { display: inline-flex; align-items: center; gap: 6px; max-inline-size: 100%; }
+  .lobby-mate-name .avatar-box { margin-inline-end: 2px; }
   .lobby-mate-tag b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lobby-mate-tag small { color: var(--color-ink-soft); font-size: 12.5px; }
   .lobby-mate.empty .lobby-mate-tag b { color: var(--color-ink-mute); font-weight: 700; }
