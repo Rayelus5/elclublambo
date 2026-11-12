@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { LiveConnection, useLive } from '../src/live/LiveConnection';
 import { FriendsHost } from '../src/social/FriendsPanel';
-import { FriendToasts } from '../src/social/FriendToasts';
+import { LiveToasts } from '../src/live/Toasts';
 import { useUi } from '../src/state/ui';
 import { jsonResponse, mockApi, renderAt } from './render';
 
@@ -65,7 +65,7 @@ afterEach(() => {
 const shell = { '/': (
   <>
     <FriendsHost />
-    <FriendToasts />
+    <LiveToasts />
     <LiveConnection />
   </>
 ) };

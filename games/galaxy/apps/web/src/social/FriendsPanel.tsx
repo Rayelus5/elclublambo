@@ -3,6 +3,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState 
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import { useFriendAction, useFriends, useSocialPrefs } from '../api/friends';
+import { NoticeModeField } from '../live/NoticeMode';
 import { errorText, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
@@ -332,6 +333,7 @@ function PrivacyTab({ v, onNotice }: { v: FriendsView; onNotice: (s: string) => 
         <input type="checkbox" checked={v.prefs.showStatus} disabled={prefs.isPending} onChange={(e) => save({ showStatus: e.target.checked })} />
         <span>{t.privacyStatus}</span>
       </label>
+      <NoticeModeField hint />
       {prefs.isError ? (
         <p className="field-error" role="alert">
           {errorText(prefs.error, copy.errors)}

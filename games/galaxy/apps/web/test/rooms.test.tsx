@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
 import { LiveConnection, useLive } from '../src/live/LiveConnection';
-import { FriendToasts } from '../src/social/FriendToasts';
+import { LiveToasts } from '../src/live/Toasts';
 import { view } from './hangar-fixtures';
 import { jsonResponse, mockApi, renderAt } from './render';
 
@@ -244,7 +244,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const live = { '/': (
   <>
-    <FriendToasts />
+    <LiveToasts />
     <LiveConnection />
   </>
 ) };

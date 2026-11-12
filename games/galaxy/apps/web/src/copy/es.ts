@@ -1113,6 +1113,37 @@ export const copy = {
     dismiss: 'Cerrar aviso',
     profile: { add: 'Añadir amigo', sent: 'Solicitud enviada', accept: 'Aceptar solicitud', friends: 'Amigos', remove: 'Quitar amigo', block: 'Bloquear', unblock: 'Desbloquear' },
   },
+  // Real-time notices (plan of 2026-11-12): the toasts at the top for what happened elsewhere, and how they reach me.
+  notices: {
+    mode: 'Avisos',
+    modes: { sound: 'Con sonido', silent: 'Sin sonido', off: 'Silencio' } as Record<'sound' | 'silent' | 'off', string>,
+    modeHint: 'En silencio no salta ningún aviso, pero tus listas se siguen actualizando solas',
+    saved: 'Guardado',
+    trade: {
+      proposed: (name: string) => `${name} te propone un trueque`,
+      countered: (name: string) => `${name} ha cambiado vuestro trueque`,
+      confirmed: (name: string) => `${name} ha confirmado el trueque: te toca`,
+      done: (name: string) => `Trueque con ${name} completado`,
+      cancelled: (name: string) => `${name} ha cancelado el trueque`,
+    },
+    sale: (galaxy: string) => `Has vendido ${galaxy}`,
+    saleDetail: (buyer: string, net: number) => `${buyer} la ha comprado · recibes ${fmt(net)} monedas`,
+    mail: 'Tienes correo nuevo',
+    clan: {
+      request: (name: string) => `${name} quiere unirse a tu clan`,
+      accepted: (clan: string) => `Ya eres de ${clan}`,
+      rejected: (clan: string) => `${clan} no ha aceptado tu solicitud`,
+      kicked: (clan: string) => `Ya no estás en ${clan}`,
+      promoted: (clan: string) => `Ahora eres oficial de ${clan}`,
+      demoted: (clan: string) => `Ya no eres oficial de ${clan}`,
+      leader: (clan: string) => `Ahora lideras ${clan}`,
+    },
+    by: (name: string) => `Por ${name}`,
+    achievement: 'Logro desbloqueado',
+    see: 'Ver',
+    open: 'Abrir',
+    collect: 'Recoger',
+  },
   // The probe workshop (the owner's «taller espacial»): manage, level up and equip the probes.
   // The lobby (/incursion, the owner's «Escenario»): solo or in a group, the sector, the galaxies (relics), and the launch.
   lobby: {

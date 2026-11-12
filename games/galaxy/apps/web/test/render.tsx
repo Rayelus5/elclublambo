@@ -12,7 +12,7 @@ export function LocationProbe() {
 
 export function renderAt(path: string, routes: Record<string, ReactElement>, state?: unknown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[{ pathname: path.split('?')[0]!, search: path.includes('?') ? `?${path.split('?')[1]}` : '', state }]}>
         <Routes>
@@ -24,6 +24,8 @@ export function renderAt(path: string, routes: Record<string, ReactElement>, sta
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  // The cache too, for tests that seed or read it.
+  return Object.assign(view, { client });
 }
 
 export function jsonResponse(status: number, body?: unknown): Response {
