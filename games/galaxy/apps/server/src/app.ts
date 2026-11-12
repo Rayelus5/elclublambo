@@ -42,6 +42,7 @@ import { registerCodexRoutes } from './codex/routes';
 import { registerOnboardingRoutes } from './onboarding/routes';
 import { registerTutorialRoutes } from './onboarding/tutorial';
 import { registerSettingsRoutes } from './settings/routes';
+import { registerNotesRoutes } from './notes/routes';
 import { registerSeasonRoutes } from './season/routes';
 import type { ShopGateway } from './shop/gateway';
 import { registerShopAdminRoutes } from './shop/admin-routes';
@@ -178,6 +179,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerOnboardingRoutes(api, { db: deps.db });
     registerTutorialRoutes(api, { db: deps.db, config });
     registerSettingsRoutes(api, { db: deps.db });
+    registerNotesRoutes(api, { db: deps.db, env: deps.env });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });

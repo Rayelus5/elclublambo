@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { DEFAULT_AUDIO, getSettings, setSettings } from '../src/audio/mixer';
 import { manualAim, setManualAim } from '../src/arena/settings';
 import { getPrefs, resetPrefs, setPrefs } from '../src/settings/prefs';
-import { getSyncStatus, startSync } from '../src/settings/sync';
+import { getSyncReady, getSyncStatus, startSync } from '../src/settings/sync';
 import { getCursor, saveCursor } from '../src/ui/cursor';
 
 // The settings on the account (plan «ajustes en la cuenta»): signed in, the account's settings replace this browser's
@@ -135,4 +135,71 @@ test('si la cuenta no responde, sigue con lo de este navegador y lo vuelve a ped
   await settle();
   expect(deps.load).toHaveBeenCalledTimes(2);
   expect(getPrefs().colorVision).toBe('tritan');
+});
+
+// Review of the notes PR: the notes page marking a version seen before the account answers must not count as the
+// player choosing this browser's settings; «seen» never goes back; saves never overtake each other.
+test('abrir las notas antes de que llegue la cuenta no pisa sus ajustes', async () => {
+  let answer: (v: SettingsView) => void = () => {};
+  const deps = fake(new Promise<SettingsView>((r) => (answer = r)));
+  stop = startSync(deps);
+  expect(getSyncReady()).toBe(false);
+  setPrefs({ notesSeen: '1.5' });
+  answer({ settings: { v: 1, colorVision: 'tritan', music: 0.2, notesSeen: '1.3' }, updatedAt: null });
+  await settle();
+  expect(getSyncReady()).toBe(true);
+  expect(getPrefs()).toMatchObject({ colorVision: 'tritan', notesSeen: '1.5' });
+  expect(getSettings().music).toBe(0.2);
+  await vi.advanceTimersByTimeAsync(800);
+  expect(deps.save).toHaveBeenCalledTimes(1);
+  expect(deps.save.mock.calls[0]![0]).toMatchObject({ colorVision: 'tritan', music: 0.2, notesSeen: '1.5' });
+});
+
+test('la última nota vista nunca vuelve atrás', async () => {
+  setPrefs({ notesSeen: '1.10' });
+  const deps = fake({ settings: { v: 1, notesSeen: '1.9' }, updatedAt: null });
+  stop = startSync(deps);
+  await settle();
+  expect(getPrefs().notesSeen).toBe('1.10');
+  await vi.advanceTimersByTimeAsync(800);
+  expect(deps.save.mock.calls[0]![0]).toMatchObject({ notesSeen: '1.10' });
+});
+
+test('los guardados van de uno en uno, y el último cambio es el que queda', async () => {
+  const deps = fake({ settings: { v: 1 }, updatedAt: null });
+  const pending: (() => void)[] = [];
+  deps.save.mockImplementation((s: AccountSettings) => new Promise((r) => pending.push(() => r({ settings: s, updatedAt: null }))));
+  stop = startSync(deps);
+  await settle();
+  setPrefs({ colorVision: 'protan' });
+  await vi.advanceTimersByTimeAsync(800);
+  expect(deps.save).toHaveBeenCalledTimes(1);
+  setPrefs({ colorVision: 'deutan' });
+  await vi.advanceTimersByTimeAsync(800);
+  // The first is still on its way: the second waits for it.
+  expect(deps.save).toHaveBeenCalledTimes(1);
+  pending.shift()!();
+  await settle();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(deps.save).toHaveBeenCalledTimes(2);
+  expect(deps.save.mock.calls[1]![0]).toMatchObject({ colorVision: 'deutan' });
+  expect(getSyncStatus()).toBe('saving');
+  pending.shift()!();
+  await settle();
+  expect(getSyncStatus()).toBe('saved');
+});
+
+test('volver la conexión vuelve a pedir la cuenta una sola vez', async () => {
+  const deps = fake({ settings: { v: 1, colorVision: 'tritan' }, updatedAt: null });
+  deps.load.mockRejectedValueOnce(new Error('offline'));
+  stop = startSync(deps);
+  await settle();
+  window.dispatchEvent(new Event('online'));
+  await settle();
+  expect(getPrefs().colorVision).toBe('tritan');
+  setPrefs({ colorVision: 'deutan' });
+  await vi.advanceTimersByTimeAsync(30_000);
+  await settle();
+  expect(deps.load).toHaveBeenCalledTimes(2);
+  expect(getPrefs().colorVision).toBe('deutan');
 });

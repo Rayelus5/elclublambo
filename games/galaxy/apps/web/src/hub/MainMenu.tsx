@@ -9,6 +9,7 @@ import { Icon, type IconName } from '../ui/Icon';
 import { Soon } from './Soon';
 import { useCatalogSummary } from '../api/catalog';
 import { useGacha } from '../api/economy';
+import { NotesLink } from '../notes/NotesScreen';
 
 // The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the scanner and the station, the event and
 // today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike). Everything a later milestone builds is shown but locked: the
@@ -148,6 +149,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>
         </Link>
+        <NotesLink style={style({ '--d': '1.4s' })} />
         {shop?.open ? (
           <Link to="/tienda" className="lip pill enter hub-shop" data-sfx="hover" style={style({ '--d': '1.42s' })} aria-label={shop.offer ? copy.hub.shopOffer : undefined}>
             <Icon name="store" />

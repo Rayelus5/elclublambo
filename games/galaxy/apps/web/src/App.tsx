@@ -41,6 +41,8 @@ import { ScannerScreen } from './scanner/ScannerScreen';
 import { ChatHost } from './chat/ChatPanel';
 import { LiveConnection } from './live/LiveConnection';
 import { SettingsSync } from './settings/SettingsSync';
+import { NotesScreen } from './notes/NotesScreen';
+import { NotesAdmin } from './admin/NotesAdmin';
 import { FriendsHost } from './social/FriendsPanel';
 import { LiveToasts } from './live/Toasts';
 import { copy } from './copy/es';
@@ -144,6 +146,7 @@ export function App() {
         <Route path="/temporada" element={<SignedIn><SeasonScreen /></SignedIn>} />
         <Route path="/trofeos" element={<SignedIn><TrophiesScreen /></SignedIn>} />
         <Route path="/ajustes" element={<SignedIn><SettingsScreen /></SignedIn>} />
+        <Route path="/notas-de-version" element={<SignedIn><NotesScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>
@@ -160,6 +163,7 @@ export function App() {
             <Route path="partidas/:id" element={<ReplayScreen />} />
             <Route path="tienda" element={<ShopAdminScreen />} />
             <Route path="escaner-ensayo" element={<RevealRehearsal />} />
+            <Route path="notas-de-version" element={<NotesAdmin />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />

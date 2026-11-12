@@ -633,6 +633,19 @@ export interface AccountXpTable {
 }
 
 /** The galaxies an account exhibits in its planetarium, one per pedestal (M4c-2). */
+/** Plan «notas de versión»: the panel's release notes; one with a code note's id replaces (or hides) it. */
+export interface ReleaseNotesTable {
+  id: string;
+  version: string;
+  date: ColumnType<Date, Date | string, Date | string>;
+  title: string;
+  summary: Generated<string>;
+  items: unknown;
+  hidden: Generated<boolean>;
+  updated_by: string | null;
+  updated_at: Timestamp;
+}
+
 /** Plan «ajustes en la cuenta»: the player's settings (accountSettingsSchema), one row per account. */
 export interface SettingsTable {
   account_id: string;
@@ -831,6 +844,7 @@ export interface DB {
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.backdrops': BackdropsTable;
   'galaxy.settings': SettingsTable;
+  'galaxy.release_notes': ReleaseNotesTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;
   'galaxy.clan_members': ClanMembersTable;
