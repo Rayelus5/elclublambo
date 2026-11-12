@@ -9,7 +9,7 @@ import { useReducedMotion } from '../../ui/motion';
 import { RevealSummary } from '../RevealSummary';
 import { sfx } from '../sfx';
 import type { CinemaControl, ProOverlay } from './ProCinema';
-import type { Phase, PhaseKind } from './script';
+import type { Intro, Phase, PhaseKind } from './script';
 import { proAudio } from './sounds';
 
 // The pro scanner's shell (plan «escáner pro», part B; the owner: «bandanas negras cerrando la pantalla de arriba hacia
@@ -39,9 +39,14 @@ export function ProShell({
   summaryOnly = false,
   rehearsal,
   direction,
+  intro = 'scan',
+  inputs,
 }: {
   /** null while the scan's request is out (the bands are closing). */
   pulls: readonly PulledGalaxy[] | null;
+  /** A scan (the default) or a fusion, with the galaxies going in (plan «fusión pro»). */
+  intro?: Intro;
+  inputs?: readonly PulledGalaxy[];
   title?: string;
   onClose: () => void;
   actions?: ReactNode;
@@ -129,6 +134,8 @@ export function ProShell({
             <ProCinema
               key={`${pulls[0]?.id ?? 'none'}:${direction?.take ?? 0}`}
               pulls={pulls}
+              intro={intro}
+              inputs={inputs}
               reduced={reduced}
               overlay={overlay}
               control={control}
@@ -151,7 +158,7 @@ export function ProShell({
         {!pulls || waiting ? (
           <p className="pro-wait" role="status">
             <span className="pro-wait-star" aria-hidden="true" />
-            <span>{!pulls ? copy.scanner.linking : copy.scanner.resolving}</span>
+            <span>{!pulls ? (intro === 'fusion' ? copy.collection.fusingNow : copy.scanner.linking) : copy.scanner.resolving}</span>
           </p>
         ) : null}
 

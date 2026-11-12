@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { fabricatePulls, REHEARSAL_PRESETS } from '../src/scanner/pro/fabricate';
+import { fabricatePulls, fusionInputs, REHEARSAL_PRESETS } from '../src/scanner/pro/fabricate';
 
 // The Ensayo's scans (plan «escáner pro», part B): real galaxies of the asked tiers, made in the browser with the
 // game's own generator (nothing is paid, nothing is saved), with the finish, «Destacada» and phenomenon asked for.
@@ -24,4 +24,12 @@ test('inventa galaxias reales de las rarezas pedidas, con la forma de una tirada
 test('los preajustes de diez tienen diez rarezas', () => {
   for (const preset of Object.values(REHEARSAL_PRESETS)) expect(preset).toHaveLength(10);
   expect(REHEARSAL_PRESETS.variada).toContain('legendary');
+});
+
+test('una fusión del Ensayo: entran de 2 a 10 galaxias de la rareza de debajo del resultado', () => {
+  expect(fusionInputs('legendary', 5)).toEqual(['epic', 'epic', 'epic', 'epic', 'epic']);
+  expect(fusionInputs('uncommon', 3)).toEqual(['common', 'common', 'common']);
+  // A common result comes from commons; the count stays between 2 and 10.
+  expect(fusionInputs('common', 1)).toEqual(['common', 'common']);
+  expect(fusionInputs('rare', 40)).toHaveLength(10);
 });

@@ -56,3 +56,9 @@ export async function fabricatePulls(o: FabricateOptions, base: bigint = randomS
   }
   return out;
 }
+
+/** A fusion to rehearse (plan «fusión pro»): `n` galaxies (2–10) of the tier below the result (commons for a common). */
+export function fusionInputs(result: Tier, n: number): Tier[] {
+  const below = TIERS[Math.max(0, TIERS.indexOf(result) - 1)]!;
+  return Array.from({ length: Math.min(10, Math.max(2, Math.round(n))) }, () => below);
+}

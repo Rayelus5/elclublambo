@@ -2,7 +2,7 @@ import type { PulledGalaxy, Tier } from '@galaxy/shared';
 import { gsap } from 'gsap';
 import { expect, test } from 'vitest';
 import { buildScript } from '../src/scanner/pro/script';
-import { buildTimeline, CINEMA, createRig, GRID, SINGLE } from '../src/scanner/pro/timeline';
+import { buildTimeline, CINEMA, createRig, GRID, RING, ringSpot, SINGLE } from '../src/scanner/pro/timeline';
 
 // The pro scanner's timeline (plan «escáner pro», part B): one paused GSAP timeline, built from the script, that moves
 // a plain «rig» of numbers the 3D scene and the overlays read every frame. Real GSAP: its labels sit where the script
@@ -120,4 +120,132 @@ test('movimiento reducido: ni salto ni temblor ni destellos; las cartas aparecen
   tl.time(at('espera-carta').at);
   expect(rig.cards[0]!.rotY).toBeCloseTo(Math.PI, 2);
   expect(rig.cards[0]!.alpha).toBeCloseTo(1, 2);
+});
+
+// A fusion (plan «fusión pro»): the galaxies going in appear round the core, circle it faster and closer, sink into it
+// one by one, and the new card is born from it.
+const five = (t: Tier): Tier[] => [t, t, t, t, t];
+function fusion(result: Tier, inputs: Tier[], motion: 'full' | 'reduced' = 'full', surge = false) {
+  const script = buildScript([pull(result)], { motion, surge, intro: 'fusion', inputs });
+  const rig = createRig(script);
+  const tl = buildTimeline(gsap, script, rig);
+  const at = (label: string) => script.phases.find((p) => p.label === label)!;
+  return { script, rig, tl, at };
+}
+
+test('una fusión: las que entran aparecen en anillo, giran cada vez más cerca, se hunden en el núcleo y la nueva nace de él', () => {
+  const { rig, tl, at, script } = fusion('rare', five('uncommon'));
+  for (const p of script.phases) expect(tl.labels[p.label]).toBeCloseTo(p.at, 6);
+  tl.time(0);
+  expect(rig.inputs).toHaveLength(5);
+  expect(rig.inputs.every((i) => i.alpha === 0)).toBe(true);
+  expect(rig.cards[0]!.alpha).toBe(0);
+  tl.time(at('orbita').at);
+  expect(rig.inputs.every((i) => i.alpha > 0.99)).toBe(true);
+  expect(rig.ring).toBeCloseTo(1, 2);
+  expect(rig.spin).toBeCloseTo(0, 6);
+  tl.time(at('orbita').at + at('orbita').dur * 0.5);
+  expect(rig.spin).toBeGreaterThan(0);
+  expect(rig.ring).toBeLessThan(1);
+  tl.time(at('colapso').at);
+  expect(rig.ring).toBeCloseTo(RING.close, 2);
+  expect(rig.trail).toBeCloseTo(1, 2);
+  expect(rig.core).toBeGreaterThan(0.5);
+  expect(rig.warp).toBe(0);
+  tl.time(at('impacto').at);
+  expect(rig.inputs.every((i) => i.absorb > 0.99 && i.alpha < 0.01)).toBe(true);
+  expect(rig.core).toBeLessThan(0.2);
+  tl.time(at('carta').at);
+  const card = rig.cards[0]!;
+  expect(card.x).toBeCloseTo(0, 2);
+  expect(card.y).toBeCloseTo(0, 2);
+  expect(card.scale).toBeLessThan(0.2);
+  tl.time(at('espera-carta').at);
+  expect(card.alpha).toBeCloseTo(1, 2);
+  expect(card.rotY).toBeCloseTo(Math.PI, 2);
+  expect(card.scale).toBeCloseTo(SINGLE.scale, 2);
+  // Back to the start, as «Saltar» and the Ensayo seek.
+  tl.time(0);
+  expect(rig.inputs.every((i) => i.alpha === 0 && i.absorb === 0)).toBe(true);
+  expect(rig.spin).toBe(0);
+});
+
+test('una fusión que asciende: el núcleo rompe al color real y destella una vez', () => {
+  const { rig, tl, at, script } = fusion('legendary', five('epic'), 'full', true);
+  tl.time(at('ascenso').at);
+  expect(rig.trail).toBeCloseTo(1, 2);
+  tl.time(at('colapso').at);
+  expect(rig.trail).toBeCloseTo(2, 2);
+  expect(script.flashes.filter((f) => f.at < at('colapso').at)).toHaveLength(1);
+});
+
+test('una fusión con movimiento reducido: sin giro, temblor ni destellos; las que entran se funden en el núcleo', () => {
+  const { rig, tl, at, script } = fusion('rare', five('uncommon'), 'reduced');
+  for (let t = 0; t <= script.duration; t += 0.05) {
+    tl.time(t);
+    expect(rig.spin).toBe(0);
+    expect(rig.shake).toBe(0);
+    expect(rig.flash).toBe(0);
+  }
+  tl.time(at('colapso').at);
+  expect(rig.inputs.every((i) => i.alpha > 0.99)).toBe(true);
+  tl.time(at('carta').at);
+  expect(rig.inputs.every((i) => i.alpha < 0.01)).toBe(true);
+  tl.time(at('espera-carta').at);
+  expect(rig.cards[0]!.alpha).toBeCloseTo(1, 2);
+  expect(rig.cards[0]!.rotY).toBeCloseTo(Math.PI, 2);
+});
+
+test('una fusión con movimiento reducido: cada carta se funde en su sitio, sin girar ni ir hacia el núcleo', () => {
+  const at0 = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 0 }, true);
+  const sunk = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 1 }, true);
+  expect(sunk).toEqual(at0);
+  // With full motion it swirls in and shrinks.
+  const full = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 0.9 }, false);
+  expect(Math.hypot(full.x, full.y)).toBeLessThan(Math.hypot(at0.x, at0.y) * 0.2);
+  expect(full.scale).toBeLessThan(at0.scale);
+});
+
+test('una fusión: la velocidad del giro va en el rig (las estelas se ven también en pausa) y nunca con movimiento reducido', () => {
+  const { rig, tl, at } = fusion('epic', five('rare'));
+  tl.time(at('orbita').at);
+  expect(rig.whirl).toBeCloseTo(0, 3);
+  tl.time(at('orbita').at + at('orbita').dur * 0.5);
+  expect(rig.whirl).toBeGreaterThan(0.1);
+  expect(rig.whirl).toBeLessThan(0.9);
+  tl.time(at('colapso').at + 0.1);
+  expect(rig.whirl).toBeCloseTo(1, 1);
+  tl.time(at('carta').at);
+  expect(rig.whirl).toBeCloseTo(0, 3);
+  const calm = fusion('epic', five('rare'), 'reduced');
+  for (let t = 0; t <= calm.script.duration; t += 0.05) {
+    calm.tl.time(t);
+    expect(calm.rig.whirl).toBe(0);
+  }
+});
+
+test('una fusión: ir hacia delante o hacia atrás hasta el mismo momento deja el mismo rig', () => {
+  const { rig, tl, script } = fusion('legendary', five('epic'), 'full', true);
+  // To the millionth: GSAP's own arithmetic may differ in the last bits between the two ways in.
+  const round = (v: object) => JSON.parse(JSON.stringify(v, (_, x: unknown) => (typeof x === 'number' ? Math.round(x * 1e6) / 1e6 : x))) as unknown;
+  const card = rig.cards[0]!;
+  const pick = () =>
+    round({
+      ring: rig.ring,
+      spin: rig.spin,
+      core: rig.core,
+      whirl: rig.whirl,
+      trail: rig.trail,
+      inputs: rig.inputs.map(({ alpha, absorb, glow }) => ({ alpha, absorb, glow })),
+      card: { x: card.x, y: card.y, z: card.z, scale: card.scale, rotY: card.rotY, alpha: card.alpha },
+    });
+  for (const p of script.phases) {
+    const t = p.at + p.dur * 0.5;
+    tl.time(0);
+    tl.time(t);
+    const forward = pick();
+    tl.time(script.duration);
+    tl.time(t);
+    expect(pick()).toEqual(forward);
+  }
 });

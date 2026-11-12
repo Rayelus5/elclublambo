@@ -7,6 +7,8 @@ import { useCatalogSummary } from '../api/catalog';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { ClassicStage } from '../scanner/ClassicStage';
+import { RevealStage } from '../scanner/RevealStage';
+import { useRevealMode } from '../scanner/useRevealMode';
 import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
 import { AutoFusionDialog } from './AutoFusionDialog';
@@ -19,7 +21,9 @@ import { BackLink } from '../ui/BackLink';
 // One toolbar holds the filters and, together, the two ways to fuse (the owner: «muy separados»): «Fusionar» turns
 // the cards into toggles to choose `fusion.count` of one tier (legendaries and other tiers cannot be picked), and the
 // fusion plays out before its reveal; «Fusión automática» opens its planner. A card opens its detail (/coleccion/:id).
-// Favourites wear a star. One polite live region tells what each action did.
+// Favourites wear a star. One polite live region tells what each action did. With «Presentación pro» (plan «fusión
+// pro»), the fusion is the scanner's cinema instead: the bands close at «Fusionar», the galaxies going in circle and
+// sink into a core, and the new one bursts out of it; a failed fusion opens the bands and the bar says why.
 const PAGE = 30;
 
 export function CollectionScreen() {
@@ -39,6 +43,9 @@ export function CollectionScreen() {
   // The fusion on screen: the galaxies going in, and the one that came out once the server answers.
   const [melting, setMelting] = useState<GalaxySummary[] | null>(null);
   const [made, setMade] = useState<PulledGalaxy | null>(null);
+  // The pro fusion: the galaxies going in, the new one once the server answers (null until then), and a failure.
+  const revealMode = useRevealMode();
+  const [cinema, setCinema] = useState<{ inputs: GalaxySummary[]; pulls: PulledGalaxy[] | null; failed: boolean } | null>(null);
   const [message, setMessage] = useState('');
   const [auto, setAuto] = useState(false);
 
@@ -171,6 +178,20 @@ export function CollectionScreen() {
             error={fuse.error}
             onCancel={stopFusing}
             onFuse={() => {
+              if (revealMode === 'pro') {
+                setCinema({ inputs: selected, pulls: null, failed: false });
+                fuse.mutate(
+                  selected.map((s) => s.id),
+                  {
+                    onSuccess: (res) => {
+                      stopFusing();
+                      setCinema((c) => (c ? { ...c, pulls: [res.galaxy] } : c));
+                    },
+                    onError: () => setCinema((c) => (c ? { ...c, failed: true } : c)),
+                  },
+                );
+                return;
+              }
               setMade(null);
               setMelting(selected);
               fuse.mutate(
@@ -214,6 +235,17 @@ export function CollectionScreen() {
         />
       ) : null}
       {revealed ? <ClassicStage pulls={revealed} title={copy.collection.revealTitle} onClose={() => setRevealed(null)} /> : null}
+      {cinema ? (
+        <RevealStage
+          pulls={cinema.pulls}
+          title={copy.collection.revealTitle}
+          intro="fusion"
+          inputs={cinema.inputs}
+          failed={cinema.failed}
+          onAbort={() => setCinema(null)}
+          onClose={() => setCinema(null)}
+        />
+      ) : null}
     </div>
   );
 }

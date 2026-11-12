@@ -10,7 +10,7 @@ import type { CueOpts, ProSound } from './cues';
 import { composeCardFace, drawCardBack } from './faces';
 import { createPlayer, type Player } from './player';
 import { createProScene, type ProScene } from './scene';
-import { buildScript, type Face, type Phase, type PhaseKind, type Script, type TrailTint } from './script';
+import { buildScript, type Face, type Intro, type Phase, type PhaseKind, type Script, type TrailTint } from './script';
 import { proAudio, proStems } from './sounds';
 import { buildTimeline, createRig, type Rig } from './timeline';
 
@@ -43,6 +43,9 @@ export interface CinemaControl {
 
 export interface ProCinemaProps {
   pulls: readonly PulledGalaxy[];
+  /** A scan (the default) or a fusion, with the galaxies going in (plan «fusión pro»). */
+  intro?: Intro;
+  inputs?: readonly PulledGalaxy[];
   reduced: boolean;
   overlay: MutableRefObject<ProOverlay | null>;
   control: MutableRefObject<CinemaControl | null>;
@@ -61,6 +64,9 @@ export interface ProCinemaProps {
 
 const TINTS: TrailTint[] = ['ice', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
 const IMAGE_PX = 640;
+/** A fusion's galaxies going in are drawn some 150 px wide. */
+const INPUT_FACE_PX = 240;
+const INPUT_IMAGE_PX = 192;
 
 /** Each tint as a hex from the design tokens (the colour-blind palettes override them). */
 function tokenColors(): Record<TrailTint, string> {
@@ -88,7 +94,8 @@ export default function ProCinema(props: ProCinemaProps) {
     if (!el) return;
     const p = latest.current;
     const pulls = p.pulls;
-    const script = buildScript(pulls, { motion: p.reduced ? 'reduced' : 'full', surge: p.surge, overrides: p.overrides });
+    const inputs = p.intro === 'fusion' ? (p.inputs ?? []) : [];
+    const script = buildScript(pulls, { motion: p.reduced ? 'reduced' : 'full', surge: p.surge, overrides: p.overrides, intro: p.intro, inputs: inputs.map((g) => g.tier) });
     const rig: Rig = createRig(script);
     const timeline = buildTimeline(gsap, script, rig);
     const canvas = document.createElement('canvas');
@@ -104,6 +111,8 @@ export default function ProCinema(props: ProCinemaProps) {
       scene = createProScene(canvas, {
         script,
         cards: slots.map((g) => ({ galaxy: g, front: composeCardFace(g, null) })),
+        // The ring's cards are small on screen: small faces, quick to make and to upload.
+        inputs: inputs.map((g) => ({ galaxy: g, front: composeCardFace(g, null, INPUT_FACE_PX) })),
         back: drawCardBack(),
         colors: tokenColors(),
         reduced: p.reduced,
@@ -133,6 +142,17 @@ export default function ProCinema(props: ProCinemaProps) {
             ready.add(slot);
           },
           () => ready.add(slot),
+        );
+      });
+      // A fusion's galaxies going in (the collection has them cached): the ring never waits for them.
+      inputs.forEach((g, i) => {
+        loadRender(BigInt(g.seed), 96, controller.signal).then(
+          (render) => {
+            if (controller.signal.aborted) return;
+            const image = document.createElement('canvas');
+            if (composeInto(image, render, INPUT_IMAGE_PX)) scene?.setInputFront(i, composeCardFace(g, image, INPUT_FACE_PX));
+          },
+          () => {},
         );
       });
     })();
