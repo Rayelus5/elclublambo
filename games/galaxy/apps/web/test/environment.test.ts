@@ -135,19 +135,26 @@ test('nada de la tormenta pasa de 0,35 de opacidad ni cubre la pantalla entera',
     for (const reduced of [false, true]) {
       const storm = createBossStorm(3);
       const s = scene(biome, reduced);
+      // The highest of every frame, checked once (an expect per drawn shape made this test the slowest of the suite).
       let max = 0;
+      let cloud = 0;
+      let veil = 0;
+      let fill = 0;
       for (const dt of frames()) {
         const g = new Recorder();
         storm.update(dt, 1, s);
         const touch = storm.draw(g, 1, s);
-        expect(touch.cloud).toBeLessThanOrEqual(OVERLAY_MAX);
-        expect(touch.veil).toBeLessThanOrEqual(1);
+        cloud = Math.max(cloud, touch.cloud);
+        veil = Math.max(veil, touch.veil);
         for (const op of g.ops) {
           max = Math.max(max, op.alpha);
-          // Never a full-screen fill: the vignette is bands at the edges, a flash is local.
-          if (op.paint === 'fill') expect(op.w * op.h).toBeLessThan(s.width * s.height * 0.25);
+          if (op.paint === 'fill') fill = Math.max(fill, op.w * op.h);
         }
       }
+      expect(cloud).toBeLessThanOrEqual(OVERLAY_MAX);
+      expect(veil).toBeLessThanOrEqual(1);
+      // Never a full-screen fill: the vignette is bands at the edges, a flash is local.
+      expect(fill).toBeLessThan(s.width * s.height * 0.25);
       expect(max).toBeGreaterThan(0);
       expect(max).toBeLessThanOrEqual(OVERLAY_MAX);
     }

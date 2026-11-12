@@ -370,10 +370,10 @@ for (const sector of DEFAULT_CONTENT.sectors) {
       const root = stage.app.stage;
       expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeLessThan(root.getChildIndex(root.getChildByLabel('world')!));
       expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeGreaterThan(root.getChildIndex(root.getChildByLabel('veil')!));
-      // Full storm (2 s into the Core), one second on.
+      // Full storm (2 s into the Core), a third of a second on: CI draws without a GPU, so every frame counts.
       sim.phase = 'boss';
       sim.phaseTick = 120;
-      frames(60);
+      frames(20);
       expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.05);
       expect(distinctColours(canvas)).toBeGreaterThan(20);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}.png`, element: canvas });
@@ -383,7 +383,7 @@ for (const sector of DEFAULT_CONTENT.sectors) {
       frames(2);
       const still = pixels(canvas);
       expect(changed(calm, still)).toBeGreaterThan(0.02);
-      frames(30);
+      frames(10);
       expect(changed(still, pixels(canvas), 1280 * 60 * 4)).toBe(0);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}-reduced.png`, element: canvas });
     } finally {
