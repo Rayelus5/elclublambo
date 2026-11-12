@@ -95,7 +95,7 @@ export function TopBar({
       <div className="group">
         <div className="lip panel hud enter" style={delay('1s')} data-tour="wallet">
           <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
-            <Avatar name={me.username} />
+            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} />
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}

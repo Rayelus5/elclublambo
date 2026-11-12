@@ -242,6 +242,23 @@
   .me > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me b { max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 600; line-height: 1.1; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-panel-lip); box-shadow: 0 0 0 3px var(--color-solar); }
+  /* A player's avatar with its pixel frame (Nov plan C2): 32 px art at a whole scale (--s), the 48 px frame round it. */
+  .avatar-box { --s: 1; position: relative; display: inline-grid; place-items: center; flex: none; inline-size: calc(32px * var(--s)); block-size: calc(32px * var(--s)); border-radius: calc(5px * var(--s)); background: var(--color-panel-lip); }
+  .avatar-box > .avatar { inline-size: 100%; block-size: 100%; border-radius: inherit; box-shadow: none; }
+  .avatar-art { display: block; inline-size: 100%; block-size: 100%; border-radius: inherit; background: no-repeat 0 0 / calc(var(--frames, 1) * 100%) 100%; image-rendering: pixelated; }
+  .avatar-frame { position: absolute; inset: calc(-8px * var(--s)); background: no-repeat 0 0 / calc(var(--frames, 1) * 100%) 100%; image-rendering: pixelated; pointer-events: none; }
+  .avatar-art.anim { animation: avatar-frames .68s steps(4) infinite; }
+  .avatar-frame.anim { animation: frame-frames .9s steps(6) infinite; }
+  @keyframes avatar-frames { to { background-position-x: 133.333%; } }
+  @keyframes frame-frames { to { background-position-x: 120%; } }
+  /* A frame without art yet: a ring in its colour. */
+  .avatar-box[data-ring] { box-shadow: 0 0 0 calc(2px * var(--s)) var(--ring, var(--color-solar)); }
+  .avatar-box[data-ring='bronze'] { --ring: #b8743f; }
+  .avatar-box[data-ring='silver'] { --ring: #c9d2ec; }
+  .avatar-box[data-ring='nebula'] { --ring: var(--color-uv); }
+  .avatar-box[data-ring='abyss'] { --ring: var(--color-ice); }
+  .avatar-box[data-ring='crown'] { --ring: var(--color-solar); }
+  @media (prefers-reduced-motion: reduce) { .avatar-art.anim, .avatar-frame.anim { animation: none; } }
   .res { display: inline-flex; align-items: center; gap: 7px; height: 38px; white-space: nowrap; padding: 0 14px 0 10px; border-radius: 99px; background: rgb(0 0 0 / .28); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; }
   .res .ico { font-size: 20px; }
   .res.dust { color: var(--color-ice); }
@@ -1335,6 +1352,7 @@
   .podium-avatar { display: grid; place-items: center; inline-size: 52px; block-size: 52px; border-radius: 16px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px var(--metal), 0 0 18px color-mix(in srgb, var(--metal) 40%, transparent); }
   .podium li.place-1 .podium-avatar { inline-size: 64px; block-size: 64px; }
   .podium-avatar .avatar { inline-size: 70%; block-size: 70%; }
+  .podium-avatar .avatar-box .avatar { inline-size: 100%; block-size: 100%; }
   .podium-level { font-size: 12px; color: var(--color-ink-mute); }
   .podium-value { font-size: 13px; font-weight: 700; color: var(--metal); font-variant-numeric: tabular-nums; }
   .podium-step { display: grid; place-items: center; inline-size: 100%; margin-top: 6px; border-radius: 12px 12px 4px 4px; font: 400 26px var(--font-display); color: var(--color-void); background: linear-gradient(180deg, var(--metal), color-mix(in srgb, var(--metal) 60%, #000)); box-shadow: inset 0 3px 0 rgb(255 255 255 / .35); block-size: 34px; }
@@ -1397,6 +1415,7 @@
   .profile-head { display: flex; align-items: center; gap: 20px; }
   .profile-avatar { display: grid; place-items: center; inline-size: 96px; block-size: 96px; border-radius: 26px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px rgb(255 255 255 / .1), 0 12px 30px rgb(0 0 0 / .4); }
   .profile-avatar .avatar { inline-size: 64px; block-size: 64px; }
+  .profile-avatar .avatar-box .avatar { inline-size: 100%; block-size: 100%; }
   .profile-head h1 { margin: 0; font: 400 clamp(34px, 3.4vw, 48px)/1 var(--font-display); overflow-wrap: anywhere; }
   .profile-head p { margin: 4px 0 0; }
   .profile-level { font-weight: 700; color: var(--color-terminal); }
@@ -2441,10 +2460,9 @@
   .achievement-tier.bronze { background: #6b4226; color: #f3c9a0; }
   .achievement-tier.silver { background: #4a5168; color: #e6ebff; }
   .achievement-tier.gold { background: #6b5317; color: #ffe08a; }
-  .cosmetics { --r: 18px; display: grid; gap: 10px; padding: 16px 18px; margin-block-end: 12px; }
-  .cosmetics h2 { margin: 0; font: 400 20px var(--font-display); }
-  .cosmetics-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
-  .cosmetics-fields .field { margin: 0; min-inline-size: 220px; }
+  .cosmetics-moved { --r: 18px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin: 0 0 12px; font-size: 14.5px; color: var(--color-ink-soft); }
+  .cosmetics-moved .ico { font-size: 20px; color: var(--color-uv-soft); flex: none; }
+  .cosmetics-moved span { flex: 1; }
   .profile-title { margin: 2px 0 0; color: var(--color-solar); font-weight: 700; }
   .profile-avatar.frame-bronze { box-shadow: 0 0 0 4px #b8743f, 0 0 0 7px rgb(184 116 63 / .3); border-radius: 18px; }
   .profile-avatar.frame-silver { box-shadow: 0 0 0 4px #c9d2ec, 0 0 0 7px rgb(201 210 236 / .3); border-radius: 18px; }
@@ -3346,4 +3364,45 @@
   .hscroll-arrow.next { inset-inline-end: 4px; }
   .hscroll-arrow.next .ico { transform: scaleX(-1); }
   .hscroll.table > .hscroll-arrow { top: 8px; translate: none; }
+}
+
+@layer components {
+  /* «Personalizar» (Nov plan C2): the inventory dialog. */
+  .modal.customize { inline-size: min(920px, calc(100vw - 32px)); }
+  .cz-preview { display: flex; align-items: center; gap: 22px; padding: 16px 22px; margin-block-end: 14px; border-radius: 18px; background: radial-gradient(120% 140% at 0% 0%, rgb(114 89 238 / .22), transparent 60%), rgb(0 0 0 / .28); }
+  .cz-preview > div { display: grid; gap: 4px; }
+  .cz-preview b { font: 400 22px var(--font-display); }
+  .cz-tabs { display: flex; gap: 8px; margin-block-end: 12px; }
+  .cz-panel { max-block-size: min(46vh, 440px); overflow-y: auto; overscroll-behavior: contain; padding: 10px 4px 14px; }
+  .cz-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 14px; }
+  .cz-grid.cz-title { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .cz-grid.cz-banner { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .cz-piece { --tone: var(--color-tier-common); display: grid; gap: 6px; justify-items: center; text-align: center; }
+  .cz-piece[data-rarity='rare'] { --tone: var(--color-tier-rare); }
+  .cz-piece[data-rarity='epic'] { --tone: var(--color-tier-epic); }
+  .cz-piece[data-rarity='legendary'] { --tone: var(--color-tier-legendary); }
+  .cz-pick { position: relative; display: grid; justify-items: center; gap: 6px; inline-size: 100%; padding: 18px 8px 10px; border-radius: 16px; background: rgb(255 255 255 / .04); border: 2px solid rgb(255 255 255 / .07); color: var(--color-ink); transition: transform .12s ease, border-color .12s ease, background .12s ease; }
+  .cz-pick:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 60%, transparent); background: rgb(255 255 255 / .07); }
+  .cz-pick:focus-visible { outline: 3px solid var(--color-solar); outline-offset: 2px; }
+  .cz-piece.selected .cz-pick { border-color: var(--color-solar); background: rgb(255 201 74 / .1); box-shadow: 0 0 0 3px rgb(255 201 74 / .18); }
+  .cz-pick > .ico { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; font-size: 16px; color: var(--color-solar); }
+  .cz-piece.locked .cz-pick { opacity: .55; }
+  .cz-piece.locked .cz-pick > .ico { color: var(--color-ink-mute); }
+  .cz-piece.locked .cz-art { filter: grayscale(.85) brightness(.75); }
+  .cz-art { display: grid; place-items: center; min-block-size: 96px; }
+  .cz-name { font-weight: 700; font-size: 14px; line-height: 1.2; }
+  .cz-rarity { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--tone); }
+  .cz-hint { font-size: 12px; color: var(--color-ink-soft); line-height: 1.3; }
+  .cz-shop { font-size: 12.5px; font-weight: 700; color: var(--color-uv-soft); }
+  .cz-title-none { font: 400 26px var(--font-display); color: var(--color-ink-mute); }
+  .cz-note { margin: 10px 2px 0; font-size: 13px; color: var(--color-ink-soft); }
+  .cz-actions { display: flex; justify-content: flex-end; gap: 12px; margin-block-start: 14px; }
+
+  /* Titles with a style (Nov plan C2): a moving shine, an aurora gradient or a flare for the rare ones. */
+  .title-text { font-weight: 700; }
+  .title-shine { background: linear-gradient(100deg, var(--color-solar) 30%, #fff6d8 48%, var(--color-solar) 66%) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: title-shine 3.2s linear infinite; }
+  .title-aurora { background: linear-gradient(90deg, var(--color-terminal), var(--color-sky), var(--color-uv-soft), var(--color-nova), var(--color-terminal)) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: title-shine 6s linear infinite; }
+  .title-flare { color: var(--color-solar); text-shadow: 0 0 10px rgb(255 154 60 / .65), 0 0 2px rgb(255 201 74 / .9); }
+  @keyframes title-shine { to { background-position: -220% 0; } }
+  @media (prefers-reduced-motion: reduce) { .title-shine, .title-aurora { animation: none; } }
 }
