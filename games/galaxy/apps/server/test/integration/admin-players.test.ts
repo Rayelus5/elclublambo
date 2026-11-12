@@ -372,7 +372,7 @@ describe('eliminar', () => {
     expect((await del(anon, {})).json()).toEqual({ error: 'player_deleted' });
 
     // Its name is free again.
-    expect((await post(ctx.app, '/galaxy/api/auth/register', { username: p.username, password: 'otra-clave-larga' }, { ip: randomIp() })).statusCode).toBe(200);
+    expect((await post(ctx.app, '/galaxy/api/auth/register', { username: p.username, password: 'otra-clave-larga' }, { ip: randomIp() })).statusCode).toBe(201);
   });
 
   test('«Reservar el nombre» lo deja sin usar', async () => {
