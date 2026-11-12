@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { Filters } from '../../src/collection/Filters';
 import { DateField } from '../../src/ui/DateField';
 import { Dialog } from '../../src/ui/Dialog';
 import { Select, type SelectOption } from '../../src/ui/Select';
@@ -218,4 +219,22 @@ test.each(SIZES)('el calendario de las fechas del admin sale entero sobre un di�
   await frames();
   expect(document.getElementById(pop.id)).toBeNull();
   expect(closed).toBe(0);
+});
+
+test.each(SIZES)('en los filtros de la colección el desplegable encaja con las fichas y su lista sale entera a %i×%i', async (w, h) => {
+  await page.viewport(w, h);
+  mount(
+    createElement(Filters, {
+      filters: { sort: 'new' },
+      counts: { common: 12, uncommon: 5, rare: 3, epic: 1, legendary: 0 },
+      onChange: () => {},
+    }),
+    'position: absolute; left: 60px; top: 40px; width: min(1100px, calc(100vw - 120px)); padding: 20px; background: #11132e;',
+  );
+  const trigger = document.querySelector<HTMLElement>('[role="combobox"]')!;
+  const chip = document.querySelector<HTMLElement>('.chip')!;
+  expect(Math.round(trigger.getBoundingClientRect().height)).toBe(Math.round(chip.getBoundingClientRect().height));
+  const { list } = await openIt();
+  expectFullyVisible(list);
+  if (SHOTS) await page.screenshot({ path: `__shots__/select-filters-${w}.png` });
 });
