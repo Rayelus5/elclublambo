@@ -10,7 +10,7 @@ const event = (id: string, eventSignals = 0): GameEvent => ({
   description: 'Una semana de cometas',
   startsAt: '2027-03-01T00:00:00.000Z',
   endsAt: '2027-03-08T00:00:00.000Z',
-  goals: [{ id: 'kills', name: 'Elimina 500', stat: 'kills', target: 500, scope: 'personal', reward: { coins: 100, dust: 0, signal: 0, xp: 0, points: 0, eventSignals, title: null, frame: null, avatar: null } }],
+  goals: [{ id: 'kills', name: 'Elimina 500', stat: 'kills', target: 500, scope: 'personal', reward: { coins: 100, dust: 0, signal: 0, xp: 0, points: 0, eventSignals, title: null, frame: null, avatar: null, skin: null } }],
 });
 const scanner = (id: string, dates = { startsAt: '2027-03-01T00:00:00.000Z', endsAt: '2027-03-08T00:00:00.000Z' }) => ({
   id,

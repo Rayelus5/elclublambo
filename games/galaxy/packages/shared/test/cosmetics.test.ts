@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { ART_AVATARS, ART_FRAMES, cosmeticsConfigSchema, DEFAULT_COSMETICS, FRAMES, profileCosmeticsSchema, portraitFor } from '../src/index';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, cosmeticsConfigSchema, DEFAULT_COSMETICS, FRAMES, profileCosmeticsSchema, portraitFor, skinParts } from '../src/index';
 
 // Profile cosmetics (Nov plan C2): the live catalog of avatars, frames and titles, and what a player may wear.
 describe('el catálogo de cosméticos', () => {
@@ -42,4 +42,22 @@ test('el retrato de cada Núcleo', () => {
   expect(portraitFor('hive')).toBe('portrait-hive');
   expect(portraitFor('echo-core')).toBe('portrait-echo-core');
   expect(portraitFor('nadie')).toBeNull();
+});
+
+describe('skins de sondas (plan «skins», parte C)', () => {
+  test('cuatro por sonda a la larga; hoy Chatarra y Coral de las ocho, cada una con su arte y su sonda', () => {
+    expect(ART_SKINS).toHaveLength(16);
+    expect(DEFAULT_COSMETICS.skins.map((k) => k.id).sort()).toEqual([...ART_SKINS].sort());
+    expect(skinParts('skin-sentinel-coral')).toEqual({ probe: 'sentinel', line: 'coral' });
+    expect(skinParts('skin-lumen-oro')).toBeNull();
+    expect(skinParts('probe-lumen')).toBeNull();
+  });
+
+  test('una skin sin arte o repetida no vale en la configuración', () => {
+    const one = DEFAULT_COSMETICS.skins[0]!;
+    expect(cosmeticsConfigSchema.safeParse({ skins: [{ ...one, id: 'skin-lumen-oro' }] }).success).toBe(false);
+    expect(cosmeticsConfigSchema.safeParse({ skins: [one, one] }).success).toBe(false);
+    // A config from before the skins gets the default ones.
+    expect(cosmeticsConfigSchema.parse({ avatars: DEFAULT_COSMETICS.avatars }).skins).toEqual(DEFAULT_COSMETICS.skins);
+  });
 });

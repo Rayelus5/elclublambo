@@ -95,6 +95,16 @@ export function useChooseVariant() {
   });
 }
 
+/** The skin a probe wears (plan «skins», part C): one of mine of that probe, or null for its base drawing. */
+export function useChooseSkin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { probe: string; skin: string | null }) => api<HangarView>(`/hangar/probes/${v.probe}/skin`, { method: 'PUT', body: { skin: v.skin } }),
+    onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+    onError: () => void qc.invalidateQueries({ queryKey: HANGAR_KEY }),
+  });
+}
+
 /** The probe test, sent once at the end (GDD §6). The hangar is refreshed: it now has its probe. */
 export function useProbeTest() {
   const qc = useQueryClient();

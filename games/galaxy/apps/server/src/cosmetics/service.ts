@@ -9,24 +9,28 @@ import { HttpError } from '../errors';
 
 type Db = Kysely<DB> | Transaction<DB>;
 
+type Kind = 'title' | 'frame' | 'avatar' | 'skin';
+
 /** Gives the pieces of a reward that it carries (idempotent: a piece already owned stays as it was). */
-export async function grantCosmetics(trx: Db, accountId: string, reward: { title?: string | null; frame?: string | null; avatar?: string | null }): Promise<void> {
+export async function grantCosmetics(trx: Db, accountId: string, reward: { title?: string | null; frame?: string | null; avatar?: string | null; skin?: string | null }): Promise<void> {
   const rows = (
     [
       ['title', reward.title],
       ['frame', reward.frame],
       ['avatar', reward.avatar],
+      ['skin', reward.skin],
     ] as const
   )
-    .filter((r): r is ['title' | 'frame' | 'avatar', string] => !!r[1])
+    .filter((r): r is [Kind, string] => !!r[1])
     .map(([kind, value]) => ({ account_id: accountId, kind, value }));
   if (rows.length > 0) await trx.insertInto('galaxy.cosmetics').values(rows).onConflict((oc) => oc.doNothing()).execute();
 }
 
-/** Takes a piece away (a refunded or disputed purchase); if it was worn, it comes off. */
-export async function revokeCosmetic(trx: Db, accountId: string, kind: 'title' | 'frame' | 'avatar', value: string): Promise<void> {
+/** Takes a piece away (a refunded or disputed purchase); if it was worn, it comes off (a skin: its probe goes back to its base). */
+export async function revokeCosmetic(trx: Db, accountId: string, kind: Kind, value: string): Promise<void> {
   await trx.deleteFrom('galaxy.cosmetics').where('account_id', '=', accountId).where('kind', '=', kind).where('value', '=', value).execute();
-  await trx.updateTable('galaxy.accounts').set({ [kind]: null }).where('id', '=', accountId).where(kind, '=', value).execute();
+  if (kind === 'skin') await trx.updateTable('galaxy.probe_levels').set({ skin: null }).where('account_id', '=', accountId).where('skin', '=', value).execute();
+  else await trx.updateTable('galaxy.accounts').set({ [kind]: null }).where('id', '=', accountId).where(kind, '=', value).execute();
 }
 
 /**
@@ -43,7 +47,7 @@ export async function grantPortraits(trx: Db, accountId: string, run: { boss: st
   }
 }
 
-const enabledOnly = (c: CosmeticsConfig): CosmeticsConfig => ({ avatars: c.avatars.filter((a) => a.enabled), frames: c.frames.filter((f) => f.enabled), titles: c.titles.filter((t) => t.enabled) });
+const enabledOnly = (c: CosmeticsConfig): CosmeticsConfig => ({ avatars: c.avatars.filter((a) => a.enabled), frames: c.frames.filter((f) => f.enabled), titles: c.titles.filter((t) => t.enabled), skins: c.skins.filter((k) => k.enabled) });
 
 /** The banner shows only while the galaxy is still the player's. */
 async function ownBanner(db: Db, accountId: string, banner: string | null): Promise<string | null> {
@@ -92,7 +96,7 @@ export async function cosmeticsView(db: Db, accountId: string, cfg: CosmeticsCon
   const of = (kind: string) => owned.filter((o) => o.kind === kind).map((o) => o.value);
   return {
     equipped: { avatar: account.avatar, frame: account.frame, title: account.title, banner: await ownBanner(db, accountId, account.banner), backdrop: (await ownBackdrop(db, accountId)).map((g) => g.id) },
-    owned: { avatars: of('avatar'), frames: of('frame'), titles: of('title') },
+    owned: { avatars: of('avatar'), frames: of('frame'), titles: of('title'), skins: of('skin') },
     catalog: enabledOnly(cfg),
   };
 }

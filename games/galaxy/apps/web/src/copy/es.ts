@@ -1285,6 +1285,9 @@ export const copy = {
   // The probe workshop (the owner's «taller espacial»): manage, level up and equip the probes.
   // The lobby (/incursion, the owner's «Escenario»): solo or in a group, the sector, the galaxies (relics), and the launch.
   lobby: {
+    // Plan «skins», part C: the big probe's skins, at hand.
+    skins: 'Skin de la sonda',
+    skinBase: 'De serie',
     who: 'Con quién juegas',
     where: 'Sector',
     what: 'Galaxias',
@@ -1307,6 +1310,12 @@ export const copy = {
   },
   workshop: {
     title: 'Taller de sondas',
+    // Plan «skins», part C: the probe's skins, on the bay at once.
+    skins: 'Skin',
+    skinBase: 'De serie',
+    skinBaseHint: 'Su dibujo de siempre',
+    skinLines: { chatarra: 'Colección Chatarra', coral: 'Colección Coral' } as Record<string, string>,
+    scrapProgress: (n: number, total: number, probe: string) => `${Math.min(n, total)} de ${total} incursiones con ${probe}`,
     roster: 'Sondas',
     equipped: 'Equipada',
     equip: 'Equipar',

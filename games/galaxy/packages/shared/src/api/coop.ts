@@ -33,6 +33,8 @@ export interface CoopPlayer {
   relics: RelicInput[];
   bonuses: StatBonus[];
   variant: string | null;
+  /** The skin its probe wears (plan «skins»; absent in runs from before it: the base drawing). */
+  skin?: string | null;
 }
 
 /** Everything a player needs to simulate the run, and its own place in it. */

@@ -2,7 +2,7 @@ import { TRAITS } from '@galaxy/engine';
 import { z } from 'zod';
 import { DRAWN_FINISHES } from '../gacha/types';
 import { FRAMES } from './missions';
-import { ART_AVATARS } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_SKINS, type SkinId } from '../cosmetics/catalog';
 
 // The ECN Catalogue (GDD §12.3, §3; M7b): the album of galaxy types, palettes, phenomena and finishes an account has
 // found, and the rewards for completing a share of it.
@@ -27,7 +27,7 @@ const amount = z.number().int().min(0).max(10_000_000).default(0);
 export const catalogRewardSchema = z
   .object({
     percent: z.number().int().min(1).max(100),
-    reward: z.object({ coins: amount, dust: amount, signal: z.number().int().min(0).max(100).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null) }).strict(),
+    reward: z.object({ coins: amount, dust: amount, signal: z.number().int().min(0).max(100).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null), skin: z.enum(ART_SKINS as [SkinId, ...SkinId[]]).nullable().default(null) }).strict(),
   })
   .strict();
 

@@ -51,7 +51,7 @@ function GroupTable({ groups, mine }: { groups: GroupRow[]; mine: GroupRow | nul
         <ul className="lb-team-list">
           {g.players.map((p) => (
             <li key={p.username}>
-              <img src={spriteDataUrl(probeSprite(p.probe), 2)} alt="" />
+              <img src={spriteDataUrl(p.skin ?? probeSprite(p.probe), 2)} alt="" />
               <Link to={`/perfil/${encodeURIComponent(p.username)}`}>{p.username}</Link>
             </li>
           ))}

@@ -307,10 +307,10 @@ export interface TutorialTable {
   gift_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
-/** M7a: the titles and frames an account has earned. */
+/** M7a: the titles and frames an account has earned (and avatars, Nov plan C2; probe skins, part C of the plan «skins»). */
 export interface CosmeticsTable {
   account_id: string;
-  kind: 'title' | 'frame' | 'avatar';
+  kind: 'title' | 'frame' | 'avatar' | 'skin';
   value: string;
   created_at: Timestamp;
 }
@@ -391,6 +391,8 @@ export interface ProbeLevelsTable {
   probe: string;
   level: ColumnType<number, number | undefined, number>;
   variant: string | null;
+  /** The skin it wears (plan «skins», part C; null: its base drawing). */
+  skin: ColumnType<string | null, string | null | undefined, string | null>;
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 

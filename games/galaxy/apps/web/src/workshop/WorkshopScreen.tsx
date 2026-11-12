@@ -12,7 +12,7 @@ import { Icon } from '../ui/Icon';
 import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
 import bayUrl from './art/bay.png';
-import { ProbeLevel, Unlock, WeaponPicker } from './parts';
+import { ProbeLevel, SkinPicker, Unlock, WeaponPicker } from './parts';
 import { playEquip, playLevelUp } from './sfx';
 
 // The probe workshop (the owner's «taller espacial»): every probe in the roster (locked ones say what earns them), the
@@ -73,7 +73,7 @@ function Roster({ view, selected, onSelect }: { view: HangarView; selected: stri
                 onClick={() => onSelect(p.id)}
               >
                 <span className="workshop-pick-art">
-                  <img src={spriteDataUrl(p.sprite, 3)} alt="" />
+                  <img src={spriteDataUrl(p.skin ?? p.sprite, 3)} alt="" />
                   {!p.unlocked ? <Icon name="lock" /> : null}
                 </span>
                 <span className="workshop-pick-text">
@@ -112,6 +112,9 @@ function Sheet({ probe, maxHp, maxSpeed, onLeveled }: { probe: ProbeCard; maxHp:
           </section>
           <section className="workshop-section">
             <WeaponPicker probe={probe} />
+          </section>
+          <section className="workshop-section">
+            <SkinPicker probe={probe} />
           </section>
         </>
       ) : (
@@ -174,7 +177,7 @@ export function WorkshopScreen() {
                   <img
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    src={spriteDataUrl(probe.sprite, 12)}
+                    src={spriteDataUrl(probe.skin ?? probe.sprite, 12)}
                     alt=""
                   />
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}

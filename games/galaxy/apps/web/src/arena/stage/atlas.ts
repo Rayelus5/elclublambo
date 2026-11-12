@@ -28,16 +28,18 @@ function whiteOf(rgba: Uint8ClampedArray): Uint8ClampedArray {
   return out;
 }
 
-export function buildAtlas(): Atlas {
+/** Every sprite of the arena, and `extra` ones for this run (its probes' skins, turned: sprites' skinSprites). */
+export function buildAtlas(extra: Record<string, SpriteDef> = {}): Atlas {
+  const all: Record<string, SpriteDef> = { ...SPRITES, ...extra };
   // Shelf packing, two copies (colour, white) of every frame.
   type Slot = { id: string; frame: number; white: boolean; x: number; y: number; def: SpriteDef };
   const slots: Slot[] = [];
   let x = PAD;
   let y = PAD;
   let shelf = 0;
-  const ids = Object.keys(SPRITES).sort((a, b) => SPRITES[b]!.h - SPRITES[a]!.h);
+  const ids = Object.keys(all).sort((a, b) => all[b]!.h - all[a]!.h);
   for (const id of ids) {
-    const def = SPRITES[id]!;
+    const def = all[id]!;
     for (let f = 0; f < def.frames.length; f++) {
       for (const white of [false, true]) {
         if (x + def.w + PAD > WIDTH) {
@@ -82,7 +84,7 @@ export function buildAtlas(): Atlas {
     frames,
     white,
     pixel,
-    defs: SPRITES,
+    defs: all,
     destroy() {
       source.destroy();
     },

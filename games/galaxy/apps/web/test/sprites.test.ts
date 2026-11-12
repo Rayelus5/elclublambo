@@ -1,6 +1,7 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { pixels, probeNozzle, SPRITES } from '../src/arena/sprites';
+import { ART_SKINS, skinParts } from '@galaxy/shared';
+import { pixels, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
 
 // The arena's pixel art is written in code as palette grids (plan ruling 10). Every grid must be well formed and
 // every sprite the content names must exist, or the renderer would draw holes.
@@ -109,4 +110,21 @@ test('las ocho sondas rediseñadas: 24 × 24, cuatro fotogramas en reposo que ca
   }
   // A drawing without its own (a skin to come, an old id) keeps the old nozzle.
   expect(probeNozzle('mite')).toBe(8);
+});
+
+// Plan «skins», part C: every skin the catalog can name has its drawing, over its own probe's shape (the same size
+// and frames, the same nozzle); only the skins a run uses are turned for its eight ways.
+test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gira solo si una partida la usa', () => {
+  for (const id of ART_SKINS) {
+    const def = SKIN_ART[id];
+    expect(def, id).toBeDefined();
+    const probe = SPRITES[`probe-${skinParts(id)!.probe}`]!;
+    expect([def!.w, def!.h, def!.frames.length], id).toEqual([probe.w, probe.h, probe.frames.length]);
+    expect(probeNozzle(id), id).toBe(probeNozzle(`probe-${skinParts(id)!.probe}`));
+    // Not in the base atlas: a run with no skins never turns or packs them.
+    expect(SPRITES[id], id).toBeUndefined();
+  }
+  const used = skinSprites(['skin-lumen-coral', null, 'no-such-skin', undefined]);
+  expect(Object.keys(used).sort()).toEqual(['skin-lumen-coral', 'skin-lumen-coral@n', 'skin-lumen-coral@ne', 'skin-lumen-coral@s', 'skin-lumen-coral@se']);
+  expect(skinSprites([])).toEqual({});
 });

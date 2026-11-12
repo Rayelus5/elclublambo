@@ -41,6 +41,26 @@ export type AvatarId = (typeof ART_AVATARS)[number];
 /** Every frame that has art (apps/web/src/profile/art/frames). Letters only: `accounts.frame` stores it. */
 export const ART_FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown', 'aurora', 'circuit', 'orbit', 'frost', 'ember', 'quasar', 'prism', 'solar', 'eclipse', 'starlight'] as const;
 
+/**
+ * Probe skins (plan «banda sonora, skins, perfil y entorno», part C): four collections across the eight probes, each one
+ * drawn over its probe's own shape (art/probes/paint-probes.lua → SKIN_ART in the web). Id: `skin-<probe>-<line>`.
+ */
+export const SKIN_PROBES = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'] as const;
+export type SkinProbe = (typeof SKIN_PROBES)[number];
+/** Chatarra and Coral are still (won playing), Aurora and Leyenda animated (the season route and the shop). */
+export const SKIN_LINES = ['chatarra', 'coral'] as const;
+export type SkinLine = (typeof SKIN_LINES)[number];
+export type SkinId = `skin-${SkinProbe}-${SkinLine}`;
+export const ART_SKINS = SKIN_PROBES.flatMap((p) => SKIN_LINES.map((l) => `skin-${p}-${l}` as const)) as readonly SkinId[];
+/** The probe and collection of a skin id (null: not a skin with art). */
+export function skinParts(id: string): { probe: SkinProbe; line: SkinLine } | null {
+  if (!(ART_SKINS as readonly string[]).includes(id)) return null;
+  const [, probe, line] = id.split('-') as [string, SkinProbe, SkinLine];
+  return { probe, line };
+}
+/** How many runs with a probe give its Chatarra skin (a pilot's wear and tear). */
+export const SCRAP_SKIN_RUNS = 25;
+
 export const RARITIES = ['common', 'rare', 'epic', 'legendary'] as const;
 export type Rarity = (typeof RARITIES)[number];
 export const COSMETIC_SOURCES = ['default', 'reward', 'shop'] as const;
@@ -61,13 +81,16 @@ export const titleText = z.string().trim().min(1).max(30);
 const base = { name, rarity: z.enum(RARITIES), source: z.enum(COSMETIC_SOURCES), hint, enabled: z.boolean().default(true) };
 const avatarItem = z.object({ id: z.enum(ART_AVATARS), ...base, animated: z.boolean().default(false) }).strict();
 const frameItem = z.object({ id: z.enum(ART_FRAMES), ...base, animated: z.boolean().default(false) }).strict();
+const skinItem = z.object({ id: z.enum(ART_SKINS as [SkinId, ...SkinId[]]), ...base, animated: z.boolean().default(false) }).strict();
 const titleItem = z.object({ text: titleText, rarity: z.enum(RARITIES), source: z.enum(COSMETIC_SOURCES), hint, style: z.enum(TITLE_STYLES).default('plain'), enabled: z.boolean().default(true) }).strict();
 export type AvatarItem = z.output<typeof avatarItem>;
 export type FrameItem = z.output<typeof frameItem>;
 export type TitleItem = z.output<typeof titleItem>;
+export type SkinItem = z.output<typeof skinItem>;
 
 const A = (id: AvatarId, name: string, rarity: Rarity, source: CosmeticSource, hint: string, animated = false): AvatarItem => ({ id, name, rarity, source, hint, enabled: true, animated });
 const F = (id: (typeof ART_FRAMES)[number], name: string, rarity: Rarity, source: CosmeticSource, hint: string, animated = false): FrameItem => ({ id, name, rarity, source, hint, enabled: true, animated });
+const S = (id: SkinId, name: string, rarity: Rarity, hint: string): SkinItem => ({ id, name, rarity, source: 'reward', hint, enabled: true, animated: false });
 const T = (text: string, rarity: Rarity, source: CosmeticSource, hint: string, style: TitleStyle): TitleItem => ({ text, rarity, source, hint, style, enabled: true });
 
 const DEFAULT_HINT = 'De serie: es tuyo desde el primer día';
@@ -131,7 +154,25 @@ export const DEFAULT_COSMETICS = {
     T('Leyenda del ECN', 'legendary', 'reward', 'Logro «Leyenda del ECN»', 'shine'),
     T('Guardián del cielo', 'legendary', 'reward', 'Completa el Catálogo', 'aurora'),
   ],
-} satisfies { avatars: AvatarItem[]; frames: FrameItem[]; titles: TitleItem[] };
+  skins: [
+    S('skin-lumen-chatarra', 'Lumen de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Lumen`),
+    S('skin-bastion-chatarra', 'Bastión de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Bastión`),
+    S('skin-spark-chatarra', 'Chispa de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Chispa`),
+    S('skin-sentinel-chatarra', 'Vigía de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Vigía`),
+    S('skin-anchor-chatarra', 'Áncora de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Áncora`),
+    S('skin-prism-chatarra', 'Prisma de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Prisma`),
+    S('skin-comet-chatarra', 'Cometa de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Cometa`),
+    S('skin-echo-chatarra', 'Eco de chatarra', 'common', `${SCRAP_SKIN_RUNS} incursiones con Eco`),
+    S('skin-lumen-coral', 'Lumen de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-bastion-coral', 'Bastión de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-spark-coral', 'Chispa de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-sentinel-coral', 'Vigía de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-anchor-coral', 'Áncora de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-prism-coral', 'Prisma de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-comet-coral', 'Cometa de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+    S('skin-echo-coral', 'Eco de coral', 'rare', 'Se gana en eventos y en el Catálogo'),
+  ],
+} satisfies { avatars: AvatarItem[]; frames: FrameItem[]; titles: TitleItem[]; skins: SkinItem[] };
 
 const unique = <T>(list: readonly T[], key: (x: T) => string) => new Set(list.map(key)).size === list.length;
 
@@ -140,11 +181,13 @@ export const cosmeticsConfigSchema = z
     avatars: z.array(avatarItem).max(ART_AVATARS.length).default(DEFAULT_COSMETICS.avatars),
     frames: z.array(frameItem).max(ART_FRAMES.length).default(DEFAULT_COSMETICS.frames),
     titles: z.array(titleItem).max(200).default(DEFAULT_COSMETICS.titles),
+    skins: z.array(skinItem).max(ART_SKINS.length).default(DEFAULT_COSMETICS.skins),
   })
   .strict()
   .refine((c) => unique(c.avatars, (a) => a.id), { message: 'cosmetics_avatar_twice', path: ['avatars'] })
   .refine((c) => unique(c.frames, (f) => f.id), { message: 'cosmetics_frame_twice', path: ['frames'] })
-  .refine((c) => unique(c.titles, (t) => t.text), { message: 'cosmetics_title_twice', path: ['titles'] });
+  .refine((c) => unique(c.titles, (t) => t.text), { message: 'cosmetics_title_twice', path: ['titles'] })
+  .refine((c) => unique(c.skins, (k) => k.id), { message: 'cosmetics_skin_twice', path: ['skins'] });
 export type CosmeticsConfig = z.output<typeof cosmeticsConfigSchema>;
 
 /** How many galaxies the title screen's sky may show (plan «escáner pro», part E). */

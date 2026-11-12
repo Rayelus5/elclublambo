@@ -56,7 +56,7 @@ export function Lobby({ view, onLaunch, launching, error, coached }: { view: Han
   const fauna = sector?.fauna.map((f) => f.sprite).join(',') ?? '';
   const probes = view.probes
     .filter((p) => p.unlocked)
-    .map((p) => p.sprite)
+    .map((p) => p.skin ?? p.sprite)
     .join(',');
   const cast = useMemo(() => ({ look, fauna: fauna ? fauna.split(',') : [], probes: probes ? probes.split(',') : [] }), [look, fauna, probes]);
   const seed = view.loadout.find((g) => g !== null)?.seed ?? '2026110901';

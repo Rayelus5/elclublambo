@@ -37,7 +37,7 @@ export interface ClanRow {
  */
 export interface GroupRow {
   rank: number;
-  players: { username: string; probe: string }[];
+  players: { username: string; probe: string; skin?: string | null }[];
   depth: number;
   cores: number;
   seconds: number;

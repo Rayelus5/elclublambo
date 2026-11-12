@@ -33,7 +33,8 @@ export function teamRows(sim: Sim, start: Pick<CoopRunStart, 'players' | 'conten
       slot,
       name: p.username,
       probe: def?.name ?? p.probe,
-      sprite: def?.sprite ?? 'probe-lumen',
+      // Its skin when it wore one (plan «skins»), or its own drawing.
+      sprite: p.skin ?? def?.sprite ?? 'probe-lumen',
       level: probe?.level ?? 1,
       kills: probe?.kills ?? 0,
       revives: probe?.revives ?? 0,

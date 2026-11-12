@@ -31,8 +31,9 @@ export type RoomState = 'lobby' | 'starting' | 'running' | 'ended';
 export interface RoomMember extends PlayerLook {
   username: string;
   level: number;
-  /** The probe it will fly (its hangar's choice). */
+  /** The probe it will fly (its hangar's choice), and the skin it wears (null: the base drawing). */
   probe: string;
+  skin: string | null;
   ready: boolean;
   /** Its live socket is open. */
   connected: boolean;

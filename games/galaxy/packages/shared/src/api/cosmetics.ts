@@ -4,7 +4,7 @@ import type { CosmeticsConfig } from '../cosmetics/catalog';
 // with how to get each. Default avatars are everyone's and never listed as owned.
 export interface CosmeticsView {
   equipped: { avatar: string | null; frame: string | null; title: string | null; banner: string | null; backdrop: string[] };
-  owned: { avatars: string[]; frames: string[]; titles: string[] };
+  owned: { avatars: string[]; frames: string[]; titles: string[]; skins: string[] };
   catalog: CosmeticsConfig;
 }
 

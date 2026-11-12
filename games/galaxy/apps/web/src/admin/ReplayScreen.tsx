@@ -284,7 +284,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
     };
     const biome = data.start.content.sectors.find((s) => s.id === data.start.sector)?.biome ?? 'nebula';
     const first = followRef.current;
-    void createStage(canvas, data.start.content, { reduced, colorVision, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome }).then((stage) => {
+    void createStage(canvas, data.start.content, { reduced, colorVision, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome, skins: data.coop ? data.coop.players.map((p) => p.skin ?? null) : [data.start.skin ?? null] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;

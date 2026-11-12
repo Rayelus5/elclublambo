@@ -231,7 +231,7 @@ export function ArenaScreen({
       setSize({ w, h });
     };
     const biome = run.content.sectors.find((s) => s.id === run.sector)?.biome ?? 'nebula';
-    void createStage(canvas, run.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom() }).then((stage) => {
+    void createStage(canvas, run.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom(), skins: [run.skin] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;

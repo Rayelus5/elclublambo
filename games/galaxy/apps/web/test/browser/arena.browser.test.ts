@@ -418,3 +418,41 @@ test('la flecha de un compañero justo encima queda debajo de la barra de arriba
   expect(green(0, 100)).toBe(false);
   expect(green(100, 200)).toBe(true);
 }, 90_000);
+
+// Plan «skins», part C: each probe drawn with its skin (only drawing), the rest with their own drawing.
+test('cada sonda se dibuja con su skin: Lumen de coral, Bastión de chatarra y Prisma de serie', async () => {
+  const sim = createSim({
+    seed: '20261112',
+    content: DEFAULT_CONTENT,
+    sector: 'outer-nebula',
+    probes: [
+      { probe: 'lumen', relics: [] },
+      { probe: 'bastion', relics: [] },
+      { probe: 'prism', relics: [] },
+    ],
+    coop: coopRulesOf(parseConfig('coop', {})),
+  });
+  step(sim, [IDLE, IDLE, IDLE]);
+  const [me, a, b] = sim.probes;
+  a!.x = a!.px = me!.x + 40;
+  a!.y = a!.py = me!.y;
+  b!.x = b!.px = me!.x - 40;
+  b!.y = b!.py = me!.y;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega', 'orion'], zoom: 2, skins: ['skin-lumen-coral', 'skin-bastion-chatarra', null] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const has = (x0: number, x1: number, rgb: [number, number, number]) => {
+    const data = ctx.getImageData(x0, 260, x1 - x0, 200).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - rgb[0]) < 24 && Math.abs(data[i + 1]! - rgb[1]) < 24 && Math.abs(data[i + 2]! - rgb[2]) < 24) return true;
+    return false;
+  };
+  // Coral pink at the centre (my Lumen), rust to its right (the Bastión).
+  expect(has(560, 720, [0xc4, 0x42, 0x6a])).toBe(true);
+  expect(has(720, 900, [0x8a, 0x44, 0x22])).toBe(true);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins.png', element: canvas });
+}, 90_000);
