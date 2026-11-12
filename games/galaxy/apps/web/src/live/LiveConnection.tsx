@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { create } from 'zustand';
-import { FRIENDS_KEY, setPresence } from '../api/friends';
+import { FRIENDS_KEY, refreshFriends, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
 import { settleWallet, SHOP_KEY } from '../api/shop';
 import { useMe } from '../auth/useMe';
@@ -98,8 +98,7 @@ function LiveSocket() {
         if (event.type === 'hello') qc.setQueryData(FRIENDS_KEY, event.friends);
         else if (event.type === 'presence') setPresence(qc, event.username, event.presence);
         else if (event.type === 'friends') {
-          void qc.invalidateQueries({ queryKey: FRIENDS_KEY });
-          void qc.invalidateQueries({ queryKey: ['friend-relation'] });
+          refreshFriends(qc);
           if (event.reason === 'request' || event.reason === 'accepted') pushToast({ kind: event.reason, username: event.username });
         } else if (event.type === 'room') {
           setMyRoom(qc, event.room);
