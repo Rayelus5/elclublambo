@@ -69,6 +69,9 @@ async function openIt(): Promise<{ trigger: HTMLElement; list: HTMLElement }> {
   await frames();
   await wait(200);
   const list = document.getElementById(trigger.getAttribute('aria-controls')!)!;
+  // Its opening glide (a few px) must be over before measuring: a loaded CI runner measured it mid-way.
+  await Promise.all(list.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined)));
+  await frames();
   return { trigger, list };
 }
 
