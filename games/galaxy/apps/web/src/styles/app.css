@@ -168,6 +168,51 @@
   .eye:hover { color: var(--color-ink); }
   .eye .ico { font-size: 22px; }
 
+  /* ---------- Select: the game's own dropdown (ui/Select.tsx, DESIGN_SYSTEM §7) ---------- */
+  /* A field with relief: Panel 2, a 4 px lip, the chosen option and a chevron that turns when it opens. Every label sits
+     invisible in the same cell (.select-sizer), so it is as wide as its longest option, like a native select. */
+  .select { --lip-h: 4px; position: relative; display: inline-grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; box-sizing: border-box; max-inline-size: 100%; block-size: 44px; margin: 0; padding: 0 12px 0 14px; border: 2px solid rgb(255 255 255 / .07); border-radius: 12px; background: var(--color-panel-2); color: var(--color-ink); font: 600 15px var(--font-sans); text-align: start; cursor: pointer; box-shadow: inset 0 2px 0 rgb(255 255 255 / .1), 0 var(--lip-h) 0 var(--color-panel-lip); transition: transform .18s var(--ease-bounce), box-shadow .18s ease, border-color .15s; }
+  .select > * { grid-row: 1; }
+  .select-text, .select-sizer { grid-column: 1; white-space: nowrap; }
+  .select-text { overflow: hidden; text-overflow: ellipsis; }
+  .select-text.placeholder { color: var(--color-ink-mute); font-weight: 500; }
+  .select-sizer { block-size: 0; overflow: hidden; visibility: hidden; }
+  .select-sizer::before { content: attr(data-label); }
+  .select-chevron { grid-column: 2; font-size: 18px; color: var(--color-ink-soft); transition: rotate .2s var(--ease-bounce), color .15s; }
+  .select:hover:not(:disabled) { border-color: rgb(191 227 255 / .22); }
+  .select:hover:not(:disabled) .select-chevron { color: var(--color-ink); }
+  .select:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .08), 0 calc(var(--lip-h) - 2px) 0 var(--color-panel-lip); transition-duration: .06s; }
+  .select[aria-expanded='true'] { border-color: rgb(191 227 255 / .45); background: color-mix(in oklab, var(--color-ice) 6%, var(--color-panel-2)); }
+  .select[aria-expanded='true'] .select-chevron { rotate: 180deg; color: var(--color-ice); }
+  .select[aria-invalid='true'] { border-color: var(--color-static); }
+  .select:disabled { opacity: .5; box-shadow: none; cursor: not-allowed; }
+  .select.block { display: grid; inline-size: 100%; }
+  .select-sm { block-size: 40px; padding: 0 10px 0 12px; border-radius: 11px; font-size: 14.5px; }
+  .select-sm .select-chevron { font-size: 16px; }
+  .select-lg { block-size: 50px; padding: 0 14px 0 16px; border-radius: 14px; font: 500 16px var(--font-sans); }
+  /* The list: on <body> (no panel or dialog clips it), above every overlay, placed by ui/Select.tsx. */
+  .select-pop { position: fixed; z-index: 120; box-sizing: border-box; inline-size: max-content; margin: 0; padding: 6px; list-style: none; overflow-y: auto; overscroll-behavior: contain; border: 2px solid rgb(255 255 255 / .08); border-radius: 14px; background: var(--color-panel); color: var(--color-ink); font: 500 15px var(--font-sans); box-shadow: inset 0 2px 0 rgb(255 255 255 / .06), 0 4px 0 var(--color-panel-lip), 0 18px 40px rgb(0 0 0 / .55); animation: select-in .15s cubic-bezier(.2, .8, .2, 1) both; }
+  .select-pop[data-side='top'] { animation-name: select-in-up; }
+  @keyframes select-in { from { opacity: 0; translate: 0 -6px; } }
+  @keyframes select-in-up { from { opacity: 0; translate: 0 6px; } }
+  .select-pop [role='option'] { display: flex; align-items: center; gap: 14px; min-block-size: 40px; padding: 6px 10px 6px 12px; border-radius: 9px; color: var(--color-ink-soft); white-space: nowrap; cursor: pointer; }
+  .select-pop [role='option'] + [role='option'] { margin-block-start: 2px; }
+  .select-option-label { flex: 1; }
+  .select-check { font-size: 18px; color: var(--color-solar); visibility: hidden; }
+  .select-pop [aria-selected='true'] { color: var(--color-ink); font-weight: 600; }
+  .select-pop [aria-selected='true'] .select-check { visibility: visible; }
+  .select-pop [data-active] { color: var(--color-ink); background: color-mix(in oklab, var(--color-ice) 13%, var(--color-panel-2)); box-shadow: inset 3px 0 0 var(--color-ice); }
+  .select-pop [aria-disabled='true'] { color: var(--color-ink-mute); opacity: .55; cursor: not-allowed; }
+  .select-pop[data-size='sm'] { font-size: 14.5px; }
+  .select-pop[data-size='sm'] [role='option'] { min-block-size: 36px; }
+  .select-pop[data-size='lg'] { font-size: 16px; }
+  .select-pop[data-size='lg'] [role='option'] { min-block-size: 44px; }
+  @media (prefers-reduced-motion: reduce) {
+    .select-pop { animation: none; }
+    .select, .select-chevron { transition: none; }
+    .select:active:not(:disabled) { transform: none; }
+  }
+
   .row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 18px; }
   .row.after { margin: 14px 0 0; }
   .link { padding: 6px 2px; color: var(--color-ice); font-weight: 600; font-size: 15px; text-decoration: underline; text-decoration-color: rgb(191 227 255 / .35); text-underline-offset: 4px; }

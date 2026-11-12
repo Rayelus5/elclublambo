@@ -2,7 +2,7 @@ import { fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { setSettings } from '../src/audio/mixer';
 import { UiSounds } from '../src/audio/UiSounds';
-import { playUi, soundOf } from '../src/audio/ui-sfx';
+import { INTERACTIVE, playUi, soundOf } from '../src/audio/ui-sfx';
 
 // The interface's sounds (M8 polish): each kind of control its sound, silent when muted, at zero or switched off, and
 // one global listener so every button sounds without asking.
@@ -48,6 +48,15 @@ test('cada control tiene su sonido: pestañas, interruptores, acciones principal
   expect(soundOf(el('<a class="lip play" href="/incursion">Jugar</a>'))).toBe('confirm');
   expect(soundOf(el('<a class="lip pill" data-sfx="back" href="/">Volver</a>'))).toBe('back');
   expect(soundOf(el('<button class="lip pill">Ocultar</button>'))).toBe('tap');
+});
+
+test('el desplegable propio suena: su botón con un toque y cada opción como una pestaña', () => {
+  const trigger = el('<button type="button" role="combobox" aria-expanded="false">Común</button>');
+  const option = el('<li role="option" aria-selected="false">Rara</li>');
+  expect(trigger.matches(INTERACTIVE)).toBe(true);
+  expect(option.matches(INTERACTIVE)).toBe(true);
+  expect(soundOf(trigger)).toBe('tap');
+  expect(soundOf(option)).toBe('tab');
 });
 
 test('suena con los efectos; no suena silenciado, con los efectos a cero ni con la casilla apagada', () => {
