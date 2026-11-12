@@ -13,20 +13,14 @@ import { useReducedMotion } from '../ui/motion';
 import { Link } from 'react-router';
 import { playGalaxyLevel } from './sfx';
 import { RelicSheet } from '../hangar/RelicSheet';
+import { tierSparks } from '../a11y/color-vision';
+import { usePrefs } from '../settings/prefs';
 
 // A galaxy up close (GDD §8.1, §8.5): the card big on the left (it turns over to show its back) with the 3D
 // inspector under it; on the right, in the order a player looks for them, the favourite star, its level (levelling
 // up is celebrated: sparks in its tier's colours, the card glows, the new level and a sound), where it came from and
 // what it is worth, its lineage if it was fused, and then selling or disintegrating — always behind a confirmation
 // that says what it pays.
-/** The sparks of a level up, in the tier's colours (bright, then deep). */
-const TIER_SPARKS: Record<string, [string, string]> = {
-  common: ['#ffffff', '#c9d0ea'],
-  uncommon: ['#d8fff0', '#45e3a6'],
-  rare: ['#e6f3ff', '#6fb7ff'],
-  epic: ['#f1ebff', '#b39dff'],
-  legendary: ['#fff8e0', '#ffc94a'],
-};
 const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
 
 function Info({ g }: { g: GalaxyDetail }) {
@@ -114,6 +108,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
   const [back, setBack] = useState(false);
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
   useEffect(() => {
     if (!celebrate) return;
     const t = setTimeout(() => setCelebrate(null), 2600);
@@ -161,7 +156,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
               <div className="detail-face rear">
                 <CardBack galaxy={g} size={280} />
               </div>
-              {celebrate ? <Celebration key={celebrate.key} title={copy.collection.levelBanner(celebrate.level)} subtitle={copy.collection.levelDone} reduced={reduced} hot={TIER_SPARKS[g.tier] ?? TIER_SPARKS.common!} cold="#bfe3ff" /> : null}
+              {celebrate ? <Celebration key={celebrate.key} title={copy.collection.levelBanner(celebrate.level)} subtitle={copy.collection.levelDone} reduced={reduced} hot={tierSparks(g.tier, colorVision)} cold="#bfe3ff" /> : null}
             </div>
             <div className="detail-stage-actions">
               <button type="button" className="lip pill" aria-pressed={back} onClick={() => setBack((b) => !b)}>
