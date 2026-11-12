@@ -135,10 +135,10 @@ test('los emblemas van a escala entera: 32 o 64 píxeles para un arte de 32 (rev
   for (const size of sizes) expect(['32px', '64px']).toContain(size);
 });
 
-test('en la clasificación, el podio lleva los avatares grandes: el primero a 96 px, los otros a 64', async () => {
+test('en la clasificación, el podio lleva los avatares grandes: el primero a 64 px, los otros a 48', async () => {
   mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()) });
   const { container } = renderAt('/clasificacion', screens);
   await screen.findByRole('list', { name: t.podium });
   const scale = (place: number) => container.querySelector<HTMLElement>(`.podium .place-${place} .avatar-box`)!.style.getPropertyValue('--s');
-  expect([scale(1), scale(2), scale(3)]).toEqual(['3', '2', '2']);
+  expect([scale(1), scale(2), scale(3)]).toEqual(['2', '1.5', '1.5']);
 });

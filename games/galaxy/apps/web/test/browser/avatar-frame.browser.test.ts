@@ -48,9 +48,13 @@ test('el podio de la clasificación: avatares grandes con su marco dentro de su 
   await page.viewport(1600, 900);
   const host = document.createElement('div');
   host.className = 'leaderboard';
-  host.style.cssText = 'inline-size:900px';
+  host.style.cssText = 'inline-size:1100px';
   document.body.append(host);
-  root = createRoot(host);
+  // As on the leaderboard: its main column carries the podium's own sizes (.lb-main > .podium).
+  const main = document.createElement('div');
+  main.className = 'lb-main';
+  host.append(main);
+  root = createRoot(main);
   const rows: LeaderRow[] = [
     { rank: 1, username: 'vega', level: 31, value: 18400, avatar: 'crew-cat', frame: 'prism' },
     { rank: 2, username: 'lyra', level: 24, value: 12950, avatar: 'shop-star-fox', frame: null },
@@ -62,6 +66,8 @@ test('el podio de la clasificación: avatares grandes con su marco dentro de su 
     const ring = (li.querySelector('.avatar-frame') ?? li.querySelector('.avatar-box'))!.getBoundingClientRect();
     expect(ring.top).toBeGreaterThanOrEqual(box.top);
     expect(ring.bottom).toBeLessThanOrEqual(box.bottom);
+    expect(ring.left).toBeGreaterThanOrEqual(box.left);
+    expect(ring.right).toBeLessThanOrEqual(box.right);
     expect(li.querySelector('.podium-who b')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom);
   }
   if (import.meta.env['VITE_CHAT_SHOTS']) await page.screenshot({ path: '__shots__/podium-large.png', element: host });
