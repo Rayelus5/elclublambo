@@ -228,7 +228,7 @@ describe('la clasificación de la temporada', () => {
     const res = await get(ctx.app, `/galaxy/api/profiles/${a.username.toUpperCase()}`, { cookie: b.cookie });
     expect(res.statusCode).toBe(200);
     const p = res.json() as Profile;
-    expect(Object.keys(p).sort()).toEqual(['avatar', 'banner', 'clan', 'collection', 'frame', 'level', 'planetarium', 'records', 'season', 'since', 'title', 'username', 'xp']);
+    expect(Object.keys(p).sort()).toEqual(['avatar', 'banner', 'clan', 'collection', 'frame', 'level', 'planetarium', 'probes', 'records', 'season', 'since', 'title', 'username', 'xp']);
     expect(p.clan).toBeNull();
     expect(p.username).toBe(a.username);
     expect(p.level).toBe(5);

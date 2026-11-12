@@ -43,12 +43,22 @@ const profile = (finish: string) => ({
   avatar: 'crew-cat',
   frame: 'prism',
   banner: banner(finish),
+  // Plan «skins», part D: the showcase (with skins) and every probe below.
+  probes: {
+    showcase: [
+      { id: 'lumen', level: 6, skin: 'skin-lumen-leyenda', variant: 'pulse-twin' },
+      { id: 'prism', level: 3, skin: 'skin-prism-coral', variant: null },
+      { id: 'bastion', level: 2, skin: null, variant: null },
+    ],
+    all: ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'].map((id, i) => ({ id, level: 8 - i, skin: id === 'lumen' ? 'skin-lumen-leyenda' : id === 'prism' ? 'skin-prism-coral' : null, variant: null })),
+  },
 });
 
 for (const [finish, width, height] of [
   ['rift', 1920, 1080],
   ['holo', 1280, 720],
   ['corrupt', 1600, 900],
+  ['prismatic', 390, 844],
 ] as const) {
   test(`perfil con banner ${finish} a ${width}×${height}`, async () => {
     await page.viewport(width, height);
