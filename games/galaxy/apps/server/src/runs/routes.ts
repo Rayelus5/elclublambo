@@ -33,6 +33,7 @@ import { finishRun, startRun } from './service';
 import { missionConfigs } from '../missions/service';
 import { creditRunExtras } from './extras';
 import { labSeasonId } from '../lab/levels';
+import type { SoloFeeds } from './solo-feeds';
 import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -46,7 +47,10 @@ async function requireRuns(deps: RunsDeps): Promise<void> {
 const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 
 /** `onProbeChosen`: the probe was changed in the hangar (the rooms show it to the player's group). */
-export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string) => Promise<void> }): void {
+export function registerRunRoutes(
+  api: FastifyInstance,
+  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'> },
+): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
     return hangarView(deps, s.accountId);
@@ -184,6 +188,8 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onPro
     );
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();
+    // Part G: whoever watched it live hears it ended.
+    deps.feeds?.end(id);
     return result;
   });
 }

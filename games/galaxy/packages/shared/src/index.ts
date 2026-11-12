@@ -44,6 +44,7 @@ export * from './api/admin';
 export * from './api/moderation';
 export * from './api/admin-market';
 export * from './api/admin-runs';
+export * from './api/solo-watch';
 export * from './api/admin-progress';
 export * from './economy/boosts';
 export * from './economy/simulate';

@@ -1,7 +1,8 @@
 import { HScroll } from '../ui/HScroll';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { Link } from 'react-router';
-import { useAdminRooms } from '../api/rooms';
+import { useAdminRooms, useAdminSoloLive } from '../api/rooms';
+import { clockText } from '../arena/hud/Hud';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useModDialog } from './ModerationScreen';
@@ -12,6 +13,8 @@ import { useModDialog } from './ModerationScreen';
 
 const t = copy.admin.moderation;
 const r = t.rooms;
+const so = t.solo;
+const probeName = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id)?.name ?? id;
 const sectorName = (id: string) => DEFAULT_CONTENT.sectors.find((s) => s.id === id)?.name ?? id;
 
 export function LiveRooms() {
@@ -83,6 +86,56 @@ export function LiveRooms() {
           </table>
         </HScroll>
       ) : null}
+      <SoloRuns />
     </div>
+  );
+}
+
+/** Plan «escáner pro», part G: the solo runs being played now, each leading to its live view. */
+function SoloRuns() {
+  const solo = useAdminSoloLive();
+  const rows = solo.data?.runs ?? [];
+  return (
+    <>
+      {solo.error ? (
+        <p className="field-error" role="alert">
+          {errorText(solo.error, copy.errors)}
+        </p>
+      ) : null}
+      {solo.data && rows.length === 0 ? <p className="panel-note">{so.none}</p> : null}
+      {rows.length > 0 ? (
+        <HScroll variant="table" className="admin-table-wrap">
+          <table className="admin-table">
+            <caption>{so.tableTitle}</caption>
+            <thead>
+              <tr>
+                {(['player', 'sector', 'probe', 'time', 'state', 'watchers', 'actions'] as const).map((c) => (
+                  <th key={c} scope="col">
+                    {so.cols[c]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((run) => (
+                <tr key={run.runId}>
+                  <td>{run.player}</td>
+                  <td>{sectorName(run.sector)}</td>
+                  <td>{probeName(run.probe)}</td>
+                  <td>{clockText(run.tick / 60)}</td>
+                  <td>{so.states[run.state] ?? run.state}</td>
+                  <td>{run.watchers}</td>
+                  <td className="admin-room-actions">
+                    <Link className="lip pill small" to={`/admin/moderacion/directo/solo/${run.runId}`} aria-label={so.watchOf(run.player)}>
+                      {so.watch}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </HScroll>
+      ) : null}
+    </>
   );
 }

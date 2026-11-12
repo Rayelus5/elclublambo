@@ -25,7 +25,10 @@ const room = (code: string, state: RoomView['state'], run: RoomView['run']): Roo
 });
 
 test('una sala que juega lleva a verla en directo; una que espera, no', async () => {
-  mockApi({ 'GET /galaxy/api/admin/rooms': () => jsonResponse(200, { rooms: [room('ABC234', 'running', { id: RUN }), room('XYZ789', 'lobby', null)] }) });
+  mockApi({
+    'GET /galaxy/api/admin/rooms': () => jsonResponse(200, { rooms: [room('ABC234', 'running', { id: RUN }), room('XYZ789', 'lobby', null)] }),
+    'GET /galaxy/api/admin/solo/live': () => jsonResponse(200, { runs: [] }),
+  });
   renderAt('/admin/moderacion/salas', { '/admin/moderacion/salas': <LiveRooms /> });
   const link = await screen.findByRole('link', { name: r.watchOf('ABC234') });
   expect(link).toHaveAttribute('href', `/admin/moderacion/directo/${RUN}`);

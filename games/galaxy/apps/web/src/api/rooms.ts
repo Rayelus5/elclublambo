@@ -1,4 +1,4 @@
-import type { RoomKind, RoomsView, RoomView } from '@galaxy/shared';
+import type { RoomKind, RoomsView, RoomView, SoloLiveList } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -71,6 +71,11 @@ export function useInvite() {
 
 /** The admin panel's live rooms (moderators too), every five seconds. */
 export type AdminRoom = RoomView & { idleSeconds: number };
+/** The solo runs being played now (plan «escáner pro», part G), every 5 seconds. */
+export function useAdminSoloLive() {
+  return useQuery({ queryKey: ['admin', 'solo-live'], queryFn: () => api<SoloLiveList>('/admin/solo/live'), refetchInterval: 5000 });
+}
+
 export function useAdminRooms() {
   return useQuery({ queryKey: ['admin', 'rooms'], queryFn: () => api<{ rooms: AdminRoom[] }>('/admin/rooms'), refetchInterval: 5000 });
 }
