@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { useAdminMail, useAdminNotices, useMailPreview } from '../api/mail';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { Select } from '../ui/Select';
 import { useSettled } from '../ui/useSettled';
 import { ActionDialog } from './ActionDialog';
 
@@ -142,13 +143,14 @@ function Compose() {
       <div className="field">
         <label htmlFor={`${ids}-audience`}>{t.fields.audience}</label>
         <div className="control">
-          <select id={`${ids}-audience`} value={kind} onChange={(e) => setKind(e.target.value as AudienceKind)}>
-            {(['all', 'names', 'segment'] as const).map((k) => (
-              <option key={k} value={k}>
-                {t.audiences[k]}
-              </option>
-            ))}
-          </select>
+          <Select<AudienceKind>
+            id={`${ids}-audience`}
+            size="lg"
+            block
+            value={kind}
+            options={(['all', 'names', 'segment'] as const).map((k) => ({ value: k, label: t.audiences[k] ?? k }))}
+            onChange={setKind}
+          />
         </div>
       </div>
       {kind === 'names' ? (
@@ -305,13 +307,14 @@ function NoticeForm() {
         <div className="field">
           <label htmlFor={`${ids}-tone`}>{t.fields.tone}</label>
           <div className="control">
-            <select id={`${ids}-tone`} value={f['tone']} onChange={(e) => set('tone', e.target.value)}>
-              {(['info', 'warning'] as const).map((k) => (
-                <option key={k} value={k}>
-                  {t.tones[k]}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-tone`}
+              size="lg"
+              block
+              value={f['tone']!}
+              options={(['info', 'warning'] as const).map((k) => ({ value: k, label: t.tones[k] }))}
+              onChange={(v) => set('tone', v)}
+            />
           </div>
         </div>
         {input('startsAt', t.fields.startsAt, 'datetime-local')}

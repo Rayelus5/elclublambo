@@ -6,7 +6,7 @@ import type { UserEvent } from '@testing-library/user-event';
 // failing that, by its value (what the old `selectOptions` calls passed).
 
 /** Opens `combobox` and picks the option named `option` (its visible text, or its value). */
-export async function pickOption(user: UserEvent, combobox: HTMLElement, option: string): Promise<void> {
+export async function pickOption(user: Pick<UserEvent, 'click'>, combobox: HTMLElement, option: string): Promise<void> {
   if (combobox.getAttribute('aria-expanded') !== 'true') await user.click(combobox);
   const id = combobox.getAttribute('aria-controls');
   const list = id ? document.getElementById(id) : null;

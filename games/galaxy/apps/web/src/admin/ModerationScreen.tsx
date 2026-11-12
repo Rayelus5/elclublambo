@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet } from 'react-router';
 import { useModChannels, useModMessages, useModMutes, useModReports } from '../api/moderation';
 import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { Select } from '../ui/Select';
 import { ActionDialog, type FieldSpec } from './ActionDialog';
 import { Pager } from './DataTable';
 
@@ -204,13 +205,7 @@ export function LiveChat() {
         <div className="field">
           <label htmlFor={id}>{t.channel}</label>
           <div className="control">
-            <select id={id} value={channel} onChange={(e) => setChannel(e.target.value)}>
-              {options.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            <Select id={id} size="lg" block value={channel} options={options.map((c) => ({ value: c.key, label: c.label }))} onChange={setChannel} />
           </div>
         </div>
         <p className={`mod-live${live ? ' on' : ''}`}>{live ? t.live : t.paused}</p>

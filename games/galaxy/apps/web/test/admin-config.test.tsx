@@ -7,6 +7,7 @@ import { ConfigKeyScreen, ConfigScreen } from '../src/admin/ConfigScreen';
 import { CATEGORIES, KEY_INFO } from '../src/admin/forms/labels';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The live config on the web (GDD §16.3, §16.6; M6b; forms in polish phase 4): the switches, the categories, each key
 // as a form with live checks by field and «Qué cambia» in words, publishing with reason and password, the history, and
@@ -110,7 +111,7 @@ test('una lista se edita con tarjetas: añadir abre la nueva, y quitarla la saca
   const list = await screen.findByRole('region', { name: 'Multiplicadores' });
   await user.click(within(list).getByRole('button', { name: 'Añadir multiplicador' }));
   await user.type(within(list).getByLabelText('Nombre'), 'Doble polvo');
-  await user.selectOptions(within(list).getByLabelText('Qué multiplica'), 'Polvo estelar');
+  await pickOption(user, within(list).getByLabelText('Qué multiplica'), 'Polvo estelar');
   const factor = within(list).getByLabelText('Por cuánto');
   await user.clear(factor);
   await user.type(factor, '2');

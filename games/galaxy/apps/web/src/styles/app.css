@@ -1781,14 +1781,13 @@
   .admin-summary p { margin: 0; color: var(--color-ink-soft); }
   .admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--color-ink-soft); }
   .admin-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
-  .admin-filters label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .admin-filters label, .admin-filter { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
   .admin-filters input { height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
   .admin-filters input:focus-visible { outline: none; border-color: var(--color-ice); }
   .admin-pre { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: rgb(0 0 0 / .3); font-size: 12px; white-space: pre-wrap; max-width: 520px; }
   .admin-table details summary { cursor: pointer; color: var(--color-ice); font-weight: 600; }
   .modal.admin-dialog { inline-size: min(520px, 100%); }
   .admin-dialog .field { margin-bottom: 12px; }
-  .admin-dialog select { width: 100%; height: 50px; padding: 0 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); }
   .admin-code { display: grid; gap: 10px; justify-items: start; margin-bottom: 14px; }
   .admin-code-value { margin: 0; font: 400 26px var(--font-display); letter-spacing: .06em; color: var(--color-solar); }
   /* Live config (M6b, DESIGN_SYSTEM §8 septendecies): switches with their state in words, the keys, the draft editor beside
@@ -1830,7 +1829,6 @@
   .admin-publish .field-error p { margin: 0; }
   .admin-moved { display: grid; gap: 8px; justify-items: start; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-solar) 14%, transparent); color: var(--color-ink); font-weight: 600; }
   .admin-moved p { margin: 0; }
-  .admin-sim select { height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
   .admin-sim p { margin: 0; }
   .admin-sim .admin-table-wrap { max-width: 640px; }
   .admin-sim .admin-table tbody th { position: static; background: none; border-top: 1px solid rgb(255 255 255 / .05); font-size: 14px; }
@@ -2129,8 +2127,8 @@
   .cf-grid > .cf-group, .cf-grid > .cf-list, .cf-grid > .cf-row, .cf-grid > .cf-words { grid-column: 1 / -1; }
   .cf-field { display: grid; gap: 6px; min-inline-size: 0; }
   .cf-field > label, .cf-field > legend, .cf-absent-label { font-weight: 700; font-size: 14px; color: var(--color-ink); padding: 0; }
-  .cf-field input[type='text'], .cf-field input[type='datetime-local'], .cf-field select, .cf-field textarea, .cf-add-entry select, .cf-add-entry input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
-  .cf-field input:focus-visible, .cf-field select:focus-visible, .cf-field textarea:focus-visible { outline: 2px solid var(--color-solar); outline-offset: 1px; }
+  .cf-field input[type='text'], .cf-field input[type='datetime-local'], .cf-field textarea, .cf-add-entry input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .cf-field input:focus-visible, .cf-field textarea:focus-visible { outline: 2px solid var(--color-solar); outline-offset: 1px; }
   .cf-field [aria-invalid='true'] { box-shadow: inset 0 0 0 2px var(--color-nova); }
   .cf-field textarea { resize: vertical; line-height: 1.5; }
   .cf-number { display: flex; align-items: center; gap: 8px; }
@@ -2190,6 +2188,7 @@
   .cf-entry .cf-field > label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
   .cf-add-entry { display: flex; gap: 8px; align-items: center; max-inline-size: 480px; }
   .cf-add-entry .lip { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+  .cf-add-entry .select { flex: 1; min-inline-size: 0; }
   /* Eventos (polish phase 4): the list by when, and the five-step wizard. */
   .ev-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   .ev-top .pill-solar { display: inline-flex; align-items: center; gap: 8px; }
@@ -2529,8 +2528,7 @@
   .comms { max-inline-size: 1100px; }
   .comms-compose { --r: 18px; display: grid; gap: 4px; padding: 18px 20px; }
   .comms-compose h2 { margin: 0 0 8px; font: 400 22px var(--font-display); }
-  .comms-compose textarea, .comms-compose select { inline-size: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); resize: vertical; }
-  .comms-compose select { block-size: 50px; padding-block: 0; }
+  .comms-compose textarea { inline-size: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); resize: vertical; }
   .comms-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 14px; }
   .comms-wide { grid-column: 1 / -1; margin-top: 0; }
   .comms-gifts { margin: 4px 0 8px; padding: 12px 14px 4px; border: 2px solid rgb(255 255 255 / .06); border-radius: 14px; }

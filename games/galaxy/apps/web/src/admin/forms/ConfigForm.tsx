@@ -2,6 +2,7 @@ import type { ConfigKey, JsonSchema } from '@galaxy/shared';
 import { createContext, type ReactNode, useContext, useId, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
+import { Select } from '../../ui/Select';
 import { fmtNumber, fmtUtc, fromLocalInput, itemSummary, scaleOf, tidy, toLocalInput } from './format';
 import { type FieldInfo, fieldInfo, itemName, UNIT_SUFFIX, valueName } from './labels';
 import { discriminatorOf, emptyOf, getIn, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
@@ -142,15 +143,18 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
     const list: Option[] = choices ?? (n.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
     const known = list.some((o) => o.value === value) || value === null || value === undefined;
     control = (
-      <select id={id} value={value === null || value === undefined ? '' : String(value)} onChange={(e) => change(e.target.value === '' ? (nullable ? null : undefined) : e.target.value)}>
-        {nullable || optional ? <option value="">Ninguno</option> : null}
-        {!known ? <option value={String(value)}>{String(value)}</option> : null}
-        {list.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Select
+        id={id}
+        size="sm"
+        block
+        value={value === null || value === undefined ? '' : String(value)}
+        options={[
+          ...(nullable || optional ? [{ value: '', label: 'Ninguno' }] : []),
+          ...(!known ? [{ value: String(value), label: String(value) }] : []),
+          ...list,
+        ]}
+        onChange={(v) => change(v === '' ? (nullable ? null : undefined) : v)}
+      />
     );
   } else if (kind === 'datetime') {
     const iso = typeof value === 'string' ? value : '';
@@ -322,13 +326,14 @@ function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; patter
       <div className="cf-grid">
         <div className="cf-field cf-k-enum">
           <label htmlFor={id}>{fieldInfo(cfgKey, `${pattern}.${d}`).label}</label>
-          <select id={id} value={String(value?.[d] ?? '')} onChange={(e) => set(path, emptyOf(node.oneOf!.find((o) => o.properties?.[d]?.const === e.target.value)!))}>
-            {node.oneOf!.map((o) => (
-              <option key={String(o.properties![d]!.const)} value={String(o.properties![d]!.const)}>
-                {valueName(o.properties![d]!.const)}
-              </option>
-            ))}
-          </select>
+          <Select
+            id={id}
+            size="sm"
+            block
+            value={String(value?.[d] ?? '')}
+            options={node.oneOf!.map((o) => ({ value: String(o.properties![d]!.const), label: valueName(o.properties![d]!.const) }))}
+            onChange={(v) => set(path, emptyOf(node.oneOf!.find((o) => o.properties?.[d]?.const === v)!))}
+          />
         </div>
       </div>
       {Object.keys(rest.properties).length ? <Fields node={rest} path={path} pattern={pattern} /> : null}
@@ -498,14 +503,15 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
       </ul>
       <div className="cf-add-entry">
         {choices.length ? (
-          <select aria-label={`Elegir qué añadir a ${info.label}`} id={id} value={adding} onChange={(e) => setAdding(e.target.value)}>
-            <option value="">Elige…</option>
-            {free.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            aria-label={`Elegir qué añadir a ${info.label}`}
+            id={id}
+            size="sm"
+            value={adding}
+            placeholder="Elige…"
+            options={free}
+            onChange={setAdding}
+          />
         ) : (
           <input aria-label={`Identificador nuevo en ${info.label}`} id={id} type="text" value={adding} onChange={(e) => setAdding(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))} />
         )}

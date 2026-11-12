@@ -8,6 +8,7 @@ import { PlayerScreen } from '../src/admin/PlayerScreen';
 import { PlayersScreen } from '../src/admin/PlayersScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The admin panel on the web (GDD §16.1, §16.2; M6a): only for admins signed in with TOTP; finding a player, their
 // page with state and tabs, the change dialogs (reason always, the admin's password for destructive ones), the reset
@@ -91,7 +92,7 @@ test('dar moneda pide motivo; quitarla pide además tu contraseña, y se confirm
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.actions.wallet }));
   const dialog = await screen.findByRole('dialog', { name: t.actions.wallet });
-  await user.selectOptions(within(dialog).getByLabelText(t.fields.currency), 'coins');
+  await pickOption(user, within(dialog).getByLabelText(t.fields.currency), 'coins');
   await user.type(within(dialog).getByLabelText(t.fields.amount), '-100');
   expect(within(dialog).getByLabelText(t.fields.password)).toBeInTheDocument();
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Corrección');
@@ -107,7 +108,7 @@ test('banear elige la duración y pide la contraseña', async () => {
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.actions.ban }));
   const dialog = await screen.findByRole('dialog', { name: t.actions.ban });
-  await user.selectOptions(within(dialog).getByLabelText(t.fields.duration), '10080');
+  await pickOption(user, within(dialog).getByLabelText(t.fields.duration), '10080');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Trampas');
   expect(within(dialog).getByRole('button', { name: t.apply })).toBeDisabled();
   await user.type(within(dialog).getByLabelText(t.fields.password), 'mi-clave');

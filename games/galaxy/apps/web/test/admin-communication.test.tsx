@@ -6,6 +6,7 @@ import { AdminLayout } from '../src/admin/AdminLayout';
 import { CommunicationScreen } from '../src/admin/CommunicationScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Communication in the panel (GDD §16.5; M6d-1), admins only: a message to everyone or a list of accounts, with how
 // many it reaches before sending, gifts that ask for the password, the sent list with withdraw; and notices with
@@ -46,7 +47,7 @@ test('enviar a una lista de cuentas dice a cuántas llega y manda solo lo escrit
   const form = await screen.findByRole('form', { name: t.composeTitle });
   await userEvent.type(within(form).getByLabelText(t.fields.title), 'Gracias por probar');
   await userEvent.type(within(form).getByLabelText(t.fields.body), 'Un saludo del equipo');
-  await userEvent.selectOptions(within(form).getByLabelText(t.fields.audience), 'names');
+  await pickOption(userEvent, within(form).getByLabelText(t.fields.audience), 'names');
   await userEvent.type(within(form).getByLabelText(t.fields.usernames), 'vega, nova');
   expect(await within(form).findByText(t.reach(2))).toBeInTheDocument();
   expect(within(form).queryByLabelText(copy.admin.fields.password)).toBeNull();
@@ -99,7 +100,7 @@ test('un aviso se publica con sus fechas y uno en curso se termina con motivo', 
   renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
   const form = await screen.findByRole('form', { name: t.noticeTitle });
   await userEvent.type(within(form).getByLabelText(t.fields.noticeText), 'Nueva temporada el lunes');
-  await userEvent.selectOptions(within(form).getByLabelText(t.fields.tone), 'info');
+  await pickOption(userEvent, within(form).getByLabelText(t.fields.tone), 'info');
   await userEvent.type(within(form).getByLabelText(t.fields.startsAt), '2026-11-09T10:00');
   await userEvent.type(within(form).getByLabelText(t.fields.endsAt), '2026-11-10T10:00');
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Anuncio de temporada');
@@ -122,12 +123,12 @@ test('un segmento con los niveles al revés o nombres no válidos dice qué corr
   mockApi(routes());
   renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
   const form = await screen.findByRole('form', { name: t.composeTitle });
-  await userEvent.selectOptions(within(form).getByLabelText(t.fields.audience), 'segment');
+  await pickOption(userEvent, within(form).getByLabelText(t.fields.audience), 'segment');
   await userEvent.type(within(form).getByLabelText(t.fields.minLevel), '10');
   await userEvent.type(within(form).getByLabelText(t.fields.maxLevel), '5');
   expect(await within(form).findByText(t.audienceInvalid)).toBeInTheDocument();
   expect(within(form).queryByText(t.counting)).toBeNull();
-  await userEvent.selectOptions(within(form).getByLabelText(t.fields.audience), 'names');
+  await pickOption(userEvent, within(form).getByLabelText(t.fields.audience), 'names');
   await userEvent.type(within(form).getByLabelText(t.fields.usernames), 'vega, x!');
   expect(await within(form).findByText(t.badNames('x!'))).toBeInTheDocument();
 });
