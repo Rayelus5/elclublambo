@@ -87,7 +87,10 @@ function MusicStyleRow({ off }: { off: boolean }) {
   );
 }
 
-/** Sound; `inRun` leaves out the account's notices mode, so the pause fits a 1280×720 screen. */
+/**
+ * Sound; `inRun` leaves out the account's notices mode and the effects' test (the run is sounding already), so the pause
+ * fits a 1280×720 screen with the music style in it.
+ */
 export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   useEffect(() => onSettings(setAudio), []);
@@ -110,14 +113,16 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
       <SettingRow label={t.muteAll} hint={t.muteAllHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.muted} onChange={(muted) => setSettings({ muted })} />}
       </SettingRow>
-      <SettingRow label={t.testTitle} hint={t.testHint} off={audio.muted || audio.sfx <= 0}>
-        {() => (
-          <button type="button" className="lip pill small setting-button" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
-            <Icon name="sound" />
-            <span>{t.test}</span>
-          </button>
-        )}
-      </SettingRow>
+      {inRun ? null : (
+        <SettingRow label={t.testTitle} hint={t.testHint} off={audio.muted || audio.sfx <= 0}>
+          {() => (
+            <button type="button" className="lip pill small setting-button" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
+              <Icon name="sound" />
+              <span>{t.test}</span>
+            </button>
+          )}
+        </SettingRow>
+      )}
       {inRun ? null : <NoticesRow />}
     </>
   );
