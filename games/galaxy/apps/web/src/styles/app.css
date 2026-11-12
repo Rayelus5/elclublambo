@@ -2008,6 +2008,30 @@
   .modal.admin-dialog { inline-size: min(520px, 100%); }
   .admin-dialog .field { margin-bottom: 12px; }
   .admin-code { display: grid; gap: 10px; justify-items: start; margin-bottom: 14px; }
+  /* The players list and «Eliminar» (plan «escáner pro», part F): search and state side by side, headers that sort
+     (the active one lit, with its arrow), a quiet deleted row, and the delete dialog's warning and switch. */
+  .mod-toolbar.players-toolbar { align-items: start; }
+  .players-toolbar .admin-search { flex: 1 1 320px; }
+  .players-toolbar .runs-total { align-self: center; }
+  .players-toolbar .players-state { flex: 0 1 260px; min-width: 220px; }
+  .admin-table th[aria-sort] { color: var(--color-ice); }
+  .th-sort { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; margin: -4px -6px; border: 0; border-radius: 8px; background: none; font: inherit; color: inherit; cursor: pointer; }
+  .th-sort:hover { background: rgb(255 255 255 / .06); color: var(--color-ink); }
+  .th-sort:focus-visible { outline: 2px solid var(--color-ice); outline-offset: 2px; }
+  .th-sort .ico { inline-size: 14px; block-size: 14px; }
+  .player-cell { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 0; }
+  .players-table td.row-actions { text-align: right; white-space: nowrap; }
+  .players-table td.state-cell .admin-chip:first-child { margin-left: 0; }
+  .row-delete { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid color-mix(in srgb, var(--color-nova) 45%, transparent); border-radius: 99px; background: none; color: var(--color-nova); font: 700 13px var(--font-sans); cursor: pointer; transition: background-color .15s; }
+  .row-delete:hover { background: color-mix(in srgb, var(--color-nova) 16%, transparent); }
+  .row-delete:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .row-delete .ico { inline-size: 15px; block-size: 15px; }
+  .players-table tr.is-deleted td { color: var(--color-ink-mute); }
+  .players-table tr.is-deleted a { color: var(--color-ink-soft); }
+  .admin-warn { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-nova) 45%, transparent); background: color-mix(in srgb, var(--color-nova) 12%, transparent); color: var(--color-ink); line-height: 1.45; }
+  .admin-toggle { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; }
+  .admin-toggle-label { font-weight: 700; color: var(--color-ink); }
+  .admin-toggle .hint { grid-column: 1 / -1; margin: 0; }
   .admin-code-value { margin: 0; font: 400 26px var(--font-display); letter-spacing: .06em; color: var(--color-solar); }
   /* Live config (M6b, DESIGN_SYSTEM §8 septendecies): switches with their state in words, the keys, the draft editor beside
      its checks and the publish form, the history and the gacha simulator. */

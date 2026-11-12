@@ -2,10 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import {
   ADMIN_CURRENCIES,
+  ADMIN_PLAYERS_PAGE,
   type AdminCurrency,
   type AdminGalaxyGrant,
   type AdminPlayer,
   type AdminPlayerList,
+  type AdminPlayerQuery,
   type AdminSection,
   type AdminSectionName,
   type AdminWallet,
@@ -18,7 +20,8 @@ import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { SessionInfo } from '../auth/sessions';
 import { revokeAllSessions } from '../auth/sessions';
-import { verifyPassword } from '../auth/password';
+import { hashPassword, verifyPassword } from '../auth/password';
+import { lockClan, removeMember } from '../clans/service';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
@@ -81,37 +84,58 @@ async function rolesOf(db: Kysely<DB>, ids: string[]): Promise<Map<string, Role[
   return out;
 }
 
-/** By name (prefix), by an IP it signed in from, or by its clan's tag: 20 at most. */
-export async function searchPlayers(deps: AdminDeps, q: string): Promise<AdminPlayerList> {
+const escapeLike = (q: string) => q.replace(/[\\%_]/g, (c) => `\\${c}`).toLowerCase();
+const looksLikeIp = (q: string) => /^[0-9a-f.:]+$/i.test(q) && /[.:]/.test(q);
+
+/**
+ * Every player, 50 a page (plan «escáner pro», part F; the owner: «lista completa, con paginador, filtrado y busqueda
+ * profesional de usuarios»). Nothing typed lists everyone; a text finds names that contain it (those that start with it
+ * first), an IP the accounts that signed in from it, a clan's tag its members. Deleted accounts only show when asked.
+ */
+export async function listPlayers(deps: AdminDeps & { online: () => Iterable<string> }, q: AdminPlayerQuery): Promise<AdminPlayerList> {
   const account = await deps.config.get('account');
-  const like = `${q.replace(/[\\%_]/g, (c) => `\\${c}`).toLowerCase()}%`;
-  const ids = new Set<string>();
-  if (/^[0-9a-f.:]+$/i.test(q) && /[.:]/.test(q)) {
-    for (const r of await deps.db.selectFrom('galaxy.account_ips').select('account_id').where('ip', '=', q).limit(20).execute()) ids.add(r.account_id);
+  const online = new Set(deps.online());
+  const where = [q.state === 'deleted' ? sql`a.deleted_at is not null` : sql`a.deleted_at is null`];
+  if (q.state === 'online') {
+    if (online.size === 0) return { players: [], total: 0, page: q.page, pages: 1 };
+    where.push(sql`a.id = any(${[...online]}::uuid[])`);
   }
-  for (const r of await deps.db.selectFrom('galaxy.accounts').select('id').where(sql<string>`lower(username)`, 'like', like).orderBy('username').limit(20).execute()) ids.add(r.id);
-  const clan = await deps.db.selectFrom('galaxy.clans').select('id').where('tag', '=', q.toUpperCase()).executeTakeFirst();
-  if (clan) for (const r of await deps.db.selectFrom('galaxy.clan_members').select('account_id').where('clan_id', '=', clan.id).execute()) ids.add(r.account_id);
-  const list = [...ids].slice(0, 20);
-  if (list.length === 0) return { players: [] };
-  const rows = await deps.db
-    .selectFrom('galaxy.accounts as a')
-    .leftJoin('galaxy.account_xp as x', 'x.account_id', 'a.id')
-    .leftJoin('galaxy.clan_members as cm', 'cm.account_id', 'a.id')
-    .leftJoin('galaxy.clans as c', 'c.id', 'cm.clan_id')
-    .select([
-      'a.id',
-      'a.username',
-      'a.created_at',
-      'x.xp',
-      'c.tag',
-      sql<boolean>`a.banned_until is not null and a.banned_until > now()`.as('banned'),
-      sql<Date | null>`(select max(s.last_seen_at) from galaxy.sessions s where s.account_id = a.id)`.as('last_seen'),
-    ])
-    .where('a.id', 'in', list)
-    .orderBy('a.username')
-    .execute();
-  const roles = await rolesOf(deps.db, list);
+  if (q.state === 'active') where.push(sql`exists (select 1 from galaxy.sessions s where s.account_id = a.id and s.last_seen_at > now() - interval '7 days')`);
+  if (q.state === 'banned') where.push(sql`a.banned_until is not null and a.banned_until > now()`);
+  if (q.state === 'muted') where.push(sql`exists (select 1 from galaxy.chat_mutes m where m.account_id = a.id and m.until > now())`);
+  if (q.state === 'staff') where.push(sql`exists (select 1 from galaxy.account_roles r where r.account_id = a.id)`);
+  const text = q.q;
+  if (text) {
+    const like = `%${escapeLike(text)}%`;
+    const found = [sql`lower(a.username) like ${like}`, sql`a.id in (select m.account_id from galaxy.clan_members m join galaxy.clans c on c.id = m.clan_id where c.tag = ${text.toUpperCase()})`];
+    if (looksLikeIp(text)) found.push(sql`a.id in (select i.account_id from galaxy.account_ips i where i.ip = ${text})`);
+    where.push(sql`(${sql.join(found, sql` or `)})`);
+  }
+  const cond = sql.join(where, sql` and `);
+  const total = (await sql<{ n: number }>`select count(*)::int as n from galaxy.accounts a where ${cond}`.execute(deps.db)).rows[0]!.n;
+  const dir = sql.raw(q.dir === 'asc' ? 'asc' : 'desc');
+  const key = {
+    created: sql`a.created_at ${dir}`,
+    name: sql`lower(a.username) ${dir}`,
+    seen: sql`last_seen ${dir} nulls last`,
+    level: sql`coalesce(x.xp, 0) ${dir}`,
+  }[q.sort];
+  const order = text ? sql`(lower(a.username) like ${`${escapeLike(text)}%`}) desc, ${key}, a.id` : sql`${key}, a.id`;
+  const rows = (
+    await sql<{ id: string; username: string; created_at: Date; xp: string | number | null; tag: string | null; banned: boolean; muted: boolean; deleted_at: Date | null; last_seen: Date | null }>`
+      select a.id, a.username, a.created_at, x.xp, c.tag, a.deleted_at,
+        (a.banned_until is not null and a.banned_until > now()) as banned,
+        exists (select 1 from galaxy.chat_mutes m where m.account_id = a.id and m.until > now()) as muted,
+        (select max(s.last_seen_at) from galaxy.sessions s where s.account_id = a.id) as last_seen
+      from galaxy.accounts a
+      left join galaxy.account_xp x on x.account_id = a.id
+      left join galaxy.clan_members cm on cm.account_id = a.id
+      left join galaxy.clans c on c.id = cm.clan_id
+      where ${cond}
+      order by ${order}
+      limit ${ADMIN_PLAYERS_PAGE} offset ${(q.page - 1) * ADMIN_PLAYERS_PAGE}`.execute(deps.db)
+  ).rows;
+  const roles = await rolesOf(deps.db, rows.map((r) => r.id));
   return {
     players: rows.map((r) => ({
       username: r.username,
@@ -121,7 +145,13 @@ export async function searchPlayers(deps: AdminDeps, q: string): Promise<AdminPl
       banned: r.banned,
       roles: roles.get(r.id) ?? [],
       clan: r.tag ?? null,
+      online: online.has(r.id),
+      muted: r.muted,
+      deletedAt: iso(r.deleted_at),
     })),
+    total,
+    page: q.page,
+    pages: Math.max(1, Math.ceil(total / ADMIN_PLAYERS_PAGE)),
   };
 }
 
@@ -133,7 +163,7 @@ export async function playerDetail(deps: AdminDeps, username: string): Promise<A
   const a = await accountOf(db, username);
   const account = await deps.config.get('account');
   const [row, xp, balances, roles, mute, clan, sessions, ips, station, lab, probes] = await Promise.all([
-    db.selectFrom('galaxy.accounts').select(['created_at', 'banned_until', 'leaderboard_excluded']).where('id', '=', a.id).executeTakeFirstOrThrow(),
+    db.selectFrom('galaxy.accounts').select(['created_at', 'banned_until', 'leaderboard_excluded', 'deleted_at']).where('id', '=', a.id).executeTakeFirstOrThrow(),
     accountXp(db, a.id),
     db.selectFrom('galaxy.balances').select(['currency', 'amount']).where('account_id', '=', a.id).execute(),
     rolesOf(db, [a.id]),
@@ -165,6 +195,7 @@ export async function playerDetail(deps: AdminDeps, username: string): Promise<A
     id: a.id,
     username: a.username,
     createdAt: iso(row.created_at)!,
+    deletedAt: iso(row.deleted_at),
     roles: roles.get(a.id) ?? [],
     level: levelOf(xp, account).level,
     xp,
@@ -425,3 +456,85 @@ export async function setLeaderboardExcluded(deps: AdminDeps, actor: AuditActor,
   return { excluded };
 }
 
+
+/**
+ * «Eliminar» (plan «escáner pro», part F; the owner chose «anonimizar y cerrar»). A full delete would break history
+ * (the append-only ledger, runs and pulls, purchases kept by law, other players' sales and trades), so the account
+ * stays as a placeholder: a new name nobody chose, a password nobody knows, banned for good and out of the rankings.
+ * Its personal and social data go (sessions, IPs, roles, TOTP, friends, blocks, preferences, chat messages, loadout,
+ * showcases, sky, clan requests); a leader's clan passes on (or dissolves when alone); its listings and open trades
+ * end. The audit keeps the old name; the name is free again unless the admin reserves it.
+ */
+export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username: string, req: { confirm: string; reason: string; reserveName: boolean }): Promise<{ id: string; username: string }> {
+  const a = await accountOf(deps.db, username);
+  if (req.confirm.toLowerCase() !== a.username.toLowerCase()) throw new HttpError(400, 'confirm_mismatch');
+  const done = await inTransaction(deps.db, async (trx) => {
+    const row = await trx.selectFrom('galaxy.accounts').select(['deleted_at']).where('id', '=', a.id).forUpdate().executeTakeFirstOrThrow();
+    if (row.deleted_at) throw new HttpError(409, 'player_deleted');
+    let anon = '';
+    for (;;) {
+      anon = `borrado_${randomBytes(4).toString('hex')}`;
+      const taken = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', anon).executeTakeFirst();
+      if (!taken) break;
+    }
+    const clan = await trx.selectFrom('galaxy.clan_members').select(['clan_id', 'role']).where('account_id', '=', a.id).executeTakeFirst();
+    let clanOut: { dissolved: boolean; heir?: string } | null = null;
+    if (clan) {
+      await lockClan(trx, clan.clan_id);
+      clanOut = await removeMember(trx, clan.clan_id, a.id, clan.role);
+    }
+    await trx
+      .updateTable('galaxy.accounts')
+      .set({
+        username: anon,
+        password_hash: await hashPassword(randomBytes(32).toString('base64url')),
+        deleted_at: sql<Date>`now()`,
+        banned_until: FOREVER,
+        ban_reason: req.reason,
+        leaderboard_excluded: true,
+        title: null,
+        frame: null,
+        avatar: null,
+        banner: null,
+      })
+      .where('id', '=', a.id)
+      .execute();
+    await revokeAllSessions(trx, a.id);
+    await trx.deleteFrom('galaxy.account_ips').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.account_roles').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.admin_totp').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.friendships').where((eb) => eb.or([eb('a', '=', a.id), eb('b', '=', a.id)])).execute();
+    await trx.deleteFrom('galaxy.blocks').where((eb) => eb.or([eb('blocker', '=', a.id), eb('blocked', '=', a.id)])).execute();
+    await trx.deleteFrom('galaxy.social_prefs').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.chat_messages').where('author_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.loadouts').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.exhibits').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.backdrops').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.clan_requests').where('account_id', '=', a.id).execute();
+    const listings = await trx.updateTable('galaxy.market_listings').set({ status: 'cancelled' }).where('seller_id', '=', a.id).where('status', '=', 'active').executeTakeFirst();
+    const trades = await trx
+      .updateTable('galaxy.trades')
+      .set({ status: 'cancelled', closed_at: sql<Date>`now()` })
+      .where('status', '=', 'open')
+      .where((eb) => eb.or([eb('a_id', '=', a.id), eb('b_id', '=', a.id)]))
+      .executeTakeFirst();
+    if (req.reserveName) await trx.insertInto('galaxy.reserved_usernames').values({ username: a.username.toLowerCase() }).onConflict((oc) => oc.doNothing()).execute();
+    await writeAudit(trx, {
+      actor,
+      action: 'player.delete',
+      ...target(a.id),
+      before: { username: a.username },
+      after: {
+        username: anon,
+        reserved: req.reserveName,
+        clan: clanOut ? (clanOut.dissolved ? 'dissolved' : clanOut.heir ? 'passed' : 'left') : null,
+        listingsCancelled: Number(listings.numUpdatedRows),
+        tradesCancelled: Number(trades.numUpdatedRows),
+      },
+      reason: req.reason,
+    });
+    return { id: a.id, username: anon };
+  });
+  invalidateLeaderboard();
+  return done;
+}

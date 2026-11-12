@@ -104,6 +104,13 @@ export class LiveHub {
     this.leaving.set(id, timer);
   }
 
+  /** Every account online now (plan «escáner pro», part F: the admin's «Conectados ahora»). */
+  onlineIds(): Set<string> {
+    const out = new Set(this.leaving.keys());
+    for (const c of this.clients) out.add(c.accountId);
+    return out;
+  }
+
   isOnline(accountId: string): boolean {
     for (const c of this.clients) if (c.accountId === accountId) return true;
     return this.leaving.has(accountId);

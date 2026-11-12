@@ -18,6 +18,7 @@ const player: AdminPlayer = {
   id: 'p1',
   username: 'vega',
   createdAt: '2026-11-01T10:00:00.000Z',
+  deletedAt: null,
   roles: [],
   level: 12,
   xp: 15000,

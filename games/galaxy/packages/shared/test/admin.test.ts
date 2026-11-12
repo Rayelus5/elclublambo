@@ -3,8 +3,10 @@ import {
   ADMIN_SECTIONS,
   API_ERROR_CODES,
   adminBanSchema,
+  adminDeleteSchema,
   adminGalaxyGrantSchema,
   adminGalaxyRevokeSchema,
+  adminPlayerListSchema,
   adminRenameSchema,
   adminSearchSchema,
   adminWalletSchema,
@@ -47,6 +49,22 @@ describe('buscar y auditar', () => {
   test('la búsqueda es un texto corto', () => {
     expect(adminSearchSchema.parse({ q: ' vega ' })).toEqual({ q: 'vega' });
     expect(() => adminSearchSchema.parse({ q: '' })).toThrow();
+  });
+
+  test('la lista de jugadores: sin texto, estado, orden, sentido y página, todo con valores por defecto', () => {
+    expect(adminPlayerListSchema.parse({})).toEqual({ q: '', state: 'all', sort: 'created', dir: 'desc', page: 1 });
+    expect(adminPlayerListSchema.parse({ q: ' vega ', state: 'banned', sort: 'seen', dir: 'asc', page: '4' })).toEqual({ q: 'vega', state: 'banned', sort: 'seen', dir: 'asc', page: 4 });
+    expect(() => adminPlayerListSchema.parse({ state: 'nadie' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ sort: 'coins' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ page: '0' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ q: 'x'.repeat(65) })).toThrow();
+  });
+
+  test('eliminar pide motivo, contraseña y el nombre escrito; reservar el nombre es opcional', () => {
+    expect(adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: ' vega ' })).toEqual({ reason: 'Lo pidió', password: 'clave', confirm: 'vega', reserveName: false });
+    expect(adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: 'vega', reserveName: true }).reserveName).toBe(true);
+    expect(() => adminDeleteSchema.parse({ reason: 'Lo pidió', confirm: 'vega' })).toThrow();
+    expect(() => adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: '' })).toThrow();
   });
 
   test('el registro se filtra por quién, qué, a quién y fechas, por páginas', () => {

@@ -15,7 +15,7 @@ export async function accountNamed(
   db: Kysely<DB>,
   username: string,
 ): Promise<{ id: string; username: string; created_at: Date; title: string | null; frame: string | null; avatar: string | null; banner: string | null }> {
-  const row = await db.selectFrom('galaxy.accounts').select(['id', 'username', 'created_at', 'title', 'frame', 'avatar', 'banner']).where('username', '=', username).executeTakeFirst();
+  const row = await db.selectFrom('galaxy.accounts').select(['id', 'username', 'created_at', 'title', 'frame', 'avatar', 'banner']).where('username', '=', username).where('deleted_at', 'is', null).executeTakeFirst();
   if (!row) throw new HttpError(404, 'profile_not_found');
   return { id: row.id, username: row.username, created_at: new Date(row.created_at), title: row.title, frame: row.frame, avatar: row.avatar, banner: row.banner };
 }

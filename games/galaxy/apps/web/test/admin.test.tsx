@@ -1,6 +1,7 @@
-import type { AdminPlayer, AdminSection, AuditPage, MeResponse } from '@galaxy/shared';
+import type { AdminPlayer, AdminPlayerList, AdminPlayerRow, AdminSection, AuditPage, MeResponse } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useLocation } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { AdminLayout } from '../src/admin/AdminLayout';
 import { AuditScreen } from '../src/admin/AuditScreen';
@@ -35,6 +36,7 @@ const player: AdminPlayer = {
   station: [{ room: 'refinery', level: 2 }],
   lab: ['probe-hull:1'],
   probes: [{ probe: 'lumen', level: 3 }],
+  deletedAt: null,
 };
 const P = '/galaxy/api/admin/players';
 const posted = (fetch: ReturnType<typeof mockApi>, path: string) =>
@@ -65,14 +67,100 @@ test('la barra lateral lleva a todas las secciones del panel, ya sin nada en «P
   expect(within(nav).queryByText(t.soon)).toBeNull();
 });
 
-test('buscar enseña los jugadores y lleva a su ficha', async () => {
-  api({ [`GET ${P}?q=veg`]: () => jsonResponse(200, { players: [{ username: 'vega', level: 12, createdAt: '2026-11-01T10:00:00.000Z', lastSeen: null, banned: true, roles: [], clan: 'GX' }] }) });
-  renderAt('/admin/jugadores', { '/admin/jugadores': <PlayersScreen /> });
-  const user = userEvent.setup();
-  await user.type(await screen.findByRole('searchbox', { name: t.search }), 'veg');
+// Plan «escáner pro», part F: the whole list with nothing typed, its filters in the URL, sortable headers, 50 a page and
+// «Eliminar» from each row.
+const row = (over: Partial<AdminPlayerRow> = {}): AdminPlayerRow => ({ username: 'vega', level: 12, createdAt: '2026-11-01T10:00:00.000Z', lastSeen: null, banned: false, roles: [], clan: 'GX', online: false, muted: false, deletedAt: null, ...over });
+const listOf = (players: AdminPlayerRow[], total = players.length, page = 1) => jsonResponse(200, { players, total, page, pages: Math.max(1, Math.ceil(total / 50)) } satisfies AdminPlayerList);
+const L = (q: string) => `GET ${P}?${q}`;
+const playersPage = (path = '/admin/jugadores') => renderAt(path, { '/admin/jugadores': <PlayersScreen />, '/admin/jugadores/:username': <PlayerScreen /> });
+/** The list with its address beside it, to read the filters it keeps in the URL. */
+function Where() {
+  return <output data-testid="where">{useLocation().search}</output>;
+}
+const where = () => screen.getByTestId('where').textContent;
+
+test('sin escribir nada sale la lista entera, con su total, y cada nombre lleva a su ficha', async () => {
+  api({ [L('q=&state=all&sort=created&dir=desc&page=1')]: () => listOf([row({ banned: true }), row({ username: 'orion', online: true, roles: ['moderator'] }), row({ username: 'lyra', muted: true })], 120) });
+  playersPage();
   const table = await screen.findByRole('table');
   expect(within(table).getByRole('link', { name: 'vega' })).toHaveAttribute('href', '/admin/jugadores/vega');
   expect(within(table).getByText(t.states.banned)).toBeInTheDocument();
+  expect(within(table).getByText(t.list.online)).toBeInTheDocument();
+  expect(within(table).getByText(t.list.muted)).toBeInTheDocument();
+  expect(screen.getByText(t.list.total(120))).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: t.pageOf(1, 3) })).toBeInTheDocument();
+});
+
+test('el texto, el estado, el orden y la página van en la URL y en la petición', async () => {
+  const fetch = api({
+    [L('q=&state=all&sort=created&dir=desc&page=1')]: () => listOf([row()], 120),
+    [L('q=veg&state=all&sort=created&dir=desc&page=1')]: () => listOf([row()], 120),
+    [L('q=veg&state=banned&sort=created&dir=desc&page=1')]: () => listOf([row({ banned: true })], 120),
+    [L('q=veg&state=banned&sort=name&dir=asc&page=1')]: () => listOf([row({ banned: true })], 120),
+    [L('q=veg&state=banned&sort=name&dir=desc&page=1')]: () => listOf([row({ banned: true })], 120),
+    [L('q=veg&state=banned&sort=name&dir=desc&page=2')]: () => listOf([row({ banned: true })], 120, 2),
+  });
+  renderAt('/admin/jugadores', { '/admin/jugadores': (
+    <>
+      <PlayersScreen />
+      <Where />
+    </>
+  ) });
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole('searchbox', { name: t.search }), 'veg');
+  await waitFor(() => expect(where()).toBe('?q=veg'));
+  // The text settles before it is asked for.
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('?q=veg&state=all'))).toBe(true));
+  await pickOption(user, screen.getByLabelText(t.list.state), 'banned');
+  await waitFor(() => expect(where()).toBe('?q=veg&estado=baneados'));
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('state=banned'))).toBe(true));
+  const header = () => screen.getByRole('columnheader', { name: t.columns.username });
+  expect(header()).not.toHaveAttribute('aria-sort');
+  await user.click(within(header()).getByRole('button'));
+  await waitFor(() => expect(header()).toHaveAttribute('aria-sort', 'ascending'));
+  await user.click(within(header()).getByRole('button'));
+  await waitFor(() => expect(header()).toHaveAttribute('aria-sort', 'descending'));
+  expect(screen.getByRole('columnheader', { name: t.columns.createdAt })).not.toHaveAttribute('aria-sort');
+  await user.click(screen.getByRole('button', { name: t.next }));
+  await waitFor(() => expect(where()).toBe('?q=veg&estado=baneados&orden=nombre&dir=desc&pagina=2'));
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith('page=2'))).toBe(true));
+});
+
+test('un enlace con filtros los abre puestos', async () => {
+  const fetch = api({ [L('q=lyr&state=staff&sort=seen&dir=asc&page=3')]: () => listOf([row({ username: 'lyra' })], 120, 3) });
+  playersPage('/admin/jugadores?q=lyr&estado=equipo&orden=visto&dir=asc&pagina=3');
+  expect(await screen.findByRole('link', { name: 'lyra' })).toBeInTheDocument();
+  expect(screen.getByRole('searchbox', { name: t.search })).toHaveValue('lyr');
+  expect(screen.getByRole('columnheader', { name: t.columns.lastSeen })).toHaveAttribute('aria-sort', 'ascending');
+  expect(fetch).toHaveBeenCalled();
+});
+
+test('eliminar desde la lista pide motivo, tu contraseña y el nombre escrito; reservarlo es opcional', async () => {
+  const fetch = api({
+    [L('q=&state=all&sort=created&dir=desc&page=1')]: () => listOf([row(), row({ username: 'rayelus', roles: ['superadmin'] }), row({ username: 'borrado_0a1b2c3d', deletedAt: '2026-11-12T10:00:00.000Z', banned: true })]),
+    [`POST ${P}/vega/delete`]: () => jsonResponse(200, { username: 'borrado_9f8e7d6c' }),
+  });
+  playersPage();
+  const user = userEvent.setup();
+  await screen.findByRole('table');
+  // Not oneself, not a superadmin, not one already deleted.
+  expect(screen.queryByRole('button', { name: t.actions.deleteOf('rayelus') })).toBeNull();
+  expect(screen.queryByRole('button', { name: t.actions.deleteOf('borrado_0a1b2c3d') })).toBeNull();
+  expect(screen.getByText(t.list.deleted)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: t.actions.deleteOf('vega') }));
+  const dialog = await screen.findByRole('dialog', { name: t.actions.deleteOf('vega') });
+  expect(within(dialog).getByText(t.deleteIntro)).toBeInTheDocument();
+  const go = within(dialog).getByRole('button', { name: t.actions.delete });
+  await user.type(within(dialog).getByLabelText(t.fields.reason), 'Lo pidió el jugador');
+  await user.type(within(dialog).getByLabelText(t.fields.password), 'mi-clave');
+  await user.type(within(dialog).getByLabelText(t.fields.confirm), 'veg');
+  expect(go).toBeDisabled();
+  await user.type(within(dialog).getByLabelText(t.fields.confirm), 'a');
+  await user.click(within(dialog).getByRole('switch', { name: t.fields.reserveName }));
+  expect(go).toBeEnabled();
+  await user.click(go);
+  await waitFor(() => expect(posted(fetch, '/vega/delete')).toEqual([{ confirm: 'vega', reserveName: true, reason: 'Lo pidió el jugador', password: 'mi-clave' }]));
+  expect(await screen.findByRole('status')).toHaveTextContent(t.deletedAs('vega', 'borrado_9f8e7d6c'));
 });
 
 test('la ficha dice su estado y sus pestañas leen los historiales', async () => {
@@ -163,4 +251,29 @@ test('la auditoría se filtra y se exporta a CSV con los mismos filtros', async 
   expect(screen.getAllByRole('button', { name: copy.picker.open })).toHaveLength(2);
   await user.type(screen.getByLabelText(t.audit.from), '01/11/2026');
   await waitFor(() => expect(screen.getByRole('link', { name: t.audit.export })).toHaveAttribute('href', '/galaxy/api/admin/audit?actor=rayelus&from=2026-11-01&format=csv'));
+});
+
+test('eliminar desde la ficha vuelve a la lista; una cuenta eliminada ya no ofrece cambios', async () => {
+  const fetch = api({
+    [`POST ${P}/vega/delete`]: () => jsonResponse(200, { username: 'borrado_9f8e7d6c' }),
+    [L('q=&state=all&sort=created&dir=desc&page=1')]: () => listOf([]),
+  });
+  playerPage();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: t.actions.delete }));
+  const dialog = await screen.findByRole('dialog', { name: t.actions.deleteOf('vega') });
+  await user.type(within(dialog).getByLabelText(t.fields.reason), 'Lo pidió el jugador');
+  await user.type(within(dialog).getByLabelText(t.fields.password), 'mi-clave');
+  await user.type(within(dialog).getByLabelText(t.fields.confirm), 'vega');
+  await user.click(within(dialog).getByRole('button', { name: t.actions.delete }));
+  await waitFor(() => expect(posted(fetch, '/vega/delete')).toHaveLength(1));
+  await waitFor(() => expect(locationOf(screen.getByTestId('location')).pathname).toBe('/admin/jugadores'));
+});
+
+test('la ficha de una cuenta eliminada lo dice y no enseña acciones', async () => {
+  api({ [`GET ${P}/borrado_0a1b2c3d`]: () => jsonResponse(200, { ...player, username: 'borrado_0a1b2c3d', deletedAt: '2026-11-12T10:00:00.000Z' }) });
+  renderAt('/admin/jugadores/borrado_0a1b2c3d', { '/admin/jugadores/:username': <PlayerScreen /> });
+  expect(await screen.findByText(t.deletedOn('12 de noviembre de 2026'))).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: t.actions.ban })).toBeNull();
+  expect(screen.queryByRole('button', { name: t.actions.delete })).toBeNull();
 });

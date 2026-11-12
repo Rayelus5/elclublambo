@@ -9,6 +9,7 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { ActionDialog, type FieldSpec } from './ActionDialog';
 import { cellText, DataTable, Pager } from './DataTable';
+import { DeletePlayerDialog } from './DeletePlayerDialog';
 import { ProgressTab } from './ProgressTab';
 
 const t = copy.admin;
@@ -162,6 +163,7 @@ export function PlayerScreen() {
   const [tab, setTab] = useState<Tab>('summary');
   const [open, setOpen] = useState<Action | null>(null);
   const [done, setDone] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const p = player.data;
   if (!p) {
@@ -190,6 +192,7 @@ export function PlayerScreen() {
       <header className="admin-player-head">
         <h1>{p.username}</h1>
         <p className="admin-chips">
+          {p.deletedAt ? <span className="admin-chip bad">{t.deletedOn(day(p.deletedAt))}</span> : null}
           {p.banned ? <span className="admin-chip bad">{p.banned.permanent ? t.states.bannedForever : t.states.bannedUntil(day(p.banned.until))}</span> : <span className="admin-chip ok">{t.states.ok}</span>}
           {p.muted ? <span className="admin-chip warn">{t.states.muted(day(p.muted.until))}</span> : null}
           {p.leaderboardExcluded ? <span className="admin-chip warn">{t.states.excluded}</span> : null}
@@ -204,6 +207,7 @@ export function PlayerScreen() {
           </div>
         ))}
       </dl>
+      {p.deletedAt ? null : (
       <div className="admin-actions">
         {actions.map((a) => (
           <button
@@ -219,7 +223,19 @@ export function PlayerScreen() {
             {a.title}
           </button>
         ))}
+        <button type="button" className="lip pill small danger" aria-haspopup="dialog" onClick={() => setDeleting(true)}>
+          <Icon name="trash" />
+          <span>{t.actions.delete}</span>
+        </button>
       </div>
+      )}
+      {deleting ? (
+        <DeletePlayerDialog
+          username={p.username}
+          onDone={(anon) => navigate('/admin/jugadores', { replace: true, state: { deleted: [p.username, anon] } })}
+          onClose={() => setDeleting(false)}
+        />
+      ) : null}
       {done ? (
         <p className="admin-done" role="status">
           {t.done}

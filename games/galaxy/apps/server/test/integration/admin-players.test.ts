@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { type AdminPlayer, type AdminPlayerList, type AdminSection, type AuditPage, generateGalaxy, type Leaderboard, PROBE_TEST, parseConfig, type Role } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
@@ -24,8 +24,8 @@ afterAll(() => ctx.close());
 const DAY = 86_400_000;
 const LEVEL_10 = parseConfig('account', {}).levels[8]!;
 
-async function player(opts: { trader?: boolean; ip?: string } = {}) {
-  const username = uniqueName('adp');
+async function player(opts: { trader?: boolean; ip?: string; name?: string } = {}) {
+  const username = opts.name ?? uniqueName('adp');
   const res = await post(ctx.app, '/galaxy/api/auth/register', { username, password: 'una-clave-larga' }, { ip: opts.ip ?? randomIp() });
   const cookie = sessionCookie(res);
   const id = (res.json() as { id: string }).id;
@@ -255,5 +255,143 @@ describe('la auditoría', () => {
     await act(`/players/${q.username}/wallet`, { currency: 'dust', amount: 1, reason: '=HYPERLINK("https://x.example","clic")' });
     const evil = await get(ctx.app, A(`/audit?format=csv&target=${q.id}`), { cookie: admin.cookie });
     expect(evil.body).toContain(`"'=HYPERLINK(""https://x.example"",""clic"")"`);
+  });
+});
+
+// Plan «escáner pro», part F: the whole list with nothing typed, 50 a page, with its filters and order; and «Eliminar»,
+// which anonymises and closes an account (its history stays, its personal and social data go).
+const list = async (query: string, cookie = admin.cookie) => {
+  const res = await get(ctx.app, A(`/players${query}`), { cookie });
+  expect(res.statusCode).toBe(200);
+  return res.json() as AdminPlayerList;
+};
+const names = async (query: string) => (await list(query)).players.map((x) => x.username);
+const idOf = async (username: string) => (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', username).executeTakeFirstOrThrow()).id;
+
+describe('la lista', () => {
+  test('sin texto salen todos, de 50 en 50, con el total y las páginas', async () => {
+    await player();
+    const all = await list('');
+    expect(all.total).toBeGreaterThan(0);
+    expect(all.players.length).toBe(Math.min(50, all.total));
+    expect(all).toMatchObject({ page: 1, pages: Math.max(1, Math.ceil(all.total / 50)) });
+    expect(all.players[0]).toHaveProperty('online');
+    expect(all.players[0]).toHaveProperty('muted');
+    expect(all.players[0]).toMatchObject({ deletedAt: null });
+    expect((await get(ctx.app, A('/players?state=nadie'), { cookie: admin.cookie })).statusCode).toBe(400);
+  });
+
+  test('el texto busca dentro del nombre, con los que empiezan por él primero; se ordena y se pagina', async () => {
+    const t = `k${randomBytes(3).toString('hex')}`;
+    const [x, y, z] = [`a${t}x`, `${t}b`, `c${t}`];
+    const px = await player({ name: x });
+    const py = await player({ name: y });
+    await player({ name: z, trader: true });
+    expect(await names(`?q=${t}&sort=name&dir=desc`)).toEqual([y, z, x]);
+    expect(await names(`?q=${t}&sort=name&dir=asc`)).toEqual([y, x, z]);
+    expect(await names(`?q=${t}&sort=level&dir=desc`)).toEqual([y, z, x]);
+    expect((await list(`?q=${t}&page=2`)).players).toEqual([]);
+    expect((await list(`?q=${t}&page=2`)).total).toBe(3);
+
+    await ctx.db.updateTable('galaxy.sessions').set({ last_seen_at: new Date(now - 10 * DAY) }).where('account_id', '=', px.id).execute();
+    expect(await names(`?q=${t}&state=active&sort=name&dir=asc`)).toEqual([y, z]);
+    expect((await act(`/players/${z}/ban`, { minutes: 60, reason: 'Trampas', password: admin.password })).statusCode).toBe(200);
+    expect(await names(`?q=${t}&state=banned`)).toEqual([z]);
+    await ctx.db.insertInto('galaxy.chat_mutes').values({ account_id: py.id, until: new Date(now + DAY), reason: 'Insultos' }).execute();
+    expect(await names(`?q=${t}&state=muted`)).toEqual([y]);
+    expect((await list(`?q=${y}`)).players[0]).toMatchObject({ username: y, muted: true, banned: false });
+    expect(await names(`?q=${admin.username}&state=staff`)).toEqual([admin.username]);
+    expect(await names(`?q=${t}&state=staff`)).toEqual([]);
+  });
+
+  test('conectados ahora: los que tienen el directo abierto', async () => {
+    const p = await player();
+    expect(await names(`?q=${p.username}&state=online`)).toEqual([]);
+    const ws = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin: 'http://localhost:5173', cookie: `gs_sid=${p.cookie}` } });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await names(`?q=${p.username}&state=online`)).toEqual([p.username]);
+    expect((await list(`?q=${p.username}`)).players[0]!.online).toBe(true);
+    ws.terminate();
+  });
+});
+
+describe('eliminar', () => {
+  const del = (u: string, body: object, cookie = admin.cookie) => act(`/players/${u}/delete`, { reason: 'Lo pidió el jugador', password: admin.password, confirm: u, ...body }, cookie);
+  const count = async (table: 'galaxy.sessions' | 'galaxy.account_ips' | 'galaxy.clan_members' | 'galaxy.ledger', id: string) =>
+    Number((await ctx.db.selectFrom(table).select(ctx.db.fn.countAll<number>().as('n')).where('account_id', '=', id).executeTakeFirstOrThrow()).n);
+
+  test('pide la contraseña y el nombre escrito; deja la cuenta anónima, cerrada y sin datos sociales', async () => {
+    const p = await player({ trader: true });
+    const heir = await player({ trader: true });
+    const friend = await player({ trader: true });
+    await credit(ctx.db, p.id, 'coins', 3000, 'test');
+    const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
+    expect((await post(ctx.app, '/galaxy/api/clans', { name: `Borrar ${randomUUID().slice(0, 6).replace(/[^a-z]/g, 'x')}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    const clan = await ctx.db.selectFrom('galaxy.clans').select('id').where('tag', '=', tag).executeTakeFirstOrThrow();
+    await ctx.db.insertInto('galaxy.clan_members').values({ clan_id: clan.id, account_id: heir.id, role: 'member' }).execute();
+    const [g1, g2] = [await own(p.id), await own(p.id)];
+    await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g1, price: 50 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    await post(ctx.app, '/galaxy/api/trades', { username: friend.username, give: g2 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    const [lo, hi] = p.id < friend.id ? [p.id, friend.id] : [friend.id, p.id];
+    await ctx.db.insertInto('galaxy.friendships').values({ a: lo, b: hi, status: 'accepted', requested_by: p.id }).execute();
+    await ctx.db.insertInto('galaxy.chat_messages').values({ author_id: p.id, channel: 'global', body: 'hola a todos' }).execute();
+    const ledger = await count('galaxy.ledger', p.id);
+    expect(await count('galaxy.account_ips', p.id)).toBeGreaterThan(0);
+
+    expect((await del(p.username, { confirm: 'otro_nombre' })).json()).toEqual({ error: 'confirm_mismatch' });
+    expect((await del(p.username, { password: 'no-es-la-clave' })).json()).toEqual({ error: 'password_wrong' });
+    const res = await del(p.username, {});
+    expect(res.statusCode).toBe(200);
+    const anon = (res.json() as { username: string }).username;
+    expect(anon).toMatch(/^borrado_[0-9a-f]{8}$/);
+
+    expect((await get(ctx.app, '/galaxy/api/auth/me', { cookie: p.cookie })).statusCode).toBe(401);
+    expect((await post(ctx.app, '/galaxy/api/auth/login', { username: p.username, password: 'una-clave-larga' })).statusCode).toBe(401);
+    expect((await post(ctx.app, '/galaxy/api/auth/login', { username: anon, password: 'una-clave-larga' })).statusCode).not.toBe(200);
+    expect((await get(ctx.app, A(`/players/${p.username}`), { cookie: admin.cookie })).json()).toEqual({ error: 'player_not_found' });
+    expect((await get(ctx.app, `/galaxy/api/profiles/${anon}`, { cookie: friend.cookie })).json()).toEqual({ error: 'profile_not_found' });
+
+    const row = await ctx.db.selectFrom('galaxy.accounts').selectAll().where('id', '=', p.id).executeTakeFirstOrThrow();
+    expect(row.deleted_at).not.toBeNull();
+    expect(new Date(row.banned_until!).getUTCFullYear()).toBe(9999);
+    expect(row).toMatchObject({ username: anon, leaderboard_excluded: true, title: null, frame: null, avatar: null, banner: null });
+    expect(await count('galaxy.sessions', p.id)).toBe(0);
+    expect(await count('galaxy.account_ips', p.id)).toBe(0);
+    expect(await count('galaxy.clan_members', p.id)).toBe(0);
+    expect(await ctx.db.selectFrom('galaxy.chat_messages').select('id').where('author_id', '=', p.id).execute()).toEqual([]);
+    expect(await ctx.db.selectFrom('galaxy.friendships').select('a').where((eb) => eb.or([eb('a', '=', p.id), eb('b', '=', p.id)])).execute()).toEqual([]);
+    expect((await ctx.db.selectFrom('galaxy.clan_members').select('role').where('account_id', '=', heir.id).executeTakeFirstOrThrow()).role).toBe('leader');
+    expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', g1).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect(await count('galaxy.ledger', p.id)).toBe(ledger);
+
+    const audit = (await audits(p.id)).find((x) => x.action === 'player.delete')!;
+    expect(audit).toMatchObject({ reason: 'Lo pidió el jugador', before: { username: p.username }, after: { username: anon, reserved: false } });
+    expect(await names(`?q=${anon}&state=deleted`)).toEqual([anon]);
+    expect(await names(`?q=${anon}`)).toEqual([]);
+    expect((await del(anon, {})).json()).toEqual({ error: 'player_deleted' });
+
+    // Its name is free again.
+    expect((await post(ctx.app, '/galaxy/api/auth/register', { username: p.username, password: 'otra-clave-larga' }, { ip: randomIp() })).statusCode).toBe(200);
+  });
+
+  test('«Reservar el nombre» lo deja sin usar', async () => {
+    const p = await player();
+    expect((await del(p.username, { reserveName: true })).statusCode).toBe(200);
+    const again = await post(ctx.app, '/galaxy/api/auth/register', { username: p.username, password: 'otra-clave-larga' }, { ip: randomIp() });
+    expect(again.statusCode).toBe(409);
+  });
+
+  test('al equipo solo un superadmin, a uno mismo nadie, y un moderador no puede', async () => {
+    const other = await staff('admin');
+    const otherId = await idOf(other.username);
+    expect((await del(other.username, {})).json()).toEqual({ error: 'staff_target' });
+    expect((await del(admin.username, {})).json()).toEqual({ error: 'self_target' });
+    const mod = await staff('moderator');
+    const p = await player();
+    expect((await del(p.username, {}, mod.cookie)).statusCode).toBe(403);
+    const boss = await staff('superadmin');
+    expect((await del(other.username, { password: boss.password }, boss.cookie)).statusCode).toBe(200);
+    expect(await ctx.db.selectFrom('galaxy.account_roles').select('role').where('account_id', '=', otherId).execute()).toEqual([]);
   });
 });
