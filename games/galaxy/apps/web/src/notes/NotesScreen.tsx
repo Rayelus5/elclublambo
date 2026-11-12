@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useReleaseNotes } from '../api/notes';
 import { copy } from '../copy/es';
 import { getPrefs, setPrefs, usePrefs } from '../settings/prefs';
+import { useSyncReady } from '../settings/sync';
 import { BackLink } from '../ui/BackLink';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
@@ -12,14 +13,16 @@ import { useReducedMotion } from '../ui/motion';
 // los cambios que ha habido a lo largo del tiempo, de forma clara, breve y completa»). Every version, newest first,
 // with its date, title, summary and changes grouped by kind (each group named, never told by colour alone); an index
 // that links to each (`?version=1.3`, a link anyone can share); what is new since the last visit marked «Nueva».
-// Opening the page counts the newest as seen (kept with the settings, on the account), which clears the menu's sign.
+// Opening the page counts the newest as seen (kept with the settings, on the account), which clears the menu's sign;
+// on a device that has not heard from the account yet, both wait for it (it may have seen them already).
 
 const t = copy.notes;
 const KIND_ICON: Record<NoteKind, IconName> = { nuevo: 'plus', mejora: 'up', equilibrio: 'target', arreglo: 'wrench' };
 const longDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const shortDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const dateOf = (d: string, f: Intl.DateTimeFormat) => f.format(new Date(`${d}T00:00:00Z`)).replace('.', '');
-const anchor = (v: string) => `version-${v.replace('.', '-')}`;
+/** Each note's place on the page, by its id (two notes may share a version). */
+const anchor = (id: string) => `nota-${id}`;
 
 /** The newest version there is (null with none). */
 export const newestVersion = (notes: readonly ReleaseNote[]): string | null => notes.reduce<string | null>((top, n) => (top === null || compareVersions(n.version, top) > 0 ? n.version : top), null);
@@ -32,25 +35,31 @@ export function NotesScreen() {
   const [params] = useSearchParams();
   const asked = params.get('version');
   const reduced = useReducedMotion();
-  // What was seen before this visit, so the page can still mark what is new in it.
-  const [seenBefore] = useState(() => getPrefs().notesSeen);
+  const ready = useSyncReady();
+  // What was seen before this visit (once the account has answered), so the page can still mark what is new in it.
+  const [seenBefore, setSeenBefore] = useState<string | null | undefined>(undefined);
   const list = notes.data?.notes ?? [];
   const newest = newestVersion(list);
   const seen = usePrefs((p) => p.notesSeen);
   const refs = useRef(new Map<string, HTMLElement>());
   const ids = useId();
+  const fresh = (version: string) => seenBefore !== undefined && isUnseen(version, seenBefore);
 
+  // Taken once, the moment the account has answered (during render: it is what this visit starts from).
+  if (ready && seenBefore === undefined) setSeenBefore(getPrefs().notesSeen);
   useEffect(() => {
-    if (newest && isUnseen(newest, seen)) setPrefs({ notesSeen: newest });
-  }, [newest, seen]);
+    if (seenBefore !== undefined && newest && isUnseen(newest, seen)) setPrefs({ notesSeen: newest });
+  }, [seenBefore, newest, seen]);
 
   // A version asked for in the address comes into view (and takes the focus, for keyboards and screen readers).
   useEffect(() => {
     if (!asked) return;
-    const el = refs.current.get(asked);
+    const first = list.find((n) => n.version === asked);
+    const el = first ? refs.current.get(first.id) : undefined;
     if (!el) return;
     el.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
     el.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked, list.length, reduced]);
 
   return (
@@ -80,7 +89,7 @@ export function NotesScreen() {
                     <Link to={`/notas-de-version?version=${n.version}`} replace className="notes-index-link" aria-current={asked === n.version ? 'true' : undefined}>
                       <b>{t.version(n.version)}</b>
                       <span>{dateOf(n.date, shortDate)}</span>
-                      {isUnseen(n.version, seenBefore) ? (
+                      {fresh(n.version) ? (
                         <span className="notes-dot">
                           <span className="sr-only">{t.fresh}</span>
                         </span>
@@ -96,11 +105,11 @@ export function NotesScreen() {
                   key={n.id}
                   note={n}
                   index={i}
-                  fresh={isUnseen(n.version, seenBefore)}
+                  fresh={fresh(n.version)}
                   headingId={`${ids}-${i}`}
                   articleRef={(el) => {
-                    if (el) refs.current.set(n.version, el);
-                    else refs.current.delete(n.version);
+                    if (el) refs.current.set(n.id, el);
+                    else refs.current.delete(n.id);
                   }}
                 />
               ))}
@@ -115,7 +124,7 @@ export function NotesScreen() {
 /** One version as the players read it (also the panel editor's preview). */
 export function NoteArticle({ note: n, index = 0, fresh = false, headingId, articleRef }: { note: ReleaseNote; index?: number; fresh?: boolean; headingId: string; articleRef?: (el: HTMLElement | null) => void }) {
   return (
-    <article ref={articleRef} id={anchor(n.version)} tabIndex={-1} className="lip panel notes-entry" aria-labelledby={headingId} style={{ '--i': index } as CSSProperties}>
+    <article ref={articleRef} id={anchor(n.id)} tabIndex={-1} className="lip panel notes-entry" aria-labelledby={headingId} style={{ '--i': index } as CSSProperties}>
       <header className="notes-entry-head">
         <span className="notes-version">{t.version(n.version)}</span>
         {/^\d{4}-\d{2}-\d{2}$/.test(n.date) ? <time dateTime={n.date}>{dateOf(n.date, longDate)}</time> : null}
@@ -148,8 +157,10 @@ export function NoteArticle({ note: n, index = 0, fresh = false, headingId, arti
 export function NotesLink({ style }: { style?: CSSProperties }) {
   const notes = useReleaseNotes().data?.notes ?? [];
   const seen = usePrefs((p) => p.notesSeen);
+  const ready = useSyncReady();
   const newest = newestVersion(notes);
-  const fresh = !!newest && isUnseen(newest, seen);
+  // Only once the account has answered: it may have seen them on another device.
+  const fresh = ready && !!newest && isUnseen(newest, seen);
   return (
     <Link to="/notas-de-version" className="lip pill enter hub-notes" data-sfx="hover" style={style} aria-label={fresh ? copy.hub.notesFresh : undefined}>
       <Icon name="scroll" />

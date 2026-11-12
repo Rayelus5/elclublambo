@@ -131,6 +131,8 @@ export const API_ERROR_CODES = [
   'note_not_found',
   'note_from_code',
   'note_version_taken',
+  'note_exists',
+  'note_not_from_code',
   'market_disabled',
   'trades_disabled',
   'chat_disabled',

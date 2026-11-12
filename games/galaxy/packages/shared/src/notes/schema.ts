@@ -13,9 +13,18 @@ export const releaseNoteItemSchema = z.object({
   text: z.string().trim().min(1).max(280),
 });
 
+/** A real calendar day, `YYYY-MM-DD` (2026-02-31 is not one). */
+const day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((d) => {
+    const t = new Date(`${d}T00:00:00Z`);
+    return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+  });
+
 const noteFields = {
   version: z.string().regex(/^\d{1,3}\.\d{1,3}$/),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: day,
   title: z.string().trim().min(1).max(80),
   summary: z.string().trim().max(280),
   items: z.array(releaseNoteItemSchema).min(1).max(40),
@@ -27,8 +36,10 @@ export const releaseNoteSchema = z.object({ id: noteIdSchema, ...noteFields });
 export type ReleaseNote = z.infer<typeof releaseNoteSchema>;
 export type ReleaseNoteItem = z.infer<typeof releaseNoteItemSchema>;
 
-/** PUT /galaxy/api/admin/notes/:id: the note's contents (the id comes from the address). */
+/** PUT /galaxy/api/admin/notes/:id: an existing note's contents (the id comes from the address). */
 export const adminNoteSaveSchema = z.object(noteFields);
+/** POST /galaxy/api/admin/notes: a new note, never over an existing one. */
+export const adminNoteCreateSchema = z.object({ id: noteIdSchema, ...noteFields });
 export const noteIdParamSchema = z.object({ id: noteIdSchema });
 
 /** Where a note comes from, as the panel shows it. */
@@ -41,6 +52,8 @@ export interface ReleaseNotesView {
 export interface AdminReleaseNote extends ReleaseNote {
   source: NoteSource;
   hidden: boolean;
+  /** Another visible note has its version (a code note arriving with one the panel already used). */
+  clash: boolean;
   updatedAt: string | null;
   updatedBy: string | null;
 }

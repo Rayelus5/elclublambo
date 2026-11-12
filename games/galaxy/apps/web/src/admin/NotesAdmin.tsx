@@ -12,13 +12,17 @@ import { Select } from '../ui/Select';
 
 // «Notas de versión» in the panel (plan «notas de versión»; the owner chose «las dos cosas»: the notes come with each
 // change, in the code, and here the admin adds new ones or corrects them without a deploy). Every note with where it
-// comes from and whether the players see it. «Nueva nota» and «Editar» open the same editor — version, date, title,
-// summary and the changes, each with its kind, to add, move and remove — with a preview exactly as the players read
-// it. A note of the game is hidden and restored (to its own text), never deleted; the panel's own are deleted after a
-// confirmation. Admins only; each change is audited by the server.
+// comes from, whether the players see it, and whether another visible note has its version. «Nueva nota» and
+// «Editar» open the same editor — version, date, title, summary and the changes, each with its kind, to add, move and
+// remove — with a preview exactly as the players read it. A new note never takes an existing one's id. Hiding and
+// showing again keep a correction; a corrected note of the game can go back to the game's text; the game's notes are
+// never deleted, the panel's own are, after a confirmation. Admins only; each change is audited by the server.
 
 const t = copy.admin.notes;
-type Draft = { id: string | null; version: string; date: string; title: string; summary: string; items: { kind: NoteKind; text: string }[] };
+type Item = { key: number; kind: NoteKind; text: string };
+type Draft = { id: string | null; version: string; date: string; title: string; summary: string; items: Item[] };
+let keys = 0;
+const item = (kind: NoteKind, text: string): Item => ({ key: ++keys, kind, text });
 
 const today = () => {
   const d = new Date();
@@ -44,10 +48,20 @@ export function noteId(version: string, title: string): string {
 
 const valid = (d: Draft) => /^\d{1,3}\.\d{1,3}$/.test(d.version) && /^\d{4}-\d{2}-\d{2}$/.test(d.date) && d.title.trim().length > 0 && d.items.some((x) => x.text.trim());
 
-function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void }) {
+/** A new note's id, made free of the ones there are (`-2`, `-3`… after it). */
+function freeId(base: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
+function Editor({ draft: initial, taken, onClose }: { draft: Draft; taken: ReadonlySet<string>; onClose: () => void }) {
   const ids = useId();
   const [d, setD] = useState(initial);
-  const { save } = useNoteChange();
+  const { save, create } = useNoteChange();
+  const busy = save.isPending || create.isPending;
+  const failed = save.error ?? create.error;
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const setItem = (i: number, patch: Partial<Draft['items'][number]>) => set({ items: d.items.map((x, k) => (k === i ? { ...x, ...patch } : x)) });
   const move = (i: number, by: -1 | 1) => {
@@ -56,7 +70,7 @@ function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void
     items.splice(i + by, 0, it!);
     set({ items });
   };
-  const note: ReleaseNote = { id: d.id ?? noteId(d.version, d.title), version: d.version.trim(), date: d.date, title: d.title.trim(), summary: d.summary.trim(), items: d.items.filter((x) => x.text.trim()).map((x) => ({ kind: x.kind, text: x.text.trim() })) };
+  const note: ReleaseNote = { id: d.id ?? freeId(noteId(d.version, d.title), taken), version: d.version.trim(), date: d.date, title: d.title.trim(), summary: d.summary.trim(), items: d.items.filter((x) => x.text.trim()).map((x) => ({ kind: x.kind, text: x.text.trim() })) };
   const title = initial.id ? t.editOf(initial.version) : t.create;
   const field = (k: 'version' | 'title' | 'summary', max: number) => (
     <div className="field">
@@ -72,9 +86,10 @@ function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void
         className="notes-editor-body"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!valid(d) || save.isPending) return;
+          if (!valid(d) || busy) return;
           const { id, ...rest } = note;
-          save.mutate({ id, note: rest }, { onSuccess: onClose });
+          if (initial.id) save.mutate({ id, note: rest }, { onSuccess: onClose });
+          else create.mutate(note, { onSuccess: onClose });
         }}
       >
         <div className="notes-editor-form">
@@ -93,7 +108,7 @@ function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void
             <legend>{t.items}</legend>
             <ol>
               {d.items.map((x, i) => (
-                <li key={i} className="notes-editor-item">
+                <li key={x.key} className="notes-editor-item">
                   <Select<NoteKind> aria-label={t.itemKind(i + 1)} size="sm" value={x.kind} options={NOTE_KINDS.map((k) => ({ value: k, label: copy.notes.kinds[k] }))} onChange={(kind) => setItem(i, { kind })} />
                   <textarea aria-label={t.itemText(i + 1)} rows={2} maxLength={280} value={x.text} onChange={(e) => setItem(i, { text: e.target.value })} />
                   <span className="notes-editor-tools">
@@ -110,22 +125,22 @@ function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void
                 </li>
               ))}
             </ol>
-            <button type="button" className="lip pill small" disabled={d.items.length >= 40} onClick={() => set({ items: [...d.items, { kind: d.items.at(-1)?.kind ?? 'nuevo', text: '' }] })}>
+            <button type="button" className="lip pill small" disabled={d.items.length >= 40} onClick={() => set({ items: [...d.items, item(d.items.at(-1)?.kind ?? 'nuevo', '')] })}>
               <Icon name="plus" />
               <span>{t.addItem}</span>
             </button>
           </fieldset>
-          {save.error ? (
+          {failed ? (
             <p className="field-error" role="alert">
-              {errorText(save.error, copy.errors)}
+              {errorText(failed, copy.errors)}
             </p>
           ) : null}
           <div className="modal-actions">
             <button type="button" className="lip pill" onClick={onClose}>
               {t.cancel}
             </button>
-            <button type="submit" className="lip pill pill-solar" disabled={!valid(d) || save.isPending} aria-busy={save.isPending || undefined}>
-              {save.isPending ? t.saving : t.save}
+            <button type="submit" className="lip pill pill-solar" disabled={!valid(d) || busy} aria-busy={busy || undefined}>
+              {busy ? t.saving : t.save}
             </button>
           </div>
         </div>
@@ -138,7 +153,7 @@ function Editor({ draft: initial, onClose }: { draft: Draft; onClose: () => void
   );
 }
 
-const draftOf = (n: AdminReleaseNote): Draft => ({ id: n.id, version: n.version, date: n.date, title: n.title, summary: n.summary, items: n.items.map((x) => ({ ...x })) });
+const draftOf = (n: AdminReleaseNote): Draft => ({ id: n.id, version: n.version, date: n.date, title: n.title, summary: n.summary, items: n.items.map((x) => item(x.kind, x.text)) });
 
 export function NotesAdmin() {
   const notes = useAdminNotes();
@@ -152,7 +167,7 @@ export function NotesAdmin() {
       <h1>{t.title}</h1>
       <p className="panel-note">{t.intro}</p>
       <div className="notes-admin-tools">
-        <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setEditing({ id: null, version: nextVersion(newestVersion(list)), date: today(), title: '', summary: '', items: [{ kind: 'nuevo', text: '' }] })}>
+        <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setEditing({ id: null, version: nextVersion(newestVersion(list)), date: today(), title: '', summary: '', items: [item('nuevo', '')] })}>
           <Icon name="plus" />
           <span>{t.create}</span>
         </button>
@@ -195,7 +210,10 @@ export function NotesAdmin() {
                   <td>
                     <span className={`admin-chip note-${n.source}`}>{t.sources[n.source]}</span>
                   </td>
-                  <td>{n.hidden ? <span className="admin-chip warn">{t.hidden}</span> : <span className="admin-chip ok">{t.visible}</span>}</td>
+                  <td>
+                    {n.hidden ? <span className="admin-chip warn">{t.hidden}</span> : <span className="admin-chip ok">{t.visible}</span>}
+                    {n.clash ? <span className="admin-chip bad" title={t.clashHint}>{t.clash}</span> : null}
+                  </td>
                   <td className="notes-admin-actions">
                     <button type="button" className="lip pill small" aria-haspopup="dialog" aria-label={t.editOf(n.version)} onClick={() => setEditing(draftOf(n))}>
                       {t.edit}
@@ -213,8 +231,8 @@ export function NotesAdmin() {
                       <button type="button" className="lip pill small" aria-haspopup="dialog" aria-label={t.deleteOf(n.version)} onClick={() => setDeleting(n)}>
                         {t.delete}
                       </button>
-                    ) : n.source === 'edited' && !n.hidden ? (
-                      <button type="button" className="lip pill small" aria-label={t.backToGameOf(n.version)} disabled={act.isPending} onClick={() => run(n, 'restore')}>
+                    ) : n.source === 'edited' ? (
+                      <button type="button" className="lip pill small" aria-label={t.backToGameOf(n.version)} disabled={act.isPending} onClick={() => run(n, 'revert')}>
                         {t.backToGame}
                       </button>
                     ) : null}
@@ -225,7 +243,7 @@ export function NotesAdmin() {
           </table>
         </HScroll>
       ) : null}
-      {editing ? <Editor draft={editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? <Editor draft={editing} taken={new Set(list.map((n) => n.id))} onClose={() => setEditing(null)} /> : null}
       {deleting ? (
         <Dialog title={t.deleteOf(deleting.version)} role="alertdialog" onClose={() => setDeleting(null)}>
           <p>{t.deleteBody(deleting.title)}</p>

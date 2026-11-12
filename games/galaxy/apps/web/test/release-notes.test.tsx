@@ -1,10 +1,11 @@
-import type { ReleaseNotesView } from '@galaxy/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import type { ReleaseNotesView, SettingsView } from '@galaxy/shared';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { MainMenu } from '../src/hub/MainMenu';
 import { NotesScreen } from '../src/notes/NotesScreen';
 import { getPrefs, resetPrefs, setPrefs } from '../src/settings/prefs';
+import { startSync } from '../src/settings/sync';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // «Notas de versión» for the players (plan «notas de versión»): a pill in the home menu's foot, marked «Nuevo» while a
@@ -83,4 +84,32 @@ test('si no se pueden cargar, lo dice', async () => {
   mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(500, { error: 'internal' }) });
   renderAt('/notas-de-version', { '/notas-de-version': <NotesScreen /> });
   expect(await screen.findByText(t.error)).toBeInTheDocument();
+});
+
+test('en un dispositivo nuevo, espera a la cuenta para saber qué es nuevo y no marca nada antes', async () => {
+  let answer: (v: SettingsView) => void = () => {};
+  const stop = startSync({ load: () => new Promise<SettingsView>((r) => (answer = r)), save: async () => ({}) });
+  try {
+    mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(200, view) });
+    renderAt('/notas-de-version', { '/notas-de-version': <NotesScreen /> });
+    await screen.findByRole('article', { name: 'Segunda' });
+    await new Promise((r) => setTimeout(r, 30));
+    // Not yet: the account may already have seen them.
+    expect(screen.queryByText(t.fresh)).toBeNull();
+    expect(getPrefs().notesSeen).toBeNull();
+    await act(async () => answer({ settings: { v: 1, notesSeen: '1.1' }, updatedAt: null }));
+    const second = screen.getByRole('article', { name: 'Segunda' });
+    expect(await within(second).findByText(t.fresh)).toBeInTheDocument();
+    expect(within(screen.getByRole('article', { name: 'Primera' })).queryByText(t.fresh)).toBeNull();
+    await waitFor(() => expect(getPrefs().notesSeen).toBe('1.2'));
+  } finally {
+    stop();
+  }
+});
+
+test('dos notas con la misma versión no se pisan en la página', async () => {
+  mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(200, { notes: [view.notes[0]!, { ...view.notes[0]!, id: 'v1-2-del-panel', title: 'Del panel' }] }) });
+  renderAt('/notas-de-version', { '/notas-de-version': <NotesScreen /> });
+  const [a, b] = await screen.findAllByRole('article');
+  expect(a!.id).not.toBe(b!.id);
 });

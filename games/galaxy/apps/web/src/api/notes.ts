@@ -16,7 +16,7 @@ export function useAdminNotes() {
   return useQuery({ queryKey: ADMIN_NOTES_KEY, queryFn: () => api<AdminReleaseNotesView>('/admin/notes') });
 }
 
-export type NoteAction = 'hide' | 'restore' | 'delete';
+export type NoteAction = 'hide' | 'restore' | 'revert' | 'delete';
 
 export function useNoteChange() {
   const qc = useQueryClient();
@@ -28,9 +28,13 @@ export function useNoteChange() {
     mutationFn: ({ id, note }: { id: string; note: Omit<ReleaseNote, 'id'> }) => api<AdminReleaseNote>(`/admin/notes/${id}`, { method: 'PUT', body: note }),
     onSettled: settle,
   });
+  const create = useMutation({
+    mutationFn: (note: ReleaseNote) => api<AdminReleaseNote>('/admin/notes', { method: 'POST', body: note }),
+    onSettled: settle,
+  });
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: NoteAction }) => api<unknown>(`/admin/notes/${id}/${action}`, { method: 'POST' }),
     onSettled: settle,
   });
-  return { save, act };
+  return { save, create, act };
 }

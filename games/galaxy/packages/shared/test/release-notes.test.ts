@@ -45,6 +45,8 @@ describe('las versiones', () => {
     expect(releaseNoteSchema.safeParse(ok).success).toBe(true);
     expect(releaseNoteSchema.safeParse({ ...ok, items: [] }).success).toBe(false);
     expect(releaseNoteSchema.safeParse({ ...ok, date: '1/12/2026' }).success).toBe(false);
+    expect(releaseNoteSchema.safeParse({ ...ok, date: '2026-02-31' }).success).toBe(false);
+    expect(releaseNoteSchema.safeParse({ ...ok, date: '2026-13-01' }).success).toBe(false);
     expect(releaseNoteSchema.safeParse({ ...ok, version: 'v9' }).success).toBe(false);
     expect(releaseNoteSchema.safeParse({ ...ok, items: [{ kind: 'secreto', text: 'x' }] }).success).toBe(false);
     expect(releaseNoteSchema.safeParse({ ...ok, id: 'Con Espacios' }).success).toBe(false);

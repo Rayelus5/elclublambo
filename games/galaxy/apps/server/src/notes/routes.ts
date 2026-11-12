@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { adminNoteSaveSchema, type AdminReleaseNotesView, noteIdParamSchema, type ReleaseNotesView } from '@galaxy/shared';
+import { adminNoteCreateSchema, adminNoteSaveSchema, type AdminReleaseNotesView, noteIdParamSchema, type ReleaseNotesView } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { AuditActor } from '../audit';
@@ -8,7 +8,7 @@ import type { DB } from '../db/schema';
 import type { Env } from '../env';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
-import { adminNotes, deleteNote, hideNote, releaseNotes, restoreNote, saveNote } from './service';
+import { adminNotes, createNote, deleteNote, hideNote, releaseNotes, restoreNote, revertNote, saveNote } from './service';
 
 // «Notas de versión»'s routes (plan «notas de versión»): every signed-in player reads them (with an ETag of their
 // contents: an unchanged copy is a 304); only admins signed in with TOTP edit them, at the panel's pace and audited.
@@ -35,6 +35,11 @@ export function registerNotesRoutes(api: FastifyInstance, deps: { db: Kysely<DB>
     return { notes: await adminNotes(deps.db) };
   });
 
+  api.post('/galaxy/api/admin/notes', async (req) => {
+    const { id: note, ...body } = adminNoteCreateSchema.parse(req.body);
+    return createNote(deps.db, await actorOf(req), note, body);
+  });
+
   api.put('/galaxy/api/admin/notes/:id', async (req) => {
     const note = id(req);
     const body = adminNoteSaveSchema.parse(req.body);
@@ -43,5 +48,6 @@ export function registerNotesRoutes(api: FastifyInstance, deps: { db: Kysely<DB>
 
   api.post('/galaxy/api/admin/notes/:id/hide', async (req) => hideNote(deps.db, await actorOf(req), id(req)));
   api.post('/galaxy/api/admin/notes/:id/restore', async (req) => restoreNote(deps.db, await actorOf(req), id(req)));
+  api.post('/galaxy/api/admin/notes/:id/revert', async (req) => revertNote(deps.db, await actorOf(req), id(req)));
   api.post('/galaxy/api/admin/notes/:id/delete', async (req) => deleteNote(deps.db, await actorOf(req), id(req)));
 }
