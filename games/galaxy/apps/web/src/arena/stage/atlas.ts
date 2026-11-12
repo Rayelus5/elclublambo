@@ -109,6 +109,31 @@ export function ditherTexture(w: number, h: number, paint: (x: number, y: number
   return new Texture({ source });
 }
 
+/**
+ * A grey mask, one byte per pixel (0 clear, else that grey, opaque), tinted when drawn: the Núcleo's storm cloud in
+ * the nebula's shape (environment.ts). Written through ImageData, so it costs little next to the noise it copies.
+ */
+export function maskTexture(w: number, h: number, grey: Uint8Array): Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    const g = grey[i]!;
+    if (!g) continue;
+    img.data[i * 4] = g;
+    img.data[i * 4 + 1] = g;
+    img.data[i * 4 + 2] = g;
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const source = TextureSource.from(canvas);
+  source.scaleMode = 'nearest';
+  source.addressMode = 'repeat';
+  return new Texture({ source });
+}
+
 /** Bayer 4×4 threshold (0–15). */
 export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
