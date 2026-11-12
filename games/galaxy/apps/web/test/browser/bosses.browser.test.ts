@@ -1,6 +1,89 @@
-import { DEFAULT_CONTENT } from '@galaxy/sim';
-import { test } from 'vitest';
+import { activeLaser, angleTo, DEFAULT_CONTENT, IDLE, type Sim, step } from '@galaxy/sim';
+import { afterEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { createStage, type Stage } from '../../src/arena/stage/stage';
+
+let stage: Stage | null = null;
+afterEach(() => {
+  stage?.destroy();
+  stage = null;
+  document.body.innerHTML = '';
+});
+
+/** Colours seen on a sparse sample of the canvas: a real scene, not one flat colour. */
+function distinctColours(canvas: HTMLCanvasElement): number {
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d')!;
+  ctx.drawImage(canvas, 0, 0);
+  const data = ctx.getImageData(0, 0, copy.width, copy.height).data;
+  const seen = new Set<number>();
+  for (let i = 0; i < data.length; i += 4 * 97) seen.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
+  return seen.size;
+}
+
+// Nov plan B4: the three new attacks on screen. The laser's warning (its line and the fan it will sweep), a closing
+// ring with its way out, a walking barrage and then the beam itself, over a real run.
+test('dibuja los avisos del láser, del anillo que se cierra y del bombardeo, y el haz del láser', async () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  const s = content.sectors[0]!;
+  s.layerSeconds = 1;
+  s.waves = [];
+  s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
+  content.bosses[0]!.phases = [
+    { below: 1, interval: 0.5, telegraph: 0.3, speed: 0.01, patterns: [{ kind: 'laser', windup: 1, duration: 1.5, sweep: 90, length: 300, width: 12, damage: 1 }] },
+  ];
+  const sim: Sim = (await import('@galaxy/sim')).createSim({ seed: '9', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const p = sim.probes[0]!;
+  p.hp = 1e9;
+  // Unarmed, so the Core shows its sprite and not its hit flash.
+  p.weapons = [];
+  await page.viewport(1280, 720);
+  document.body.style.margin = '0';
+  const canvas = document.createElement('canvas');
+  canvas.width = 1280;
+  canvas.height = 720;
+  document.body.appendChild(canvas);
+  stage = await createStage(canvas, content, { reduced: false, vision: 0, probe: 0, seed: '9', preserve: true });
+  stage.resize(1280, 720);
+  for (let t = 0; t < 120 && !sim.boss; t++) step(sim, [IDLE]);
+  // The Core close by, on screen.
+  const b = sim.boss!.index;
+  sim.enemies.x[b] = p.x + 150;
+  sim.enemies.y[b] = p.y - 50;
+  sim.enemies.px[b] = sim.enemies.x[b]!;
+  sim.enemies.py[b] = sim.enemies.y[b]!;
+  let warned = false;
+  for (let t = 0; t < 240 && !warned; t++) {
+    step(sim, [IDLE]);
+    stage.feed(sim.events, sim.tick);
+    warned = sim.events.some((e) => e.t === 'telegraph' && e.kind === 'laser');
+  }
+  expect(warned).toBe(true);
+  // A closing ring around the probe and a barrage beside it, warned at the same time.
+  const hole = angleTo(-1, 1);
+  stage.feed([{ t: 'telegraph', kind: 'closing', x: p.x, y: p.y, angle: hole, ticks: 60, radius: 110, arc: 683 }], sim.tick);
+  for (let k = 0; k < 6; k++) {
+    stage.feed([{ t: 'telegraph', kind: 'explode', x: p.x - 160 + k * 40, y: p.y + 90, angle: 0, ticks: 40 + k * 10, radius: 24 }], sim.tick);
+  }
+  for (let t = 0; t < 30; t++) {
+    step(sim, [IDLE]);
+    stage.feed(sim.events, sim.tick);
+  }
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/core-warnings.png', element: canvas });
+  // The beam, halfway through its sweep.
+  for (let t = 0; t < 120 && !(activeLaser(sim) && sim.boss!.active!.t < 45); t++) {
+    step(sim, [IDLE]);
+    stage.feed(sim.events, sim.tick);
+  }
+  expect(activeLaser(sim)).not.toBeNull();
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/core-beam.png', element: canvas });
+}, 90_000);
 
 // Nov plan B4: the review sheet of every Core's three forms (both frames at 4×, nearest neighbour, named), for the owner
 // to approve the art before the content is published. Only with VITE_ARENA_SHOTS=1; it saves __shots__/bosses-sheet.png.
