@@ -481,7 +481,12 @@ export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void)
     }
     // On a harpoon's line or in flight from the sling: the shot moves it (systems/arsenal-nov.ts).
     if (en.held[e]! > 0) {
-      if (heldBy(sim, e) >= 0) continue;
+      if (heldBy(sim, e) >= 0) {
+        // No push piles up while it is held (review B, M2): it would fire all at once on release.
+        en.kx[e] = 0;
+        en.ky[e] = 0;
+        continue;
+      }
       en.held[e] = 0;
     }
     // Knockback

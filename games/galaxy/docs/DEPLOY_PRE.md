@@ -948,15 +948,29 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 **Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.9.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
 
 **El código ya trae (vale para todas las partidas desde el despliegue):**
-- el daño de los Núcleos aplica el del sector, el del grupo y el de la anomalía;
-- su vida aplica la de la anomalía.
+- el daño de los Núcleos aplica el del grupo (`coop.enemyDamage`, de ×1 a ×1,2 según cuántos jugáis) y el de la anomalía;
+- su vida aplica la de la anomalía (con «Estática férrea», ×1,25);
+- su daño propio del sector, `coreDamage`, vale 1 hasta publicar `content`, así que hasta entonces pegan como hoy;
+- los enemigos sujetos por el arpón o lanzados por la honda ya no hacen daño de contacto.
 
 **El contenido nuevo solo llega a PRE al publicar `content`.** Hay que publicarlo partiendo de lo vivo:
 - **Armas:** 5 nuevas (Arpón magnético, Honda gravitatoria, Señuelo holográfico, Faro de fotones y Mortero de racimo), con sus evoluciones.
 - **Pasivas:** 5 nuevas (Fase cuántica, Cazanúcleos, Protocolo de purga, Repulsor e Inercia), con sus topes en `caps`.
 - **Núcleos:** 12 formas nuevas.
-- **Sectores:** el ciclo de formas de cada uno (`bossCycle` y `deepBoss.cycle`) y la curva de dificultad calibrada (`enemyDamage`, `scaling` y `density`).
+- **Sectores:** el ciclo de formas de cada uno (`bossCycle` y `deepBoss.cycle`) y la curva de dificultad calibrada (`enemyHp`, `enemyDamage`, `coreDamage`, `scaling` y `density`).
 - **Se conserva** el «Bosses Buff» de la vida de los Núcleos y las gotas de la Nebulosa retocadas desde el panel.
+
+**Cuánto cambia al publicar** (frente a `ops/launch/2026-11-10/content.json`; el daño de la fauna sube mucho al empezar y crece más despacio que la vida):
+
+| Sector | Daño de la fauna | Crece por minuto (daño) | Vida de la fauna | Crece por minuto (vida) | Daño de los Núcleos |
+|---|---|---|---|---|---|
+| Nebulosa | ×1 → ×1,65 | 6,5 % → 10 % | ×1,05 | 6 % → 9 % | ×1 → ×1,6 |
+| Anillos | ×1,03 → ×2,6 | 9 % → 10 % | ×1,1 → ×1,12 | 7,5 % → 8 % | ×1 → ×1,7 |
+| Arrecife | ×1,06 → ×1,15 | 6,5 % → 18 % | ×1,15 | 6 % → 14 % | ×1 → ×1,8 |
+| Forja | ×1,09 → ×1,6 | 6,5 % → 14 % | ×1,2 | 6 % → 10 % | ×1 → ×1,9 |
+| Fisura (temporada) | ×1,12 → ×2,4 | 9 % → 14 % | ×1,3 | 7,5 % → 12 % | ×1 → ×2,1 |
+
+Además, salen más enemigos por minuto (`density.perMinute` 0,18 → 0,24 y tope 3,5 → 4,5; en la Fisura, 0,3 y 4,5).
 
 **Curva calibrada con el bot** (`packages/sim/test/difficulty.test.ts`, `GALAXY_CALIBRATE=1`):
 - En la Nebulosa, quien empieza dura unos 5 minutos, un jugador medio unos 13–15 y un veterano unos 30.

@@ -139,7 +139,7 @@ export function fireNovember(sim: Sim, p: ProbeState, wi: number, def: WeaponDef
       if (targets.length === 0) targets = nearestEnemies(sim, p.x, p.y, reach, n, taken);
       if (targets.length === 0 || n <= 0) return false;
       // Out at its speed, back at its reel, with a second of slack for a probe that runs away.
-      const ttl = Math.ceil((reach / Math.max(speed, 1) + (2 * reach) / Math.max(lvl.knockback, 1)) * 60) + 60;
+      const ttl = Math.ceil((reach / Math.max(speed, 1) + (2 * reach) / reelSpeed(lvl.knockback)) * 60) + 60;
       for (let k = 0; k < n; k++) {
         const e = targets[k % targets.length]!;
         const round = Math.floor(k / targets.length);
@@ -293,7 +293,8 @@ function updateHarpoon(sim: Sim, i: number): void {
     return;
   }
   const slow = caught.some((e) => en.elite[e]! > 0);
-  const move = Math.min((lvl.knockback / 60) * (slow ? ELITE_REEL : 1), d - HARPOON_RELEASE);
+  const step = (reelSpeed(lvl.knockback) / 60) * (slow ? ELITE_REEL : 1);
+  const move = Math.min(step, d - HARPOON_RELEASE);
   const mx = (dx / d) * move;
   const my = (dy / d) * move;
   s.x[i] = s.x[i]! + mx;
@@ -301,16 +302,29 @@ function updateHarpoon(sim: Sim, i: number): void {
   // The head points away from the probe, its line back to it.
   s.angle[i] = angleTo(-dx, -dy);
   for (const e of caught) {
-    en.x[e] = en.x[e]! + mx;
-    en.y[e] = en.y[e]! + my;
-    // At the probe's feet it is let go; the rest of the catch comes on.
+    // Each catch comes towards the probe along its own line (review B, M1): a probe that strafes never flings the
+    // near ones past it. At its feet it is let go; the rest of the catch comes on.
     const ox = p.x - en.x[e]!;
     const oy = p.y - en.y[e]!;
-    if (ox * ox + oy * oy <= HARPOON_RELEASE * HARPOON_RELEASE) en.held[e] = 0;
+    const od = Math.sqrt(ox * ox + oy * oy);
+    if (od <= HARPOON_RELEASE) {
+      en.held[e] = 0;
+      continue;
+    }
+    const m = Math.min(step, od - HARPOON_RELEASE);
+    en.x[e] = en.x[e]! + (ox / od) * m;
+    en.y[e] = en.y[e]! + (oy / od) * m;
+    if (od - m <= HARPOON_RELEASE) en.held[e] = 0;
   }
   // The line and its catch hit what they touch on the way, each enemy once a throw.
   drag(sim, i, s.x[i]!, s.y[i]!, s.radius[i]!, caught, seen);
   for (const e of caught) if (en.alive[e]) drag(sim, i, en.x[e]!, en.y[e]!, en.radius[e]!, caught, seen);
+}
+
+/** A harpoon reels in at its `knockback` (units a second), never slower than this: a 0 from the panel would hold forever. */
+const MIN_REEL = 60;
+function reelSpeed(knockback: number): number {
+  return Math.max(knockback, MIN_REEL);
 }
 
 /** What a harpoon's line or catch at (x, y) touches takes the harpoon's hit, once a throw. */

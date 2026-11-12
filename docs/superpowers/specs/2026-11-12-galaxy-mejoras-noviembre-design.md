@@ -440,6 +440,25 @@ La revisión del constructor dejó cuatro preguntas. Las resuelvo así:
     - Se hace una sola vez, con un trabajo de la CLI que se puede repetir sin dar nada dos veces, y se lanza en PRE tras el despliegue.
 16. **El retrato del Núcleo de la Señal** solo se puede ganar mientras su sector de temporada está abierto. Se acepta como exclusivo de temporada.
 
+### Revisión independiente del bloque B
+
+Un revisor nuevo leyó el bloque B entero antes de fusionarlo. Lo que arreglé, cada cosa con su test que fallaba primero:
+
+17. **Un enemigo sujeto ya no hace daño de contacto.** El que cuelga del arpón o vuela lanzado por la honda es un proyectil de tu sonda: si te cruzaba, te hería.
+18. **Los Núcleos tienen su propio daño por sector, `coreDamage`.**
+    - Antes usaban el `enemyDamage` de la fauna, que tras calibrar no sube de sector en sector (1,65 / 2,6 / 1,15 / 1,6 / 2,4): un Núcleo del Arrecife habría pegado menos que el de la Nebulosa.
+    - `coreDamage` sube: 1,6 / 1,7 / 1,8 / 1,9 / 2,1, el de temporada el mayor. Un test de CI lo vigila.
+    - El contenido publicado antes no lo trae y vale 1, así que los Núcleos de PRE pegan como hoy hasta publicar `content`.
+19. **El arpón de remolque trae cada presa por su propia línea hasta tu sonda.** Antes las movía todas como la cabeza del arpón: si te movías de lado, las de cerca acababan lanzadas al otro lado.
+20. **Un empujón no se acumula mientras el enemigo está sujeto.** Si no, salía todo de golpe al soltarlo.
+21. **El arpón recoge a 60 por segundo como mínimo.** Un 0 en el panel lo dejaba sujeto para siempre.
+22. **El Códice solo abre las formas 2 y 3 de un Núcleo con partidas de la SIM 1.9.0 en adelante.** Una partida anterior que purgó la capa 3 se enfrentó tres veces a la forma 1. Una versión rara no cuenta.
+23. **La nota de `DEPLOY_PRE.md` dice cuánto cambia cada multiplicador al publicar.** Antes se quedaba corta.
+
+Lo que dejo para después:
+- Los barridos de disparos de las armas nuevas se hacen en cada tick. Bastan para los topes de hoy.
+- Las partidas de referencia no cubren todas las armas nuevas; cada una tiene sus tests de determinismo.
+
 ## 9. Lo que se deja al constructor
 
 - Nombres de las formas, las evoluciones y las piezas; números exactos de armas, pasivas, topes y fórmulas; diseño de cada ataque.

@@ -316,12 +316,18 @@ describe('el Núcleo sigue los multiplicadores del sector, la anomalía y el gru
   const bossDamage = (sim: Sim) => sim.enemies.damage[sim.boss!.index]!;
   const bossHp = (sim: Sim) => sim.enemies.maxHp[sim.boss!.index]!;
 
-  test('el daño del sector multiplica el del Núcleo', () => {
+  // Review B, I2: the Núcleo has its own sector factor, `coreDamage`, rising sector by sector; the fauna's
+  // `enemyDamage` (tuned with its growth by the minute) no longer drives it.
+  test('el daño de Núcleo del sector multiplica el del Núcleo, y el de la fauna no', () => {
     const base = bossWith(() => {});
     const harder = bossWith((c) => {
-      c.sectors[0]!.enemyDamage = 1.5;
+      c.sectors[0]!.coreDamage = c.sectors[0]!.coreDamage * 1.5;
     });
     expect(bossDamage(harder)).toBeCloseTo(bossDamage(base) * 1.5);
+    const fauna = bossWith((c) => {
+      c.sectors[0]!.enemyDamage = c.sectors[0]!.enemyDamage * 1.5;
+    });
+    expect(bossDamage(fauna)).toBeCloseTo(bossDamage(base));
   });
 
   test('la anomalía de la temporada endurece su vida y su daño', () => {
@@ -626,8 +632,8 @@ describe('patrones de las formas nuevas', () => {
   });
 
   test('el daño de los tres sigue la capa y la dureza del sector', () => {
-    const hurtBy = (pattern: BossPattern, enemyDamage: number) => {
-      const sim = withPattern(pattern, (c) => (c.sectors[0]!.enemyDamage = enemyDamage));
+    const hurtBy = (pattern: BossPattern, coreDamage: number) => {
+      const sim = withPattern(pattern, (c) => (c.sectors[0]!.coreDamage = coreDamage));
       untilFired(sim, (s) => s.events.some((e) => e.t === 'telegraph' && e.kind !== 'burst'));
       const tel = sim.events.find((e): e is Extract<SimEvent, { t: 'telegraph' }> => e.t === 'telegraph' && e.kind !== 'burst')!;
       if (pattern.kind === 'laser') place(sim, tel.x, tel.y, tel.angle, 120);

@@ -1802,6 +1802,7 @@ export const DEFAULT_CONTENT: Content = {
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
       enemyHp: 1.05,
       enemyDamage: 1.65,
+      coreDamage: 1.6,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.09, damagePerMinute: 0.1 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
@@ -1832,6 +1833,7 @@ export const DEFAULT_CONTENT: Content = {
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
       enemyHp: 1.12,
       enemyDamage: 2.6,
+      coreDamage: 1.7,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.08, damagePerMinute: 0.1 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
@@ -1861,6 +1863,7 @@ export const DEFAULT_CONTENT: Content = {
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
       enemyHp: 1.15,
       enemyDamage: 1.15,
+      coreDamage: 1.8,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.14, damagePerMinute: 0.18 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
@@ -1891,6 +1894,7 @@ export const DEFAULT_CONTENT: Content = {
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
       enemyHp: 1.2,
       enemyDamage: 1.6,
+      coreDamage: 1.9,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.1, damagePerMinute: 0.14 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
@@ -1924,6 +1928,7 @@ export const DEFAULT_CONTENT: Content = {
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
       enemyHp: 1.3,
       enemyDamage: 2.4,
+      coreDamage: 2.1,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.45, damagePerLayer: 0.3 },
       density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
     },

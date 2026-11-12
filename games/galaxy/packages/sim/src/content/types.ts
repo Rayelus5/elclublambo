@@ -275,6 +275,11 @@ export interface SectorDef {
   /** Open beta: multiplies its enemies' (and its Core's) life and their damage; 1 for content published before. */
   enemyHp: number;
   enemyDamage: number;
+  /**
+   * Multiplies its Núcleos' damage (review B, I2): rising from the first sector to the season's. Apart from
+   * `enemyDamage`, which is tuned together with the fauna's growth by the minute. 1 for content published before.
+   */
+  coreDamage: number;
   layerSeconds: number;
   beacon: { seconds: number; hold: number; radius: number; distance: number };
   /** `from`: second of layer 1 from which the species appears (from layer 2 on, all appear from the start). */

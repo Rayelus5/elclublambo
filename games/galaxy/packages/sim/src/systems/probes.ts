@@ -94,6 +94,10 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
       const e = near[k]!;
       // A Core away in its blink touches nothing (systems/boss.ts `bossAway`, inline: boss.ts imports this file).
       if (!en.alive[e] || en.hackT[e]! > 0 || en.fuseT[e]! > 0 || (sim.boss?.index === e && sim.boss.active?.kind === 'blink')) continue;
+      // On a harpoon's line or thrown by the sling (inline `heldBy`, enemies.ts imports this file): it is the probe's
+      // projectile now and touches nobody (review B, I1).
+      const h = en.held[e]!;
+      if (h > 0 && sim.shots.alive[h - 1] && sim.shots.gen[h - 1] === en.heldGen[e]) continue;
       const dx = en.x[e]! - p.x;
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;

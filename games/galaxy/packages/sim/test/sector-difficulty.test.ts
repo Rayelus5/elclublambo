@@ -48,9 +48,19 @@ test('un contenido publicado antes, sin estos campos, juega con 1', () => {
   for (const s of old.sectors) {
     delete s['enemyHp'];
     delete s['enemyDamage'];
+    delete s['coreDamage'];
   }
   const parsed = contentSchema.parse(old);
-  expect(parsed.sectors.every((s) => s.enemyHp === 1 && s.enemyDamage === 1)).toBe(true);
+  expect(parsed.sectors.every((s) => s.enemyHp === 1 && s.enemyDamage === 1 && s.coreDamage === 1)).toBe(true);
+});
+
+// Review B, I2: the Núcleo's damage is the sector's own `coreDamage`, rising from the first sector to the season's.
+test('el daño de los Núcleos sube de sector en sector y el de temporada es el mayor', () => {
+  const sectors = DEFAULT_CONTENT.sectors;
+  const core = sectors.filter((s) => !s.season).map((s) => s.coreDamage);
+  for (let i = 1; i < core.length; i++) expect(core[i]!).toBeGreaterThan(core[i - 1]!);
+  const season = sectors.find((s) => s.season)!;
+  expect(season.coreDamage).toBe(Math.max(...sectors.map((s) => s.coreDamage)));
 });
 
 // Nov plan B4: the forms take turns, but the Core still grows with every layer and with the sector, whichever form comes.

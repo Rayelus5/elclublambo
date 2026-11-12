@@ -40,11 +40,11 @@ export function bossAway(sim: Sim, e: number): boolean {
 }
 
 /**
- * Damage multiplier of the boss: its layer, the sector's toughness, the group and the season's anomaly (Nov plan B1:
- * before, a Núcleo hit as hard in the hardest sector as in the first).
+ * Damage multiplier of the boss: its layer, the sector's Núcleo toughness (`coreDamage`, rising sector by sector), the
+ * group and the season's anomaly (Nov plan B1: before, a Núcleo hit as hard in the hardest sector as in the first).
  */
 function layerDamage(sim: Sim, def: BossDef): number {
-  return (1 + def.scaling.damagePerLayer * (sim.layer - 1)) * sim.sector.enemyDamage * coopFactor(sim, 'enemyDamage') * (sim.anomaly?.enemyDamage ?? 1);
+  return (1 + def.scaling.damagePerLayer * (sim.layer - 1)) * sim.sector.coreDamage * coopFactor(sim, 'enemyDamage') * (sim.anomaly?.enemyDamage ?? 1);
 }
 
 export function spawnBoss(sim: Sim): void {

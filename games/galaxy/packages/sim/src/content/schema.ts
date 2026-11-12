@@ -202,6 +202,7 @@ const sector = z
     // Open beta: the sector's own toughness, on top of its scaling (first sector easiest, the season's hardest).
     enemyHp: z.number().min(0.25).max(4).default(1),
     enemyDamage: z.number().min(0.25).max(4).default(1),
+    coreDamage: z.number().min(0.25).max(4).default(1),
     layerSeconds: pos,
     beacon: z.object({ seconds: pos, hold: pos, radius: pos, distance: n }).strict(),
     spawns: z
