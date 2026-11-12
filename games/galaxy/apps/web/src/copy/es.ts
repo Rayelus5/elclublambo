@@ -1727,8 +1727,6 @@ export const copy = {
   hub: {
     shortcuts: 'Accesos',
     menu: 'Menú principal',
-    admin: 'Admin',
-    moderator: 'Moderador',
     scanner: 'Escáner profundo',
     freePull: 'Tirada gratis',
     market: 'Mercado',

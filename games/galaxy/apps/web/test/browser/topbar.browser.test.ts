@@ -9,9 +9,9 @@ import { page } from 'vitest/browser';
 import { TopBar } from '../../src/hub/TopBar';
 import '../../src/styles/app.css';
 
-// The top bar's player pill (Nov plan C2 follow-up): the square avatar, with or without its square frame, fills the
-// pill's whole height at its left end, whose corners are square like the avatar's; the right end stays round. With
-// VITE_TOPBAR_SHOTS=1 it saves screenshots.
+// The top bar's player pill (Nov plan C2 follow-up): the square avatar's face fills the pill's whole height at its left
+// end, whose corners are square like the avatar's, and its frame sticks out round the pill (owner, 2026-11-12); the
+// right end stays round; no staff badge. With VITE_TOPBAR_SHOTS=1 it saves screenshots.
 
 const wallet = { coins: 1840, dust: 64, signal: 6, components: 22, material: 0 };
 let root: Root | null = null;
@@ -32,7 +32,7 @@ for (const [label, frame] of [
     vi.stubGlobal('fetch', () => new Promise(() => {}));
     // The hub's entrance has played (its .enter pieces sit in place).
     document.body.classList.add('ready', 'settled');
-    const me: MeResponse = { id: 'a1', username: 'vega', roles: [], mfa: false, level: 17, avatar: 'crew-cat', frame };
+    const me: MeResponse = { id: 'a1', username: 'vega', roles: ['superadmin'], mfa: true, level: 17, avatar: 'crew-cat', frame };
     const host = document.createElement('div');
     host.style.cssText = 'padding:24px';
     document.body.append(host);
@@ -42,15 +42,22 @@ for (const [label, frame] of [
     const pill = host.querySelector<HTMLElement>('.hud .me')!.closest<HTMLElement>('.hud')!;
     const box = pill.getBoundingClientRect();
     const border = parseFloat(getComputedStyle(pill).borderTopWidth);
-    const face = pill.querySelector<HTMLElement>(frame ? '.avatar-frame' : '.avatar-box')!.getBoundingClientRect();
-    // The avatar (its frame when it has one) spans the pill inside its border, from its left edge.
+    const face = pill.querySelector<HTMLElement>('.avatar-box')!.getBoundingClientRect();
+    // The face spans the pill inside its border, from its left edge.
     expect(Math.abs(face.top - (box.top + border))).toBeLessThan(1.5);
     expect(Math.abs(face.bottom - (box.bottom - border))).toBeLessThan(1.5);
     expect(Math.abs(face.left - (box.left + border))).toBeLessThan(1.5);
+    // Its frame sticks out above and below the pill.
+    if (frame) {
+      const ring = pill.querySelector<HTMLElement>('.avatar-frame')!.getBoundingClientRect();
+      expect(ring.top).toBeLessThan(box.top - 4);
+      expect(ring.bottom).toBeGreaterThan(box.bottom + 4);
+    }
     // Square on the avatar's side, round on the other.
     const style = getComputedStyle(pill);
     expect(parseFloat(style.borderTopLeftRadius)).toBeLessThanOrEqual(12);
     expect(parseFloat(style.borderTopRightRadius)).toBeGreaterThanOrEqual(box.height / 2);
-    if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: `__shots__/topbar-${frame ?? 'none'}.png`, element: pill });
+    expect(pill.querySelector('.badge-admin')).toBeNull();
+    if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: `__shots__/topbar-${frame ?? 'none'}.png`, element: host });
   }, 30_000);
 }

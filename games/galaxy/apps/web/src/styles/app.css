@@ -302,7 +302,6 @@
   .pill-uv { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: var(--color-ink); --lip-c: var(--color-uv-lip); }
   .pill-terminal:not(:disabled) { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); color: var(--color-on-terminal); --lip-c: var(--color-terminal-lip); }
   .badge-new { font-size: 12.5px; font-weight: 700; background: var(--color-on-solar); color: var(--color-solar); padding: 3px 9px; border-radius: 99px; }
-  .badge-admin { display: inline-block; font-weight: 700; font-size: 11.5px; line-height: 1.5; padding: 0 8px; border-radius: 99px; background: var(--color-terminal); color: var(--color-on-terminal); }
 
   .topbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-left: -16px; }
   .topbar .group { display: flex; gap: 12px; align-items: center; }
@@ -313,11 +312,11 @@
   }
   .hud { --r: 999px; --lip-h: 4px; display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 5px; }
   .me { display: flex; align-items: center; gap: 10px; padding-right: 10px; }
-  /* The top bar's player pill: the square avatar fills its height at the left end, whose corners are square like it;
-     the right end stays round. A framed avatar keeps room for its frame (a quarter of its side round it). */
+  /* The top bar's player pill: the square avatar's face fills its height at the left end, whose corners are square like
+     it, and a frame sticks out round the pill (owner, 2026-11-12); the right end stays round. */
   .hud.hud-me { padding: 0 6px 0 0; border-radius: 8px var(--r) var(--r) 8px; }
-  .hud-me .me > .avatar-box { border-radius: 6px; }
-  .hud-me .me > .avatar-box:has(> .avatar-frame) { margin: calc(8px * var(--s)); }
+  .hud-me .me > .avatar-box { z-index: 1; border-radius: 6px; }
+  .hud-me .me:has(.avatar-frame) { gap: 22px; } /* the frame's 12 px out to the right, then the usual 10 */
   .me > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me b { max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 600; line-height: 1.1; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-panel-lip); box-shadow: 0 0 0 3px var(--color-solar); }

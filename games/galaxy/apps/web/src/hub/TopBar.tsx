@@ -1,7 +1,7 @@
 import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { isAdmin, isStaff } from '../auth/useMe';
+import { isStaff } from '../auth/useMe';
 import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
@@ -10,7 +10,6 @@ import { NewsButton } from './News';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
-import { frameArt } from '../profile/art';
 import { Avatar } from './Avatar';
 import { WalletBar } from './WalletBar';
 
@@ -96,12 +95,11 @@ export function TopBar({
       <div className="group">
         <div className="lip panel hud hud-me enter" style={delay('1s')} data-tour="wallet">
           <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
-            {/* The pill's whole height: 32 px inside a 48 px frame, or the bare avatar at 48. */}
-            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} size={me.frame && frameArt(me.frame) ? 32 : 48} />
+            {/* Its face the pill's whole height (48 px); a frame sticks out round it. */}
+            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} size={48} />
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}
-              {isStaff(me) ? <span className="badge-admin">{isAdmin(me) ? copy.hub.admin : copy.hub.moderator}</span> : null}
             </div>
             {/* Its name keeps what it shows (label in name) and says where it leads. */}
             <span className="sr-only">{copy.social.yourProfile}</span>

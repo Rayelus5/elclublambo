@@ -176,11 +176,11 @@ test('disolver un clan pide la contraseña del admin', async () => {
   await waitFor(() => expect(locationOf(screen.getByTestId('location')).pathname).toBe('/admin/moderacion/clanes'));
 });
 
-test('un moderador con TOTP tiene el escudo del panel en la barra y su etiqueta dice Moderador', async () => {
+test('un moderador con TOTP tiene el escudo del panel en la barra, sin etiqueta de staff', async () => {
   mockApi({});
   renderAt('/', { '/': <TopBar me={mod} wallet={undefined} freePull={false} onLogout={() => {}} leaving={false} /> });
   expect(await screen.findByRole('link', { name: copy.admin.title })).toHaveAttribute('href', '/admin');
-  expect(screen.getByText(copy.hub.moderator)).toBeInTheDocument();
+  expect(screen.queryByText('Moderador')).not.toBeInTheDocument();
 });
 
 test('expulsar al último miembro deja la página diciendo que el clan ya no existe', async () => {
