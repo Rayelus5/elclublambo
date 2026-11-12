@@ -38,15 +38,15 @@ export function TierEmblem({ tier, scale = 2 }: { tier: SeasonTier; scale?: 1 | 
 }
 
 /** The top three, first in the middle on screen (in order for screen readers), each leading to its profile. */
-export function Podium({ rows, tab, me }: { rows: LeaderRow[]; tab: LeaderTab; me: string | undefined }) {
+export function Podium({ rows, tab, me, large = false }: { rows: LeaderRow[]; tab: LeaderTab; me: string | undefined; large?: boolean }) {
   return (
-    <ol className="podium" aria-label={t.podium}>
+    <ol className={large ? 'podium large' : 'podium'} aria-label={t.podium}>
       {rows.slice(0, 3).map((r, i) => (
         <li key={r.username} className={`place-${i + 1}`} aria-current={r.username === me ? 'true' : undefined}>
           <span className="sr-only">{t.rank(r.rank)}</span>
           <Link to={`/perfil/${encodeURIComponent(r.username)}`} className="podium-who">
             <span className="podium-avatar">
-              <Avatar name={r.username} avatar={r.avatar} frame={r.frame} />
+              <Avatar name={r.username} avatar={r.avatar} frame={r.frame} size={large ? (i === 0 ? 96 : 64) : 32} />
             </span>
             <b>{r.username}</b>
           </Link>

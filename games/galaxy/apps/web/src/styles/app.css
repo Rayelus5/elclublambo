@@ -315,7 +315,7 @@
   /* The top bar's player pill: the square avatar's face fills its height at the left end, whose corners are square like
      it, and a frame sticks out round the pill (owner, 2026-11-12); the right end stays round. */
   .hud.hud-me { padding: 0 6px 0 0; border-radius: 8px var(--r) var(--r) 8px; }
-  .hud-me .me > .avatar-box { z-index: 1; border-radius: 6px; }
+  .hud-me .me > .avatar-box { z-index: 1; margin: 0; border-radius: 6px; }
   .hud-me .me:has(.avatar-frame) { gap: 22px; } /* the frame's 12 px out to the right, then the usual 10 */
   .me > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me b { max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 600; line-height: 1.1; }
@@ -324,6 +324,9 @@
   .avatar-box { --s: 1; position: relative; display: inline-grid; place-items: center; flex: none; inline-size: calc(32px * var(--s)); block-size: calc(32px * var(--s)); border-radius: calc(5px * var(--s)); background: var(--color-panel-lip); }
   .avatar-box > .avatar { inline-size: 100%; block-size: 100%; border-radius: inherit; box-shadow: none; }
   .avatar-art { display: block; inline-size: 100%; block-size: 100%; border-radius: inherit; background: no-repeat 0 0 / calc(var(--frames, 1) * 100%) 100%; image-rendering: pixelated; }
+  /* A frame is drawn a quarter of the side round the avatar: the layout keeps that room, so in a list it covers
+     neither the name nor the text beside it (owner, 2026-11-12). The top bar's pill lets it stick out on purpose. */
+  .avatar-box:has(> .avatar-frame) { margin: calc(8px * var(--s)); }
   .avatar-frame { position: absolute; inset: calc(-8px * var(--s)); background: no-repeat 0 0 / calc(var(--frames, 1) * 100%) 100%; image-rendering: pixelated; pointer-events: none; }
   .avatar-art.anim { animation: avatar-frames .68s steps(4) infinite; }
   .avatar-frame.anim { animation: frame-frames .9s steps(6) infinite; }
@@ -1430,6 +1433,11 @@
   .podium-who:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; border-radius: 12px; }
   .podium-avatar { display: grid; place-items: center; inline-size: 52px; block-size: 52px; border-radius: 16px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px var(--metal), 0 0 18px color-mix(in srgb, var(--metal) 40%, transparent); }
   .podium li.place-1 .podium-avatar { inline-size: 64px; block-size: 64px; }
+  /* The leaderboard's own podium: the avatars large (96 px for the first, 64 for the others), each box the size of its
+     framed avatar. */
+  .podium.large .podium-avatar { inline-size: 104px; block-size: 104px; border-radius: 26px; }
+  .podium.large li.place-1 .podium-avatar { inline-size: 152px; block-size: 152px; border-radius: 34px; }
+  .podium.large .podium-who b { font-size: 17px; }
   .podium-avatar .avatar { inline-size: 70%; block-size: 70%; }
   .podium-avatar .avatar-box .avatar { inline-size: 100%; block-size: 100%; }
   .podium-level { font-size: 12px; color: var(--color-ink-mute); }
@@ -1678,10 +1686,12 @@
   .chat-loading { margin: 0; align-self: center; text-align: center; color: var(--color-ink-mute); }
   .chat-log { list-style: none; margin: 0; padding: 4px 6px 4px 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; border-radius: 14px; }
   .chat-empty { margin: auto; padding: 24px 12px; text-align: center; color: var(--color-ink-mute); }
-  .chat-msg { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 8px 10px; border-radius: 14px; transition: background .15s; }
+  .chat-msg { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 8px 10px; border-radius: 14px; transition: background .15s; }
   .chat-msg:hover, .chat-msg:focus-within { background: rgb(255 255 255 / .04); }
   .chat-msg.own { background: color-mix(in srgb, var(--color-solar) 7%, transparent); }
   .chat-msg .avatar { inline-size: 28px; block-size: 28px; box-shadow: 0 0 0 2px var(--color-panel-lip); margin-top: 2px; }
+  /* The avatar's column is a framed avatar's width (48 px), so every message starts its text at the same place. */
+  .chat-msg > .avatar-box { justify-self: center; align-self: start; }
   .chat-msg-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0; font-size: 13px; color: var(--color-ink-mute); }
   .chat-author { color: var(--color-ink); font-weight: 700; font-size: 15px; text-decoration: none; border-radius: 4px; }
   .chat-author:hover { text-decoration: underline; }
@@ -3015,7 +3025,7 @@
   .lobby-mate.empty .lobby-pad { opacity: .45; filter: grayscale(1); animation: none; }
   .lobby-mate-tag { display: grid; justify-items: center; gap: 2px; padding: 6px 12px; border-radius: 14px; background: rgb(7 10 28 / .7); border: 2px solid rgb(255 255 255 / .07); min-inline-size: 0; max-inline-size: 180px; }
   .lobby-mate-name { display: inline-flex; align-items: center; gap: 6px; max-inline-size: 100%; }
-  .lobby-mate-name .avatar-box { margin-inline-end: 2px; }
+  .lobby-mate-name .avatar-box:not(:has(> .avatar-frame)) { margin-inline-end: 2px; }
   .lobby-mate-tag b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lobby-mate-tag small { color: var(--color-ink-soft); font-size: 12.5px; }
   .lobby-mate.empty .lobby-mate-tag b { color: var(--color-ink-mute); font-weight: 700; }

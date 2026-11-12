@@ -232,7 +232,7 @@ export function LeaderboardScreen() {
                 </div>
               ) : (
                 <>
-                  <Podium rows={v.rows} tab={tab} me={me?.username} />
+                  <Podium rows={v.rows} tab={tab} me={me?.username} large />
                   {v.rows.length > 3 ? (
                     <table className="lip panel lb-table" aria-label={t.leaderboard}>
                       <thead>
