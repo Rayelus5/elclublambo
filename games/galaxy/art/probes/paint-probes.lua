@@ -1,8 +1,10 @@
--- Galaxy Survivor: the eight playable probes, redrawn (plan «banda sonora, skins, perfil y entorno», part B; the owner:
--- «reworkear las sondas actuales para que las skins tengan mejor sentido y sean más épicas… misma identidad»).
--- Each probe keeps its silhouette and colours from the 16×16 grids, now at 24×24 with hue-shifted ramps, a bevelled
--- shading lit from the top left (ordered dithering between the ramp's steps), a 1 px #0b0c24 contour, and four idle
--- frames: the engine and the core pulse, the navigation lights blink. Facing right, the engine on the left.
+-- Galaxy Survivor: the eight playable probes at 24 × 24 (plan «banda sonora, skins, perfil y entorno», part B). The
+-- owner, after a first shaded try: «quiero que la skin base de las sondas sea lo más minimalista posible como los
+-- diseños originales». So each probe keeps the silhouette and the colours of its 16 × 16 grid, drawn flat like it:
+-- three tones per part from the arena's palette (its fill, a light edge to the top left, a dark edge to the bottom
+-- right), no dithering, a 1 px #0b0c24 contour, and four idle frames (the engine flickers, the core breathes, the
+-- navigation lights blink). Facing right, the engine on the left. The bodies leave a margin round them: the skins
+-- (part C) grow their own shapes there.
 --
 -- Run from games/galaxy:
 --   aseprite -b --script-param out=art/probes --script-param web=apps/web/src/arena/sprites \
@@ -16,22 +18,18 @@ local PREVIEW = app.params['preview']
 local ONLY = app.params['only']
 local OUTLINE = '#0b0c24'
 
--- Ramps, dark to light (hue-shifted toward violet in the shadows and warm in the lights).
+-- Three tones per material: dark edge, fill, light edge (the arena's palette, apps/web/src/arena/sprites/palette.ts).
 local R = {
-  ice = { '#16205a', '#3a58e0', '#6fb7ff', '#bfe3ff', '#f3f5ff' },
-  steel = { '#1f2350', '#363d72', '#4b5390', '#6f78b4', '#b9bfe6' },
-  plate = { '#3a4278', '#6670b0', '#9aa2d6', '#c9cff0', '#f3f5ff' },
-  dark = { '#0e1130', '#161a3f', '#232a5c' },
-  solar = { '#5a1d10', '#c25f1c', '#ff9a3c', '#ffc94a', '#fff1b8' },
-  uv = { '#1c1450', '#3a2a9a', '#5a43d6', '#7259ee', '#b39dff' },
-  lilac = { '#2a1c6a', '#5a43d6', '#8f7cff', '#c9bcff', '#f3f0ff' },
-  cyan = { '#0d2a4a', '#1f7aa8', '#3fc8e8', '#9ff0ff', '#f3f5ff' },
-  terminal = { '#06302a', '#0b7352', '#17b07e', '#45e3a6', '#a6ffd9' },
-  engine = { '#5a1d10', '#d2401c', '#ff8a2c', '#ffc94a', '#fff1b8' },
+  ice = { '#6fb7ff', '#bfe3ff', '#f3f5ff' },
+  steel = { '#2a2f5e', '#4b5390', '#b9bfe6' },
+  plate = { '#8890c4', '#b9bfe6', '#f3f5ff' },
+  uv = { '#3a2a9a', '#7259ee', '#b39dff' },
+  lilac = { '#5a43d6', '#b39dff', '#f3f5ff' },
+  cyan = { '#3a58e0', '#6fe3ff', '#f3f5ff' },
+  terminal = { '#0b7352', '#17b07e', '#45e3a6' },
+  solar = { '#c25f1c', '#ff9a3c', '#ffc94a' },
+  engine = { '#c25f1c', '#ff9a3c', '#ffc94a' },
 }
-
-local BAYER = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } }
-local function bayer(x, y) return (BAYER[y % 4 + 1][x % 4 + 1] + 0.5) / 16 end
 
 -- ── Shapes: a material grid (what each pixel is made of) ────────────────────────────────────────────────────────
 local function grid()
@@ -79,137 +77,111 @@ local function line(M, x0, y0, x1, y1, m)
   for i = 0, n do set(M, math.floor(x0 + (x1 - x0) * i / n + 0.5), math.floor(y0 + (y1 - y0) * i / n + 0.5), m) end
 end
 
--- ── The eight probes: shapes and the ramp of each material ──────────────────────────────────────────────────────
--- Materials: hull, hull2, trim, trim2, glass, core, dark, engine, light. `nozzle`: how far behind the centre the
--- exhaust is (px), `lights`: the blinking lights' ramp.
+-- ── The eight probes: shapes and the tones of each material ─────────────────────────────────────────────────────
+-- Materials: hull, hull2, trim, trim2, glass, core, dark (an inner contour), engine, light. `nozzle`: how far behind
+-- the centre the exhaust is (px); `lights`: the blinking lights' tones.
 local PROBES = {}
 
 PROBES['probe-lumen'] = function(M)
-  ellipse(M, 12.5, 12, 8.2, 6.6, 'hull')
-  poly(M, { { 8.5, 6.5 }, { 15, 6.5 }, { 11, 1.5 }, { 6.5, 1.5 } }, 'trim')
-  poly(M, { { 8.5, 18.5 }, { 15, 18.5 }, { 11, 23.5 }, { 6.5, 23.5 } }, 'trim')
-  ellipse(M, 16.6, 12, 3.6, 3.4, 'dark')
-  ellipse(M, 16.9, 11.8, 2.6, 2.4, 'glass')
+  ellipse(M, 12.5, 12, 7.6, 5.8, 'hull')
+  poly(M, { { 9, 6.5 }, { 15, 6.5 }, { 11.5, 2.5 }, { 7.5, 2.5 } }, 'trim')
+  poly(M, { { 9, 17.5 }, { 15, 17.5 }, { 11.5, 21.5 }, { 7.5, 21.5 } }, 'trim')
+  ellipse(M, 16.4, 12, 3.4, 3.2, 'dark')
+  ellipse(M, 16.6, 12, 2.4, 2.2, 'glass')
   rect(M, 3, 10, 4, 13, 'engine')
-  set(M, 7, 2, 'light'); set(M, 7, 21, 'light')
-  return { hull = R.ice, trim = R.plate, glass = R.cyan, lights = R.cyan, nozzle = 10 }
+  set(M, 8, 3, 'light'); set(M, 8, 20, 'light')
+  return { hull = R.ice, trim = R.plate, glass = R.cyan, lights = R.cyan, nozzle = 9 }
 end
 
 PROBES['probe-bastion'] = function(M)
-  rrect(M, 3, 3, 19, 18, 2, 'hull')
-  rect(M, 19, 7, 21, 14, 'hull')
-  rrect(M, 6, 6, 16, 15, 2, 'trim')
-  ellipse(M, 11.5, 10.5, 3.3, 3.3, 'dark')
-  ellipse(M, 11.5, 10.5, 2.4, 2.4, 'core')
-  rect(M, 4, 19, 8, 21, 'trim2'); rect(M, 13, 19, 17, 21, 'trim2')
-  rect(M, 1, 8, 2, 13, 'engine')
-  set(M, 7, 7, 'light'); set(M, 15, 14, 'light')
-  return { hull = R.steel, trim = R.plate, trim2 = R.steel, core = R.solar, lights = R.solar, nozzle = 11 }
+  rrect(M, 4, 4, 18, 17, 2, 'hull')
+  rect(M, 19, 8, 20, 13, 'hull')
+  rrect(M, 7, 7, 15, 14, 2, 'trim')
+  ellipse(M, 11.5, 10.5, 3.2, 3.2, 'dark')
+  ellipse(M, 11.5, 10.5, 2.2, 2.2, 'core')
+  rect(M, 5, 18, 8, 20, 'trim2'); rect(M, 14, 18, 17, 20, 'trim2')
+  rect(M, 2, 8, 3, 13, 'engine')
+  set(M, 6, 5, 'light'); set(M, 16, 16, 'light')
+  return { hull = R.steel, trim = R.plate, trim2 = R.steel, core = R.solar, lights = R.solar, nozzle = 10 }
 end
 
 PROBES['probe-spark'] = function(M)
-  poly(M, { { 3, 3.5 }, { 11, 6.5 }, { 22.5, 12 }, { 11, 17.5 }, { 3, 20.5 }, { 7, 12 } }, 'hull')
-  poly(M, { { 8, 8 }, { 17, 11.2 }, { 17, 12.8 }, { 8, 16 }, { 10.5, 12 } }, 'trim')
-  poly(M, { { 13, 9.5 }, { 16.5, 12 }, { 13, 14.5 }, { 9.5, 12 } }, 'core')
-  rect(M, 2, 10, 4, 13, 'engine')
-  set(M, 4, 4, 'light'); set(M, 4, 19, 'light')
-  return { hull = R.uv, trim = R.lilac, core = R.cyan, lights = R.lilac, nozzle = 10 }
+  poly(M, { { 4, 4 }, { 11, 7 }, { 21.5, 12 }, { 11, 17 }, { 4, 20 }, { 8, 12 } }, 'hull')
+  poly(M, { { 8.5, 8.5 }, { 16.5, 11.4 }, { 16.5, 12.6 }, { 8.5, 15.5 }, { 10.5, 12 } }, 'trim')
+  poly(M, { { 13, 10 }, { 16, 12 }, { 13, 14 }, { 10, 12 } }, 'core')
+  rect(M, 4, 11, 7, 12, 'engine')
+  set(M, 5, 5, 'light'); set(M, 5, 18, 'light')
+  return { hull = R.uv, trim = R.lilac, core = R.cyan, lights = R.lilac, nozzle = 8 }
 end
 
 PROBES['probe-sentinel'] = function(M)
-  ellipse(M, 12, 12.5, 8, 6.8, 'hull')
-  line(M, 12, 5, 12, 3, 'trim')
-  ellipse(M, 12.5, 2, 1.6, 1.6, 'light')
-  ellipse(M, 13.6, 12, 3.4, 3.4, 'dark')
-  ellipse(M, 13.6, 12, 2.3, 2.3, 'glass')
+  ellipse(M, 12, 12.5, 7.4, 6.2, 'hull')
+  line(M, 12, 6, 12, 5, 'trim')
+  ellipse(M, 12.5, 3.5, 1.4, 1.4, 'light')
+  ellipse(M, 13.4, 12.2, 3.2, 3.2, 'dark')
+  ellipse(M, 13.4, 12.2, 2.2, 2.2, 'glass')
   set(M, 14, 11, 'core')
-  rect(M, 7, 18, 8, 21, 'trim2'); rect(M, 15, 18, 16, 21, 'trim2')
+  rect(M, 8, 18, 9, 20, 'trim2'); rect(M, 15, 18, 16, 20, 'trim2')
   rect(M, 3, 10, 4, 13, 'engine')
   return { hull = R.terminal, trim = R.plate, trim2 = R.steel, glass = R.cyan, core = R.plate, lights = R.terminal, nozzle = 9 }
 end
 
 PROBES['probe-anchor'] = function(M)
-  poly(M, { { 8, 2 }, { 16, 2 }, { 21.5, 7.5 }, { 21.5, 16.5 }, { 16, 22 }, { 8, 22 }, { 2.5, 16.5 }, { 2.5, 7.5 } }, 'hull')
-  poly(M, { { 9, 5 }, { 15, 5 }, { 18.5, 8.5 }, { 18.5, 15.5 }, { 15, 19 }, { 9, 19 }, { 5.5, 15.5 }, { 5.5, 8.5 } }, 'trim')
-  rrect(M, 8, 8, 16, 16, 1, 'dark')
-  ellipse(M, 12, 12, 3, 3, 'core')
-  rect(M, 0, 10, 1, 13, 'engine')
-  set(M, 21, 11, 'light'); set(M, 21, 12, 'light')
-  return { hull = R.steel, trim = R.plate, core = R.lilac, lights = R.uv, nozzle = 12 }
+  poly(M, { { 8.5, 3 }, { 15.5, 3 }, { 20.5, 8 }, { 20.5, 16 }, { 15.5, 21 }, { 8.5, 21 }, { 3.5, 16 }, { 3.5, 8 } }, 'hull')
+  poly(M, { { 9.5, 6 }, { 14.5, 6 }, { 17.5, 9 }, { 17.5, 15 }, { 14.5, 18 }, { 9.5, 18 }, { 6.5, 15 }, { 6.5, 9 } }, 'trim')
+  rrect(M, 9, 9, 15, 15, 1, 'dark')
+  ellipse(M, 12.5, 12.5, 2.6, 2.6, 'core')
+  rect(M, 1, 10, 2, 13, 'engine')
+  set(M, 20, 11, 'light'); set(M, 20, 12, 'light')
+  return { hull = R.steel, trim = R.plate, core = R.lilac, lights = R.uv, nozzle = 11 }
 end
 
 PROBES['probe-prism'] = function(M)
-  poly(M, { { 12, 0.5 }, { 22.5, 12 }, { 12, 23.5 }, { 1.5, 12 } }, 'hull')
+  poly(M, { { 12, 2 }, { 21.5, 12 }, { 12, 22 }, { 2.5, 12 } }, 'hull')
   for y = 0, H - 1 do for x = 12, W - 1 do if M[y][x] == 'hull' then M[y][x] = 'hull2' end end end
-  rect(M, 11, 6, 12, 17, 'core')
-  poly(M, { { 12, 3 }, { 16, 8 }, { 12, 6 } }, 'trim')
-  rect(M, 1, 11, 3, 12, 'engine')
-  set(M, 12, 1, 'light'); set(M, 12, 22, 'light')
+  rect(M, 11, 7, 12, 16, 'core')
+  poly(M, { { 12, 4 }, { 15.5, 8.5 }, { 12, 7 } }, 'trim')
+  rect(M, 1, 11, 2, 12, 'engine')
+  set(M, 12, 3, 'light'); set(M, 12, 20, 'light')
   return { hull = R.ice, hull2 = R.uv, trim = R.lilac, core = R.cyan, lights = R.lilac, nozzle = 11 }
 end
 
 PROBES['probe-comet'] = function(M)
-  poly(M, { { 0.5, 11 }, { 6, 9.5 }, { 12, 7.5 }, { 12, 16.5 }, { 6, 14.5 }, { 0.5, 13 } }, 'hull2')
-  ellipse(M, 16, 12, 5.8, 5, 'hull')
-  ellipse(M, 18.4, 11.6, 2.2, 1.8, 'glass')
-  set(M, 21, 12, 'light')
-  return { hull = R.ice, hull2 = R.cyan, glass = R.cyan, lights = R.ice, nozzle = 12, tail = true }
+  poly(M, { { 2, 11 }, { 6, 10 }, { 11.5, 8 }, { 11.5, 16 }, { 6, 14 }, { 2, 13 } }, 'hull2')
+  ellipse(M, 15.5, 12, 5.4, 4.6, 'hull')
+  ellipse(M, 17.6, 11.6, 2, 1.7, 'glass')
+  set(M, 20, 12, 'light')
+  return { hull = R.ice, hull2 = R.cyan, glass = R.cyan, lights = R.ice, nozzle = 10, tail = true }
 end
 
 PROBES['probe-echo'] = function(M)
-  ellipse(M, 12, 13, 8.6, 5.6, 'hull')
-  poly(M, { { 8, 4 }, { 16, 4 }, { 17, 7.5 }, { 7, 7.5 } }, 'trim')
-  line(M, 12, 8, 12, 8, 'trim')
-  rect(M, 9, 12, 16, 14, 'dark')
-  set(M, 11, 13, 'glass'); set(M, 14, 13, 'glass')
-  rect(M, 7, 19, 8, 21, 'trim2'); rect(M, 15, 19, 16, 21, 'trim2')
+  ellipse(M, 12, 13, 8, 5.2, 'hull')
+  poly(M, { { 8.5, 4.5 }, { 15.5, 4.5 }, { 16.5, 7.5 }, { 7.5, 7.5 } }, 'trim')
+  rect(M, 9, 12, 15, 14, 'dark')
+  set(M, 11, 13, 'glass'); set(M, 13, 13, 'glass')
+  rect(M, 7, 18, 8, 20, 'trim2'); rect(M, 15, 18, 16, 20, 'trim2')
   rect(M, 2, 11, 3, 14, 'engine')
-  set(M, 12, 3, 'light')
+  set(M, 12, 5, 'light')
   return { hull = R.solar, trim = R.steel, trim2 = R.steel, glass = R.plate, lights = R.solar, nozzle = 10 }
 end
 
 local ORDER = { 'probe-lumen', 'probe-bastion', 'probe-spark', 'probe-sentinel', 'probe-anchor', 'probe-prism', 'probe-comet', 'probe-echo' }
 
--- ── Shading: a bevel per part, lit from the top left, dithered between the ramp's steps ─────────────────────────
-local LX, LY, LZ = -0.55, -0.65, 0.52
-do
-  local n = math.sqrt(LX * LX + LY * LY + LZ * LZ)
-  LX, LY, LZ = LX / n, LY / n, LZ / n
-end
-
-local function shadeOf(M, x, y)
+-- ── Flat tones: the fill, a light edge where the part meets something to its top or left, a dark one to its
+-- bottom or right (a part one pixel thin keeps its fill) ──────────────────────────────────────────────────────────
+local function toneOf(M, x, y)
   local m = M[y][x]
-  local ox, oy, near = 0, 0, 4
-  for dy = -3, 3 do
-    for dx = -3, 3 do
-      if dx ~= 0 or dy ~= 0 then
-        local qx, qy = x + dx, y + dy
-        local other = not inside(qx, qy) or M[qy][qx] ~= m
-        if other then
-          local d2 = dx * dx + dy * dy
-          ox, oy = ox + dx / d2, oy + dy / d2
-          near = math.min(near, math.sqrt(d2))
-        end
-      end
-    end
-  end
-  local len = math.sqrt(ox * ox + oy * oy)
-  local tilt = math.max(0, 1 - (near - 1) / 3)
-  local nx, ny = 0, 0
-  if len > 0 then nx, ny = ox / len * tilt * 0.9, oy / len * tilt * 0.9 end
-  local nz = math.sqrt(math.max(0, 1 - nx * nx - ny * ny))
-  return math.max(0, math.min(1, (nx * LX + ny * LY + nz * LZ) * 0.85 + 0.12))
+  local function other(qx, qy) return not inside(qx, qy) or M[qy][qx] ~= m end
+  local lit = other(x, y - 1) or other(x - 1, y)
+  local shade = other(x, y + 1) or other(x + 1, y)
+  if lit and not shade then return 3 end
+  if shade and not lit then return 1 end
+  return 2
 end
 
-local function pick(ramp, s, x, y)
-  local v = s * (#ramp - 1)
-  local base = math.floor(v)
-  local i = base + ((v - base) > bayer(x, y) and 1 or 0)
-  return ramp[math.max(1, math.min(#ramp, i + 1))]
-end
-
-local PULSE = { 0.0, 0.12, 0.22, 0.1 }
-local ENGINE = { 0.55, 0.85, 1.0, 0.75 }
+-- Engine, core and lights through the four frames.
+local ENGINE = { 3, 2, 3, 1 }
+local CORE = { 2, 2, 3, 2 }
 
 --- One frame's colours: { casco = {y = {x = colour}}, luces = … } and the merged frame.
 local function paint(M, look, f)
@@ -217,55 +189,36 @@ local function paint(M, look, f)
   for y = 0, H - 1 do
     for x = 0, W - 1 do
       local m = M[y][x]
-      if m then
-        local c
-        if m == 'engine' then
-          -- Hottest at its back edge, flickering frame by frame.
-          local back = x <= 4 and 1 or 0.8
-          c = pick(R.engine, math.min(1, ENGINE[f + 1] * back * (0.75 + 0.25 * bayer(x + f, y))), x, y)
-          luces[y][x] = c
-        elseif m == 'light' then
-          local on = f < 2
-          c = (look.lights or R.cyan)[on and #(look.lights or R.cyan) or 2]
-          luces[y][x] = c
-        elseif m == 'core' then
-          c = pick(look.core or R.cyan, math.min(1, shadeOf(M, x, y) * 0.7 + 0.3 + PULSE[f + 1]), x, y)
-          luces[y][x] = c
-        elseif m == 'dark' then
-          c = pick(R.dark, shadeOf(M, x, y), x, y)
-          casco[y][x] = c
-        elseif m == 'glass' then
-          c = pick(look.glass or R.cyan, math.min(1, shadeOf(M, x, y) * 0.8 + 0.2), x, y)
-          casco[y][x] = c
-        else
-          local ramp = look[m] or look.hull
-          c = pick(ramp, shadeOf(M, x, y), x, y)
-          casco[y][x] = c
-        end
+      if m == 'engine' then
+        luces[y][x] = (look.engine or R.engine)[ENGINE[f % #ENGINE + 1]]
+      elseif m == 'light' then
+        local tones = look.lights or R.cyan
+        luces[y][x] = tones[f % 4 < 2 and 3 or 1]
+      elseif m == 'core' then
+        -- Its fill breathes up to the light tone once a loop; its top-left edge stays lit.
+        luces[y][x] = (look.core or R.cyan)[toneOf(M, x, y) == 3 and 3 or CORE[f % #CORE + 1]]
+      elseif m == 'dark' then
+        casco[y][x] = OUTLINE
+      elseif m then
+        local tones = look[m] or look.hull
+        casco[y][x] = tones[toneOf(M, x, y)]
       end
     end
   end
-  -- A glint on each glass: its top-left-most pixel at the ramp's top.
-  for y = 0, H - 1 do
-    for x = 0, W - 1 do
-      if M[y][x] == 'glass' and (not inside(x - 1, y) or M[y][x - 1] ~= 'glass') and (not inside(x, y - 1) or M[y - 1][x] ~= 'glass') then
-        casco[y][x] = (look.glass or R.cyan)[#(look.glass or R.cyan)]
-        break
-      end
-    end
-  end
-  -- The comet's tail: lighter toward the head, its streaks shimmering frame by frame.
+  -- The comet's tail: darker toward its end, a light streak running along it frame by frame.
   if look.tail then
     for y = 0, H - 1 do
       for x = 0, 11 do
         if M[y][x] == 'hull2' then
-          local s = (x / 11) * 0.8 + 0.1 + ((y == 10 or y == 13) and 0.15 or 0) + 0.08 * math.sin((x + f * 2) * 1.3)
-          casco[y][x] = pick(look.hull2, math.max(0, math.min(1, s)), x, y)
+          local t = x < 6 and 1 or 2
+          if toneOf(M, x, y) == 3 then t = 3 end
+          if y == 12 and (x + f * 3) % 6 < 2 then t = 3 end
+          casco[y][x] = look.hull2[t]
         end
       end
     end
   end
-  -- The contour: every empty pixel touching the drawing (4-neighbourhood).
+  -- The contour: every empty pixel touching the drawing (4-neighbourhood), against the drawing before it.
   local merged = grid()
   for y = 0, H - 1 do for x = 0, W - 1 do merged[y][x] = luces[y][x] or casco[y][x] end end
   for y = 0, H - 1 do
@@ -273,7 +226,6 @@ local function paint(M, look, f)
       if not merged[y][x] then
         for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
           local qx, qy = x + d[1], y + d[2]
-          -- Against the drawing as it was before the contour (or the contour would spread over the whole frame).
           if inside(qx, qy) and merged[qy][qx] and merged[qy][qx] ~= OUTLINE then
             casco[y][x] = OUTLINE
             break
@@ -313,17 +265,16 @@ local generated = {}
 local nozzles = {}
 local previews = {}
 
-local function build(id)
-  local M = grid()
-  local look = PROBES[id](M)
+local function build(id, M, look, file, group)
   local spr = Sprite(W, H, ColorMode.RGB)
   local layers = { spr.layers[1], spr:newLayer() }
   layers[1].name = 'casco'
   layers[2].name = 'luces'
+  local count = look.frames or FRAMES
   local frames, palette, keyOf, n = {}, {}, {}, 0
-  for f = 1, FRAMES do
+  for f = 1, count do
     if f > 1 then spr:newEmptyFrame() end
-    spr.frames[f].duration = 0.125
+    spr.frames[f].duration = 1 / (look.fps or 8)
     local casco, luces, merged = paint(M, look, f - 1)
     spr:newCel(layers[1], f, image(casco), Point(0, 0))
     spr:newCel(layers[2], f, image(luces), Point(0, 0))
@@ -346,24 +297,28 @@ local function build(id)
       rows[#rows + 1] = table.concat(row)
     end
     frames[f] = rows
-    previews[#previews + 1] = { id = id, f = f, img = image(merged, 8) }
+    previews[group] = previews[group] or {}
+    table.insert(previews[group], { id = id, f = f, img = image(merged, 8) })
   end
   assert(n <= #KEYS, id .. ': too many colours')
-  spr:saveAs(OUT .. '/' .. id:gsub('^probe%-', '') .. '.aseprite')
-  local sheet = Image(W * FRAMES, H, ColorMode.RGB)
-  for f = 1, FRAMES do
+  spr:saveAs(OUT .. '/' .. file .. '.aseprite')
+  local sheet = Image(W * count, H, ColorMode.RGB)
+  for f = 1, count do
     local frame = Image(W, H, ColorMode.RGB)
     frame:drawSprite(spr, f)
     sheet:drawImage(frame, Point((f - 1) * W, 0))
   end
-  sheet:saveAs(OUT .. '/' .. id:gsub('^probe%-', '') .. '.png')
+  sheet:saveAs(OUT .. '/' .. file .. '.png')
   spr:close()
-  generated[#generated + 1] = { id = id, palette = palette, frames = frames }
+  generated[#generated + 1] = { id = id, palette = palette, frames = frames, skin = group ~= 'probes', fps = look.fps or 8 }
   nozzles[#nozzles + 1] = { id = id, rear = look.nozzle }
 end
 
 for _, id in ipairs(ORDER) do
-  if not ONLY or ONLY == id then build(id) end
+  if not ONLY or ONLY == id then
+    local M = grid()
+    build(id, M, PROBES[id](M), id:gsub('^probe%-', ''), 'probes')
+  end
 end
 
 -- The game's module (every probe, so `only` is for a quick look and skips it).
@@ -373,28 +328,33 @@ if not ONLY then
   out[#out + 1] = '// hand: change the script and run it again (the command is at its top).'
   out[#out + 1] = "import type { SpriteDef } from './types';"
   out[#out + 1] = ''
-  out[#out + 1] = '/** The eight probes, 24 × 24, four idle frames each, facing right. */'
-  out[#out + 1] = 'export const PROBE_ART: Record<string, SpriteDef> = {'
-  for _, g in ipairs(generated) do
-    out[#out + 1] = "  '" .. g.id .. "': {"
-    out[#out + 1] = '    w: 24,'
-    out[#out + 1] = '    h: 24,'
-    out[#out + 1] = '    fps: 8,'
-    out[#out + 1] = '    anchor: [0.5, 0.5],'
-    local pal = {}
-    for _, p in ipairs(g.palette) do pal[#pal + 1] = p[1] .. ": '" .. p[2] .. "'" end
-    out[#out + 1] = '    palette: { ' .. table.concat(pal, ', ') .. ' },'
-    out[#out + 1] = '    frames: ['
-    for _, rows in ipairs(g.frames) do
-      out[#out + 1] = '      ['
-      for _, r in ipairs(rows) do out[#out + 1] = "        '" .. r .. "'," end
-      out[#out + 1] = '      ],'
+  local function emit(title, name, skins)
+    out[#out + 1] = title
+    out[#out + 1] = 'export const ' .. name .. ': Record<string, SpriteDef> = {'
+    for _, g in ipairs(generated) do
+      if g.skin == skins then
+        out[#out + 1] = "  '" .. g.id .. "': {"
+        out[#out + 1] = '    w: 24,'
+        out[#out + 1] = '    h: 24,'
+        out[#out + 1] = '    fps: ' .. g.fps .. ','
+        out[#out + 1] = '    anchor: [0.5, 0.5],'
+        local pal = {}
+        for _, p in ipairs(g.palette) do pal[#pal + 1] = p[1] .. ": '" .. p[2] .. "'" end
+        out[#out + 1] = '    palette: { ' .. table.concat(pal, ', ') .. ' },'
+        out[#out + 1] = '    frames: ['
+        for _, rows in ipairs(g.frames) do
+          out[#out + 1] = '      ['
+          for _, r in ipairs(rows) do out[#out + 1] = "        '" .. r .. "'," end
+          out[#out + 1] = '      ],'
+        end
+        out[#out + 1] = '    ],'
+        out[#out + 1] = '  },'
+      end
     end
-    out[#out + 1] = '    ],'
-    out[#out + 1] = '  },'
+    out[#out + 1] = '};'
+    out[#out + 1] = ''
   end
-  out[#out + 1] = '};'
-  out[#out + 1] = ''
+  emit('/** The eight probes, 24 × 24, four idle frames each, facing right. */', 'PROBE_ART', false)
   out[#out + 1] = '/** How far behind the centre each probe\'s exhaust is (px): where its flame comes out. */'
   out[#out + 1] = 'export const PROBE_NOZZLE: Record<string, number> = {'
   for _, nz in ipairs(nozzles) do out[#out + 1] = "  '" .. nz.id .. "': " .. nz.rear .. ',' end
@@ -404,14 +364,22 @@ if not ONLY then
   file:close()
 end
 
--- An 8× preview sheet (one row per probe, its four frames), to look at the art.
+-- An 8× preview sheet per group (one row per drawing, its frames), to look at the art.
 if PREVIEW then
-  local rows = math.ceil(#previews / FRAMES)
-  local sheet = Image(W * 8 * FRAMES + (FRAMES - 1) * 8, rows * (H * 8 + 8), ColorMode.RGB)
-  sheet:clear(colour('#20244a'))
-  for i, p in ipairs(previews) do
-    local r = math.floor((i - 1) / FRAMES)
-    sheet:drawImage(p.img, Point((p.f - 1) * (W * 8 + 8), r * (H * 8 + 8)), 255, BlendMode.NORMAL)
+  for group, list in pairs(previews) do
+    local cols, ids, order = 1, {}, {}
+    for _, p in ipairs(list) do
+      cols = math.max(cols, p.f)
+      if not ids[p.id] then
+        order[#order + 1] = p.id
+        ids[p.id] = #order
+      end
+    end
+    local sheet = Image(W * 8 * cols + (cols - 1) * 8, #order * (H * 8 + 8), ColorMode.RGB)
+    sheet:clear(colour('#20244a'))
+    for _, p in ipairs(list) do
+      sheet:drawImage(p.img, Point((p.f - 1) * (W * 8 + 8), (ids[p.id] - 1) * (H * 8 + 8)), 255, BlendMode.NORMAL)
+    end
+    sheet:saveAs(PREVIEW .. '/' .. group .. '-preview.png')
   end
-  sheet:saveAs(PREVIEW .. '/probes-preview.png')
 end
