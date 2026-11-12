@@ -1,6 +1,7 @@
 import type { MissionsView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
+import { refreshPieces } from './cosmetics';
 
 // Missions and achievements (GDD §12.3; M7a): the screen's view, collecting (with an idempotency key, like every economy
 // action) and choosing the title and frame. Collecting also changes the wallet, so the hub's wallet is read again.
@@ -20,6 +21,8 @@ export function useClaim() {
       qc.setQueryData(MISSIONS_KEY, view);
       void qc.invalidateQueries({ queryKey: ['gacha'] });
       void qc.invalidateQueries({ queryKey: ['me'] });
+      // An achievement or an event goal can give a title, a frame, an avatar or a probe skin.
+      refreshPieces(qc);
     },
   });
 }

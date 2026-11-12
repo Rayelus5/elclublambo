@@ -9,6 +9,7 @@ import { copy, fmt } from '../copy/es';
 import { daysLeft, nextTier, TierEmblem } from '../social/parts';
 import { BackLink } from '../ui/BackLink';
 import { Icon, type IconName } from '../ui/Icon';
+import { refreshPieces } from '../api/cosmetics';
 
 // The season (GDD §13.1; M7d-1, DESIGN_SYSTEM §8 novovicies): the score with its tier, the route climbed with it (a
 // track of steps, each collected once) and the shop that sells with the season currency.
@@ -25,6 +26,8 @@ function useSeasonAction() {
         headers: { 'idempotency-key': crypto.randomUUID() },
       }),
     onSuccess: (view) => {
+      // A step, an item or the closing reward can give a piece or a probe skin (plan «skins»): shown at once.
+      refreshPieces(qc);
       qc.setQueryData(SEASON_KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
       void qc.invalidateQueries({ queryKey: ['me'] });

@@ -1,6 +1,7 @@
 import type { ShopCheckout, ShopPurchaseView, ShopView, Wallet } from '@galaxy/shared';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
+import { refreshPieces } from './cosmetics';
 import { endIntent, keyFor } from './economy';
 import { syncWallet } from './wallet';
 
@@ -37,6 +38,17 @@ export function useCheckout() {
   });
 }
 
+/**
+ * A purchase delivered (its poll read it paid, or the live socket told it): its wallet everywhere, the shop's limits,
+ * and what shows the pieces it may have given (a skin on its probe, an avatar…) at once.
+ */
+export function onPurchaseDelivered(qc: QueryClient, p: ShopPurchaseView): void {
+  settleWallet(qc, p.wallet);
+  qc.setQueryData([PURCHASE_KEY, p.id], p);
+  void qc.invalidateQueries({ queryKey: SHOP_KEY });
+  refreshPieces(qc);
+}
+
 /** A purchase, read every 2 s while it may still be paid (the server asks Stripe itself when the webhook is late). */
 export function usePurchase(id: string | null) {
   const qc = useQueryClient();
@@ -47,6 +59,7 @@ export function usePurchase(id: string | null) {
       if (p.status === 'paid') {
         settleWallet(qc, p.wallet);
         void qc.invalidateQueries({ queryKey: SHOP_KEY });
+        refreshPieces(qc);
       }
       return p;
     },
