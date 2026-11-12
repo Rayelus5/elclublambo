@@ -6,6 +6,7 @@ import { EventsScreen } from '../src/admin/events/EventsScreen';
 import { EventWizardScreen } from '../src/admin/events/EventWizard';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Eventos in the admin panel (polish phase 4): the events by when they happen with what each gives and warns, the
 // wizard that writes an event and its scanner and publishes both at once, and ending or removing one.
@@ -100,7 +101,7 @@ test('el asistente crea un evento con su escáner y publica los dos a la vez', a
   const goals = screen.getByRole('region', { name: 'Metas' });
   await user.click(within(goals).getAllByRole('button', { expanded: false })[0]!);
   await user.type(within(goals).getByLabelText('Nombre'), 'Derrota 3 Núcleos');
-  await user.selectOptions(within(goals).getByLabelText('Qué cuenta'), 'Núcleos derrotados');
+  await pickOption(user, within(goals).getByLabelText('Qué cuenta'), 'Núcleos derrotados');
   const target = within(goals).getByLabelText('Objetivo');
   await user.clear(target);
   await user.type(target, '3');
@@ -114,8 +115,8 @@ test('el asistente crea un evento con su escáner y publica los dos a la vez', a
   await user.click(screen.getByRole('button', { name: t.next }));
   expect(screen.getByText(t.warnings.signalsWithoutScanner('Noche de púlsares'))).toBeInTheDocument();
   await user.click(screen.getByRole('switch', { name: t.scannerOn }));
-  await user.selectOptions(screen.getByLabelText(t.scannerTrait), copy.traitNames.phenomenon!);
-  await user.selectOptions(screen.getByLabelText(t.scannerValue), 'Púlsar');
+  await pickOption(user, screen.getByLabelText(t.scannerTrait), copy.traitNames.phenomenon!);
+  await pickOption(user, screen.getByLabelText(t.scannerValue), 'Púlsar');
   expect(screen.queryByText(t.warnings.signalsWithoutScanner('Noche de púlsares'))).toBeNull();
   // Revisar: the player's view, then one publish of both keys.
   await user.click(screen.getByRole('button', { name: t.next }));
@@ -184,7 +185,7 @@ test('guardar un evento conserva el identificador, el grupo de garantía y el si
   const user = userEvent.setup();
   await screen.findByLabelText('Nombre');
   for (let i = 0; i < 3; i++) await user.click(screen.getByRole('button', { name: t.next }));
-  await user.selectOptions(screen.getByLabelText(t.scannerValue), 'Supernova');
+  await pickOption(user, screen.getByLabelText(t.scannerValue), 'Supernova');
   await user.click(screen.getByRole('button', { name: t.next }));
   await signIn(user, t.saveChanges);
   await waitFor(() => expect(batches).toHaveLength(1));

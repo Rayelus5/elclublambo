@@ -3,6 +3,7 @@ import { useAdminPost } from '../api/admin';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
+import { Select } from '../ui/Select';
 
 const t = copy.admin;
 
@@ -84,13 +85,7 @@ export function ActionDialog({
               <label htmlFor={`${ids}-${f.name}`}>{f.label}</label>
               <div className="control">
                 {f.kind === 'select' ? (
-                  <select id={`${ids}-${f.name}`} value={values[f.name]} onChange={(e) => set(f.name, e.target.value)}>
-                    {f.options.map(([v, label]) => (
-                      <option key={v} value={v}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select id={`${ids}-${f.name}`} size="lg" block value={values[f.name]!} options={f.options.map(([value, label]) => ({ value, label }))} onChange={(v) => set(f.name, v)} />
                 ) : (
                   <input
                     id={`${ids}-${f.name}`}

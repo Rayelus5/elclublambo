@@ -58,6 +58,10 @@ export default defineConfig({
         test: {
           name: 'browser',
           include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],
+          // Software WebGL on a CI runner shared by every browser file is slow, not stuck: the 15 s default timed out
+          // engine and arena tests that pass in a few seconds locally (Nov plan C1).
+          testTimeout: 45_000,
+          hookTimeout: 60_000,
           browser: {
             enabled: true,
             // Software WebGL (SwiftShader) everywhere: CI runners have no GPU, and the same renderer locally keeps

@@ -1,7 +1,9 @@
 import { TRAITS } from '@galaxy/engine';
 import { FINISHES, TIERS, type Tier } from '@galaxy/shared';
+import { useId } from 'react';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 
 // The collection's filters (GDD §8.5), in two rows: the rarity chips with their counts; then type, palette and finish,
 // the favourites and the order. They live in the URL (?tier=rare&sort=rarity…), so a filtered view can be shared,
@@ -44,19 +46,20 @@ export function writeFilters(f: CollectionFilters): URLSearchParams {
   return p;
 }
 
-function Select({ label, value, options, onChange }: { label: string; value: string | undefined; options: [string, string][]; onChange: (v: string | undefined) => void }) {
+/** A filter with its visible label and «Cualquiera» first (the game's own dropdown). */
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string | undefined; options: [string, string][]; onChange: (v: string | undefined) => void }) {
+  const id = useId();
   return (
-    <label className="filter-select">
-      <span>{label}</span>
-      <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
-        <option value="">{copy.collection.any}</option>
-        {options.map(([v, text]) => (
-          <option key={v} value={v}>
-            {text}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="filter-select">
+      <label htmlFor={id}>{label}</label>
+      <Select
+        id={id}
+        size="sm"
+        value={value ?? ''}
+        options={[{ value: '', label: copy.collection.any }, ...options.map(([v, text]) => ({ value: v, label: text }))]}
+        onChange={(v) => onChange(v || undefined)}
+      />
+    </div>
   );
 }
 
@@ -88,9 +91,9 @@ export function Filters({
         ))}
       </div>
       <div className="filters-row">
-        <Select label={copy.traitNames['galaxy_type']!} value={filters.type} options={options('galaxy_type')} onChange={(type) => set({ type })} />
-        <Select label={copy.traitNames['palette']!} value={filters.palette} options={options('palette')} onChange={(palette) => set({ palette })} />
-        <Select
+        <FilterSelect label={copy.traitNames['galaxy_type']!} value={filters.type} options={options('galaxy_type')} onChange={(type) => set({ type })} />
+        <FilterSelect label={copy.traitNames['palette']!} value={filters.palette} options={options('palette')} onChange={(palette) => set({ palette })} />
+        <FilterSelect
           label={copy.finishLabel}
           value={filters.finish}
           options={FINISHES.map((f): [string, string] => [f, copy.finishes[f]])}

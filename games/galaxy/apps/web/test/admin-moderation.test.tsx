@@ -8,6 +8,7 @@ import { LiveChat, Mutes, Reports } from '../src/admin/ModerationScreen';
 import { copy } from '../src/copy/es';
 import { TopBar } from '../src/hub/TopBar';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Moderation on the web (GDD §16.1, §16.4; M6c-1): a moderator (TOTP) reaches the panel but only its Moderación; the
 // report queue resolves with a reason; the live chat lists hidden messages and restores them; a mute takes a
@@ -128,7 +129,7 @@ test('silenciar una cuenta pide nombre, duración y motivo; la lista se levanta 
   await userEvent.click(screen.getByRole('button', { name: t.mute }));
   const dialog = await screen.findByRole('dialog', { name: t.mute });
   await userEvent.type(within(dialog).getByLabelText(t.username), 'vega');
-  await userEvent.selectOptions(within(dialog).getByLabelText(copy.admin.fields.duration), '1440');
+  await pickOption(userEvent, within(dialog).getByLabelText(copy.admin.fields.duration), '1440');
   await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Spam');
   await userEvent.click(within(dialog).getByRole('button', { name: t.muteSubmit }));
   await waitFor(() => expect(posted(fetch, `${M}/mutes`)).toEqual([{ username: 'vega', minutes: 1440, reason: 'Spam' }]));

@@ -99,11 +99,13 @@ test('crear una sala privada en un sector abierto, y unirse por código o a la s
   lobby('/incursion?modo=grupo');
   expect(await screen.findByText(t.noRooms)).toBeInTheDocument();
   // Only the sectors I have open can be chosen.
-  const sector = await screen.findByLabelText(t.sector);
+  const sector = await screen.findByRole('combobox', { name: t.sector });
   const open = view()
     .sectors.filter((s) => s.unlocked)
     .map((s) => s.name);
-  await waitFor(() => expect(within(sector).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.click(sector);
+  await waitFor(() => expect(within(screen.getByRole('listbox', { name: t.sector })).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.keyboard('{Escape}');
   // A friend in a room can be joined from the side.
   const side = screen.getByRole('region', { name: t.friendsTitle });
   expect(within(side).getByText('lyra').closest('li')).toContainElement(within(side).getByRole('button', { name: t.joinFriend }));
