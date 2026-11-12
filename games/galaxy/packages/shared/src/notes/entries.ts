@@ -7,9 +7,9 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
-    id: 'v1-11-un-espacio-vivo',
-    version: '1.11',
-    date: '2026-11-12',
+    id: 'v1-12-un-espacio-vivo',
+    version: '1.12',
+    date: '2026-11-13',
     title: 'Un espacio vivo',
     summary: 'Satélites abandonados que dan señales y una tormenta en el fondo cuando aparece un Núcleo',
     items: [
@@ -18,6 +18,19 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'En grupo, cada jugador se lleva todas las señales de satélite que recoja el grupo' },
       { kind: 'nuevo', text: 'Cuando aparece un Núcleo, el fondo entra en tormenta: ondas, un tono de peligro y un toque propio de cada sector' },
       { kind: 'mejora', text: 'Con movimiento reducido, la tormenta se queda en un tono quieto, sin destellos' },
+    ],
+  },
+  {
+    id: 'v1-10-sondas-en-el-perfil',
+    version: '1.10',
+    date: '2026-11-12',
+    title: 'Sondas en el perfil',
+    summary: 'Tu perfil enseña tus sondas: elige hasta tres para el escaparate y debajo salen todas con su nivel',
+    items: [
+      { kind: 'nuevo', text: 'Sección Sondas en el perfil: hasta tres sondas en el escaparate, con su skin, su nivel y su arma inicial' },
+      { kind: 'nuevo', text: 'En tu perfil, Elegir sondas: marca hasta tres y salen en el orden en que las marques' },
+      { kind: 'mejora', text: 'Debajo del escaparate, todas tus sondas con su nivel y la skin que llevan' },
+      { kind: 'arreglo', text: 'En el móvil, el perfil va en una columna y ya no se sale por el lado' },
     ],
   },
   {

@@ -5,6 +5,7 @@ import type { DB } from '../db/schema';
 import { HttpError } from '../errors';
 import { coverOf, exhibitsOf, publicGalaxy } from '../planetarium/service';
 import { ranking, type SocialDeps } from './leaderboard';
+import { profileProbes } from './probes';
 import { accountXp } from './progress';
 
 // Public profiles and collections (GDD §14.2, §12.1; M5a): anyone signed in sees a player's level, season standing,
@@ -105,6 +106,7 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
     frame: owner.frame,
     avatar: owner.avatar,
     banner: await bannerOf(db, owner.id, owner.banner),
+    probes: await profileProbes(deps, owner.id),
   };
 }
 
