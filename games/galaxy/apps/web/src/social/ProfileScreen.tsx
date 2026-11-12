@@ -17,6 +17,7 @@ import { HomeLink } from '../ui/BackLink';
 import { SeasonHistoryList } from '../season/TrophiesScreen';
 import { useCosmeticsView } from '../api/cosmetics';
 import { CustomizeDialog } from '../profile/CustomizeDialog';
+import { ProfileBanner } from '../profile/ProfileBanner';
 import { TitleText } from '../profile/TitleText';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
@@ -135,7 +136,8 @@ export function ProfileScreen() {
   const p = profile.data;
   const missing = profile.error instanceof ApiError && (profile.error.status === 404 || profile.error.status === 400);
   return (
-    <div className="screen-root profile-root">
+    <div className="screen-root profile-root" data-finish={p?.banner && p.banner.finish !== 'normal' ? p.banner.finish : undefined}>
+      {p?.banner ? <ProfileBanner galaxy={p.banner} /> : null}
       <div className="profile">
         <header className="collection-bar">
           <HomeLink>

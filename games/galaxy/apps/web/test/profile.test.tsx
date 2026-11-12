@@ -98,3 +98,26 @@ test('la colección pública: sus cartas sin acciones, por rareza y paginada', a
   await waitFor(() => expect(fetch.mock.calls.map(([url]) => url)).toContain('/galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30&tier=rare'));
   await waitFor(() => expect(within(screen.getByRole('list', { name: t.collectionOf('vega') })).getAllByRole('article')).toHaveLength(1));
 });
+
+// The banner (Nov plan C2/C4): one of their galaxies, dark and blurred at the top of the profile; its special finish
+// themes the whole page (subtly, behind the panels). None without a banner; none for a normal finish.
+test('con banner de acabado especial, el perfil lleva el banner y el tema de su acabado', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ banner: pub({ finish: 'rift' }) })) });
+  const { container } = renderAt('/perfil/vega', screens);
+  await screen.findByRole('heading', { level: 1, name: 'vega' });
+  expect(container.querySelector('.profile-banner')).not.toBeNull();
+  expect(container.querySelector('.profile-root')).toHaveAttribute('data-finish', 'rift');
+});
+
+test('sin banner no hay banner ni tema; con acabado normal, banner sin tema', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile()), 'GET /galaxy/api/profiles/lyra': () => jsonResponse(200, profile({ username: 'lyra', banner: pub({ finish: 'normal' }) })) });
+  const first = renderAt('/perfil/vega', screens);
+  await screen.findByRole('heading', { level: 1, name: 'vega' });
+  expect(first.container.querySelector('.profile-banner')).toBeNull();
+  expect(first.container.querySelector('.profile-root')).not.toHaveAttribute('data-finish');
+  first.unmount();
+  const second = renderAt('/perfil/lyra', screens);
+  await screen.findByRole('heading', { level: 1, name: 'lyra' });
+  expect(second.container.querySelector('.profile-banner')).not.toBeNull();
+  expect(second.container.querySelector('.profile-root')).not.toHaveAttribute('data-finish');
+});
