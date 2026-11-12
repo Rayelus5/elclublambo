@@ -124,11 +124,11 @@ function coopSpawnPoint(sim: Sim, rng: Rng): { x: number; y: number } {
   return point;
 }
 
-/** Fires one enemy bullet (speed in units per second). */
-export function fireFoeBullet(sim: Sim, x: number, y: number, angle: number, speed: number, damage: number): void {
+/** Fires one enemy bullet (speed in units per second); its slot, or −1 when the pool is full. */
+export function fireFoeBullet(sim: Sim, x: number, y: number, angle: number, speed: number, damage: number): number {
   const fs = sim.foeShots;
   const i = fs.spawn();
-  if (i < 0) return;
+  if (i < 0) return -1;
   fs.x[i] = x;
   fs.y[i] = y;
   fs.px[i] = x;
@@ -138,6 +138,7 @@ export function fireFoeBullet(sim: Sim, x: number, y: number, angle: number, spe
   fs.damage[i] = damage;
   fs.radius[i] = FOE_BULLET_RADIUS;
   fs.ttl[i] = ticks(FOE_BULLET_SECONDS);
+  return i;
 }
 
 /** Smallest signed difference b − a between two angle steps, in (−2048, 2048]. */

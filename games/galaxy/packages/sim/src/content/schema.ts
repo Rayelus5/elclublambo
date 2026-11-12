@@ -152,6 +152,16 @@ const bossPattern = z.discriminatedUnion('kind', [
     .object({ kind: z.literal('mines'), count: z.number().int().min(1).max(16), spread: n, radius: pos, delay: pos, damage: n })
     .strict(),
   z.object({ kind: z.literal('blink'), offset: n, windup: pos, count: z.number().int().min(0).max(128), speed: n, damage: n }).strict(),
+  // Nov plan B4: a sweeping beam, a ring closing in on the probe (always with a way out) and a walking barrage.
+  z
+    .object({ kind: z.literal('laser'), windup: pos, duration: pos, sweep: z.number().min(0).max(360), length: pos, width: z.number().gt(0).max(200), damage: n })
+    .strict(),
+  z
+    .object({ kind: z.literal('closing'), count: z.number().int().min(1).max(128), radius: pos, gap: z.number().min(20).max(300), delay: pos, speed: pos, damage: n })
+    .strict(),
+  z
+    .object({ kind: z.literal('barrage'), count: z.number().int().min(1).max(16), spacing: pos, radius: pos, delay: pos, step: n, damage: n })
+    .strict(),
 ]);
 
 const boss = z
@@ -180,8 +190,14 @@ const sector = z
     description: text,
     biome: z.enum(BIOMES),
     boss: id,
+    // Nov plan B4: the Core's forms in turn. Optional, so a content published before plays as it did (only `boss`).
+    bossCycle: z.array(id).min(1).max(8).optional(),
     // Defaults keep a content published before M3b-3 valid.
-    deepBoss: z.object({ boss: id, every: z.number().int().min(2).max(100) }).strict().nullable().default(null),
+    deepBoss: z
+      .object({ boss: id, every: z.number().int().min(2).max(100), cycle: z.array(id).min(1).max(8).optional() })
+      .strict()
+      .nullable()
+      .default(null),
     season: z.boolean().default(false),
     // Open beta: the sector's own toughness, on top of its scaling (first sector easiest, the season's hardest).
     enemyHp: z.number().min(0.25).max(4).default(1),
@@ -527,6 +543,14 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   c.sectors.forEach((s, i) => {
     ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
     if (s.deepBoss) ref(ctx, bosses, s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
+    // Nov plan B4: every form exists, and each cycle starts with its Core (the one the hangar shows as form 1).
+    const cycles: [string, string[] | undefined, (string | number)[]][] = [[s.boss, s.bossCycle, ['sectors', i, 'bossCycle']]];
+    if (s.deepBoss) cycles.push([s.deepBoss.boss, s.deepBoss.cycle, ['sectors', i, 'deepBoss', 'cycle']]);
+    for (const [first, cycle, path] of cycles) {
+      if (!cycle) continue;
+      cycle.forEach((b, j) => ref(ctx, bosses, b, [...path, j]));
+      if (cycle[0] !== first) ctx.addIssue({ code: 'custom', message: `content_cycle:${path.join('.')}`, path });
+    }
     s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
     s.waves.forEach((w, j) => ref(ctx, enemies, w.enemy, ['sectors', i, 'waves', j, 'enemy']));
   });

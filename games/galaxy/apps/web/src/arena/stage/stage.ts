@@ -9,6 +9,7 @@ import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
 import { type Warning, warningFrom, warningProgress } from './warnings';
+import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
@@ -449,8 +450,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         continue;
       }
       const pulse = opts.reduced ? 0.4 : 0.3 + 0.2 * Math.sin(clock * 18);
-      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands.
-      if (wv.kind === 'charge' || wv.kind === 'lance') {
+      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands. A Core's laser
+      // and closing ring (Nov plan B4) draw their own.
+      if (isCoreWarning(wv)) {
+        drawCoreWarning(warnings, wv, k, pulse);
+      } else if (wv.kind === 'charge' || wv.kind === 'lance') {
         const a = wv.angle * STEP_RAD;
         const ex = wv.x + Math.cos(a) * wv.radius;
         const ey = wv.y + Math.sin(a) * wv.radius;
@@ -1083,6 +1087,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       drawAreas(sim);
       lastTick = sim.tick;
       drawWarnings(sim.tick + alpha);
+      drawCoreBeam(beams, sim, opts.reduced, clock);
       drawEnemies(sim, alpha);
       drawPickups(sim, alpha);
       drawShots(sim, alpha);

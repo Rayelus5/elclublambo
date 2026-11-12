@@ -213,7 +213,22 @@ export type BossPattern =
   /** `count` warned blasts within `spread` u of the probe, exploding after `delay` s. */
   | { kind: 'mines'; count: number; spread: number; radius: number; delay: number; damage: number }
   /** Vanishes for `windup` s and comes back `offset` u from the probe with a ring of `count`. */
-  | { kind: 'blink'; offset: number; windup: number; count: number; speed: number; damage: number };
+  | { kind: 'blink'; offset: number; windup: number; count: number; speed: number; damage: number }
+  /**
+   * Nov plan B4. A line marked at the probe for `windup` s, then a beam `length` u long and `width` u wide that burns for
+   * `duration` s while it turns `sweep` ° to the side its warning shows.
+   */
+  | { kind: 'laser'; windup: number; duration: number; sweep: number; length: number; width: number; damage: number }
+  /**
+   * Nov plan B4. A ring of `count` marked `radius` u around the probe for `delay` s that then closes in at `speed`, with a
+   * `gap` ° way out; the bullets die at its centre.
+   */
+  | { kind: 'closing'; count: number; radius: number; gap: number; delay: number; speed: number; damage: number }
+  /**
+   * Nov plan B4. A walking barrage: `count` warned blasts in a line towards the probe, `spacing` u apart from the Core;
+   * the first goes off after `delay` s and each next one `step` s later.
+   */
+  | { kind: 'barrage'; count: number; spacing: number; radius: number; delay: number; step: number; damage: number };
 
 export interface BossPhase {
   /** The phase starts when life falls to this fraction (the first phase: 1). */
@@ -243,9 +258,18 @@ export interface SectorDef {
   name: string;
   description: string;
   biome: BiomeId;
+  /** The Core of layer 1, and the one the hangar shows. */
   boss: string;
-  /** Every `every` layers (4, 8…) this Core comes instead of `boss` (null: never). */
-  deepBoss: { boss: string; every: number } | null;
+  /**
+   * Nov plan B4: the Core's forms in turn, one per layer (the deep Core's layers do not count), starting with `boss`.
+   * Absent (content published before): only `boss`.
+   */
+  bossCycle?: string[];
+  /**
+   * Every `every` layers (4, 8…) this Core comes instead of `boss` (null: never). `cycle` (Nov plan B4): its forms in turn,
+   * one per time it comes, starting with `boss`; absent: only `boss`.
+   */
+  deepBoss: { boss: string; every: number; cycle?: string[] } | null;
   /** A season sector (GDD §13.1): open only while it is the live config's season. */
   season: boolean;
   /** Open beta: multiplies its enemies' (and its Core's) life and their damage; 1 for content published before. */

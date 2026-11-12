@@ -52,10 +52,30 @@ test('M3b-3: cada especie y cada Núcleo de los sectores nuevos, y 3 rocas por b
   for (const id of M3B3_CORES) expect([SPRITES[id]!.w, SPRITES[id]!.h], id).toEqual([40, 40]);
 });
 
+// Nov plan B4: the second and third forms of every Core, 40×40 with two frames, and none looks like another.
+const B4_FORMS = [
+  ...['hive-swarm', 'hive-queen', 'glacier-egg', 'glacier-daughter', 'anemone-spore', 'anemone-maw'],
+  ...['anvil-hammer', 'anvil-furnace', 'echo-choir', 'echo-mirror', 'signal-carrier', 'signal-answer'],
+];
+
+test('Nov plan B4: cada forma nueva de Núcleo tiene su sprite de 40×40 con 2 fotogramas distintos, y ninguna repite otra', () => {
+  const cores = ['hive', ...M3B3_CORES, ...B4_FORMS];
+  expect(cores).toHaveLength(18);
+  for (const id of B4_FORMS) {
+    const def = SPRITES[id]!;
+    expect(def, id).toBeDefined();
+    expect([def.w, def.h, def.frames.length], id).toEqual([40, 40, 2]);
+    expect(def.frames[0], id).not.toEqual(def.frames[1]);
+  }
+  const looks = new Set(cores.map((id) => SPRITES[id]!.frames[0]!.join('')));
+  expect(looks.size).toBe(18);
+  for (const b of DEFAULT_CONTENT.bosses) expect(cores, b.id).toContain(b.sprite);
+});
+
 test('ningún sprite de botín, disparo o icono pisa a uno de la fauna o de la sonda', async () => {
   const { ITEMS } = await import('../src/arena/sprites/items');
   const { ICONS } = await import('../src/arena/sprites/icons');
-  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive', ...M3B3_FAUNA, ...M3B3_CORES];
+  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive', ...M3B3_FAUNA, ...M3B3_CORES, ...B4_FORMS];
   for (const id of [...Object.keys(ITEMS), ...Object.keys(ICONS)]) expect(fauna, id).not.toContain(id);
 });
 

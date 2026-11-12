@@ -10,6 +10,8 @@ export interface Warning {
   y: number;
   angle: number;
   radius: number;
+  /** Nov plan B4: a laser's signed turn, a closing ring's way out (angle steps); 0 for the others. */
+  arc: number;
   /** The tick of the event that raised it. */
   start: number;
   /** How long it lasts, in ticks (when it strikes). */
@@ -17,7 +19,7 @@ export interface Warning {
 }
 
 export function warningFrom(e: Extract<SimEvent, { t: 'telegraph' }>, tick: number): Warning {
-  return { kind: e.kind, x: e.x, y: e.y, angle: e.angle, radius: e.radius, start: tick, total: e.ticks };
+  return { kind: e.kind, x: e.x, y: e.y, angle: e.angle, radius: e.radius, arc: e.arc ?? 0, start: tick, total: e.ticks };
 }
 
 /**
