@@ -47,7 +47,8 @@ describe('la tienda abierta', () => {
     const { cookie } = await player();
     const v = await view(cookie);
     expect(v).toMatchObject({ open: true, closed: null, publishableKey: 'pk_live_fake', limits: { dailyCents: 10_000, spentTodayCents: 0, pendingMax: 3 } });
-    expect(v.products).toHaveLength(PRODUCTS.length);
+    // The products switched off (the shop's cosmetics until their Stripe prices are in) are not shown.
+    expect(v.products).toHaveLength(PRODUCTS.filter((p) => p.enabled).length);
     expect(v.products.find((p) => p.id === 'dust-2')).toMatchObject({ tab: 'dust', priceCents: 699, first: true, base: { dust: 600 }, extra: { dust: 600 }, total: { dust: 1200 }, block: null });
     expect(v.products.find((p) => p.id === 'welcome')).toMatchObject({ tab: 'packs', first: false, maxPerAccount: 1, bought: 0 });
   });
