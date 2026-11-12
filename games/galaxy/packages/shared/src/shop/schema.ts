@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ART_AVATARS, ART_FRAMES } from '../cosmetics/catalog';
 
 // The resource shop (shop and lab plan, F4): coins, star dust and components for real money, paid with Stripe. Its
 // catalogue is live config (`shop`), so the admin edits everything: what each product gives, its price shown and the
@@ -33,8 +34,11 @@ const offerSchema = z
 export const shopProductSchema = z
   .object({
     id: z.string().regex(SLUG),
-    /** `pack`: one currency (its tab); `bundle`: several; `welcome`: the welcome pack, once per account. */
-    kind: z.enum(['pack', 'bundle', 'welcome']),
+    /**
+     * `pack`: one currency (its tab); `bundle`: several; `welcome`: the welcome pack, once per account; `cosmetic` (Nov
+     * plan C5): a profile piece (avatar, frame or title) in the «Estilo» tab, once per account, no currency.
+     */
+    kind: z.enum(['pack', 'bundle', 'welcome', 'cosmetic']),
     name: z.string().trim().min(1).max(40),
     /** The illustration it shows (an id of the shop's art). */
     art: z.string().regex(/^[a-z0-9-]{0,32}$/).default(''),
@@ -52,6 +56,8 @@ export const shopProductSchema = z
     staffOnly: z.boolean().default(false),
     /** Its first purchase gets `firstPurchase.percent` more, when that is on. */
     firstBonus: z.boolean().default(false),
+    /** A cosmetic's piece (Nov plan C5): an avatar or frame with art, or a title. */
+    cosmetic: z.object({ kind: z.enum(['avatar', 'frame', 'title']), id: z.string().trim().min(1).max(32) }).strict().nullable().default(null),
     /** How many times one account can buy it (null: no limit; the welcome pack is always once). */
     maxPerAccount: z.number().int().min(1).max(100).nullable().default(null),
   })
@@ -73,6 +79,7 @@ const pack = (currency: ShopCurrency, n: number, name: string, base: number, bon
   enabled: true,
   staffOnly: false,
   firstBonus: true,
+  cosmetic: null,
   maxPerAccount: null,
 });
 const bundle = (id: string, name: string, grants: ShopAmounts, priceCents: number, extra: Partial<ShopProduct> = {}): ShopProduct => ({
@@ -90,9 +97,31 @@ const bundle = (id: string, name: string, grants: ShopAmounts, priceCents: numbe
   enabled: true,
   staffOnly: false,
   firstBonus: false,
+  cosmetic: null,
   maxPerAccount: null,
   ...extra,
 });
+
+function cosmetic(id: string, name: string, piece: NonNullable<ShopProduct['cosmetic']>, priceCents: number, badge: ShopProduct['badge'] = null): ShopProduct {
+  return {
+    id,
+    kind: 'cosmetic',
+    name,
+    art: '',
+    grants: { coins: 0, dust: 0, components: 0 },
+    bonus: { coins: 0, dust: 0, components: 0 },
+    priceCents,
+    stripePriceId: null,
+    offer: null,
+    badge,
+    featured: false,
+    enabled: false,
+    staffOnly: false,
+    firstBonus: false,
+    cosmetic: piece,
+    maxPerAccount: 1,
+  };
+}
 
 /** The default catalogue (the approved ladder of the F0 mockups): six packs of each currency, three bundles and the welcome pack. */
 export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
@@ -118,6 +147,19 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
   bundle('kit-arranque', 'Kit de arranque', { coins: 1200, dust: 600, components: 150 }, 999),
   bundle('kit-explorador', 'Kit del explorador', { coins: 4500, dust: 2250, components: 600 }, 1999, { badge: 'popular', featured: true }),
   bundle('kit-comandante', 'Kit del comandante', { coins: 12000, dust: 6000, components: 1600 }, 4999, { badge: 'best' }),
+  // Nov plan C5: the shop's exclusive cosmetics, off until their Stripe prices are set.
+  cosmetic('style-nebula-queen', 'Reina de la nebulosa', { kind: 'avatar', id: 'shop-nebula-queen' }, 299, 'new'),
+  cosmetic('style-void-knight', 'Caballero del vacío', { kind: 'avatar', id: 'shop-void-knight' }, 299),
+  cosmetic('style-star-fox', 'Zorro estelar', { kind: 'avatar', id: 'shop-star-fox' }, 199),
+  cosmetic('style-comet-rider', 'Jinete del cometa', { kind: 'avatar', id: 'shop-comet-rider' }, 199),
+  cosmetic('style-prism', 'Marco Prisma', { kind: 'frame', id: 'prism' }, 299, 'popular'),
+  cosmetic('style-solar', 'Marco Corona solar', { kind: 'frame', id: 'solar' }, 249),
+  cosmetic('style-eclipse', 'Marco Eclipse', { kind: 'frame', id: 'eclipse' }, 149),
+  cosmetic('style-starlight', 'Marco Luz de estrellas', { kind: 'frame', id: 'starlight' }, 99),
+  cosmetic('style-patron', 'Título «Mecenas estelar»', { kind: 'title', id: 'Mecenas estelar' }, 199),
+  cosmetic('style-pioneer', 'Título «Pionero del ECN»', { kind: 'title', id: 'Pionero del ECN' }, 149),
+  cosmetic('style-guardian', 'Título «Guardián de la nebulosa»', { kind: 'title', id: 'Guardián de la nebulosa' }, 99),
+  cosmetic('style-voyager', 'Título «Viajero del vacío»', { kind: 'title', id: 'Viajero del vacío' }, 99),
 ];
 
 const total = (p: Pick<ShopProduct, 'grants' | 'bonus'>, c: ShopCurrency) => p.grants[c] + p.bonus[c];
@@ -131,7 +173,12 @@ function shopIssues(shop: { enabled: boolean; limits: { dailyCents: number }; pr
     if (ids.has(p.id)) ctx.addIssue({ code: 'custom', path: [...at, 'id'], message: `Hay dos productos con el id ${p.id}` });
     ids.add(p.id);
     const given = SHOP_CURRENCIES.filter((c) => total(p, c) > 0);
-    if (given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
+    // A cosmetic gives its piece and nothing else; only a cosmetic has a piece, and the piece must have art.
+    const piece = p.cosmetic;
+    const known = !piece || piece.kind === 'title' || (piece.kind === 'avatar' ? (ART_AVATARS as readonly string[]) : (ART_FRAMES as readonly string[])).includes(piece.id);
+    if ((p.kind === 'cosmetic') !== (piece != null) || !known) ctx.addIssue({ code: 'custom', path: [...at, 'cosmetic'], message: 'shop_cosmetic_piece' });
+    if (p.kind === 'cosmetic' && given.length > 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'shop_cosmetic_grants' });
+    if (p.kind !== 'cosmetic' && given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
     if (p.kind === 'pack' && given.length > 1) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'Un pack da un solo recurso (para varios, un pack combinado)' });
     if (p.kind === 'welcome' && p.maxPerAccount !== 1) ctx.addIssue({ code: 'custom', path: [...at, 'maxPerAccount'], message: 'El pack de bienvenida se compra una vez' });
     if (p.offer?.kind === 'price' && p.offer.priceCents >= p.priceCents) ctx.addIssue({ code: 'custom', path: [...at, 'offer', 'priceCents'], message: 'El precio de oferta debe ser menor que el normal' });

@@ -21,7 +21,8 @@ import { createAdminViaCli, fixedConfig, get, post, randomIp, sessionCookie, tes
 // checks and makes Stripe prices, and syncs a purchase; the CLI reconciles and unblocks. The «antes» of a sale comes
 // from the shop config's history.
 
-const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_a${i}x` }));
+// One shop cosmetic switched on (Nov plan C5): the rest are born off.
+const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_a${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
 const SHOP = { enabled: true, audience: 'everyone', products: PRODUCTS };
 
 const clock = new Date();
@@ -237,3 +238,16 @@ describe('el precio de antes', () => {
 function priceOf(product: string): string {
   return PRODUCTS.find((p) => p.id === product)!.stripePriceId;
 }
+
+test('devolver un cosmético lo quita y, si lo llevabas puesto, también (plan de noviembre C5)', async () => {
+  const { cookie, id: account } = await player();
+  const id = await bought(cookie, 'style-star-fox');
+  expect((await post(ctx.app, '/galaxy/api/profile/cosmetics', undefined, { cookie })).statusCode).not.toBe(500);
+  await ctx.db.updateTable('galaxy.accounts').set({ avatar: 'shop-star-fox' }).where('id', '=', account).execute();
+  const p = PRODUCTS.find((x) => x.id === 'style-star-fox')!;
+  expect((await deliver(gateway.refund(id, p.priceCents))).statusCode).toBe(200);
+  const owned = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'avatar').execute();
+  expect(owned.map((o) => o.value)).not.toContain('shop-star-fox');
+  expect((await ctx.db.selectFrom('galaxy.accounts').select('avatar').where('id', '=', account).executeTakeFirstOrThrow()).avatar).toBeNull();
+  expect(await blocked(account)).toBe(true);
+});
