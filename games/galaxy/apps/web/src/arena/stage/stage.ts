@@ -7,6 +7,7 @@ import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
+import { mateMarkers } from './mates';
 import { type Warning, warningFrom, warningProgress } from './warnings';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
@@ -210,6 +211,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const particles = new Container();
   world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, probes, beams, shots, particles);
   const numbers = new Container();
+  // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
+  const mateArrows = new Graphics();
+  numbers.addChild(mateArrows);
   const bars = new Graphics();
   const hurtFlash = new Graphics();
   app.stage.addChild(backdrop, veil, world, numbers, bars, hurtFlash);
@@ -230,6 +234,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const numberTexts: BitmapText[] = [];
   const labelTexts: BitmapText[] = [];
   const tagTexts: BitmapText[] = [];
+  const mateTexts: BitmapText[] = [];
   /** Where the teammates were drawn this frame (their names go over them). */
   const tagAt: { i: number; x: number; y: number }[] = [];
   const pipPool = new SpritePool(enemies);
@@ -802,6 +807,49 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     for (; g < tagTexts.length; g++) tagTexts[g]!.visible = false;
   }
 
+  /** Co-op: an arrow in each off-screen teammate's colour, their name inward and a life bar under it. */
+  function drawMates(sim: Sim, c: Camera): void {
+    mateArrows.clear();
+    let g = 0;
+    if (sim.coop) {
+      const probesNow = sim.probes.map((p) => ({ x: p.x, y: p.y, hp: p.hp, maxHp: p.stats.maxHp, life: p.life }));
+      for (const m of mateMarkers(probesNow, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe)) {
+        const team = TEAM_TINT[m.index % TEAM_TINT.length]!;
+        const tint = m.state === 'down' ? 0xff4d6d : team;
+        const alpha = m.state === 'away' ? 0.4 : m.state === 'down' && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 10) : 1;
+        const ux = Math.cos(m.angle);
+        const uy = Math.sin(m.angle);
+        const tip = [m.x + ux * 12, m.y + uy * 12];
+        const back = [m.x - ux * 6, m.y - uy * 6];
+        mateArrows
+          .poly([tip[0]!, tip[1]!, back[0]! - uy * 9, back[1]! + ux * 9, back[0]! + uy * 9, back[1]! - ux * 9])
+          .fill({ color: tint, alpha })
+          .stroke({ width: 2, color: 0x0b0c24, alpha: alpha * 0.9 });
+        let t = mateTexts[g];
+        if (!t) {
+          t = new BitmapText({ text: ' ', style: { fontFamily: LABEL_FONT, fontSize: 15 } });
+          mateTexts.push(t);
+          numbers.addChild(t);
+        }
+        t.visible = true;
+        t.text = opts.names?.[m.index] ?? '';
+        t.tint = team;
+        t.alpha = m.state === 'away' ? 0.5 : 1;
+        // The name sits inward from the arrow, never past the screen's edge.
+        t.anchor.set(0.5 + 0.5 * ux, 0.5 + 0.5 * uy);
+        t.position.set(Math.round(m.x - ux * 20), Math.round(m.y - uy * 20));
+        const left = t.position.x - t.anchor.x * t.width;
+        const top = t.position.y - t.anchor.y * t.height;
+        const bx = Math.round(left + (t.width - 34) / 2);
+        const by = Math.round(top + t.height + 3);
+        mateArrows.rect(bx, by, 34, 4).fill({ color: 0x0b0c24, alpha: 0.85 * (m.state === 'away' ? 0.5 : 1) });
+        if (m.hp > 0) mateArrows.rect(bx, by, Math.max(1, Math.round(34 * m.hp)), 4).fill({ color: m.hp > 0.3 ? 0x45e3a6 : 0xff4d6d, alpha: m.state === 'away' ? 0.5 : 1 });
+        g++;
+      }
+    }
+    for (; g < mateTexts.length; g++) mateTexts[g]!.visible = false;
+  }
+
   function drawBars(c: Camera): void {
     bars.clear();
     hurtFlash.clear();
@@ -945,6 +993,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       drawProbes(sim, alpha);
       drawParticles();
       drawNumbers(c, originX + shake.x, originY + shake.y);
+      drawMates(sim, c);
       drawBars(c);
       app.render();
     },
