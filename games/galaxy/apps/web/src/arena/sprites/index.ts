@@ -1,11 +1,11 @@
-import { CELL, CELLET, HIVE, MITE, PROBE_LUMEN, RAY, SHELL, SPITTER } from './fauna';
+import { CELL, CELLET, HIVE, MITE, RAY, SHELL, SPITTER } from './fauna';
 import { BOSSES } from './bosses';
 import { DECOR } from './decor';
 import { FAUNA2 } from './fauna2';
 import { FORMS } from './forms';
 import { ICONS } from './icons';
-import { PROBES } from './probes';
 import { ITEMS } from './items';
+import { PROBE_ART, PROBE_NOZZLE } from './probe-art';
 import { PROPS } from './props';
 import { turnedProbe } from './rotate';
 import { rasterize, type SpriteDef } from './types';
@@ -14,7 +14,6 @@ export { pixels, rasterize, type SpriteDef } from './types';
 
 /** Every sprite of the arena by id (the content's `sprite` and `icon` ids, plus loot, shots and decoration). */
 export const SPRITES: Record<string, SpriteDef> = {
-  'probe-lumen': PROBE_LUMEN,
   mite: MITE,
   cell: CELL,
   cellet: CELLET,
@@ -22,7 +21,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   spitter: SPITTER,
   shell: SHELL,
   hive: HIVE,
-  ...PROBES,
+  ...PROBE_ART,
   ...FAUNA2,
   ...BOSSES,
   ...FORMS,
@@ -33,7 +32,12 @@ export const SPRITES: Record<string, SpriteDef> = {
 };
 
 // Each probe also faces up, down and the two right-hand diagonals (open beta); left is the mirror (rotate.ts).
-for (const [id, def] of Object.entries({ 'probe-lumen': PROBE_LUMEN, ...PROBES })) Object.assign(SPRITES, turnedProbe(id, def));
+for (const [id, def] of Object.entries(PROBE_ART)) Object.assign(SPRITES, turnedProbe(id, def));
+
+/** How far behind its centre a probe drawing's nozzle is (px), where its thruster's flame comes out. */
+export function probeNozzle(sprite: string): number {
+  return PROBE_NOZZLE[sprite] ?? 8;
+}
 
 const urls = new Map<string, string>();
 

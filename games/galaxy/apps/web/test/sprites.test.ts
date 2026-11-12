@@ -1,6 +1,6 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { pixels, SPRITES } from '../src/arena/sprites';
+import { pixels, probeNozzle, SPRITES } from '../src/arena/sprites';
 
 // The arena's pixel art is written in code as palette grids (plan ruling 10). Every grid must be well formed and
 // every sprite the content names must exist, or the renderer would draw holes.
@@ -92,4 +92,21 @@ test('ningún id se repite entre el botín y los disparos y los iconos', async (
   const { ITEMS } = await import('../src/arena/sprites/items');
   const { ICONS } = await import('../src/arena/sprites/icons');
   for (const id of Object.keys(ITEMS)) expect(Object.keys(ICONS), id).not.toContain(id);
+});
+
+// Plan «banda sonora, skins, perfil y entorno», part B: the eight probes redrawn in Aseprite (art/probes), bigger and
+// alive while idle, each with the nozzle its flame comes out of.
+test('las ocho sondas rediseñadas: 24 × 24, cuatro fotogramas en reposo que cambian y su propia tobera', () => {
+  const probes = DEFAULT_CONTENT.probes.map((p) => p.sprite);
+  expect(probes).toHaveLength(8);
+  for (const id of probes) {
+    const def = SPRITES[id]!;
+    expect([def.w, def.h, def.frames.length], id).toEqual([24, 24, 4]);
+    expect(new Set(def.frames.map((f) => f.join('|'))).size, id).toBeGreaterThan(1);
+    // Behind its centre, inside its drawing (the flame comes out of the engine, not out of the void).
+    expect(probeNozzle(id), id).toBeGreaterThanOrEqual(8);
+    expect(probeNozzle(id), id).toBeLessThanOrEqual(12);
+  }
+  // A drawing without its own (a skin to come, an old id) keeps the old nozzle.
+  expect(probeNozzle('mite')).toBe(8);
 });
