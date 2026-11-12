@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-11-un-espacio-vivo',
+    version: '1.11',
+    date: '2026-11-12',
+    title: 'Un espacio vivo',
+    summary: 'Satélites abandonados que dan señales y una tormenta en el fondo cuando aparece un Núcleo',
+    items: [
+      { kind: 'nuevo', text: 'Satélites abandonados: en algunas incursiones pasa uno a la deriva. Rómpelo y suelta una señal del Escáner profundo' },
+      { kind: 'nuevo', text: 'Una flecha en el borde te dice dónde está el satélite mientras no lo ves, y se va si tardas demasiado' },
+      { kind: 'nuevo', text: 'En grupo, cada jugador se lleva todas las señales de satélite que recoja el grupo' },
+      { kind: 'nuevo', text: 'Cuando aparece un Núcleo, el fondo entra en tormenta: ondas, un tono de peligro y un toque propio de cada sector' },
+      { kind: 'mejora', text: 'Con movimiento reducido, la tormenta se queda en un tono quieto, sin destellos' },
+    ],
+  },
+  {
     id: 'v1-7-sondas-redisenadas',
     version: '1.7',
     date: '2026-11-12',
