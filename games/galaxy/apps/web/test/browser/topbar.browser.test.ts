@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { FRIENDS_KEY } from '../../src/api/friends';
 import { TopBar } from '../../src/hub/TopBar';
 import '../../src/styles/app.css';
 
@@ -59,5 +60,56 @@ for (const [label, frame] of [
     expect(parseFloat(style.borderTopRightRadius)).toBeGreaterThanOrEqual(box.height / 2);
     expect(pill.querySelector('.badge-admin')).toBeNull();
     if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: `__shots__/topbar-${frame ?? 'none'}.png`, element: host });
+  }, 30_000);
+}
+
+// The friends button (owner, 2026-11-12): how many friends are online is a green count; when the bar folds its
+// shortcuts down to their icon, it sits on the button's top-right corner, clear of the icon, as Noticias' does; a
+// request's dot then drops to the bottom-right corner. With the name shown it follows the name, as before.
+const friend = (username: string) => ({ username, level: 3, clan: null, presence: { status: 'online', activity: 'hub' } as const, since: '2026-11-10T10:00:00Z', avatar: null, frame: null });
+for (const [w, folded] of [
+  [1440, true],
+  [1920, false],
+] as const) {
+  test(`el número de amigos conectados a ${w} de ancho ${folded ? 'va en la esquina, sin tapar el icono' : 'sigue al nombre'}`, async () => {
+    await page.viewport(w, 900);
+    vi.stubGlobal('fetch', () => new Promise(() => {}));
+    document.body.classList.add('ready', 'settled');
+    const me: MeResponse = { id: 'a1', username: 'vega', roles: [], mfa: false, level: 17, avatar: 'crew-cat', frame: null };
+    const client = new QueryClient();
+    client.setQueryData(FRIENDS_KEY, {
+      friends: [friend('lyra'), friend('orion'), friend('altair')],
+      incoming: [{ username: 'deneb', level: 2, at: '2026-11-12T10:00:00Z' }],
+      outgoing: [],
+      blocked: [],
+      prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
+      max: 100,
+    });
+    const host = document.createElement('div');
+    host.style.cssText = 'padding:24px';
+    document.body.append(host);
+    root = createRoot(host);
+    flushSync(() => root!.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(TopBar, { me, wallet, freePull: false })))));
+    await new Promise((r) => setTimeout(r, 600));
+    const button = host.querySelector<HTMLElement>('.friends-button')!;
+    const box = button.getBoundingClientRect();
+    const icon = button.querySelector<HTMLElement>('.ico, svg')!.getBoundingClientRect();
+    const count = button.querySelector<HTMLElement>('.friends-online')!.getBoundingClientRect();
+    const dot = button.querySelector<HTMLElement>('.friends-request')!.getBoundingClientRect();
+    const overlap = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    expect(button.querySelector('.friends-online')!.textContent).toBe('3');
+    if (folded) {
+      expect(box.width).toBeLessThan(56);
+      expect(overlap(count, icon)).toBe(false);
+      // On the top-right corner: its centre beyond the button's middle, right and up, sticking out a little.
+      expect(count.left + count.width / 2).toBeGreaterThan(box.left + box.width * 0.75);
+      expect(count.top + count.height / 2).toBeLessThan(box.top + box.height * 0.25);
+      expect(overlap(count, dot)).toBe(false);
+    } else {
+      const name = button.querySelector<HTMLElement>('.label')!.getBoundingClientRect();
+      expect(count.left).toBeGreaterThanOrEqual(name.right - 1);
+      expect(Math.abs(count.top + count.height / 2 - (box.top + box.height / 2))).toBeLessThan(4);
+    }
+    if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: `__shots__/topbar-friends-${w}.png`, element: host });
   }, 30_000);
 }

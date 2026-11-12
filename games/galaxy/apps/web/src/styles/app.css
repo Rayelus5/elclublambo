@@ -309,6 +309,10 @@
   @media (max-width: 1599px) {
     .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    /* Folded to its icon, the friends' count goes on the corner, as Noticias' does (owner, 2026-11-12); a request's dot
+       then drops to the bottom corner. */
+    .pill.fold .friends-online { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; min-inline-size: 20px; block-size: 20px; padding: 0 5px; box-sizing: border-box; box-shadow: 0 0 0 3px var(--color-panel); }
+    .pill.fold .friends-online ~ .friends-request { inset-block-start: auto; inset-block-end: -3px; }
   }
   .hud { --r: 999px; --lip-h: 4px; display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 5px; }
   .me { display: flex; align-items: center; gap: 10px; padding-right: 10px; }
@@ -354,6 +358,8 @@
   @media (max-width: 1699px) {
     .topbar:has(.res.event-signal) .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .topbar:has(.res.event-signal) .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .topbar:has(.res.event-signal) .pill.fold .friends-online { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; min-inline-size: 20px; block-size: 20px; padding: 0 5px; box-sizing: border-box; box-shadow: 0 0 0 3px var(--color-panel); }
+    .topbar:has(.res.event-signal) .pill.fold .friends-online ~ .friends-request { inset-block-start: auto; inset-block-end: -3px; }
   }
   .res b { color: var(--color-ink); font-weight: 600; }
   .res.pending { font-family: var(--font-braille); color: var(--color-ice); padding: 0 14px; }
@@ -3181,6 +3187,8 @@
   @media (max-width: 1799px) {
     .lobby-top .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .lobby-top .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .lobby-top .pill.fold .friends-online { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; min-inline-size: 20px; block-size: 20px; padding: 0 5px; box-sizing: border-box; box-shadow: 0 0 0 3px var(--color-panel); }
+    .lobby-top .pill.fold .friends-online ~ .friends-request { inset-block-start: auto; inset-block-end: -3px; }
   }
 
   /* The rail never leaves its area: on a short screen it scrolls inside rather than over the bar or the foot. */

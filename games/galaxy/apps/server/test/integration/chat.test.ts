@@ -93,6 +93,10 @@ describe('escribir y leer', () => {
 
   test('pasado el límite por minuto, espera', async () => {
     const a = await player();
+    // The limit counts per clock minute (galaxy.rate_limit bins by the window): seven messages across the turn of a
+    // minute would land in two windows, so they start well inside one.
+    const left = 60_000 - (Date.now() % 60_000);
+    if (left < 5_000) await new Promise((r) => setTimeout(r, left + 250));
     for (let i = 0; i < 6; i++) expect((await send(a, `mensaje ${i}`)).statusCode).toBe(200);
     const seventh = await send(a, 'uno más');
     expect(seventh.statusCode).toBe(429);
