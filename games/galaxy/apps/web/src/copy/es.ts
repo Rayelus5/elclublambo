@@ -1,6 +1,6 @@
 import type { Quirk } from '@galaxy/sim';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
-import type { ApiErrorCode } from '@galaxy/shared';
+import { type ApiErrorCode, pieceName } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
@@ -63,19 +63,23 @@ function labLine(e: LabEffectCopy, value: number, mode: 'per' | 'now'): string {
   }
 }
 
-/** A Catalogue reward in words (M7b). */
-function catalogReward(r: { coins: number; dust: number; signal: number; title: string | null; frame: string | null }): string {
+type PieceReward = { title: string | null; frame: string | null; avatar?: string | null; skin?: string | null };
+
+/** A Catalogue reward in words (M7b), with the avatar and the probe skin it gives (plan «skins», part C). */
+function catalogReward(r: { coins: number; dust: number; signal: number } & PieceReward): string {
   const parts: string[] = [];
   if (r.coins) parts.push(`${fmt(r.coins)} monedas`);
   if (r.dust) parts.push(`${fmt(r.dust)} de polvo`);
   if (r.signal) parts.push(r.signal === 1 ? '1 señal' : `${fmt(r.signal)} señales`);
   if (r.title) parts.push(`el título ${r.title}`);
-  if (r.frame) parts.push(`el marco ${({ bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo', crown: 'Corona' } as Record<string, string>)[r.frame] ?? r.frame}`);
+  if (r.frame) parts.push(`el marco ${pieceName('frame', r.frame)}`);
+  if (r.avatar) parts.push(`el avatar ${pieceName('avatar', r.avatar)}`);
+  if (r.skin) parts.push(`la skin ${pieceName('skin', r.skin)}`);
   return parts.join(', ');
 }
 
 /** A season route step's or shop item's reward in words (M7d-1): the season currency first, then the rest. */
-function seasonReward(r: { coins: number; dust: number; signal: number; shards: number; title: string | null; frame: string | null }, currency: string): string {
+function seasonReward(r: { coins: number; dust: number; signal: number; shards: number } & PieceReward, currency: string): string {
   const rest = catalogReward(r);
   return [r.shards ? `${fmt(r.shards)} ${currency}` : '', rest].filter(Boolean).join(', ');
 }
@@ -2456,7 +2460,7 @@ export const copy = {
     currencyHint: 'Las ganas con cada incursión que cuenta y en la ruta',
     routeTitle: 'Ruta de temporada',
     at: (n: number) => `${fmt(n)} puntos`,
-    reward: (r: { coins: number; dust: number; signal: number; shards: number; title: string | null; frame: string | null }, currency: string) => seasonReward(r, currency),
+    reward: (r: { coins: number; dust: number; signal: number; shards: number } & PieceReward, currency: string) => seasonReward(r, currency),
     claimOf: (n: number) => `Recoger el escalón de ${fmt(n)} puntos`,
     claimedStep: 'Recogido',
     left: (n: number) => `Faltan ${fmt(n)} puntos`,
@@ -2680,7 +2684,7 @@ export const copy = {
     progressTitle: 'Álbum completado',
     progress: (n: number, total: number, pct: number) => `${fmt(n)} de ${fmt(total)}, ${pct} %`,
     at: (pct: number) => `Al ${pct} %`,
-    reward: (r: { coins: number; dust: number; signal: number; title: string | null; frame: string | null }) => catalogReward(r),
+    reward: (r: { coins: number; dust: number; signal: number } & PieceReward) => catalogReward(r),
     claimOf: (pct: number) => `Recoger el premio del ${pct} %`,
     kinds: { galaxy_type: 'Tipos', palette: 'Paletas', phenomenon: 'Fenómenos', finish: 'Acabados' },
     count: (n: number, total: number) => `${n} de ${total}`,
@@ -2733,6 +2737,8 @@ export const copy = {
       points: (n: number) => `${fmt(n)} puntos de temporada`,
       title: (name: string) => `el título ${name}`,
       frame: (name: string) => `el marco ${name}`,
+      avatar: (name: string) => `el avatar ${name}`,
+      skin: (name: string) => `la skin ${name}`,
     },
     tiers: { bronze: 'Bronce', silver: 'Plata', gold: 'Oro' },
     frames: { bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo', crown: 'Corona' } as Record<string, string>,

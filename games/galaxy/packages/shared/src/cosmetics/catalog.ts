@@ -192,6 +192,12 @@ export const DEFAULT_COSMETICS = {
   ],
 } satisfies { avatars: AvatarItem[]; frames: FrameItem[]; titles: TitleItem[]; skins: SkinItem[] };
 
+/** A piece's name as the launch catalog has it (for rewards told in words; the id if it is not there). */
+export function pieceName(kind: 'avatar' | 'frame' | 'skin', id: string): string {
+  const list: readonly { id: string; name: string }[] = kind === 'avatar' ? DEFAULT_COSMETICS.avatars : kind === 'frame' ? DEFAULT_COSMETICS.frames : DEFAULT_COSMETICS.skins;
+  return list.find((x) => x.id === id)?.name ?? id;
+}
+
 const unique = <T>(list: readonly T[], key: (x: T) => string) => new Set(list.map(key)).size === list.length;
 
 export const cosmeticsConfigSchema = z

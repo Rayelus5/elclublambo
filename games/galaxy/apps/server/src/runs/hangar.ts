@@ -24,7 +24,6 @@ import {
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import { summary } from '../collection/service';
-import { grantCosmetics } from '../cosmetics/service';
 import { probeLevels } from './levels';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -159,7 +158,12 @@ async function ownedSkins(db: Kysely<DB>, accountId: string, runs: Record<string
     .map(([probe]) => `skin-${probe}-chatarra`)
     .filter((id) => !owned.includes(id) && cosmetics.skins.some((k) => k.id === id && k.enabled));
   if (due.length === 0) return owned;
-  for (const skin of due) await grantCosmetics(db, accountId, { skin });
+  // All at once, in id order (two actions reading the Hangar together never lock them crosswise).
+  await db
+    .insertInto('galaxy.cosmetics')
+    .values(due.sort().map((value) => ({ account_id: accountId, kind: 'skin' as const, value })))
+    .onConflict((oc) => oc.doNothing())
+    .execute();
   return read();
 }
 

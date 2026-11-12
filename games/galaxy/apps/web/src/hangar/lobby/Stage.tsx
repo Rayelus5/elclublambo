@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { useRoomAction } from '../../api/rooms';
 import { useCosmeticsView } from '../../api/cosmetics';
 import { useChooseProbe, useChooseSkin } from '../../api/runs';
-import { spriteDataUrl } from '../../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../../arena/sprites';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { AddFriendButton } from '../../social/AddFriendButton';
@@ -65,9 +65,11 @@ function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
   const chosen = choose.isPending ? choose.variables.skin : probe.skin;
   const options: { id: string | null; name: string; sprite: string }[] = [
     { id: null, name: l.skinBase, sprite: probe.sprite },
-    ...probe.skins.map((id) => ({ id, name: names.find((k) => k.id === id)?.name ?? id, sprite: id })),
+    ...probe.skins.map((id) => ({ id, name: names.find((k) => k.id === id)?.name ?? id, sprite: probeDrawing(id, probe.sprite) })),
   ];
+  const busy = fixed || choose.isPending;
   return (
+    <>
     <div className="lobby-skins" role="radiogroup" aria-label={l.skins}>
       {options.map((o) => (
         <button
@@ -78,15 +80,22 @@ function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
           aria-label={o.name}
           title={o.name}
           className="lobby-skin"
-          disabled={fixed || choose.isPending}
+          // Not `disabled`: the swatch just pressed keeps the keyboard's focus while it saves.
+          aria-disabled={busy}
           onClick={() => {
-            if (o.id !== probe.skin) choose.mutate({ probe: probe.id, skin: o.id }, { onSuccess: () => playEquip() });
+            if (!busy && o.id !== probe.skin) choose.mutate({ probe: probe.id, skin: o.id }, { onSuccess: () => playEquip() });
           }}
         >
           <img src={spriteDataUrl(o.sprite, 1)} alt="" width={24} height={24} draggable={false} />
         </button>
       ))}
     </div>
+    {choose.error ? (
+      <p className="field-error" role="alert">
+        {errorText(choose.error, copy.errors)}
+      </p>
+    ) : null}
+    </>
   );
 }
 
@@ -117,7 +126,7 @@ function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
         ) : null}
         <Link to={`/taller?sonda=${probe.id}`} className="lobby-probe-link" aria-label={l.toWorkshop(probe.name)} data-sfx="hover">
           <span className="lobby-halo" aria-hidden="true" />
-          <img key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} src={spriteDataUrl(probe.skin ?? probe.sprite, 16)} alt="" draggable={false} />
+          <img key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} src={spriteDataUrl(probeDrawing(probe.skin, probe.sprite), 16)} alt="" draggable={false} />
           <span className="lobby-pad" style={{ backgroundImage: `url(${padUrl})` }} aria-hidden="true" />
           <span className="lobby-probe-hint" aria-hidden="true">
             <Icon name="wrench" />
@@ -144,7 +153,7 @@ function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
           </span>
           {self ? <span className={`lobby-state${self.ready || self.leader ? ' on' : ''}`}>{self.leader ? t.leads : self.ready ? t.ready : t.notReady}</span> : null}
         </div>
-        <SkinSwatches probe={probe} fixed={!!self?.ready} />
+        <SkinSwatches probe={probe} fixed={!!self?.ready || choose.isPending} />
         {choose.error ? (
           <p className="field-error" role="alert">
             {errorText(choose.error, copy.errors)}
@@ -172,7 +181,7 @@ function Mate({ m, k, lead, busy, probeOf, onKick, onLead }: { m: RoomMember | n
   const probe = probeOf(m.probe);
   return (
     <li className={`lobby-mate${m.ready || m.leader ? ' ready' : ''}${m.connected ? '' : ' away'}`} style={style}>
-      <img className="lobby-mate-probe" src={spriteDataUrl(m.skin ?? probe.sprite, 8)} alt={t.flies(probe.name)} draggable={false} />
+      <img className="lobby-mate-probe" src={spriteDataUrl(probeDrawing(m.skin, probe.sprite), 8)} alt={t.flies(probe.name)} draggable={false} />
       <span className="lobby-pad small" style={{ backgroundImage: `url(${padUrl})` }} aria-hidden="true" />
       <span className="lobby-mate-tag">
         <span className="lobby-mate-name">

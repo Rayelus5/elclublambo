@@ -3344,11 +3344,11 @@
   .lobby-skins { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
   .lobby-skin { display: grid; place-items: center; inline-size: 40px; block-size: 40px; padding: 0; border: 2px solid transparent; border-radius: 12px; background: var(--color-panel-2); cursor: pointer; box-shadow: 0 3px 0 var(--color-panel-lip); transition: transform .15s var(--ease-bounce), border-color .15s ease; }
   .lobby-skin img { image-rendering: pixelated; }
-  .lobby-skin:hover:not(:disabled) { transform: translateY(-2px); border-color: rgb(255 255 255 / .25); }
+  .lobby-skin:hover:not([aria-disabled='true']) { transform: translateY(-2px); border-color: rgb(255 255 255 / .25); }
   .lobby-skin:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
   .lobby-skin[aria-checked='true'] { border-color: var(--color-solar); box-shadow: 0 3px 0 var(--color-solar-lip), 0 0 14px rgb(255 201 74 / .3); }
-  .lobby-skin:disabled { cursor: default; opacity: .6; }
-  :where(:root[data-motion='reduced']) { .lobby-skin { transition: none; } .lobby-skin:hover:not(:disabled) { transform: none; } }
+  .lobby-skin[aria-disabled='true'] { cursor: default; opacity: .6; }
+  :where(:root[data-motion='reduced']) { .lobby-skin { transition: none; } .lobby-skin:hover:not([aria-disabled='true']) { transform: none; } }
   .lobby-weapon { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-ink-soft); }
   .lobby-weapon img { inline-size: 32px; block-size: 32px; image-rendering: pixelated; }
   .lobby-state { padding: 2px 10px; border-radius: 99px; background: rgb(255 255 255 / .08); color: var(--color-ink-soft); font-size: 13px; font-weight: 800; }
