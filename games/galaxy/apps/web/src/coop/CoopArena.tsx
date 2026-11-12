@@ -1,6 +1,7 @@
 import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
 import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AddFriendButton } from '../social/AddFriendButton';
 import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
 import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
@@ -529,7 +530,7 @@ function CoopWorld({
   if (showResult && result) {
     return result.result ? (
       <>
-        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} />} />
+        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} befriend={(u) => <AddFriendButton username={u} className="team-friend" />} />} />
         {reporting ? <ReportDialog runId={start.id} username={reporting} onClose={() => setReporting(null)} /> : null}
       </>
     ) : (

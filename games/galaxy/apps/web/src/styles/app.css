@@ -228,6 +228,7 @@
   .pill .ico { font-size: 22px; }
   .pill-solar { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); --lip-c: var(--color-solar-lip); }
   .pill-uv { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: var(--color-ink); --lip-c: var(--color-uv-lip); }
+  .pill-terminal:not(:disabled) { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); color: var(--color-on-terminal); --lip-c: var(--color-terminal-lip); }
   .badge-new { font-size: 12.5px; font-weight: 700; background: var(--color-on-solar); color: var(--color-solar); padding: 3px 9px; border-radius: 99px; }
   .badge-admin { display: inline-block; font-weight: 700; font-size: 11.5px; line-height: 1.5; padding: 0 8px; border-radius: 99px; background: var(--color-terminal); color: var(--color-on-terminal); }
 
@@ -2911,6 +2912,15 @@
   .lobby-crown { display: inline-grid; place-items: center; color: var(--color-solar); font-size: 15px; }
   .lobby-mate-actions { display: flex; gap: 6px; margin-top: 4px; }
   .lobby-mate-actions .pill.small { block-size: 32px; padding: 0 10px; font-size: 13px; }
+  .add-friend { display: grid; justify-items: center; gap: 4px; max-inline-size: 180px; }
+  .add-friend .pill.small { block-size: 30px; padding: 0 10px; font-size: 13px; gap: 6px; }
+  .add-friend .pill.small .ico { font-size: 15px; }
+  .add-friend-error { font-size: 12px; color: #ffd3da; text-align: center; }
+  .lobby-mate-friend { margin-top: 4px; }
+  .add-friend-icon { --lip-h: 3px; inline-size: 32px; block-size: 32px; font-size: 16px; }
+  .lobby-mate-tag { position: relative; }
+  .lobby-mate-friend-corner { position: absolute; inset-block-start: -22px; inset-inline-end: -10px; }
+  .team-friend { display: inline-grid; margin-inline-start: 8px; vertical-align: middle; }
 
   .lobby-side { grid-area: side; --r: 24px; --lip-h: 6px; min-inline-size: 0; min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 16px 18px; background: rgb(24 26 61 / .9); }
   .lobby-where, .lobby-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }

@@ -10,6 +10,7 @@ import { page } from 'vitest/browser';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
 import { TeamResults } from '../../src/coop/TeamResults';
+import { AddFriendButton } from '../../src/social/AddFriendButton';
 import '../../src/styles/app.css';
 
 // The hangar (the lobby) and the results with the app's real styles: the lobby's areas never overlap at any of these
@@ -111,6 +112,16 @@ const result: RunResult = {
   progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
+// My friends (Nov plan A3): vega is one, the others are not.
+const friendsView = {
+  friends: [{ username: 'vega_de_la_nebulosa', level: 12, clan: null, presence: { status: 'online', activity: 'room' }, since: '2026-11-01T00:00:00Z' }],
+  incoming: [],
+  outgoing: [],
+  blocked: [],
+  prefs: { invites: 'friends', showStatus: true },
+  max: 200,
+};
+
 let root: Root | null = null;
 afterEach(() => {
   root?.unmount();
@@ -119,7 +130,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(el: ReturnType<typeof createElement>): void {
+function mount(el: ReturnType<typeof createElement>, over: Record<string, unknown> = {}): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -128,6 +139,8 @@ function mount(el: ReturnType<typeof createElement>): void {
         '/gacha': { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
         '/auth/me': { id: 'a1', username: 'piloto_rayo', roles: [], mfa: false, level: 4 },
         '/rooms': { mine: null, open: [], allowed: true, reason: null, minLevel: 1 },
+        '/friends': friendsView,
+        ...over,
       };
       const key = Object.keys(known).find((k) => url.endsWith(k));
       // What this page does not need here answers as missing (its panels show nothing, as when it fails).
@@ -185,7 +198,7 @@ test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
     { slot: 2, name: 'lyra', probe: 'Chispa', sprite: 'probe-spark', level: 4, kills: 15, revives: 0, downs: 1, life: 'left' as const },
     { slot: 3, name: 'orion', probe: 'Vigía', sprite: 'probe-sentinel', level: 7, kills: 88, revives: 1, downs: 1, life: 'out' as const },
   ];
-  const team = createElement(TeamResults, { rows, me: 0 });
+  const team = createElement(TeamResults, { rows, me: 0, befriend: (u: string) => createElement(AddFriendButton, { username: u, className: 'team-friend' }) });
   mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {}, team }))));
   await new Promise((r) => setTimeout(r, 1200));
   expect(document.querySelector('.team-results table')).not.toBeNull();
@@ -202,3 +215,28 @@ test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
   box.scrollIntoView({ block: 'start' });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-team-1280.png' });
 }, 60_000);
+
+// «Añadir amigo» on the room's pads (Nov plan A3): it fits the narrow cards and pushes nothing sideways.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`sala con compañeros y «Añadir amigo» a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    const members = [
+      { username: 'piloto_rayo', level: 4, probe: 'lumen', ready: false, connected: true, leader: true },
+      { username: 'vega_de_la_nebulosa', level: 12, probe: 'lumen', ready: true, connected: true, leader: false },
+      { username: 'lyra', level: 4, probe: 'lumen', ready: false, connected: true, leader: false },
+      { username: 'orion_el_cazador', level: 7, probe: 'lumen', ready: true, connected: true, leader: false },
+    ];
+    const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
+    mount(createElement(HangarScreen), { '/rooms': { mine, open: [], allowed: true, reason: null, minLevel: 1 } });
+    await new Promise((r) => setTimeout(r, 1800));
+    const adds = [...document.querySelectorAll<HTMLElement>('.lobby-mate .add-friend button')];
+    expect(adds.length).toBe(2);
+    for (const b of adds) expect(b.scrollWidth).toBeLessThanOrEqual(b.clientWidth + 1);
+    const screenRoot = document.querySelector('.screen-root')!;
+    expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/room-friends-${w}.png` });
+  }, 60_000);
+}
