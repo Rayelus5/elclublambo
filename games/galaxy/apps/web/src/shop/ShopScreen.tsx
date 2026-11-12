@@ -11,7 +11,7 @@ import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { eur } from './art-hooks';
 import { CheckoutDialog } from './CheckoutDialog';
-import { amountsText, blockText, PackCanvas, ProductCard } from './ProductCard';
+import { amountsText, blockText, giftText, PackCanvas, ProductCard } from './ProductCard';
 import { usePurchaseFx } from './PurchaseFx';
 
 // The resource shop (shop and lab plan, F5; the approved F0 mockup): the featured offer with its real countdown, the
@@ -26,6 +26,8 @@ const TABS: { tab: Tab; slug: string; icon: IconName }[] = [
   { tab: 'dust', slug: 'polvo', icon: 'dust' },
   { tab: 'components', slug: 'componentes', icon: 'wrench' },
   { tab: 'packs', slug: 'packs', icon: 'star' },
+  // Nov plan C5: the shop's cosmetics; the tab shows only while there is something in it.
+  { tab: 'style', slug: 'estilo', icon: 'starOn' },
 ];
 
 /** The time left until `endsAt`, ticking each second while it is on screen. */
@@ -62,7 +64,7 @@ function Featured({ product, firstPercent, reduced, onBuy }: { product: ShopProd
           {product.offer ? <Countdown endsAt={product.offer.endsAt} /> : null}
         </div>
         <h2 className="shop-featured-name">{product.name}</h2>
-        <p className="shop-featured-what">{amountsText(product.total)}</p>
+        <p className="shop-featured-what">{giftText(product)}</p>
         <div className="shop-buyrow">
           <button type="button" className="lip pill pill-solar shop-featured-buy" disabled={why !== null} aria-label={why ?? t.buyOf(product.name, eur(product.priceCents))} onClick={onBuy}>
             {why ?? eur(product.priceCents)}
@@ -209,7 +211,7 @@ export function ShopScreen() {
       ) : null}
 
       <div className="shop-tabs" role="tablist" aria-label={t.tabsLabel}>
-        {TABS.map((x) => (
+        {TABS.filter((x) => x.tab !== 'style' || v.products.some((p) => p.tab === 'style')).map((x) => (
           <button
             key={x.tab}
             type="button"

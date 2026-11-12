@@ -9,7 +9,8 @@ import { fixedConfig, get, post, randomIp, sessionCookie, testApp, uniqueName } 
 // terms, limits, the first-purchase extra, once-only products, Stripe's price checked), the delivery by webhook or by
 // the purchase's own check (once, whatever arrives twice), expired and failed payments, and the webhook's guards.
 
-const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_t${i}x` }));
+// One shop cosmetic switched on (Nov plan C5): the rest are born off.
+const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_t${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
 const priceOf = (id: string) => PRODUCTS.find((p) => p.id === id)!;
 const SHOP = { enabled: true, audience: 'everyone', products: PRODUCTS, limits: { dailyCents: 10_000, pendingMax: 3 } };
 
@@ -317,5 +318,23 @@ describe('los pagos sin terminar', () => {
     expect((await checkout(cookie, 'welcome')).json()).toEqual({ error: 'shop_once_used' });
     expect((await purchase(cookie, p1)).status).toBe('paid');
     expect((await getWallet(ctx.db, id)).coins - before).toBe(priceOf('welcome').grants.coins + priceOf('welcome').bonus.coins);
+  });
+});
+
+describe('los cosméticos (plan de noviembre C5)', () => {
+  test('comprar un avatar exclusivo lo da, una vez; luego sale como tuyo y no se vende otra vez', async () => {
+    const { cookie } = await player();
+    const v = await view(cookie);
+    const fox = v.products.find((x) => x.id === 'style-star-fox')!;
+    expect(fox).toMatchObject({ tab: 'style', cosmetic: { kind: 'avatar', id: 'shop-star-fox' }, owned: false, block: null });
+    const p = await opened(cookie, 'style-star-fox');
+    gateway.pay(p);
+    expect((await deliver(gateway.webhook('checkout.session.completed', p))).statusCode).toBe(200);
+    const cosmetics = (await get(ctx.app, '/galaxy/api/profile/cosmetics', { cookie })).json() as { owned: { avatars: string[] } };
+    expect(cosmetics.owned.avatars).toContain('shop-star-fox');
+    expect((await view(cookie)).products.find((x) => x.id === 'style-star-fox')).toMatchObject({ owned: true, block: 'once_used' });
+    expect((await checkout(cookie, 'style-star-fox')).json()).toEqual({ error: 'shop_once_used' });
+    // Nothing else moved: a cosmetic gives no currency.
+    expect((await purchase(cookie, p)).status).toBe('paid');
   });
 });

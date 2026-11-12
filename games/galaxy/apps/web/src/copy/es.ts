@@ -1156,7 +1156,10 @@ export const copy = {
   shop: {
     title: 'Tienda',
     lead: 'Monedas, polvo estelar y componentes para tu estación',
-    tabs: { coins: 'Monedas', dust: 'Polvo', components: 'Componentes', packs: 'Packs' } as Record<'coins' | 'dust' | 'components' | 'packs', string>,
+    tabs: { coins: 'Monedas', dust: 'Polvo', components: 'Componentes', packs: 'Packs', style: 'Estilo' } as Record<'coins' | 'dust' | 'components' | 'packs' | 'style', string>,
+    // Nov plan C5: what a cosmetic gives, and that it is the shop's alone.
+    piece: { avatar: 'Avatar exclusivo', frame: 'Marco exclusivo', title: 'Título exclusivo' } as Record<'avatar' | 'frame' | 'title', string>,
+    pieceNote: 'Para tu perfil · solo en la tienda',
     tabsLabel: 'Qué quieres ver',
     closed: 'La tienda está cerrada ahora mismo',
     closedHint: 'Vuelve más tarde',

@@ -7,7 +7,7 @@ import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { eur } from './art-hooks';
-import { amountsText, PackCanvas } from './ProductCard';
+import { amountsText, giftText, PackCanvas } from './ProductCard';
 import { loadShopStripe, STRIPE_APPEARANCE } from './stripe';
 
 // Buying a product (shop and lab plan, F5; the approved F0 mockup), in three steps in one dialog:
@@ -123,7 +123,7 @@ export function CheckoutDialog({
         <div className="shop-summary">
           <PackCanvas product={product} reduced={reduced} className="shop-summary-art" />
           <div className="shop-summary-lines">
-            <b>{amountsText(product.total)}</b>
+            <b>{giftText(product)}</b>
             {product.offer?.kind === 'bonus' || product.first ? <span className="shop-summary-extra">{t.extraOf(amountsText(product.extra))}</span> : null}
             <span className="shop-summary-price">
               {product.beforeCents !== null ? <s>{eur(product.beforeCents)}</s> : null} {price}

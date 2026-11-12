@@ -30,6 +30,7 @@ import { runOperation } from '../economy/operations';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import type { GatewayPrice, GatewaySession, ShopGateway } from './gateway';
+import { grantCosmetics } from '../cosmetics/service';
 
 // The resource shop on the server (shop and lab plan, F4). Paying is two steps:
 // 1. `openCheckout` keeps the purchase in an idempotent operation under the account's shop lock: the shop open for it,
@@ -72,6 +73,8 @@ const HISTORY_TTL_MS = 60_000;
 
 interface Snapshot {
   product: { id: string; name: string; kind: ShopProduct['kind']; art: string };
+  /** The piece a cosmetic gives (Nov plan C5); absent for the rest. */
+  cosmetic?: ShopProduct['cosmetic'];
   base: ShopAmounts;
   extra: ShopAmounts;
   total: ShopAmounts;
@@ -250,6 +253,12 @@ export async function shopFlag(deps: Pick<ShopDeps, 'db' | 'config' | 'now' | 'g
   return { open: true, offer: cfg.products.some((p) => productBlock(p, { staff, bought: 0 }) === null && activeOffer(p, now) !== null) };
 }
 
+/** Whether the player already has a cosmetic's piece (Nov plan C5). */
+async function ownsPiece(db: Db, accountId: string, piece: NonNullable<ShopProduct['cosmetic']>): Promise<boolean> {
+  const row = await db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', piece.kind).where('value', '=', piece.id).executeTakeFirst();
+  return !!row;
+}
+
 export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<ShopView> {
   const cfg = await deps.config.get('shop');
   const now = deps.now();
@@ -261,7 +270,11 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
   if (!open || blocked) {
     return { open: false, closed: blocked ? 'blocked' : 'closed', publishableKey: null, products: [], limits: { ...cfg.limits, spentTodayCents: 0 }, ...common };
   }
-  const [counts, spent] = await Promise.all([purchaseCounts(deps.db, session.accountId), paidToday(deps.db, session.accountId, now)]);
+  const [counts, spent, pieces] = await Promise.all([
+    purchaseCounts(deps.db, session.accountId),
+    paidToday(deps.db, session.accountId, now),
+    deps.db.selectFrom('galaxy.cosmetics').select(['kind', 'value']).where('account_id', '=', session.accountId).execute(),
+  ]);
   const sellable = cfg.products.filter((p) => productBlock(p, { staff, bought: 0 }) !== 'unavailable');
   const before = new Map(await Promise.all(sellable.map(async (p) => [p.id, await beforeOf(deps, p, now)] as const)));
   const products = sellable.map((p): ShopProductView => {
@@ -286,9 +299,11 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
         badge: p.badge,
         featured: p.featured,
         first,
-        maxPerAccount: p.kind === 'welcome' ? 1 : p.maxPerAccount,
+        maxPerAccount: p.kind === 'welcome' || p.kind === 'cosmetic' ? 1 : p.maxPerAccount,
         bought: c.bought,
-        block,
+        block: p.cosmetic && pieces.some((x) => x.kind === p.cosmetic!.kind && x.value === p.cosmetic!.id) ? 'once_used' : block,
+        cosmetic: p.cosmetic,
+        owned: !!p.cosmetic && pieces.some((x) => x.kind === p.cosmetic!.kind && x.value === p.cosmetic!.id),
       };
     });
   return { open: true, closed: null, publishableKey: deps.gateway!.publishableKey, products, limits: { ...cfg.limits, spentTodayCents: spent }, ...common };
@@ -406,7 +421,17 @@ async function reserve(
   if ((await openPayments(trx, accountId, now)) >= cfg.limits.pendingMax) throw new HttpError(409, 'shop_pending_limit');
   if ((await spentToday(trx, accountId, now)) + price.cents > cfg.limits.dailyCents) throw new HttpError(409, 'shop_daily_limit');
   const { base, extra, total } = purchaseGrants(product, now, first, cfg);
-  const snapshot: Snapshot = { product: { id: product.id, name: product.name, kind: product.kind, art: product.art }, base, extra, total, priceCents: price.cents, offer: activeOffer(product, now) };
+  // A piece already owned (bought, or earned another way) is not sold again.
+  if (product.cosmetic && (await ownsPiece(trx, accountId, product.cosmetic))) throw new HttpError(409, 'shop_once_used');
+  const snapshot: Snapshot = {
+    product: { id: product.id, name: product.name, kind: product.kind, art: product.art },
+    ...(product.cosmetic ? { cosmetic: product.cosmetic } : {}),
+    base,
+    extra,
+    total,
+    priceCents: price.cents,
+    offer: activeOffer(product, now),
+  };
   const row = await trx
     .insertInto('galaxy.shop_purchases')
     .values({
@@ -502,6 +527,8 @@ export async function fulfil(deps: ShopDeps, purchaseId: string, session: Gatewa
     const now = deps.now();
     const ref = { purchase: r.id, product: r.product };
     for (const c of SHOP_CURRENCIES) if (snap.total[c] > 0) await credit(trx, r.account_id, c, snap.total[c], 'shop', ref, key);
+    // A cosmetic gives its piece (Nov plan C5).
+    if (snap.cosmetic) await grantCosmetics(trx, r.account_id, { [snap.cosmetic.kind]: snap.cosmetic.id });
     await trx
       .updateTable('galaxy.shop_purchases')
       .set({ status: 'paid', paid_at: now, granted: JSON.stringify(snap.total), stripe_session_id: session.id, stripe_payment_intent: session.paymentIntent, updated_at: now })
