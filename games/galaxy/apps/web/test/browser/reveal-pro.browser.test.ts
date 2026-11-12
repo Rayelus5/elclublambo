@@ -88,8 +88,14 @@ for (const [label, pulls] of [
     const render = mount(null, hooks);
     const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
     expect(rootEl.dataset['state']).toBe('closing');
-    // The bands close: black, top to bottom (a slow runner takes longer than the 0.6 s they last).
-    await until(() => document.querySelector<HTMLElement>('.pro-bar.top')!.getBoundingClientRect().height > 440, 5000);
+    // The bands close: black, top to bottom. A loaded runner may not move their 0.6 s transition along at all, so the
+    // test finishes it by hand: what it checks is where the bands end.
+    const bar = document.querySelector<HTMLElement>('.pro-bar.top')!;
+    await until(() => {
+      if (bar.getBoundingClientRect().height > 440) return true;
+      for (const a of bar.getAnimations()) a.finish();
+      return false;
+    }, 5000);
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-${label}-0-cierre.png` });
     render(pulls());
     // A rehearsal render gets the control once the cinema runs; it re-renders on each phase.

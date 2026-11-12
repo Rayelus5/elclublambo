@@ -78,7 +78,11 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   // Equip the rarest galaxy in the first slot.
   await page.getByRole('button', { name: 'Elegir reliquia' }).first().click();
   const picker = page.getByRole('dialog', { name: 'Elige una reliquia' });
-  await picker.getByRole('button', { name: /^Equipar / }).first().click();
+  // Plan «escáner pro», part D: a galaxy opens its relic sheet first, and «Equipar» there equips it.
+  await picker.getByRole('button', { name: /^Ver lo que hace / }).first().click();
+  const sheet = page.getByRole('dialog', { name: /^Reliquia / });
+  await sheet.getByRole('button', { name: 'Equipar', exact: true }).click();
+  await expect(sheet).toHaveCount(0);
   const slot = page.getByRole('group', { name: 'Ranura 1' });
   await expect(slot).toBeVisible();
   const relicName = (await slot.locator('.lobby-slot-name').textContent())!.trim();
