@@ -1,6 +1,6 @@
 import type { CoopRunStart } from '@galaxy/shared';
 import type { ProbeLife, Sim } from '@galaxy/sim';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { spriteDataUrl } from '../arena/sprites';
 import { TEAM_TINT } from '../arena/stage/stage';
 import { copy, fmt } from '../copy/es';
@@ -66,8 +66,11 @@ function Figure({ value, award }: { value: number; award: 'kills' | 'revives' | 
   );
 }
 
-/** `onReport`: a «Denunciar» on each teammate (phase 7); none on the viewer's own row or without it. */
-export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void }) {
+/**
+ * `onReport`: a «Denunciar» on each teammate (phase 7); `befriend`: «Añadir amigo» next to them (Nov plan A3). Neither
+ * on the viewer's own row, nor when not given (the staff viewer).
+ */
+export function TeamResults({ rows, me, onReport, befriend }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void; befriend?: (username: string) => ReactNode }) {
   const kills = best(rows, 'kills');
   const revives = best(rows, 'revives');
   return (
@@ -95,6 +98,7 @@ export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: numbe
                     <small>{r.probe}</small>
                   </span>
                 </span>
+                {befriend && r.slot !== me ? befriend(r.name) : null}
                 {onReport && r.slot !== me ? (
                   <button type="button" className="team-report" aria-label={copy.coop.report.openOf(r.name)} onClick={() => onReport(r.name)}>
                     {copy.coop.report.open}

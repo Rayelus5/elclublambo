@@ -6,6 +6,7 @@ import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { Icon } from '../ui/Icon';
+import { againPlan } from './again';
 import { RevealStage } from './RevealStage';
 import { BackLink } from '../ui/BackLink';
 import { emitTour } from '../tour/bus';
@@ -111,7 +112,9 @@ export function ScannerScreen() {
   const gacha = useGacha();
   const pull = usePull();
   const [bannerId, setBannerId] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState<PulledGalaxy[] | null>(null);
+  // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
+  // The scanner it was too: «¡Escanear otra!» never scans in another one (Nov plan A review).
+  const [revealed, setRevealed] = useState<{ pulls: PulledGalaxy[]; count: 1 | 10; pay: PullRequest['pay']; banner: string } | null>(null);
   // `?tipo=evento` (from the event's missions tab) opens on the event scanner.
   const [params] = useSearchParams();
   const view = gacha.data;
@@ -120,13 +123,13 @@ export function ScannerScreen() {
   const isEvent = banner?.kind === 'event';
   const wallet = view?.wallet;
 
-  function scan(count: 1 | 10, pay: PullRequest['pay']): void {
-    if (!banner) return;
+  function scan(count: 1 | 10, pay: PullRequest['pay'], on: string | undefined = banner?.id): void {
+    if (!on) return;
     pull.mutate(
-      { banner: banner.id, count, pay },
+      { banner: on, count, pay },
       {
         onSuccess: (res) => {
-          setRevealed(res.pulls);
+          setRevealed({ pulls: res.pulls, count, pay, banner: on });
           emitTour('scanner:pulled');
         },
       },
@@ -136,6 +139,8 @@ export function ScannerScreen() {
   const busy = pull.isPending;
   // The standard signals, or an event scanner's own (M7e-1).
   const signals = banner ? (wallet?.[banner.currency] ?? 0) : 0;
+  const againOn = revealed ? view?.banners.find((b) => b.id === revealed.banner) : undefined;
+  const again = revealed && view && againOn ? againPlan(revealed.count, revealed.pay, view.costs, wallet?.[againOn.currency] ?? 0, wallet?.coins ?? 0) : null;
   return (
     <div className="screen-root collection-root scanner-root">
       <div className={`collection scanner${isEvent ? ' is-event' : ''}`}>
@@ -185,7 +190,7 @@ export function ScannerScreen() {
 
             <aside className="lip panel scanner-side">
               <Odds banner={banner} />
-              {pull.isError ? (
+              {pull.isError && !revealed ? (
                 <p className="summary error" role="alert">
                   <Icon name="alert" />
                   <span>{errorText(pull.error, copy.errors)}</span>
@@ -228,16 +233,45 @@ export function ScannerScreen() {
 
       {revealed ? (
         <RevealStage
-          pulls={revealed}
+          // A new scan from the summary starts its own reveal (its steps, images and focus).
+          key={revealed.pulls[0]?.id ?? 'none'}
+          pulls={revealed.pulls}
           onClose={() => {
             setRevealed(null);
             emitTour('scanner:revealClosed');
           }}
+          status={
+            pull.isError ? (
+              <p className="summary error" role="alert">
+                <Icon name="alert" />
+                <span>{errorText(pull.error, copy.errors)}</span>
+              </p>
+            ) : revealed && !againOn ? (
+              <p className="summary-missing">{copy.scanner.againClosed}</p>
+            ) : again && again.missing > 0 ? (
+              <p className="summary-missing">{again.currency === 'signal' ? copy.scanner.missingSignals(again.missing) : copy.scanner.missingCoins(again.missing)}</p>
+            ) : null
+          }
           actions={
-            <Link to="/coleccion" className="lip pill pill-solar">
-              <Icon name="cards" />
-              <span>{copy.scanner.toCollection}</span>
-            </Link>
+            <>
+              {again ? (
+                <button type="button" className="lip pill pill-solar scan-again" disabled={busy || again.missing > 0} aria-busy={busy || undefined} onClick={() => scan(again.count, again.pay, revealed?.banner)}>
+                  <Icon name="radar" />
+                  <span>{busy ? copy.scanner.scanning : copy.scanner.again(again.count)}</span>
+                  {busy ? null : <small>{again.currency === 'signal' ? copy.scanner.costSignals(again.cost) : copy.scanner.costCoins(again.cost)}</small>}
+                </button>
+              ) : revealed ? (
+                // Its scanner has closed: the button stays, off, with the reason over it.
+                <button type="button" className="lip pill pill-solar scan-again" disabled>
+                  <Icon name="radar" />
+                  <span>{copy.scanner.again(revealed.count)}</span>
+                </button>
+              ) : null}
+              <Link to="/coleccion" className="lip pill pill-uv">
+                <Icon name="cards" />
+                <span>{copy.scanner.toCollection}</span>
+              </Link>
+            </>
           }
         />
       ) : null}

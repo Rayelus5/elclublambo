@@ -193,3 +193,139 @@ test('un clic fuera del terminal no cierra el revelado y Escape primero salta al
   await user.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
+
+// «¡Escanear otra!» (Nov plan A1): from the summary, the same scan again without leaving the scanner.
+function pullSequence(views: GachaView[]) {
+  let n = 0;
+  return () => {
+    const v = views[Math.min(n, views.length - 1)]!;
+    n += 1;
+    return jsonResponse(200, { pulls: [pulled(100 + n)], wallet: v.wallet, view: v } satisfies PullResponse);
+  };
+}
+
+test('tras escanear 1, «¡Escanear otra!» repite el escaneo con una clave nueva y Colección es violeta', async () => {
+  const after = view({ wallet: { coins: 250, dust: 0, signal: 9 } });
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': pullSequence([after, view({ wallet: { coins: 250, dust: 0, signal: 8 } })]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(`${copy.scanner.again(1)}.*${copy.scanner.costSignals(1)}`) });
+  expect(within(stage).getByRole('link', { name: copy.scanner.toCollection })).toHaveClass('pill-uv');
+  expect(copy.scanner.toCollection).toBe('Colección');
+  await user.click(again);
+  // A new reveal starts (Saltar is back) with the second scan.
+  expect(await within(screen.getByRole('dialog', { name: copy.scanner.revealTitle })).findByRole('button', { name: copy.scanner.skip })).toBeInTheDocument();
+  const posts = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull');
+  expect(posts).toHaveLength(2);
+  expect(JSON.parse(String(posts[1]![1]?.body))).toEqual({ banner: 'deep-scan', count: 1, pay: 'signal' });
+  const keys = posts.map(([, init]) => (init?.headers as Record<string, string>)['idempotency-key']);
+  expect(keys[1]).not.toBe(keys[0]);
+});
+
+test('tras escanear 10 ofrece «¡Escanear otras 10!»', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => jsonResponse(200, { pulls: [pulled(1), pulled(2)], wallet: { coins: 250, dust: 0, signal: 0 }, view: view({ wallet: { coins: 250, dust: 0, signal: 0 } }) }),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(10).replace(/[¡!]/g, '.')) });
+  // 10 signals cost 10 and none are left: off, and it says what is missing.
+  expect(again).toBeDisabled();
+  expect(within(stage).getByText(copy.scanner.missingSignals(10))).toBeInTheDocument();
+});
+
+test('sin saldo «¡Escanear otra!» se apaga y dice cuánto falta, sin llevar a la tienda', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet: { coins: 150, dust: 0, signal: 0 } })),
+    'POST /galaxy/api/gacha/pull': pullSequence([view({ wallet: { coins: 50, dust: 0, signal: 0 } })]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costCoins(100)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(`${copy.scanner.again(1).replace(/[¡!]/g, '.')}.*${copy.scanner.costCoins(100)}`) });
+  expect(again).toBeDisabled();
+  expect(within(stage).getByText('Te faltan 50 monedas')).toBeInTheDocument();
+  expect(within(stage).queryByRole('link', { name: /tienda/i })).not.toBeInTheDocument();
+});
+
+test('tras el escaneo gratis, otra se paga con señales y nunca pide otro gratis', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view({ freePullAvailable: true })),
+    'POST /galaxy/api/gacha/pull': pullSequence([view({ freePullAvailable: false })]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(copy.scanner.free) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  await user.click(await within(stage).findByRole('button', { name: new RegExp(`${copy.scanner.again(1).replace(/[¡!]/g, '.')}.*${copy.scanner.costSignals(1)}`) }));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull')).toHaveLength(2));
+  const second = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull')[1]!;
+  expect(JSON.parse(String(second[1]?.body))).toEqual({ banner: 'deep-scan', count: 1, pay: 'signal' });
+});
+
+test('si «¡Escanear otra!» falla, el error se ve en el resumen y se puede reintentar', async () => {
+  let posts = 0;
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () =>
+      ++posts === 1 ? jsonResponse(200, { pulls: [pulled(1)], wallet: { coins: 250, dust: 0, signal: 9 }, view: view({ wallet: { coins: 250, dust: 0, signal: 9 } }) }) : jsonResponse(409, { error: 'banner_closed' }),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(1).replace(/[¡!]/g, '.')) });
+  await user.click(again);
+  expect(await within(stage).findByRole('alert')).toHaveTextContent(copy.errors.banner_closed);
+  expect(again).toBeEnabled();
+});
+
+test('«¡Escanear otra!» repite en el mismo escáner: si el de evento ha cerrado, no escanea en otro (revisión A)', async () => {
+  const event = { ...view().banners[0]!, id: 'ev-1', kind: 'event' as const, name: 'Primer contacto', currency: 'signal:ev', welcome: false };
+  const both = view({ banners: [view().banners[0]!, event], wallet: { coins: 250, dust: 0, signal: 10, 'signal:ev': 5 } });
+  const closed = view({ wallet: { coins: 250, dust: 0, signal: 10, 'signal:ev': 4 } });
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, both),
+    'POST /galaxy/api/gacha/pull': pullSequence([closed]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner?tipo=evento', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(1).replace(/[¡!]/g, '.')) });
+  expect(again).toBeDisabled();
+  expect(within(stage).getByText(copy.scanner.againClosed)).toBeInTheDocument();
+  expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull')).toHaveLength(1);
+});
+
+test('mientras «¡Escanear otra!» espera, dice que está escaneando y no deja repetir', async () => {
+  let posts = 0;
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => (++posts === 1 ? jsonResponse(200, { pulls: [pulled(1)], wallet: { coins: 250, dust: 0, signal: 9 }, view: view({ wallet: { coins: 250, dust: 0, signal: 9 } }) }) : (new Promise<Response>(() => {}) as unknown as Response)),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  await user.click(await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(1).replace(/[¡!]/g, '.')) }));
+  const busy = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.scanning) });
+  expect(busy).toBeDisabled();
+  expect(busy).toHaveAttribute('aria-busy', 'true');
+});
