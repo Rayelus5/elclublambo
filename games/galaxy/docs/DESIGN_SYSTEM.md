@@ -370,6 +370,9 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
   - **Arrecife Hueco:** violeta y turquesa, con corales rosa y turquesa.
   - **Forja Rota:** humo pardo con estrellas de brasa y escoria con ascuas, lejos del rojo de los avisos.
   - **Fisura de la Señal:** estática violeta y esquirlas flotantes.
+- **Tormenta del Núcleo** (plan «banda sonora, skins, perfil y entorno», parte E): solo dibujo, en un registro de efectos de entorno (`arena/stage/environment.ts`) donde cada evento del mundo futuro es una entrada más. Mientras hay un Núcleo, el fondo entra en tormenta en 2 s y sale en 2 s cuando cae; el nivel sale de la fase de la simulación, así que una repetición que salta se ve bien. La nebulosa vira al color de peligro de la paleta activa, el velo oscurece, salen ondas de choque lejanas del Núcleo, las estrellas se estiran un poco hacia él y los bordes laten en rojo (un latido cada 2,6 s). Cada bioma añade lo suyo: relámpagos violeta (Nebulosa Exterior), ventisca de esquirlas (Anillos de Escarcha), pulsos bioluminiscentes (Arrecife Hueco), lluvia de ascuas (Forja Rota) y desgarros de glitch (Fisura de la Señal). Vive bajo el mundo, en luz que se suma, y nada tapa la fauna ni los disparos.
+  - **Fotosensibilidad:** como mucho 2 destellos en un segundo, nada por encima de 0,35 de opacidad y nunca rojo a pantalla completa.
+  - **Movimiento reducido:** solo el tinte y la viñeta, quietos.
 - **Fauna y Núcleos de M3b-3:** se dibujan por regla con la forma, tres tonos del bioma con luz arriba a la izquierda, rasgos a mano y un contorno de 1 px. Llevan dos fotogramas, y los Núcleos miden 40×40 como la Colmena. PERKINS presenta cada sector y cada Núcleo nuevos la primera vez, con una línea.
 - **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
 - **Arsenal (M3b-1):**

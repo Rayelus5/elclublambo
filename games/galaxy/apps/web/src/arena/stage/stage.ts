@@ -4,7 +4,8 @@ import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, S
 import { copy } from '../../copy/es';
 import { probeNozzle } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
-import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
+import { BAYER, buildAtlas, ditherTexture, fbm, maskTexture } from './atlas';
+import { createEnvironment, hashSeed, OVERLAY_MAX } from './environment';
 import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
 import { stagePalette, type StagePalette } from './palette';
@@ -18,7 +19,8 @@ import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
-// particles, shake, the Static's glitch on elites and the boss, warnings before every strike and the beacon.
+// particles, shake, the Static's glitch on elites and the boss, warnings before every strike and the beacon. Under the
+// world, the environment (environment.ts) turns the sky stormy while a Núcleo is up.
 
 export interface StageOptions {
   reduced: boolean;
@@ -218,25 +220,46 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     if (r < 46) return look.stars[2];
     return null;
   });
+  // The nebula's bright and mid tones, kept as a grey mask: the Núcleo's storm tints its own cloud in that shape.
+  const cloudGrey = new Uint8Array(512 * 512);
   const nebulaTex = ditherTexture(512, 512, (x, y) => {
     // Domain-warped noise: no visible lattice when it tiles.
     const wx = x + (fbm(x, y, 512, 91) - 0.5) * 140;
     const wy = y + (fbm(x + 37, y + 11, 512, 92) - 0.5) * 140;
     const n = fbm(wx, wy, 512, 7);
     const t = BAYER[(y % 4) * 4 + (x % 4)]! / 16;
-    if (n > 0.66 && t < (n - 0.66) * 4) return look.nebula[0];
-    if (n > 0.56 && t < (n - 0.56) * 3) return look.nebula[1];
+    if (n > 0.66 && t < (n - 0.66) * 4) {
+      cloudGrey[y * 512 + x] = 255;
+      return look.nebula[0];
+    }
+    if (n > 0.56 && t < (n - 0.56) * 3) {
+      cloudGrey[y * 512 + x] = 150;
+      return look.nebula[1];
+    }
     if (n < 0.3 && t < (0.3 - n) * 2) return look.nebula[2];
     return null;
   });
+  const cloudTex = maskTexture(512, 512, cloudGrey);
   const ground = new TilingSprite({ texture: starTex, width: w, height: h });
   const nebula = new TilingSprite({ texture: nebulaTex, width: w, height: h });
+  // The storm (environment.ts): its cloud over the nebula, and two faint copies of the stars pulled towards the Core.
+  const cloud = new TilingSprite({ texture: cloudTex, width: w, height: h, visible: false });
+  const starEchoes = [0, 1].map(() => new TilingSprite({ texture: starTex, width: w, height: h, visible: false }));
   const backdrop = new Container({ label: 'backdrop' });
-  backdrop.addChild(nebula, ground);
+  backdrop.addChild(nebula, cloud, ground, ...starEchoes);
   backdrop.filters = [new BlurFilter({ strength: BACKDROP_BLUR, quality: 2 })];
   const veil = new Graphics({ label: 'veil' });
-  const paintVeil = () => veil.clear().rect(0, 0, w, h).fill(VEIL);
+  // Painted opaque, its opacity on the Graphics: the storm darkens it without repainting.
+  const paintVeil = () => veil.clear().rect(0, 0, w, h).fill({ color: VEIL.color, alpha: 1 });
   paintVeil();
+  veil.alpha = VEIL.alpha;
+  // The environment's own drawing (waves, vignette, a biome's touch), in art pixels, over the veil and under the world.
+  const sky = new Graphics({ label: 'storm' });
+  // Light that adds up, like the beams: a warm ember over the blue void glows instead of going olive.
+  sky.blendMode = 'add';
+  const env = createEnvironment(hashSeed(opts.seed));
+  /** Where the Core was last seen (world units): the storm's waves leave from there while it fades. */
+  let lastBoss: { x: number; y: number } | null = null;
   const world = new Container({ label: 'world' });
   const decor = new Container();
   // Breakable props (SIM 1.7.0) over the ground, with their life bars and glints.
@@ -262,7 +285,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   numbers.addChild(mateArrows);
   const bars = new Graphics();
   const hurtFlash = new Graphics();
-  app.stage.addChild(backdrop, veil, world, numbers, bars, hurtFlash);
+  app.stage.addChild(backdrop, veil, sky, world, numbers, bars, hurtFlash);
 
   const enemyPool = new SpritePool(enemies);
   const glitchA = new SpritePool(enemies);
@@ -1050,6 +1073,67 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     }
   }
 
+  /** The Core in the enemy pool (its boss flag), between ticks; null when there is none. */
+  function bossAt(sim: Sim, alpha: number): { x: number; y: number } | null {
+    const en = sim.enemies;
+    for (let i = 0; i < en.top; i++) {
+      if (en.alive[i] && en.boss[i]) return { x: lerp(en.px[i]!, en.x[i]!, alpha), y: lerp(en.py[i]!, en.y[i]!, alpha) };
+    }
+    return null;
+  }
+
+  /**
+   * The environment's frame (environment.ts): its own drawing in art pixels on the sky layer, and its touch on the
+   * backdrop (the storm cloud over the nebula, the light of the nebula and the stars, the veil, the stars' pull).
+   */
+  function drawEnvironment(sim: Sim, alpha: number, c: Camera, originX: number, originY: number, dt: number): void {
+    const boss = bossAt(sim, alpha);
+    if (boss) lastBoss = boss;
+    else if (sim.phase === 'waves') lastBoss = null;
+    const anchor = boss ?? (sim.phase === 'beacon' ? lastBoss : null);
+    // Art pixels: screen pixels ÷ zoom (the shake stays with the world; the sky holds still).
+    const ox = (originX - Math.round(c.x * c.zoom)) / c.zoom;
+    const oy = (originY - Math.round(c.y * c.zoom)) / c.zoom;
+    sky.clear();
+    sky.scale.set(c.zoom);
+    const touch = env.frame(
+      sim,
+      dt,
+      {
+        left: c.bars / c.zoom,
+        width: c.worldW,
+        height: c.worldH,
+        boss: anchor ? { x: ox + anchor.x, y: oy + anchor.y } : null,
+        danger: pal.danger,
+        biome: opts.biome ?? 'nebula',
+        reduced: opts.reduced,
+      },
+      sky,
+    );
+    nebula.alpha = touch.light;
+    ground.alpha = touch.light;
+    cloud.visible = touch.cloud > 0;
+    cloud.alpha = touch.cloud;
+    cloud.tint = touch.color;
+    veil.alpha = VEIL.alpha + (OVERLAY_MAX - VEIL.alpha) * touch.veil;
+    // The stars pulled towards the Core: each copy scaled about its point, so the farthest stars move the most.
+    const pull = touch.pull;
+    starEchoes.forEach((echo, k) => {
+      echo.visible = pull !== null && pull.px > 0.05;
+      if (!pull || !echo.visible) return;
+      const bx = pull.x * c.zoom;
+      const by = pull.y * c.zoom;
+      const far = Math.max(1, ...[c.bars, w - c.bars].flatMap((x) => [Math.hypot(x - bx, by), Math.hypot(x - bx, h - by)]));
+      const s = 1 - (pull.px * c.zoom * (k + 1)) / 2 / far;
+      echo.position.copyFrom(ground.position);
+      echo.width = ground.width;
+      echo.height = ground.height;
+      echo.tileScale.set(c.zoom * s);
+      echo.tilePosition.set(bx + (c.bars + ground.tilePosition.x - bx) * s - c.bars, by + (ground.tilePosition.y - by) * s);
+      echo.alpha = touch.light * (0.45 / (k + 1)) * Math.min(1, pull.px / 2);
+    });
+  }
+
   return {
     app,
     feed(events, tick = lastTick) {
@@ -1155,6 +1239,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       for (const [layer, speed] of [
         [ground, 0.5],
         [nebula, 0.25],
+        [cloud, 0.25],
       ] as const) {
         layer.position.set(c.bars, 0);
         layer.width = Math.round(c.worldW * c.zoom);
@@ -1162,6 +1247,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         layer.tileScale.set(c.zoom);
         layer.tilePosition.set(-Math.round(c.x * speed * c.zoom), -Math.round(c.y * speed * c.zoom));
       }
+      drawEnvironment(sim, alpha, c, originX, originY, dt);
       syncChunks(c);
       lastSim = sim;
       drawProps(sim);
@@ -1215,6 +1301,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       BitmapFont.uninstall(LABEL_FONT);
       starTex.destroy(true);
       nebulaTex.destroy(true);
+      cloudTex.destroy(true);
       for (const t of dustDots) t.destroy(true);
       app.destroy({ removeView: false }, { children: true });
     },
