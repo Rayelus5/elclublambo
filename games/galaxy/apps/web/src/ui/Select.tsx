@@ -1,14 +1,15 @@
-import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { useFollowAnchor, useOutsidePress } from './popup';
 
 // The game's own dropdown (C1 of the November plan, the owner: «todos los selectores/desplegables en la web deberían
 // ser con diseño custom y nunca con diseño por defecto del ordenador»; DESIGN_SYSTEM §7). A select-only combobox after
 // the WAI-ARIA APG pattern: the trigger keeps the focus and points at the active option with aria-activedescendant;
-// the list lives in a portal on <body> with `position: fixed`, placed from the trigger (CSSOM only: the CSP has no
-// inline styles), so no scrolling panel or dialog clips it. It flips above when there is no room below, scrolls inside
-// (without a bar, like everything in the game), follows the trigger on scroll and resize and closes when it leaves the
-// screen. Escape closes only the list, never the dialog around it.
+// the list lives in a portal on <body> placed from the trigger (ui/popup.ts), so no scrolling panel or dialog clips
+// it. It flips above when there is no room below, scrolls inside (without a bar, like everything in the game), follows
+// the trigger on scroll and resize and closes when it leaves the screen. Escape closes only the list, never the dialog
+// around it.
 
 /** One choice of a {@link Select}. */
 export interface SelectOption<V extends string = string> {
@@ -43,9 +44,7 @@ export type SelectProps<V extends string = string> = DataAttributes & {
   'aria-invalid'?: boolean;
 };
 
-/** Gap between the trigger and the list, the margin kept from the window's edges and the list's tallest size (px). */
-const GAP = 6;
-const EDGE = 8;
+/** The list's tallest size (px): beyond it, it scrolls inside. */
 const MAX_HEIGHT = 320;
 /** How long typed letters keep adding to the search (ms). */
 const TYPE_AHEAD = 500;
@@ -53,38 +52,6 @@ const TYPE_AHEAD = 500;
 const PAGE = 10;
 
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-
-/**
- * Places `list` under `trigger` (above it when there is more room there), as wide as the trigger at least, never
- * past the window's edges, at most {@link MAX_HEIGHT} tall. A CSS `zoom` on the trigger's screen (the large screens)
- * is carried over, so the list matches it. False when the trigger has left the window.
- */
-function place(trigger: HTMLElement, list: HTMLElement): boolean {
-  const r = trigger.getBoundingClientRect();
-  const vw = document.documentElement.clientWidth || window.innerWidth;
-  const vh = window.innerHeight;
-  if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) return false;
-  const z = trigger.offsetWidth > 0 && r.width > 0 ? r.width / trigger.offsetWidth : 1;
-  const s = list.style;
-  s.setProperty('zoom', Math.abs(z - 1) < 0.01 ? '' : String(z));
-  s.minWidth = `${r.width / z}px`;
-  s.maxWidth = `${(vw - 2 * EDGE) / z}px`;
-  s.maxHeight = '';
-  const natural = list.offsetHeight * z;
-  const width = list.offsetWidth * z;
-  const below = vh - r.bottom - GAP * z - EDGE;
-  const above = r.top - GAP * z - EDGE;
-  const want = Math.min(natural, MAX_HEIGHT * z);
-  const down = below >= want || below >= above;
-  const height = Math.max(0, Math.min(want, down ? below : above));
-  const top = down ? r.bottom + GAP * z : r.top - GAP * z - height;
-  const left = Math.max(EDGE, Math.min(r.left, vw - EDGE - width));
-  s.maxHeight = `${height / z}px`;
-  s.top = `${top / z}px`;
-  s.left = `${left / z}px`;
-  list.dataset['side'] = down ? 'bottom' : 'top';
-  return true;
-}
 
 /**
  * A dropdown with the game's look (DESIGN_SYSTEM §7): a trigger with relief showing the chosen option and a chevron,
@@ -248,32 +215,8 @@ export function Select<V extends string>({
     }
   }
 
-  // Placed before the first paint, then kept beside the trigger while anything scrolls or the window changes; when the
-  // trigger leaves the screen, the list closes.
-  useLayoutEffect(() => {
-    const el = trigger.current;
-    const pop = list.current;
-    if (!open || !el || !pop) return;
-    place(el, pop);
-    let frame = 0;
-    const follow = (e: Event) => {
-      if (e.target === pop) return;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (!place(el, pop)) setOpened(false);
-      });
-    };
-    window.addEventListener('resize', follow);
-    window.addEventListener('scroll', follow, true);
-    // The trigger's press settles after the click that opened it.
-    el.addEventListener('transitionend', follow);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('resize', follow);
-      window.removeEventListener('scroll', follow, true);
-      el.removeEventListener('transitionend', follow);
-    };
-  }, [open, options.length]);
+  // Placed before the first paint and kept beside the trigger; when the trigger leaves the screen, the list closes.
+  useFollowAnchor(open, trigger, list, { maxHeight: MAX_HEIGHT }, close, options.length);
 
   // The active option stays in view (scrolling only the list, never the page behind it).
   useLayoutEffect(() => {
@@ -288,16 +231,7 @@ export function Select<V extends string>({
   }, [open, at]);
 
   // A press anywhere else closes it without choosing.
-  useEffect(() => {
-    if (!open) return;
-    const down = (e: PointerEvent) => {
-      const target = e.target as Node | null;
-      if (target && (trigger.current?.contains(target) || list.current?.contains(target))) return;
-      setOpened(false);
-    };
-    document.addEventListener('pointerdown', down, true);
-    return () => document.removeEventListener('pointerdown', down, true);
-  }, [open]);
+  useOutsidePress(open, [trigger, list], close);
 
   const classes = ['select', `select-${size}`, block ? 'block' : '', className].filter(Boolean).join(' ');
   return (

@@ -222,6 +222,8 @@ test('un identificador publicado no se cambia aunque se reordene la lista; uno n
   await user.type(names.at(-1)!, ' x');
   // The published id is shown, not editable, and never follows its name.
   expect(within(list).getByText('finde')).toBeInTheDocument();
+  // Its dates use the game's own calendar.
+  expect(within(list).getAllByRole('button', { name: copy.picker.openTime }).length).toBeGreaterThanOrEqual(2);
   expect(within(list).getAllByLabelText('Identificador')).toHaveLength(1);
   await user.type(names[0]!, 'r');
   expect(within(list).getByLabelText('Identificador')).toHaveValue('nuevor');

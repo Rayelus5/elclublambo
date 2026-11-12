@@ -1672,6 +1672,23 @@ export const copy = {
     empty: 'No hay noticias ahora mismo',
     emptyHint: 'Aquí salen los avisos del equipo y los multiplicadores de monedas o polvo mientras estén en marcha',
   },
+  /** The game's own date field and calendar (ui/DateField.tsx), instead of the system's. */
+  picker: {
+    open: 'Elegir fecha',
+    openTime: 'Elegir fecha y hora',
+    title: 'Elegir fecha',
+    prevMonth: 'Mes anterior',
+    nextMonth: 'Mes siguiente',
+    today: 'Hoy',
+    done: 'Listo',
+    hour: 'Hora',
+    minute: 'Minutos',
+    datePlaceholder: 'dd/mm/aaaa',
+    dateTimePlaceholder: 'dd/mm/aaaa hh:mm',
+    /** Monday first, as in Spain. */
+    weekdays: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
+    weekdayNames: ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'],
+  },
   /** The arrows of what scrolls sideways (ui/HScroll.tsx): the game shows no scrollbars. */
   scroll: {
     prev: 'Ver anteriores',

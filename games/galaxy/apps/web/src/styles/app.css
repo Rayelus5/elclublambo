@@ -207,8 +207,34 @@
   .select-pop[data-size='sm'] [role='option'] { min-block-size: 36px; }
   .select-pop[data-size='lg'] { font-size: 16px; }
   .select-pop[data-size='lg'] [role='option'] { min-block-size: 44px; }
+  /* ---------- DateField: the admin's dates with the game's own calendar (ui/DateField.tsx) ---------- */
+  /* The field keeps the look of the inputs around it; the calendar button sits inside its right end. */
+  .datefield { position: relative; display: block; min-inline-size: 0; }
+  .datefield > input.datefield-input[type='text'] { inline-size: 100%; padding-inline-end: 48px; font-variant-numeric: tabular-nums; }
+  .datefield-open { position: absolute; inset-block: 0; inset-inline-end: 5px; margin-block: auto; inline-size: 38px; block-size: 38px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--color-ink-mute); font-size: 20px; cursor: pointer; transition: color .15s, background-color .15s; }
+  .datefield-open:hover { color: var(--color-ink); background: rgb(255 255 255 / .06); }
+  .datefield-open[aria-expanded='true'] { color: var(--color-ice); background: color-mix(in oklab, var(--color-ice) 12%, transparent); }
+  .datefield-pop { position: fixed; z-index: 120; box-sizing: border-box; inline-size: max-content; padding: 14px 14px 16px; overflow-y: auto; overscroll-behavior: contain; border: 2px solid rgb(255 255 255 / .08); border-radius: 18px; background: var(--color-panel); color: var(--color-ink); font: 500 15px var(--font-sans); box-shadow: inset 0 2px 0 rgb(255 255 255 / .06), 0 5px 0 var(--color-panel-lip), 0 18px 40px rgb(0 0 0 / .55); animation: select-in .15s cubic-bezier(.2, .8, .2, 1) both; }
+  .datefield-pop[data-side='top'] { animation-name: select-in-up; }
+  .datefield-head { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 8px; margin-block-end: 8px; }
+  .datefield-head h2 { margin: 0; text-align: center; font: 700 17px var(--font-sans); }
+  .datefield-nav { inline-size: 40px; block-size: 40px; display: grid; place-items: center; padding: 0; border: 2px solid rgb(255 255 255 / .07); border-radius: 12px; background: var(--color-panel-2); color: var(--color-ink-soft); font-size: 18px; cursor: pointer; box-shadow: 0 3px 0 var(--color-panel-lip); transition: color .15s, border-color .15s; }
+  .datefield-nav:hover { color: var(--color-ink); border-color: rgb(191 227 255 / .22); }
+  .datefield-grid { border-collapse: separate; border-spacing: 3px; margin: 0 -3px; }
+  .datefield-grid th { padding: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--color-ink-mute); text-align: center; }
+  .datefield-grid td { padding: 0; }
+  .datefield-day { display: grid; place-items: center; inline-size: 40px; block-size: 40px; padding: 0; border: 2px solid transparent; border-radius: 10px; background: transparent; color: var(--color-ink-soft); font: 600 14.5px var(--font-sans); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color .12s, color .12s; }
+  .datefield-day:hover { background: var(--color-panel-2); color: var(--color-ink); }
+  .datefield-day[aria-current='date'] { border-color: rgb(191 227 255 / .4); color: var(--color-ice); }
+  .datefield-day[aria-pressed='true'] { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); box-shadow: 0 3px 0 var(--color-solar-lip); }
+  .datefield-day:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 1px; }
+  .datefield-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-block-start: 12px; }
+  .datefield-time { display: flex; align-items: center; gap: 6px; margin-inline-end: auto; font-weight: 700; color: var(--color-ink-mute); }
+  .datefield-time input { inline-size: 52px; block-size: 40px; box-sizing: border-box; padding: 0; border: 2px solid rgb(255 255 255 / .07); border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink); font: 600 17px var(--font-sans); font-variant-numeric: tabular-nums; text-align: center; box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .datefield-time input:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .lip.pill.datefield-action { --lip-h: 3px; height: 40px; padding: 0 16px; font-size: 15px; }
   @media (prefers-reduced-motion: reduce) {
-    .select-pop { animation: none; }
+    .select-pop, .datefield-pop { animation: none; }
     .select, .select-chevron { transition: none; }
     .select:active:not(:disabled) { transform: none; }
   }
@@ -2127,7 +2153,7 @@
   .cf-grid > .cf-group, .cf-grid > .cf-list, .cf-grid > .cf-row, .cf-grid > .cf-words { grid-column: 1 / -1; }
   .cf-field { display: grid; gap: 6px; min-inline-size: 0; }
   .cf-field > label, .cf-field > legend, .cf-absent-label { font-weight: 700; font-size: 14px; color: var(--color-ink); padding: 0; }
-  .cf-field input[type='text'], .cf-field input[type='datetime-local'], .cf-field textarea, .cf-add-entry input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .cf-field input[type='text'], .cf-field textarea, .cf-add-entry input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
   .cf-field input:focus-visible, .cf-field textarea:focus-visible { outline: 2px solid var(--color-solar); outline-offset: 1px; }
   .cf-field [aria-invalid='true'] { box-shadow: inset 0 0 0 2px var(--color-nova); }
   .cf-field textarea { resize: vertical; line-height: 1.5; }

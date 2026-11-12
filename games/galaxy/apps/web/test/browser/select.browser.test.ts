@@ -3,13 +3,15 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { DateField } from '../../src/ui/DateField';
 import { Dialog } from '../../src/ui/Dialog';
 import { Select, type SelectOption } from '../../src/ui/Select';
 import '../../src/styles/app.css';
 
 // The game's own dropdown in a real Chromium with the app's styles (C1): its list lives on <body>, so neither a panel
 // that scrolls nor a dialog clips it; it flips above near the bottom of the window and keeps a CSS zoom of the large
-// screens. At 1280×720 and 1920×1080. With VITE_SELECT_SHOTS=1 it saves screenshots to __shots__/.
+// screens. The admin's calendar (ui/DateField.tsx) too. At 1280×720 and 1920×1080. With VITE_SELECT_SHOTS=1 it saves
+// screenshots to __shots__/.
 
 const SHOTS = !!import.meta.env['VITE_SELECT_SHOTS'];
 const SIZES = [
@@ -169,4 +171,51 @@ test('en una pantalla con zoom (las grandes) la lista lleva el mismo zoom y qued
   const first = list.querySelector<HTMLElement>('[role="option"]')!;
   expect(Math.abs(first.getBoundingClientRect().height - 40 * 1.25)).toBeLessThan(1.5);
   expectFullyVisible(list);
+});
+
+function When() {
+  const [value, setValue] = useState('2026-11-12T10:30');
+  return createElement(
+    'div',
+    { className: 'field' },
+    createElement('label', { htmlFor: 'empieza' }, 'Empieza'),
+    createElement('div', { className: 'control' }, createElement(DateField, { id: 'empieza', time: true, value, onChange: setValue })),
+  );
+}
+
+test.each(SIZES)('el calendario de las fechas del admin sale entero sobre un diálogo a %i×%i', async (w, h) => {
+  await page.viewport(w, h);
+  let closed = 0;
+  mount(
+    createElement(Dialog, {
+      title: 'Publicar un aviso',
+      className: 'admin-dialog',
+      onClose: () => void closed++,
+      children: [createElement('p', { key: 'p' }, 'Cuándo se ve el aviso'), createElement(When, { key: 'w' })],
+    }),
+  );
+  const field = document.getElementById('empieza') as HTMLInputElement;
+  expect(field.value).toBe('12/11/2026 10:30');
+  const toggle = document.querySelector<HTMLElement>('.datefield-open')!;
+  toggle.click();
+  await frames();
+  await wait(200);
+  const pop = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+  expect(pop.parentElement).toBe(document.body);
+  const r = pop.getBoundingClientRect();
+  expect(r.top).toBeGreaterThanOrEqual(0);
+  expect(r.left).toBeGreaterThanOrEqual(0);
+  expect(r.bottom).toBeLessThanOrEqual(window.innerHeight);
+  expect(r.right).toBeLessThanOrEqual(window.innerWidth);
+  expect(pop.scrollHeight).toBeLessThanOrEqual(pop.clientHeight + 1);
+  for (const el of pop.querySelectorAll<HTMLElement>('.datefield-day, .datefield-nav, .datefield-action, input')) {
+    const b = el.getBoundingClientRect();
+    expect(el.contains(document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2))).toBe(true);
+  }
+  expect(document.activeElement?.getAttribute('data-day')).toBe('2026-11-12');
+  if (SHOTS) await page.screenshot({ path: `__shots__/datefield-dialog-${w}.png` });
+  pop.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await frames();
+  expect(document.getElementById(pop.id)).toBeNull();
+  expect(closed).toBe(0);
 });

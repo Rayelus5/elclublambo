@@ -149,10 +149,18 @@ test('la auditoría se filtra y se exporta a CSV con los mismos filtros', async 
     page: 1,
     pages: 1,
   };
-  api({ 'GET /galaxy/api/admin/audit?page=1': () => jsonResponse(200, page), 'GET /galaxy/api/admin/audit?actor=rayelus&page=1': () => jsonResponse(200, page) });
+  api({
+    'GET /galaxy/api/admin/audit?page=1': () => jsonResponse(200, page),
+    'GET /galaxy/api/admin/audit?actor=rayelus&page=1': () => jsonResponse(200, page),
+    'GET /galaxy/api/admin/audit?actor=rayelus&from=2026-11-01&page=1': () => jsonResponse(200, page),
+  });
   renderAt('/admin/auditoria', { '/admin/auditoria': <AuditScreen /> });
   const user = userEvent.setup();
   expect(await screen.findByRole('cell', { name: 'player.ban' })).toBeInTheDocument();
   await user.type(screen.getByLabelText(t.audit.actor), 'rayelus');
   await waitFor(() => expect(screen.getByRole('link', { name: t.audit.export })).toHaveAttribute('href', '/galaxy/api/admin/audit?actor=rayelus&format=csv'));
+  // The dates use the game's own calendar, and keep sending the day as the native field did.
+  expect(screen.getAllByRole('button', { name: copy.picker.open })).toHaveLength(2);
+  await user.type(screen.getByLabelText(t.audit.from), '01/11/2026');
+  await waitFor(() => expect(screen.getByRole('link', { name: t.audit.export })).toHaveAttribute('href', '/galaxy/api/admin/audit?actor=rayelus&from=2026-11-01&format=csv'));
 });

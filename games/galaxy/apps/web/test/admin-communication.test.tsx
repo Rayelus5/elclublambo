@@ -101,6 +101,8 @@ test('un aviso se publica con sus fechas y uno en curso se termina con motivo', 
   const form = await screen.findByRole('form', { name: t.noticeTitle });
   await userEvent.type(within(form).getByLabelText(t.fields.noticeText), 'Nueva temporada el lunes');
   await pickOption(userEvent, within(form).getByLabelText(t.fields.tone), 'info');
+  // The dates use the game's own calendar; an ISO date pasted still counts.
+  expect(within(form).getAllByRole('button', { name: copy.picker.openTime })).toHaveLength(2);
   await userEvent.type(within(form).getByLabelText(t.fields.startsAt), '2026-11-09T10:00');
   await userEvent.type(within(form).getByLabelText(t.fields.endsAt), '2026-11-10T10:00');
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Anuncio de temporada');
@@ -124,6 +126,7 @@ test('un segmento con los niveles al revés o nombres no válidos dice qué corr
   renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
   const form = await screen.findByRole('form', { name: t.composeTitle });
   await pickOption(userEvent, within(form).getByLabelText(t.fields.audience), 'segment');
+  expect(within(form).getAllByRole('button', { name: copy.picker.open })).toHaveLength(2);
   await userEvent.type(within(form).getByLabelText(t.fields.minLevel), '10');
   await userEvent.type(within(form).getByLabelText(t.fields.maxLevel), '5');
   expect(await within(form).findByText(t.audienceInvalid)).toBeInTheDocument();

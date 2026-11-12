@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { useAdminMail, useAdminNotices, useMailPreview } from '../api/mail';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { DateField } from '../ui/DateField';
 import { Select } from '../ui/Select';
 import { useSettled } from '../ui/useSettled';
 import { ActionDialog } from './ActionDialog';
@@ -101,14 +102,18 @@ function Compose() {
     <div className="field">
       <label htmlFor={`${ids}-${k}`}>{label}</label>
       <div className="control">
-        <input
-          id={`${ids}-${k}`}
-          type={opts.type ?? 'text'}
-          inputMode={opts.numeric ? 'numeric' : undefined}
-          autoComplete={opts.type === 'password' ? 'current-password' : 'off'}
-          value={f[k] ?? ''}
-          onChange={(e) => set(k, opts.numeric ? e.target.value.replace(/\D/g, '') : e.target.value)}
-        />
+        {opts.type === 'date' ? (
+          <DateField id={`${ids}-${k}`} value={f[k] ?? ''} onChange={(v) => set(k, v)} />
+        ) : (
+          <input
+            id={`${ids}-${k}`}
+            type={opts.type ?? 'text'}
+            inputMode={opts.numeric ? 'numeric' : undefined}
+            autoComplete={opts.type === 'password' ? 'current-password' : 'off'}
+            value={f[k] ?? ''}
+            onChange={(e) => set(k, opts.numeric ? e.target.value.replace(/\D/g, '') : e.target.value)}
+          />
+        )}
       </div>
       {opts.hint ? <p className="hint">{opts.hint}</p> : null}
     </div>
@@ -286,7 +291,11 @@ function NoticeForm() {
     <div className="field">
       <label htmlFor={`${ids}-${k}`}>{label}</label>
       <div className="control">
-        <input id={`${ids}-${k}`} type={type} autoComplete="off" maxLength={type === 'text' ? 200 : undefined} value={f[k] ?? ''} onChange={(e) => set(k, e.target.value)} />
+        {type === 'datetime-local' ? (
+          <DateField id={`${ids}-${k}`} time value={f[k] ?? ''} onChange={(v) => set(k, v)} />
+        ) : (
+          <input id={`${ids}-${k}`} type={type} autoComplete="off" maxLength={type === 'text' ? 200 : undefined} value={f[k] ?? ''} onChange={(e) => set(k, e.target.value)} />
+        )}
       </div>
     </div>
   );

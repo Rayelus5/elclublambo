@@ -1,6 +1,7 @@
 import type { ConfigKey, JsonSchema } from '@galaxy/shared';
 import { createContext, type ReactNode, useContext, useId, useState } from 'react';
 import { copy } from '../../copy/es';
+import { DateField } from '../../ui/DateField';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
 import { fmtNumber, fmtUtc, fromLocalInput, itemSummary, scaleOf, tidy, toLocalInput } from './format';
@@ -158,7 +159,7 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
     );
   } else if (kind === 'datetime') {
     const iso = typeof value === 'string' ? value : '';
-    control = <input id={id} type="datetime-local" value={iso ? toLocalInput(iso) : ''} onChange={(e) => change(fromLocalInput(e.target.value))} />;
+    control = <DateField id={id} time value={iso ? toLocalInput(iso) : ''} onChange={(v) => change(fromLocalInput(v))} aria-invalid={invalid} />;
     hint = iso ? `En UTC: ${fmtUtc(iso)}` : hint;
   } else if (kind === 'fixed') control = <output id={id}>{valueName(n.const)}</output>;
   else {
