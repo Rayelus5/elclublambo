@@ -1,4 +1,5 @@
 import type { PlayerLook } from './cosmetics';
+import type { LiveNotice } from './live-notices';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
 import type { CoopOutcome } from './coop';
@@ -17,8 +18,14 @@ export const friendParamSchema = z.object({ username: usernameSchema }).strict()
 export const INVITE_POLICIES = ['everyone', 'friends', 'nobody'] as const;
 export type InvitePolicy = (typeof INVITE_POLICIES)[number];
 
-export const socialPrefsSchema = z.object({ invites: z.enum(INVITE_POLICIES), showStatus: z.boolean() }).strict();
-export type SocialPrefs = z.infer<typeof socialPrefsSchema>;
+/** How notices reach a player (real-time notices plan): with their sound, without it, or not at all (lists still update). */
+export const NOTICE_MODES = ['sound', 'silent', 'off'] as const;
+export type NoticeMode = (typeof NOTICE_MODES)[number];
+
+/** `notices` is optional in a request (a tab from before it keeps what was saved); a view always has it. */
+export const socialPrefsSchema = z.object({ invites: z.enum(INVITE_POLICIES), showStatus: z.boolean(), notices: z.enum(NOTICE_MODES).optional() }).strict();
+export type SocialPrefs = { invites: InvitePolicy; showStatus: boolean; notices: NoticeMode };
+export type SocialPrefsRequest = z.infer<typeof socialPrefsSchema>;
 
 /** What an account is doing, as its friends see it. */
 export const ACTIVITIES = ['hub', 'hangar', 'room', 'run'] as const;
@@ -71,7 +78,9 @@ export type LiveEvent =
   /** A group run I had left (or lost) ended: what it paid me (phase 6c). */
   | { type: 'coopResult'; outcome: CoopOutcome; result: RunResult }
   /** A purchase of the resource shop was delivered (shop and lab plan, F4): the celebration starts. */
-  | { type: 'purchase'; purchase: ShopPurchaseView };
+  | { type: 'purchase'; purchase: ShopPurchaseView }
+  /** Something happened to me elsewhere (real-time notices plan): a trade, a sale, a mail, my clan, an achievement. */
+  | { type: 'notice'; notice: LiveNotice };
 
 /** The live socket, client → server: what I am doing now. */
 export const liveMessageSchema = z.discriminatedUnion('type', [

@@ -2,6 +2,7 @@ import { type MyTrades, type PublicGalaxy, TIERS, type TradeOffer, type TradePro
 import { type Kysely, type Selectable, sql, type Updateable } from 'kysely';
 import type { DB, TradesTable } from '../db/schema';
 import { HttpError } from '../errors';
+import { type Notices, noticePlayer, withNotices } from '../realtime/notices';
 import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 import { lockTrader, type MarketConfigs, type MarketDeps, marketConfigs, refuse, rulesFor, todayStart } from './service';
 
@@ -138,7 +139,7 @@ export async function myTrades(deps: MarketDeps, accountId: string): Promise<MyT
 }
 
 /** Proposes a swap (inside its operation): the gates, the limits, my galaxy in escrow and, if named, the one I want. */
-export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, req: TradePropose, now: Date): Promise<TradeView> {
+export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, req: TradePropose, now: Date, out?: Notices): Promise<TradeView> {
   const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', req.username).executeTakeFirst();
   if (!target) throw new HttpError(404, 'profile_not_found');
   if (target.id === accountId) throw new HttpError(409, 'trade_self');
@@ -180,6 +181,7 @@ export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
     })
     .returning('id')
     .executeTakeFirstOrThrow();
+  out?.add(target.id, { kind: 'trade', event: 'proposed', trade: row.id, from: await noticePlayer(trx, accountId) });
   return viewOf(trx, accountId, row.id, now);
 }
 
@@ -196,7 +198,7 @@ async function lockOpen(trx: Kysely<DB>, accountId: string, id: string, now: Dat
 }
 
 /** Changes what I give and what I want of the other (naming the version I saw). */
-export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, req: TradeOffer, now: Date): Promise<TradeView> {
+export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, req: TradeOffer, now: Date, out?: Notices): Promise<TradeView> {
   const { t, side } = await lockOpen(trx, accountId, id, now);
   if (req.version !== t.version) throw new HttpError(409, 'trade_changed');
   refuse(await rulesFor(trx, accountId, cfgs, now));
@@ -229,7 +231,10 @@ export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountI
     .where('id', '=', t.id)
     .execute();
   // Saving the deal as it stands, after the other side confirmed it, is accepting it.
-  if (complete && mine.offered && !changed && then0.confirmed) await swap(trx, cfgs, t.id, now);
+  const swapped = complete && mine.offered && !changed && then0.confirmed ? await swap(trx, cfgs, t.id, now) : false;
+  // The other side hears it: the deal done, changed, or confirmed by me (their turn).
+  const event = swapped ? 'done' : changed ? 'countered' : complete && mine.offered && !now0.confirmed ? 'confirmed' : null;
+  if (event) out?.add(theirs.owner, { kind: 'trade', event, trade: t.id, from: await noticePlayer(trx, accountId) });
   return viewOf(trx, accountId, t.id, now);
 }
 
@@ -237,9 +242,9 @@ export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountI
  * The swap of a trade both sides confirmed (its row locked by the caller): both sides still allowed, both galaxies still
  * theirs, alive and held by nothing else; the galaxies locked in id order; then they change hands and the trade is done.
  */
-async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, now: Date): Promise<void> {
+async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, now: Date): Promise<boolean> {
   const t = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', id).executeTakeFirstOrThrow();
-  if (!t.a_galaxy || !t.b_galaxy || !t.a_confirmed || !t.b_confirmed) return;
+  if (!t.a_galaxy || !t.b_galaxy || !t.a_confirmed || !t.b_confirmed) return false;
   const pair = [t.a_galaxy, t.b_galaxy].sort();
   await trx.selectFrom('galaxy.galaxies').select('id').where('id', 'in', pair).orderBy('id').forUpdate().execute();
   // The swap: both sides still allowed, both galaxies still theirs, alive and held by nothing else.
@@ -267,10 +272,11 @@ async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, now: Date)
   await trx.updateTable('galaxy.trades').set({ status: 'done', closed_at: now }).where('id', '=', t.id).execute();
   const tierOf = (g: string) => live.find((x) => x.id === g)!.tier;
   await alertIfSuspicious(trx, cfgs, { trade: t.id, a: t.a_id, b: t.b_id, gap: Math.abs(tierOf(t.a_galaxy) - tierOf(t.b_galaxy)) }, now);
+  return true;
 }
 
 /** Confirms the version I saw; when the other side confirmed it too, the galaxies change hands. */
-export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, version: number, now: Date): Promise<TradeView> {
+export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, version: number, now: Date, out?: Notices): Promise<TradeView> {
   const { t, side } = await lockOpen(trx, accountId, id, now);
   if (version !== t.version) throw new HttpError(409, 'trade_changed');
   refuse(await rulesFor(trx, accountId, cfgs, now));
@@ -280,23 +286,29 @@ export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
   await trx.selectFrom('galaxy.galaxies').select('id').where('id', 'in', pair).orderBy('id').forUpdate().execute();
   const me = sideOf2(t, side);
   if (!me.offered) await holdable(trx, me.galaxy!, accountId, t.id);
-  if (!sideOf2(t, other(side)).confirmed) {
+  const them = sideOf2(t, other(side));
+  if (!them.confirmed) {
     await trx.updateTable('galaxy.trades').set(sideSet(side, { offered: true, confirmed: true })).where('id', '=', t.id).execute();
+    out?.add(them.id, { kind: 'trade', event: 'confirmed', trade: t.id, from: await noticePlayer(trx, accountId) });
     return viewOf(trx, accountId, t.id, now);
   }
   await trx.updateTable('galaxy.trades').set(sideSet(side, { offered: true, confirmed: true })).where('id', '=', t.id).execute();
-  await swap(trx, cfgs, t.id, now);
+  if (await swap(trx, cfgs, t.id, now)) out?.add(them.id, { kind: 'trade', event: 'done', trade: t.id, from: await noticePlayer(trx, accountId) });
   return viewOf(trx, accountId, t.id, now);
 }
 
 export async function cancelTrade(deps: MarketDeps, accountId: string, id: string): Promise<TradeView> {
   const now = deps.now();
-  return deps.db.transaction().execute(async (trx) => {
-    const t = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', id).forUpdate().executeTakeFirst();
-    if (!t || !sideOf(t, accountId) || t.status !== 'open') throw new HttpError(409, 'trade_gone');
-    await trx.updateTable('galaxy.trades').set({ status: 'cancelled', closed_at: now }).where('id', '=', t.id).execute();
-    return viewOf(trx, accountId, t.id, now);
-  });
+  return withNotices(deps.live, (out) =>
+    deps.db.transaction().execute(async (trx) => {
+      const t = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', id).forUpdate().executeTakeFirst();
+      const side = t ? sideOf(t, accountId) : null;
+      if (!t || !side || t.status !== 'open') throw new HttpError(409, 'trade_gone');
+      await trx.updateTable('galaxy.trades').set({ status: 'cancelled', closed_at: now }).where('id', '=', t.id).execute();
+      out.add(sideOf2(t, other(side)).id, { kind: 'trade', event: 'cancelled', trade: t.id, from: await noticePlayer(trx, accountId) });
+      return viewOf(trx, accountId, t.id, now);
+    }),
+  );
 }
 
 /** An alert for the admin (shown in M6): the two accounts shared an IP lately, or the rarities are far apart. */

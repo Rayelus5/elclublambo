@@ -157,8 +157,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
     registerChatRoutes(api, { db: deps.db, config, now, hub, roomOf: (id) => rooms.manager.roomOf(id)?.id ?? null, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
-    registerMarketRoutes(api, { db: deps.db, config, now });
-    registerTradeRoutes(api, { db: deps.db, config, now });
+    registerMarketRoutes(api, { db: deps.db, config, now, live });
+    registerTradeRoutes(api, { db: deps.db, config, now, live });
     registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub: sockets });
     registerModerationRoutes(api, { db: deps.db, config, env: deps.env, hub, now });
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });

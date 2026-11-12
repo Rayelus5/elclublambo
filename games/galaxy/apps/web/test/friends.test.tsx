@@ -21,7 +21,7 @@ const view = (over: Partial<FriendsView> = {}): FriendsView => ({
   incoming: [{ username: 'deneb', level: 2, at: '2026-11-09T10:00:00Z' }],
   outgoing: [],
   blocked: [],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
   ...over,
 });

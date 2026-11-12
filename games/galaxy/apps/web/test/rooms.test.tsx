@@ -25,7 +25,7 @@ const friends: FriendsView = {
   incoming: [],
   outgoing: [],
   blocked: [],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
 };
 const room = (over: Partial<RoomView> = {}): RoomView => ({

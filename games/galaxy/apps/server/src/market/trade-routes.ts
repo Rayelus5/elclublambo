@@ -4,6 +4,7 @@ import { requireSession } from '../auth/guards';
 import { inTransaction } from '../db/tx';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
+import { withNotices } from '../realtime/notices';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { type MarketDeps, marketConfigs } from './service';
@@ -25,7 +26,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);
-    return runOperation(deps.db, s.accountId, key, 'trade.propose', requestHash(body), (trx) => proposeTrade(cfgs, trx, s.accountId, body, deps.now()));
+    return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'trade.propose', requestHash(body), (trx) => proposeTrade(cfgs, trx, s.accountId, body, deps.now(), out)));
   });
 
   api.post('/galaxy/api/trades/:id/offer', async (req): Promise<TradeView> => {
@@ -35,7 +36,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
     const body = tradeOfferSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);
-    return inTransaction(deps.db, (trx) => changeTrade(cfgs, trx, s.accountId, id, body, deps.now()));
+    return withNotices(deps.live, (out) => inTransaction(deps.db, (trx) => changeTrade(cfgs, trx, s.accountId, id, body, deps.now(), out)));
   });
 
   api.post('/galaxy/api/trades/:id/confirm', async (req): Promise<TradeView> => {
@@ -45,7 +46,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
     const { version } = tradeConfirmSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);
-    return inTransaction(deps.db, (trx) => confirmTrade(cfgs, trx, s.accountId, id, version, deps.now()));
+    return withNotices(deps.live, (out) => inTransaction(deps.db, (trx) => confirmTrade(cfgs, trx, s.accountId, id, version, deps.now(), out)));
   });
 
   api.post('/galaxy/api/trades/:id/cancel', async (req): Promise<TradeView> => {

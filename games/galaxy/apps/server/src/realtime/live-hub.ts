@@ -137,9 +137,16 @@ export class LiveHub {
 
   /** Pushes an event to every socket of an account. */
   send(accountId: string, event: LiveEvent): void {
+    this.sendMany([accountId], event);
+  }
+
+  /** Pushes one event to every socket of these accounts (a mail to many), serialized once. */
+  sendMany(accountIds: Iterable<string>, event: LiveEvent): void {
+    const to = new Set(accountIds);
+    if (to.size === 0) return;
     const data = JSON.stringify(event);
     for (const c of this.clients) {
-      if (c.accountId !== accountId || c.socket.readyState !== c.socket.OPEN) continue;
+      if (!to.has(c.accountId) || c.socket.readyState !== c.socket.OPEN) continue;
       if (c.socket.bufferedAmount > MAX_BUFFERED) {
         this.clients.delete(c);
         c.socket.terminate();

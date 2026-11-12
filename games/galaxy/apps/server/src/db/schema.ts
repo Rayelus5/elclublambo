@@ -619,6 +619,8 @@ export interface SocialPrefsTable {
   account_id: string;
   invites: string;
   show_status: boolean;
+  /** Real-time notices plan: 'sound' | 'silent' | 'off'. */
+  notices: Generated<string>;
   updated_at: Timestamp;
 }
 

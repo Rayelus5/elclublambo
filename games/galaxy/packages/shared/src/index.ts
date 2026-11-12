@@ -34,6 +34,7 @@ export * from './api/clans';
 export * from './chat/rules';
 export * from './api/chat';
 export * from './api/friends';
+export * from './api/live-notices';
 export * from './api/rooms';
 export * from './api/coop';
 export * from './market/rules';

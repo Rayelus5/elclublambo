@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { generateGalaxy, type MyTrades, PROBE_TEST, parseConfig, TIERS, type Tier, type TradeView } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { fixedConfig, get, post, put, randomIp, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // Swaps on the server (GDD §14.5, §14.7; M5c-2): one galaxy for one galaxy. What a side offers stays in escrow; every
 // change is a new version, and the swap runs when both confirmed the same one. The trade gates, open and daily limits,
@@ -265,4 +265,57 @@ describe('avisos al admin', () => {
 
 test('sin sesión no hay trueques', async () => {
   expect((await get(ctx.app, '/galaxy/api/trades')).statusCode).toBe(401);
+});
+
+describe('avisos en tiempo real', () => {
+  test('proponer avisa solo al otro, con quién propone, y repetir la operación no repite el aviso', async () => {
+    const { a, b, ga, gb } = await pair();
+    const [la, lb] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie)];
+    const key = randomUUID();
+    const body = { username: b.username, give: ga, want: gb };
+    const first = await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
+    expect(first.statusCode).toBe(200);
+    await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
+    await settle();
+    const id = (first.json() as TradeView).id;
+    expect(lb.notices()).toEqual([{ kind: 'trade', event: 'proposed', trade: id, from: { username: a.username, avatar: null, frame: null } }]);
+    expect(la.notices()).toEqual([]);
+    la.ws.terminate();
+    lb.ws.terminate();
+  });
+
+  test('confirmar avisa al otro de que le toca, y cerrar el trueque le avisa de que está hecho', async () => {
+    const { a, b, ga, gb } = await pair();
+    const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
+    const la = await openLive(ctx.app, a.cookie);
+    // B confirms the version A proposed (and already confirmed): the swap happens and A hears it is done.
+    expect((await confirm(b, t.id, t.version)).statusCode).toBe(200);
+    await settle();
+    expect(la.notices()).toEqual([{ kind: 'trade', event: 'done', trade: t.id, from: expect.objectContaining({ username: b.username }) }]);
+    la.ws.terminate();
+  });
+
+  test('cambiar el trueque avisa de la contraoferta, y cancelarlo, de la cancelación', async () => {
+    const { a, b, ga, gb } = await pair();
+    const t = (await propose(a, b.username, ga)).json() as TradeView;
+    const la = await openLive(ctx.app, a.cookie);
+    const changed = await offer(b, t.id, { give: gb, want: ga, version: t.version });
+    expect(changed.statusCode).toBe(200);
+    expect((await cancel(b, t.id)).statusCode).toBe(200);
+    await settle();
+    expect(la.notices().map((n) => (n.kind === 'trade' ? n.event : n.kind))).toEqual(['countered', 'cancelled']);
+    la.ws.terminate();
+  });
+
+  test('un intercambio que falla no avisa de nada', async () => {
+    const { a, b, ga, gb } = await pair();
+    const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
+    const la = await openLive(ctx.app, a.cookie);
+    // B equips the galaxy A asked for (only wanted, so it may): B's confirm fails and nothing reaches A.
+    expect((await equip(b, gb)).statusCode).toBe(200);
+    expect((await confirm(b, t.id, t.version)).statusCode).toBe(409);
+    await settle();
+    expect(la.notices()).toEqual([]);
+    la.ws.terminate();
+  });
 });
