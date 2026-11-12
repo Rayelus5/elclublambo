@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { create } from 'zustand';
 import { FRIENDS_KEY, refreshFriends, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
-import { settleWallet, SHOP_KEY } from '../api/shop';
+import { onPurchaseDelivered } from '../api/shop';
 import { CLANS_KEY } from '../api/clans';
 import { MAILBOX_KEY } from '../api/mail';
 import { TRADES_KEY } from '../api/trades';
@@ -137,9 +137,7 @@ function LiveSocket() {
         else if (event.type === 'purchase') {
           // A purchase of the shop delivered (shop and lab plan, F5): its wallet everywhere, and the purchase itself
           // for the payment dialog waiting on it.
-          settleWallet(qc, event.purchase.wallet);
-          qc.setQueryData(['shop-purchase', event.purchase.id], event.purchase);
-          void qc.invalidateQueries({ queryKey: SHOP_KEY });
+          onPurchaseDelivered(qc, event.purchase);
         }
       };
       s.onclose = (e: CloseEvent) => {
