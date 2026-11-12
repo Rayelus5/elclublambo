@@ -1831,10 +1831,10 @@ export const DEFAULT_CONTENT: Content = {
         { at: 270, kind: 'burst', enemy: 'geode', count: 10 },
       ],
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.12,
-      enemyDamage: 2.6,
+      enemyHp: 1.1,
+      enemyDamage: 2.4,
       coreDamage: 1.7,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.08, damagePerMinute: 0.1 },
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.1 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {

@@ -965,7 +965,7 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 | Sector | Daño de la fauna | Crece por minuto (daño) | Vida de la fauna | Crece por minuto (vida) | Daño de los Núcleos |
 |---|---|---|---|---|---|
 | Nebulosa | ×1 → ×1,65 | 6,5 % → 10 % | ×1,05 | 6 % → 9 % | ×1 → ×1,6 |
-| Anillos | ×1,03 → ×2,6 | 9 % → 10 % | ×1,1 → ×1,12 | 7,5 % → 8 % | ×1 → ×1,7 |
+| Anillos | ×1,03 → ×2,4 | 9 % → 10 % | ×1,1 | 7,5 % | ×1 → ×1,7 |
 | Arrecife | ×1,06 → ×1,15 | 6,5 % → 18 % | ×1,15 | 6 % → 14 % | ×1 → ×1,8 |
 | Forja | ×1,09 → ×1,6 | 6,5 % → 14 % | ×1,2 | 6 % → 10 % | ×1 → ×1,9 |
 | Fisura (temporada) | ×1,12 → ×2,4 | 9 % → 14 % | ×1,3 | 7,5 % → 12 % | ×1 → ×2,1 |

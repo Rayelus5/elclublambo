@@ -454,6 +454,13 @@ Un revisor nuevo leyó el bloque B entero antes de fusionarlo. Lo que arreglé, 
 21. **El arpón recoge a 60 por segundo como mínimo.** Un 0 en el panel lo dejaba sujeto para siempre.
 22. **El Códice solo abre las formas 2 y 3 de un Núcleo con partidas de la SIM 1.9.0 en adelante.** Una partida anterior que purgó la capa 3 se enfrentó tres veces a la forma 1. Una versión rara no cuenta.
 23. **La nota de `DEPLOY_PRE.md` dice cuánto cambia cada multiplicador al publicar.** Antes se quedaba corta.
+24. **Los Anillos, algo más suaves.**
+    - Con `coreDamage`, volví a medir la curva entera. Los Anillos salían un 28–30 % más cortos que la Nebulosa, más del 10–15 % buscado, y el veterano rozaba la banda (0,69).
+    - Ahora la vida de su fauna es la de PRE (×1,1, que crece un 7,5 % por minuto) y su daño baja de ×2,6 a ×2,4.
+    - Curva final en minutos (Nebulosa / Anillos / Arrecife / Forja / Fisura):
+      - quien empieza: 6,1 en la Nebulosa; llega al Núcleo 10/16 y lo vence 8/16;
+      - medio: 14,5 / 11,2 / 8,9 / 7,9 / 7,0;
+      - veterano: 32,3 / 25,9 / 21,2 / 15,4 / 11,1.
 
 Lo que dejo para después:
 - Los barridos de disparos de las armas nuevas se hacen en cada tick. Bastan para los topes de hoy.

@@ -56,8 +56,10 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 4. **Patrón nuevo:** `BossPattern`, la unión en `schema.ts`, `systems/boss.ts` y los avisos. Sube `SIM_VERSION`.
 
 **Sector:**
-1. En `sectors`: `{ ...SECTOR_BASE, id, name, description, biome, boss, deepBoss, season, enemyHp, enemyDamage, spawns, waves, drops }`.
+1. En `sectors`: `{ ...SECTOR_BASE, id, name, description, biome, boss, deepBoss, season, enemyHp, enemyDamage, coreDamage, spawns, waves, drops }`.
    - `enemyHp` tiene que crecer en el orden de la lista; el de temporada es el más duro, con ×1,35 como mucho.
+   - `coreDamage` (el daño de sus Núcleos) también crece en el orden de la lista y el de temporada es el mayor. `enemyDamage` es solo de la fauna y se ajusta junto con su `scaling`.
+   - Mide la curva con el bot: `GALAXY_CALIBRATE=1 GALAXY_SECTOR=<id> pnpm -C games/galaxy exec vitest run --project unit packages/sim/test/difficulty.test.ts`. Cada sector dura entre un 2 % y un 30 % menos que el anterior.
 2. Clave viva `sectors` (`packages/shared/src/config/registry.ts`): condición en `unlocks` (o `season`, para el sector de temporada).
 3. `SECTOR_TEXT` en `entries.ts` y la frase de PERKINS en `copy.arena.radio.sectors[id]`.
 
