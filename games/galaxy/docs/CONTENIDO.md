@@ -280,6 +280,7 @@ Un id nunca se reutiliza ni cambia de significado:
 - El asistente del panel añade el evento nuevo al final de la lista y no la reordena, ni crea potenciadores ni avisos. Para destacar un evento nuevo, o lanzar todo a la vez, usa los archivos.
 - `deep-scan` tiene que seguir en `gacha.banners`: el esquema no lo exige, pero `check-config` y el test sí.
 - Los avisos, la anomalía y los potenciadores van en el popup de Noticias, nunca sueltos por la pantalla.
+- **Notas de versión:** lo que se publica por configuración no pasa por un despliegue. Si el jugador lo nota (un evento, una temporada, armas o sectores nuevos), añade su cambio a la nota de versión en `packages/shared/src/notes/entries.ts` en el PR que prepara la carpeta, o pide al propietario que lo anuncie desde Administración, en Notas de versión, al publicar.
 
 ### B8. Temporada
 

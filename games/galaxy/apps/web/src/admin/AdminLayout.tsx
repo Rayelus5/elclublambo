@@ -50,6 +50,9 @@ export function AdminLayout() {
                 <li>
                   <NavLink to="/admin/escaner-ensayo">{t.sections.rehearsal}</NavLink>
                 </li>
+                <li>
+                  <NavLink to="/admin/notas-de-version">{t.sections.notes}</NavLink>
+                </li>
               </>
             ) : null}
             <li>

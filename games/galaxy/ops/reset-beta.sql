@@ -1,6 +1,6 @@
 -- Galaxy Survivor: start the open beta from zero (2026-11-10). Deletes every player's (and every staff account's)
 -- data, as if nobody had ever signed up, and keeps everything that is not a player's: the live config and its
--- history (galaxy.game_config_versions), the audit log, the title notices and the reserved usernames.
+-- history (galaxy.game_config_versions), the audit log, the title notices, the reserved usernames and the release notes.
 --
 -- Run it as `postgres` (the tables' owner) with the galaxy app STOPPED, after a full backup. It opens a transaction and
 -- never ends it: append `COMMIT;` to apply it or `ROLLBACK;` to rehearse it (docs/DEPLOY_PRE.md, «Lanzamiento de la
@@ -126,7 +126,7 @@ declare
 begin
   for t in
     select tablename from pg_tables
-    where schemaname = 'galaxy' and tablename not in ('game_config_versions', 'admin_audit_log', 'title_notices', 'reserved_usernames')
+    where schemaname = 'galaxy' and tablename not in ('game_config_versions', 'admin_audit_log', 'title_notices', 'reserved_usernames', 'release_notes')
   loop
     execute format('select count(*) from galaxy.%I', t) into n;
     if n <> 0 then

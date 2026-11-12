@@ -113,6 +113,7 @@ pnpm viene de corepack y se usa Node 22. Desde la raíz del repo, con `-C games/
 
 **Proceso:**
 - TDD: primero el test que falla, después el código.
+- **Notas de versión:** todo PR con algo que nota el jugador añade su cambio a la nota de hoy en `packages/shared/src/notes/entries.ts`. Si la de arriba no es de hoy, crea la versión siguiente (`1.5` → `1.6`) con su id fijo. Se escriben para el jugador: de tú, cortas, sin punto final y sin nada del panel de admin. El propietario puede corregirlas u ocultarlas desde Administración, en Notas de versión.
 - Antes de diseñar interfaz, la skill ui-ux-pro-max. Nada de estilo genérico de IA.
 - Ver `../../INSTRUCCIONES_PROYECTO.md`.
 

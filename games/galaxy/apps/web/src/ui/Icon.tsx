@@ -322,6 +322,15 @@ const PATHS = {
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </>
   ),
+  /** «Notas de versión»: a scroll with its lines. */
+  scroll: (
+    <>
+      <path d="M7 4.5h10.5A2.5 2.5 0 0120 7v.5h-3" />
+      <path d="M17 7v11.5a2 2 0 01-2 2H6.5A2.5 2.5 0 014 18v-.5h9.5V7A2.5 2.5 0 0016 4.5" />
+      <path d="M7 4.5A2.5 2.5 0 004.5 7v8" />
+      <path d="M8 9h5M8 12.5h5" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
