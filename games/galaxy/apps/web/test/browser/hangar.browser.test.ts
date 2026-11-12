@@ -290,3 +290,31 @@ for (const [w, h] of [
     }
   }, 60_000);
 }
+
+// The owner: the Taller's bay goes at the top of its column, not centred, and its plate (name, level, «Equipar») right
+// under it, not at the bottom of the screen — even when the sheet beside it is tall (the skins).
+for (const [w, h] of [
+  [1280, 720],
+  [1600, 900],
+  [1920, 1080],
+  [2560, 1440],
+] as const) {
+  test(`en el Taller la bahía va arriba y su placa justo debajo a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(WorkshopScreen), { '/hangar': withSkins });
+    await vi.waitFor(() => expect(document.querySelector('.workshop-plate h2')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+    await new Promise((r) => setTimeout(r, 500));
+    const bay = document.querySelector<HTMLElement>('.workshop-bay')!.getBoundingClientRect();
+    const art = document.querySelector<HTMLElement>('.workshop-bay-art')!.getBoundingClientRect();
+    const plate = document.querySelector<HTMLElement>('.workshop-plate')!.getBoundingClientRect();
+    // The art at the top of its column (its frame's ring is 9 px), the plate 16 px under it.
+    expect(art.top - bay.top).toBeLessThanOrEqual(12);
+    expect(plate.top - art.bottom).toBeGreaterThanOrEqual(0);
+    expect(plate.top - art.bottom).toBeLessThanOrEqual(32);
+    // Still as big as the screen allows: the art and its plate fit in the window.
+    expect(art.width).toBeGreaterThanOrEqual(128 * 4);
+    expect(plate.bottom).toBeLessThanOrEqual(h + 1);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/workshop-bay-${w}.png` });
+  }, 60_000);
+}
