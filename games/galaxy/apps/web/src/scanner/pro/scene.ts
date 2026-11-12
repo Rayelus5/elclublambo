@@ -26,7 +26,7 @@ import {
 import { FOIL_FRAGMENT, FOIL_VERTEX } from '../../inspector/foil';
 import { drawMask } from '../../inspector/textures';
 import { GUION, type Script, type TrailTint } from './script';
-import { GRID, type Rig, SINGLE } from './timeline';
+import { GRID, RING, type Rig, SINGLE } from './timeline';
 
 // The pro scanner's 3D stage (plan «escáner pro», part B), in its own chunk with three.js. It draws what the rig says,
 // frame by frame, and decides nothing: a warp tunnel of stars that stretch into streaks (one instanced draw), a nebula
@@ -34,6 +34,9 @@ import { GRID, type Rig, SINGLE } from './timeline';
 // shockwave, the legendary's god rays, the grid dimmed behind a close-up, and the cards — a face (frame, plate and the
 // engine's galaxy, faces.ts), one shared back, a rim that lights with the tier, and the finish's light (the inspector's
 // shader). One WebGL context, no post-processing, nothing allocated per frame. Units: a card is 5 × 7 at scale 1.
+// A fusion (plan «fusión pro») draws, instead of the jump, its galaxies going in: face up round a core of light (the
+// point the jump is born from, tinted as the trail), each with a streak behind it as the ring turns, sinking into the
+// core one by one.
 
 export interface SceneCard {
   galaxy: PulledGalaxy;
@@ -43,6 +46,8 @@ export interface SceneCard {
 export interface ProSceneOptions {
   script: Script;
   cards: readonly SceneCard[];
+  /** A fusion's galaxies going in, in the order they sit round the ring. */
+  inputs?: readonly SceneCard[];
   back: HTMLCanvasElement;
   /** Each tint as a CSS hex (from the design tokens, so the colour-blind palettes apply). */
   colors: Record<TrailTint, string>;
@@ -55,6 +60,8 @@ export interface ProScene {
   resize(width: number, height: number): void;
   /** A card's face once its galaxy image is ready. */
   setFront(slot: number, front: HTMLCanvasElement): void;
+  /** The same for one of a fusion's galaxies going in. */
+  setInputFront(index: number, front: HTMLCanvasElement): void;
   /** Average frame time measured so far and whether the scene dropped to its light version. */
   readonly quality: 'high' | 'low';
   dispose(): void;
@@ -469,6 +476,27 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
     return { group, halo, haloMat, front, frontMat, back, backMat, foil, sheen };
   });
 
+  // A fusion's galaxies going in: face up, a rim of their tier, and a streak behind each while the ring turns fast.
+  const fusion = s.intro === 'fusion';
+  const ringScale = RING.scale(opts.inputs?.length ?? 0);
+  const inputs = (opts.inputs ?? []).map((c) => {
+    const group = new Group();
+    const haloMat = mat(new MeshBasicMaterial({ map: haloTex, color: color(c.galaxy.tier), blending: AdditiveBlending, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    const halo = new Mesh(plane(6.6, 9), haloMat);
+    halo.position.z = -0.05;
+    const frontMat = mat(new MeshBasicMaterial({ map: tex(c.front), transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    const front = new Mesh(plane(5, 7), frontMat);
+    group.add(halo, front);
+    const trailMat = mat(new MeshBasicMaterial({ map: streakTex, color: color(c.galaxy.tier), blending: AdditiveBlending, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    const trail = new Mesh(plane(1, 1), trailMat);
+    trail.renderOrder = 8;
+    halo.renderOrder = 9;
+    front.renderOrder = 9.001;
+    scene.add(trail, group);
+    return { group, halo, haloMat, front, frontMat, trail, trailMat };
+  });
+  let lastSpin = 0;
+
   const cleanup: (() => void)[] = [];
   const lost = (e: Event) => {
     e.preventDefault();
@@ -522,6 +550,14 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
       c.frontMat.needsUpdate = true;
       old?.dispose();
     },
+    setInputFront(index, front) {
+      const c = inputs[index];
+      if (!c) return;
+      const old = c.frontMat.map;
+      c.frontMat.map = tex(front);
+      c.frontMat.needsUpdate = true;
+      old?.dispose();
+    },
     get quality() {
       return quality;
     },
@@ -544,13 +580,50 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
       nebulaUniforms.uAmount.value = rig.nebula * 0.9 + 0.12;
       nebulaUniforms.uTint.value.copy(trailColor);
 
-      // The point of light.
-      const ig = rig.ignite;
+      // The point of light (a fusion's core: tinted as the trail, breathing while it swells).
+      const ig = fusion ? rig.core : rig.ignite;
       ignite.visible = flare.visible = ig > 0.001;
-      ignite.scale.setScalar(0.25 + ig * 3.2);
-      flare.scale.set(0.4 + ig * 16, 0.08 + ig * 0.35, 1);
+      const breath = fusion && !opts.reduced ? 1 + Math.sin(clock * 7) * 0.06 * ig : 1;
+      ignite.scale.setScalar((0.25 + ig * (fusion ? 2.6 : 3.2)) * breath);
+      flare.scale.set(0.4 + ig * (fusion ? 9 : 16), 0.08 + ig * 0.35, 1);
       (ignite.material as MeshBasicMaterial).opacity = ig;
       (flare.material as MeshBasicMaterial).opacity = ig * 0.7;
+      if (fusion) {
+        (ignite.material as MeshBasicMaterial).color.copy(trailColor);
+        (flare.material as MeshBasicMaterial).color.copy(trailColor);
+      }
+
+      // A fusion's ring: each galaxy on its ellipse, turned by the spin, drawn in as it sinks; a streak behind it
+      // as long as the ring is fast (never with reduced motion).
+      const turn = dt > 0 ? Math.min(40, Math.abs(rig.spin - lastSpin) / dt) : 0;
+      lastSpin = rig.spin;
+      inputs.forEach((c, i) => {
+        const ir = rig.inputs[i];
+        const shown = !!ir && ir.alpha > 0.001;
+        c.group.visible = shown;
+        c.trail.visible = false;
+        if (!ir || !shown) return;
+        const a = RING.angle(i, inputs.length) + rig.spin + ir.absorb * 1.2;
+        const r = rig.ring * (1 - ir.absorb);
+        const x = Math.cos(a) * RING.rx * r;
+        const y = Math.sin(a) * RING.ry * r;
+        c.group.position.set(x, y, -0.4 * ir.absorb);
+        c.group.scale.setScalar(ringScale * (1 - 0.85 * ir.absorb));
+        c.group.rotation.set(0, opts.reduced ? 0 : Math.sin(clock * 1.3 + i) * 0.08, opts.reduced ? 0 : Math.min(0.35, turn * 0.025));
+        c.frontMat.opacity = ir.alpha;
+        c.haloMat.opacity = ir.glow * ir.alpha * 0.9;
+        if (opts.reduced || turn < 1.5) return;
+        // Along the way it is going (anticlockwise round the ellipse), from behind the card.
+        const vx = -Math.sin(a) * RING.rx;
+        const vy = Math.cos(a) * RING.ry;
+        const angle = Math.atan2(vy, vx);
+        const length = Math.min(3.2, turn * 0.22) * Math.max(0.3, r);
+        c.trail.visible = true;
+        c.trail.position.set(x - (Math.cos(angle) * length) / 2, y - (Math.sin(angle) * length) / 2, -0.5);
+        c.trail.rotation.z = angle;
+        c.trail.scale.set(length, 0.45 * (ringScale / 0.3), 1);
+        c.trailMat.opacity = ir.alpha * Math.min(1, (turn - 1.5) / 6);
+      });
 
       // The shooting stars.
       meteors.forEach((m, slot) => {

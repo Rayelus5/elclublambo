@@ -15,7 +15,10 @@ const HOLD = 0.01;
 /** The look of the trail: the neutral ice of the jump, or a tier's colour. */
 export type TrailTint = Tier | 'ice';
 
-export type PhaseKind = 'ignicion' | 'salto' | 'ascenso' | 'caida' | 'impacto' | 'carta' | 'fenomeno' | 'espera' | 'reparto' | 'giro' | 'solo' | 'final' | 'resumen';
+export type PhaseKind = 'ignicion' | 'salto' | 'ascenso' | 'caida' | 'orbita' | 'colapso' | 'impacto' | 'carta' | 'fenomeno' | 'espera' | 'reparto' | 'giro' | 'solo' | 'final' | 'resumen';
+
+/** What the reveal opens with: a scan's jump through the stars, or a fusion's galaxies spiralling into their core. */
+export type Intro = 'scan' | 'fusion';
 
 export interface Phase {
   /** Unique, and the timeline's label: `ignicion`, `giro-3`, `solo-9`… */
@@ -84,6 +87,9 @@ export interface Shake {
 }
 
 export interface Script {
+  intro: Intro;
+  /** A fusion's galaxies going in (their tiers, in the order they sit round the ring); none for a scan. */
+  inputs: readonly Tier[];
   count: number;
   reduced: boolean;
   maxTier: Tier;
@@ -138,8 +144,19 @@ export const GUION = {
     final: 1.2,
     resumen: 0.6,
   },
-  /** Reduced motion: no jump, no impact, cards that fade round. */
-  calm: { ignicion: 0.5, carta: 0.5, fenomeno: 0.9, reparto: 0.6, giro: 0.3, gap: 0.1, final: 0.6, resumen: 0.4 },
+  /**
+   * A fusion (plan «fusión pro»): the galaxies going in appear round a dim core (one after another, `stagger` apart),
+   * circle it faster and closer, and sink into it one by one; the burst and the new card are a single scan's.
+   */
+  fusion: {
+    ignicion: 0.9,
+    stagger: 0.05,
+    orbita: [1.6, 1.7, 2.0, 2.3, 2.6] as ByTier,
+    ascenso: [0, 0, 0, 0.6, 0.9] as ByTier,
+    colapso: [0.8, 0.8, 0.9, 1.0, 1.1] as ByTier,
+  },
+  /** Reduced motion: no jump, no impact, cards that fade round (a fusion's galaxies fade into the core). */
+  calm: { ignicion: 0.5, colapso: 0.6, carta: 0.5, fenomeno: 0.9, reparto: 0.6, giro: 0.3, gap: 0.1, final: 0.6, resumen: 0.4 },
   /** How often the trail lies (and then breaks into the real colour), by the tier it ends on. */
   surge: { epic: 0.25, legendary: 0.35 },
   /** The trail takes the shown colour at this share of the jump. */
@@ -168,10 +185,16 @@ export interface ScriptOptions {
   surge?: boolean;
   /** Durations by phase family (the Ensayo): `{ salto: 3 }`. */
   overrides?: Readonly<Partial<Record<PhaseKind, number>>>;
+  /** A scan (the default) or a fusion, with the tiers of the galaxies going in. */
+  intro?: Intro;
+  inputs?: readonly Tier[];
 }
 
 export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions): Script {
   const reduced = opts.motion === 'reduced';
+  const intro: Intro = opts.intro ?? 'scan';
+  const fusion = intro === 'fusion';
+  const inputs = fusion ? [...(opts.inputs ?? [])] : [];
   const count = pulls.length;
   const ten = count > 1;
   const order = pulls.map((_, i) => i).sort((a, b) => tierAt(pulls[a]!.tier) - tierAt(pulls[b]!.tier) || a - b);
@@ -208,6 +231,8 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   if (reduced) {
     const C = GUION.calm;
     add('ignicion', 'ignicion', dur('ignicion', C.ignicion));
+    // A fusion's galaxies fade into the core before the new card shows.
+    if (fusion) add('colapso', 'colapso', dur('colapso', C.colapso));
     if (!ten) {
       const g = pulls[0]!;
       const card = add('carta', 'carta', dur('carta', C.carta), { slot: 0, index: 0, tier: g.tier });
@@ -235,19 +260,22 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   } else {
     const S = GUION.single;
     const T = GUION.ten;
-    const ign = add('ignicion', 'ignicion', dur('ignicion', (ten ? T : S).ignicion[m]!));
+    const F = GUION.fusion;
+    const ign = add('ignicion', 'ignicion', dur('ignicion', fusion ? F.ignicion : (ten ? T : S).ignicion[m]!));
     cues.push({ at: ign.at + 0.05, id: 'latido' }, { at: ign.at + 0.5 * ign.dur, id: 'latido' });
-    const jump = add('salto', 'salto', dur('salto', (ten ? T : S).salto[m]!));
+    // A scan jumps through the stars; a fusion's ring turns faster and closer round its core (the same riser).
+    const jump = fusion ? add('orbita', 'orbita', dur('orbita', F.orbita[m]!)) : add('salto', 'salto', dur('salto', (ten ? T : S).salto[m]!));
     let rise = jump.dur;
     if (surge) {
-      const up = add('ascenso', 'ascenso', dur('ascenso', (ten ? T : S).ascenso[m]!));
+      const up = add('ascenso', 'ascenso', dur('ascenso', (fusion ? F : ten ? T : S).ascenso[m]!));
       rise += up.dur;
       // Its swell starts before the burst (cues.ts SURGE_LEAD), so the burst lands with the flash.
       cues.push({ at: Math.max(up.at, up.at + up.dur * 0.6 - SURGE_LEAD), id: 'ascenso', tier: maxTier });
       flashes.push({ at: up.at + up.dur * 0.6, alpha: GUION.flash.surge, color: maxTier });
     }
     cues.push({ at: jump.at, id: 'salto', tier: maxTier, dur: rise });
-    const fall = add('caida', 'caida', dur('caida', ten ? T.caida : S.caida[m]!));
+    // A scan's shooting stars fall; a fusion's galaxies sink into the core.
+    const fall = fusion ? add('colapso', 'colapso', dur('colapso', F.colapso[m]!)) : add('caida', 'caida', dur('caida', ten ? T.caida : S.caida[m]!));
     cues.push({ at: fall.at, id: 'meteoro', tier: maxTier });
     const hit = add('impacto', 'impacto', dur('impacto', ten ? T.impacto : S.impacto[m]!) + S.paron[m]!, { lead: S.paron[m]! });
     const strike = hit.at + S.paron[m]!;
@@ -311,7 +339,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
     }
   }
   cues.sort((a, b) => a.at - b.at);
-  return { count, reduced, maxTier, surge, trail, order, phases, cues, flashes, shakes, score, faces, duration: end.at + end.dur };
+  return { intro, inputs, count, reduced, maxTier, surge, trail, order, phases, cues, flashes, shakes, score, faces, duration: end.at + end.dur };
 }
 
 function hasPhenomenon(g: PulledGalaxy): boolean {
