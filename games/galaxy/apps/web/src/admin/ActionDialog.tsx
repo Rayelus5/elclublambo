@@ -4,13 +4,16 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
+import { Switch } from '../ui/Switch';
 
 const t = copy.admin;
 
 /** A field of a change; `initial` puts the value it has now (M6d-4: a level, a counter). */
 export type FieldSpec =
   | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean; initial?: string }
-  | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string };
+  | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string }
+  /** On or off (plan «escáner pro», part F: «Reservar el nombre»): its value is '1' or ''. */
+  | { name: string; label: string; kind: 'switch'; hint?: string; initial?: string };
 
 /**
  * A change from the panel (DESIGN_SYSTEM §8 sedecies, §8 octodecies): its fields, always a reason, and the admin's own
@@ -25,8 +28,10 @@ export function ActionDialog({
   intro,
   blocked = false,
   password,
+  valid = () => true,
   build = () => ({}),
   result,
+  onResult,
   onDone,
   onClose,
 }: {
@@ -42,8 +47,12 @@ export function ActionDialog({
   blocked?: boolean;
   /** Whether this change, with these values, asks for the password. */
   password: (values: Record<string, string>) => boolean;
+  /** Whether these values may be sent (e.g. the name typed again to delete). */
+  valid?: (values: Record<string, string>) => boolean;
   build?: (values: Record<string, string>) => Record<string, unknown>;
   result?: (r: Record<string, unknown>) => ReactNode;
+  /** What the server answered, once the change is made. */
+  onResult?: (r: Record<string, unknown>) => void;
   onDone: (values: Record<string, string>) => void;
   onClose: () => void;
 }) {
@@ -55,8 +64,8 @@ export function ActionDialog({
   const [secret, setSecret] = useState('');
   const action = useAdminPost();
   const needsPassword = password(values);
-  const filled = fields.every((f) => f.kind === 'select' || ('optional' in f && f.optional) || values[f.name]!.trim() !== '');
-  const ready = !blocked && filled && reason.trim().length >= 3 && (!needsPassword || secret.length > 0) && !action.isPending;
+  const filled = fields.every((f) => f.kind === 'select' || f.kind === 'switch' || ('optional' in f && f.optional) || values[f.name]!.trim() !== '');
+  const ready = !blocked && filled && valid(values) && reason.trim().length >= 3 && (!needsPassword || secret.length > 0) && !action.isPending;
   const set = (name: string, v: string) => setValues((x) => ({ ...x, [name]: v }));
 
   return (
@@ -76,11 +85,32 @@ export function ActionDialog({
             e.preventDefault();
             if (!ready) return;
             const body = { ...build(values), reason: reason.trim(), ...(needsPassword ? { password: secret } : {}) };
-            action.mutate({ url, body }, { onSuccess: () => (result ? undefined : onDone(values)) });
+            action.mutate(
+              { url, body },
+              {
+                onSuccess: (r) => {
+                  onResult?.(r);
+                  if (!result) onDone(values);
+                },
+              },
+            );
           }}
         >
           {intro}
-          {fields.map((f) => (
+          {fields.map((f) =>
+            f.kind === 'switch' ? (
+              <div key={f.name} className="field admin-toggle">
+                <span id={`${ids}-${f.name}`} className="admin-toggle-label">
+                  {f.label}
+                </span>
+                <Switch checked={values[f.name] === '1'} aria-labelledby={`${ids}-${f.name}`} aria-describedby={f.hint ? `${ids}-${f.name}-hint` : undefined} onChange={(on) => set(f.name, on ? '1' : '')} />
+                {f.hint ? (
+                  <p id={`${ids}-${f.name}-hint`} className="hint">
+                    {f.hint}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
             <div key={f.name} className="field">
               <label htmlFor={`${ids}-${f.name}`}>{f.label}</label>
               <div className="control">
@@ -99,7 +129,8 @@ export function ActionDialog({
               </div>
               {'hint' in f && f.hint ? <p className="hint">{f.hint}</p> : null}
             </div>
-          ))}
+            ),
+          )}
           <div className="field">
             <label htmlFor={`${ids}-reason`}>{t.fields.reason}</label>
             <div className="control">

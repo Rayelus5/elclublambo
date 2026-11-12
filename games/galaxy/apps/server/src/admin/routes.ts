@@ -1,12 +1,13 @@
 import {
   ADMIN_SECTIONS,
   adminBanSchema,
+  adminDeleteSchema,
   adminGalaxyGrantSchema,
   adminGalaxyRevokeSchema,
   adminLeaderboardSchema,
+  adminPlayerListSchema,
   adminReasonSchema,
   adminRenameSchema,
-  adminSearchSchema,
   adminUsernameParamSchema,
   adminWalletSchema,
   adminXpSchema,
@@ -29,13 +30,14 @@ import {
   changeWallet,
   closeSessions,
   confirmPassword,
+  deletePlayer,
   grantGalaxy,
   guardTarget,
   playerDetail,
   playerSection,
   renamePlayer,
   revokeGalaxy,
-  searchPlayers,
+  listPlayers,
   setLeaderboardExcluded,
   setXp,
   unbanPlayer,
@@ -48,7 +50,7 @@ const sectionParams = adminUsernameParamSchema.extend({ section: z.enum(ADMIN_SE
 const galaxyParams = adminUsernameParamSchema.extend({ id: z.string().uuid() });
 const pageQuery = z.object({ page: z.coerce.number().int().min(1).max(10_000).default(1) }).strict();
 
-export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { env: Env; hub: Pick<ChatHub, 'dropAccount'> }): void {
+export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { env: Env; hub: Pick<ChatHub, 'dropAccount'> & { online: () => Iterable<string> } }): void {
   /** The acting admin, with a rate limit on changes (60 a minute). */
   const actorOf = async (req: FastifyRequest, change: boolean): Promise<{ actor: AuditActor; session: ReturnType<typeof requireAdmin> }> => {
     const s = requireAdmin(req);
@@ -59,7 +61,7 @@ export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { en
 
   api.get('/galaxy/api/admin/players', async (req) => {
     requireAdmin(req);
-    return searchPlayers(deps, adminSearchSchema.parse(req.query).q);
+    return listPlayers({ ...deps, online: deps.hub.online }, adminPlayerListSchema.parse(req.query));
   });
 
   api.get('/galaxy/api/admin/players/:username', async (req) => {
@@ -143,6 +145,17 @@ export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { en
     const done = await banPlayer(deps, actor, user(req), body.minutes, body.reason);
     deps.hub.dropAccount(target.id);
     return done;
+  });
+
+  // Plan «escáner pro», part F: anonymise and close, with the password and the name typed again.
+  api.post('/galaxy/api/admin/players/:username/delete', async (req) => {
+    const { actor, session } = await actorOf(req, true);
+    const body = adminDeleteSchema.parse(req.body);
+    const target = await guardTarget(deps.db, session, user(req), { self: false });
+    await confirmPassword(deps.db, session, body.password);
+    const done = await deletePlayer(deps, actor, user(req), body);
+    deps.hub.dropAccount(target.id);
+    return { username: done.username };
   });
 
   api.post('/galaxy/api/admin/players/:username/unban', async (req) => {

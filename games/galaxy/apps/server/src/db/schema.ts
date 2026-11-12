@@ -20,6 +20,8 @@ export interface AccountsTable {
   /** Nov plan C2: the avatar shown (null: the drawing made from the name) and the galaxy shown as the profile banner. */
   avatar: ColumnType<string | null, string | null | undefined, string | null>;
   banner: ColumnType<string | null, string | null | undefined, string | null>;
+  /** Plan «escáner pro», part F: anonymised and closed by an admin («Eliminar»). */
+  deleted_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
 export interface AccountRolesTable {

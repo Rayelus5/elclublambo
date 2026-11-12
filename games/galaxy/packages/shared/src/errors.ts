@@ -126,6 +126,8 @@ export const API_ERROR_CODES = [
   'coop_soon',
   'staff_target',
   'self_target',
+  'confirm_mismatch',
+  'player_deleted',
   'market_disabled',
   'trades_disabled',
   'chat_disabled',
