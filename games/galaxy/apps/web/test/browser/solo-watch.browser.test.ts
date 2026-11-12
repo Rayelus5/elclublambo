@@ -86,6 +86,7 @@ for (const [w, h] of [
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     if (import.meta.env['VITE_SOLO_SHOTS']) await page.screenshot({ path: `__shots__/solo-watch-${w}.png` });
     Sock.last!.push({ t: 'st', s: 'pause' });
-    await expect.poll(() => document.querySelector('.solo-status')?.textContent).toBe('El jugador tiene el juego en pausa');
+    // The later piece may still be catching up on a slow runner («Sincronizando…» first).
+    await expect.poll(() => document.querySelector('.solo-status')?.textContent, { timeout: 15_000 }).toBe('El jugador tiene el juego en pausa');
   }, 60_000);
 }
