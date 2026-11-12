@@ -385,6 +385,13 @@ export interface ShopBlocksTable {
   created_by: string | null;
 }
 
+/** Plan «skins», part D: the probes a player shows on their profile, by slot (0–2). */
+export interface ProbeShowcaseTable {
+  account_id: string;
+  slot: number;
+  probe: string;
+}
+
 /** M4b-1: a probe's level and chosen starting weapon (no row: level 1, base weapon). */
 export interface ProbeLevelsTable {
   account_id: string;
@@ -821,6 +828,7 @@ export interface DB {
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
+  'galaxy.probe_showcase': ProbeShowcaseTable;
   'galaxy.lab_nodes': LabNodesTable;
   'galaxy.lab_season_nodes': LabSeasonNodesTable;
   'galaxy.shop_purchases': ShopPurchasesTable;

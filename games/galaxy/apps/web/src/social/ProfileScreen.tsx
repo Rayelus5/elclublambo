@@ -17,6 +17,7 @@ import { HomeLink } from '../ui/BackLink';
 import { SeasonHistoryList } from '../season/TrophiesScreen';
 import { useCosmeticsView } from '../api/cosmetics';
 import { CustomizeDialog } from '../profile/CustomizeDialog';
+import { ProbesPanel } from './ProbesPanel';
 import { ProfileBanner } from '../profile/ProfileBanner';
 import { NoticeModeField } from '../live/NoticeMode';
 import { TitleText } from '../profile/TitleText';
@@ -68,10 +69,11 @@ function Facts({ items }: { items: [string, number][] }) {
   );
 }
 
-function Body({ p }: { p: Profile }) {
+function Body({ p, mine }: { p: Profile; mine: boolean }) {
   const who = encodeURIComponent(p.username);
   return (
     <div className="profile-grid">
+      {p.probes ? <ProbesPanel probes={p.probes} mine={mine} /> : null}
       <Panel title={t.seasonTitle} className="profile-season">
         {p.season ? (
           <>
@@ -230,7 +232,7 @@ export function ProfileScreen() {
                 onClose={() => setProposing(false)}
               />
             ) : null}
-            <Body p={p} />
+            <Body p={p} mine={!!viewer && viewer === p.username} />
           </>
         ) : profile.isPending ? (
           <p className="planetarium-wait" role="status" aria-label={copy.loading}>

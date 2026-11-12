@@ -1624,8 +1624,33 @@
   .profile-head p { margin: 0; }
   .profile-since { color: var(--color-ink-mute); }
   .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  /* A phone: one column, so the collection's five rarities and the pills fit without pushing the page sideways. */
+  @media (max-width: 640px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } }
   .profile-panel { display: grid; gap: 12px; align-content: start; justify-items: start; padding: 18px 20px 20px; }
   .profile-panel h2 { margin: 0; font: 400 22px var(--font-display); }
+  /* Plan «skins», part D: «Sondas» across the whole grid: the showcase (each probe at 96 px, ×4 its 24 px) and the
+     roster below it, which wraps inside the panel. */
+  .profile-probes { grid-column: 1 / -1; justify-items: stretch; }
+  .profile-probes-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .probe-showcase { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; }
+  .probe-showcase-item { display: grid; justify-items: center; gap: 4px; padding: 14px 10px; border-radius: 16px; background: radial-gradient(circle at 50% 35%, rgb(111 227 255 / .14), transparent 65%), var(--color-panel-2); text-align: center; }
+  .probe-showcase-art { image-rendering: pixelated; filter: drop-shadow(0 6px 0 rgb(0 0 0 / .35)); }
+  .probe-showcase-item b { font: 400 18px var(--font-display); }
+  .probe-showcase-level { font-size: 13px; font-weight: 700; color: var(--color-solar); }
+  .probe-showcase-item small { font-size: 13px; color: var(--color-ink-soft); }
+  .probe-roster { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .probe-roster li { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 12px; background: rgb(255 255 255 / .04); }
+  .probe-roster img, .probe-chooser-item img { image-rendering: pixelated; }
+  .probe-roster li span, .probe-chooser-item span { display: grid; line-height: 1.2; }
+  .probe-roster small, .probe-chooser-item small { font-size: 12px; color: var(--color-ink-soft); }
+  .probe-chooser-hint, .probe-chooser-count { margin: 0 0 10px; font-size: 14px; color: var(--color-ink-soft); }
+  .probe-chooser-list { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .probe-chooser-item { position: relative; display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); cursor: pointer; }
+  .probe-chooser-item input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: inherit; }
+  .probe-chooser-item:has(input:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .probe-chooser-item.on { border-color: var(--color-solar); }
+  .probe-chooser-item.full { opacity: .5; cursor: not-allowed; }
+  .probe-chooser-order { margin-inline-start: auto; display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; background: var(--color-solar); color: var(--color-on-solar); font: 400 14px var(--font-display); }
   .profile-tier { display: flex; align-items: center; gap: 14px; }
   .profile-tier b { font: 400 26px var(--font-display); color: var(--color-solar); }
   .profile-facts { display: flex; flex-wrap: wrap; gap: 8px 26px; margin: 0; }
