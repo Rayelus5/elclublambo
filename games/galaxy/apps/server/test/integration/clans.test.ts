@@ -70,7 +70,7 @@ describe('crear', () => {
     const other = await view(b, c.tag.toLowerCase());
     expect(other.requests).toBeUndefined();
     expect(other.me).toBeNull();
-    expect(Object.keys(other.members[0]!).sort()).toEqual(['joinedAt', 'level', 'points', 'role', 'username']);
+    expect(Object.keys(other.members[0]!).sort()).toEqual(['avatar', 'frame', 'joinedAt', 'level', 'points', 'role', 'username']);
   });
 
   test('nombre o etiqueta ocupados, nivel bajo o sin monedas: nada creado ni cobrado', async () => {
