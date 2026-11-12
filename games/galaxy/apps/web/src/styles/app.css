@@ -2945,6 +2945,11 @@
   .replay-stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 20px; background: var(--color-void); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06), 0 6px 0 var(--color-panel-lip); user-select: none; }
   .replay-stage .hud-top { top: 18px; left: 16px; right: 16px; }
   .replay-ended, .replay-seeking { position: absolute; left: 50%; bottom: 18px; translate: -50% 0; margin: 0; padding: 8px 16px; border-radius: 999px; background: rgb(12 13 38 / .9); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08); color: var(--color-ink); font-weight: 700; }
+  /* Part G: what a solo run's live view says over the arena (kept in place, empty and invisible while it just plays). */
+  .solo-status.is-quiet { opacity: 0; pointer-events: none; }
+  .solo-watch .live-chip::before { content: ''; display: inline-block; inline-size: 8px; block-size: 8px; margin-inline-end: 6px; border-radius: 50%; background: currentColor; vertical-align: 1px; animation: live-dot 1.6s ease-in-out infinite; }
+  @keyframes live-dot { 50% { opacity: .35; } }
+  :where(:root[data-motion='reduced']) { .solo-watch .live-chip::before { animation: none; } }
   .replay-transport { --r: 18px; --lip-h: 5px; display: grid; grid-template-columns: auto auto minmax(180px, 1fr) auto; align-items: center; gap: 10px 16px; padding: 12px 16px; }
   .replay-play { min-inline-size: 150px; justify-content: center; }
   .replay-speeds, .replay-jumps { display: flex; gap: 6px; }
