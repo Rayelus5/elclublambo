@@ -509,6 +509,7 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
     await trx.deleteFrom('galaxy.loadouts').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.exhibits').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.backdrops').where('account_id', '=', a.id).execute();
+    await trx.deleteFrom('galaxy.settings').where('account_id', '=', a.id).execute();
     await trx.deleteFrom('galaxy.clan_requests').where('account_id', '=', a.id).execute();
     const listings = await trx.updateTable('galaxy.market_listings').set({ status: 'cancelled' }).where('seller_id', '=', a.id).where('status', '=', 'active').executeTakeFirst();
     const trades = await trx

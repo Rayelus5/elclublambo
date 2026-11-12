@@ -8,6 +8,7 @@ import { page } from 'vitest/browser';
 import { PauseMenu } from '../../src/arena/hud/PauseMenu';
 import { SettingsScreen } from '../../src/hub/SettingsScreen';
 import { SETTINGS_TABS } from '../../src/settings/SettingsPanel';
+import { startSync } from '../../src/settings/sync';
 import '../../src/styles/app.css';
 
 // The redesigned settings in a real browser (plan «escáner pro», part A): every tab fits the screen at the usual
@@ -96,3 +97,29 @@ test('los ajustes de la pausa caben sin barra en 1280×720', async () => {
     if (import.meta.env['VITE_SETTINGS_SHOTS'] && (tab === 'sonido' || tab === 'ayuda')) await page.screenshot({ path: `__shots__/settings-pause-${tab}.png`, element: modal });
   }
 }, 60_000);
+
+// Plan «ajustes en la cuenta»: the line saying the settings are kept on the account sits at the header's end, on one
+// line, without pushing anything sideways. VITE_SETTINGS_SHOTS=1 saves it.
+for (const [w, h] of [
+  [1280, 720],
+  [390, 844],
+] as const) {
+  test(`«Guardados en tu cuenta» cabe en la cabecera de Ajustes a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    vi.stubGlobal('fetch', () => new Promise(() => {}));
+    const stop = startSync({ load: async () => ({ settings: { v: 1 }, updatedAt: null }), save: async () => ({}) });
+    try {
+      mount('/ajustes', createElement(SettingsScreen));
+      await wait(400);
+      const note = document.querySelector<HTMLElement>('.settings-sync')!;
+      expect(note.textContent).toBe('Guardados en tu cuenta');
+      const box = note.getBoundingClientRect();
+      expect(box.right).toBeLessThanOrEqual(w);
+      expect(box.height).toBeLessThan(30);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+      if (import.meta.env['VITE_SETTINGS_SHOTS']) await page.screenshot({ path: `__shots__/settings-sync-${w}.png` });
+    } finally {
+      stop();
+    }
+  });
+}

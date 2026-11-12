@@ -40,6 +40,7 @@ import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { ChatHost } from './chat/ChatPanel';
 import { LiveConnection } from './live/LiveConnection';
+import { SettingsSync } from './settings/SettingsSync';
 import { FriendsHost } from './social/FriendsPanel';
 import { LiveToasts } from './live/Toasts';
 import { copy } from './copy/es';
@@ -191,6 +192,7 @@ export function App() {
       <FriendsHost />
       <LiveToasts />
       <LiveConnection />
+      <SettingsSync />
       <TrailTracker />
     </>
   );

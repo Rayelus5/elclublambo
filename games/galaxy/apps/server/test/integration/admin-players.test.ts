@@ -337,6 +337,7 @@ describe('eliminar', () => {
     await ctx.db.insertInto('galaxy.chat_messages').values({ author_id: p.id, channel: 'global', body: 'hola a todos' }).execute();
     const ledger = await count('galaxy.ledger', p.id);
     expect(await count('galaxy.account_ips', p.id)).toBeGreaterThan(0);
+    expect((await put(ctx.app, '/galaxy/api/settings', { v: 1, muted: true }, { cookie: p.cookie })).statusCode).toBe(200);
 
     expect((await del(p.username, { confirm: 'otro_nombre' })).json()).toEqual({ error: 'confirm_mismatch' });
     expect((await del(p.username, { password: 'no-es-la-clave' })).json()).toEqual({ error: 'password_wrong' });
@@ -364,6 +365,7 @@ describe('eliminar', () => {
     expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', g1).executeTakeFirstOrThrow()).status).toBe('cancelled');
     expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
     expect(await count('galaxy.ledger', p.id)).toBe(ledger);
+    expect(await ctx.db.selectFrom('galaxy.settings').select('account_id').where('account_id', '=', p.id).executeTakeFirst()).toBeUndefined();
 
     const audit = (await audits(p.id)).find((x) => x.action === 'player.delete')!;
     expect(audit).toMatchObject({ reason: 'Lo pidió el jugador', before: { username: p.username }, after: { username: anon, reserved: false } });

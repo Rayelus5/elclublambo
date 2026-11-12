@@ -7,16 +7,29 @@ export function manualAim(): boolean {
   try {
     return localStorage.getItem(AIM_KEY) === '1';
   } catch {
-    return false;
+    // Private windows: what was chosen on this page.
+    return aimNow ?? false;
   }
 }
 
+const aimListeners = new Set<(on: boolean) => void>();
+
+/** Hears every change of the manual aim (the account's settings sync, the open Ajustes screen). */
+export function onManualAim(fn: (on: boolean) => void): () => void {
+  aimListeners.add(fn);
+  return () => aimListeners.delete(fn);
+}
+
+let aimNow: boolean | null = null;
+
 export function setManualAim(on: boolean): void {
+  aimNow = on;
   try {
     localStorage.setItem(AIM_KEY, on ? '1' : '0');
   } catch {
     // Private windows: this page only.
   }
+  for (const fn of aimListeners) fn(on);
 }
 
 /** PERKINS says each key line once per player (GDD §15: short, skippable, never twice). */

@@ -9,7 +9,7 @@ import { resetRadio } from '../arena/settings';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { sfx } from '../scanner/sfx';
-import { CURSOR_COLORS, CURSOR_SIZES, type CursorSize, cursorSvg, readCursor, saveCursor } from '../ui/cursor';
+import { CURSOR_COLORS, CURSOR_SIZES, type CursorSize, cursorSvg, getCursor, onCursor, saveCursor } from '../ui/cursor';
 import { Icon } from '../ui/Icon';
 import { Segmented } from '../ui/Segmented';
 import { Select } from '../ui/Select';
@@ -103,9 +103,10 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
 
 /** The pro scanner (home menu only) and the game's cursor: on or the system's, its size and its colour, at once. */
 export function DisplaySection({ inRun = false }: { inRun?: boolean }) {
-  const [cursor, setCursor] = useState(readCursor);
+  // The account's settings can arrive while this is open: it follows them.
+  const cursor = useSyncExternalStore(onCursor, getCursor);
   const scannerPro = usePrefs((p) => p.scannerPro);
-  const change = (next: Parameters<typeof saveCursor>[0]) => setCursor(saveCursor(next));
+  const change = (next: Parameters<typeof saveCursor>[0]) => saveCursor(next);
   return (
     <>
       {inRun ? null : (
