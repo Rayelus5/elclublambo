@@ -46,8 +46,16 @@ export const STAT_KEYS = [
   'elemental',
   'barrier',
   'curse',
+  // The November passives (Nov plan B2): content published before them gets their caps by default.
+  'evasion',
+  'bossDamage',
+  'execute',
+  'knockback',
+  'movingDamage',
 ] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
+/** Stats added after content was first published (Nov plan B2): their caps default, so older content still parses. */
+export const LATE_STATS = ['evasion', 'bossDamage', 'execute', 'knockback', 'movingDamage'] as const satisfies readonly StatKey[];
 
 /** What an evolved weapon adds to its kind (plan ruling 3): one generic trait each. */
 export const SPECIALS = ['split', 'echo', 'vortex', 'pierceAll', 'chain'] as const;

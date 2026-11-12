@@ -2015,7 +2015,7 @@ export const copy = {
     openSlot: 'Abrir ranura',
     slotProgress: (n: number, of: number) => `${n} de ${of}`,
     stacking: 'Desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior',
-    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
+    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte', evasion: 'esquiva', bossDamage: 'daño a Núcleos y élites', execute: 'remate', knockback: 'empuje', movingDamage: 'daño en marcha' } as Record<string, string>,
     bonuses: (list: readonly { stat: string; value: number }[]) => {
       const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
       return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
@@ -2520,6 +2520,8 @@ export const copy = {
     beaconOpen: 'Baliza de extracción abierta',
     reachBeacon: 'Llega a la baliza',
     extracting: 'Extrayendo',
+    // Fase cuántica (Nov plan B2): a hit that went through the probe.
+    evaded: '¡Fase!',
     beaconLeft: (s: number) => `Cierra en ${s} s`,
     beaconDistance: (u: number) => `${u} u`,
     closeRadio: 'Cerrar mensaje',

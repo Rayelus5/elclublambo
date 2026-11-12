@@ -24,9 +24,12 @@ export function bossAway(sim: Sim, e: number): boolean {
   return sim.boss !== null && sim.boss.index === e && sim.boss.active?.kind === 'blink';
 }
 
-/** Damage multiplier of the boss in the current layer. */
+/**
+ * Damage multiplier of the boss: its layer, the sector's toughness, the group and the season's anomaly (Nov plan B1:
+ * before, a Núcleo hit as hard in the hardest sector as in the first).
+ */
 function layerDamage(sim: Sim, def: BossDef): number {
-  return 1 + def.scaling.damagePerLayer * (sim.layer - 1);
+  return (1 + def.scaling.damagePerLayer * (sim.layer - 1)) * sim.sector.enemyDamage * coopFactor(sim, 'enemyDamage') * (sim.anomaly?.enemyDamage ?? 1);
 }
 
 export function spawnBoss(sim: Sim): void {
@@ -37,7 +40,7 @@ export function spawnBoss(sim: Sim): void {
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
-  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp') * sim.sector.enemyHp;
+  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp') * sim.sector.enemyHp * (sim.anomaly?.enemyHp ?? 1);
   en.type[i] = sim.content.bosses.indexOf(def);
   en.boss[i] = 1;
   en.x[i] = c.x + cosA(a) * SPAWN_DISTANCE;

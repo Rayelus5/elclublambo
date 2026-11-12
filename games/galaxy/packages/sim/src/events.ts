@@ -40,4 +40,6 @@ export type SimEvent =
   | { t: 'offerAuto'; probe: number; index: number }
   | { t: 'element'; x: number; y: number; element: ElementId }
   | { t: 'reaction'; id: string; x: number; y: number }
-  | { t: 'quirk'; probe: number; kind: string };
+  | { t: 'quirk'; probe: number; kind: string }
+  /** Fase cuántica (Nov plan B2): a hit went through the probe without harm. */
+  | { t: 'evade'; probe: number };

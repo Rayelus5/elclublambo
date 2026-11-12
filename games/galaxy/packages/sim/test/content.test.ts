@@ -20,7 +20,7 @@ describe('contenido por defecto', () => {
     expect(DEFAULT_CONTENT.enemies.map((e) => e.id)).toEqual(expect.arrayContaining(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']));
     expect(DEFAULT_CONTENT.bosses[0]!.id).toBe('hive');
     expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(expect.arrayContaining(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']));
-    expect(DEFAULT_CONTENT.passives).toHaveLength(20);
+    expect(DEFAULT_CONTENT.passives).toHaveLength(25);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo']);
   });
 

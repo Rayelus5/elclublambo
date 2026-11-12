@@ -55,6 +55,12 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
 export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
   if (dodge(sim, p)) return;
+  // Fase cuántica (Nov plan B2): the hit goes through; the usual breather follows, so contact does not hit next tick.
+  if (p.stats.evasion > 0 && sim.rng.combat.chance(p.stats.evasion)) {
+    p.invulnT = ticks(INVULN_SECONDS);
+    sim.events.push({ t: 'evade', probe: p.index });
+    return;
+  }
   let dmg = amount * (1 - p.stats.armor);
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;

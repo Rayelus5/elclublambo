@@ -5,8 +5,10 @@ import {
   type Content,
   ELEMENT_IDS,
   ENEMY_FAMILIES,
+  LATE_STATS,
   SPECIALS,
   STAT_KEYS,
+  type StatKey,
   WEAPON_KINDS,
 } from './types';
 
@@ -21,6 +23,7 @@ const text = z.string().min(1).max(200);
 const n = z.number().min(0).max(1_000_000);
 const unit = z.number().min(0).max(1);
 const pos = z.number().gt(0).max(1_000_000);
+const capValue = z.number().min(0).max(1000);
 
 const weaponLevel = z
   .object({
@@ -380,7 +383,11 @@ const shape = z
     relics: relics.default(D.relics),
     // A level always costs something: with base 0 the run would level up forever in one tick.
     xp: z.object({ base: z.number().min(1).max(1_000_000), linear: n, quad: n }).strict().default(D.xp),
-    caps: z.record(z.enum(STAT_KEYS), z.number().min(0).max(1000)).default(D.caps),
+    // Every stat has a cap; those added later default, so content published before them still parses (Nov plan B2).
+    caps: z
+      .object(Object.fromEntries(STAT_KEYS.map((k) => [k, (LATE_STATS as readonly string[]).includes(k) ? capValue.default(D.caps[k]) : capValue])) as unknown as { [K in StatKey]: z.ZodType<number> })
+      .strict()
+      .default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),

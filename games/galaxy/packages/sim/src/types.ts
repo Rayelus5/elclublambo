@@ -130,6 +130,16 @@ export interface Stats {
   barrier: number;
   /** More enemies and more loot (fraction). */
   curse: number;
+  /** Chance to phase through a hit (Fase cuántica, Nov plan B2). */
+  evasion: number;
+  /** Extra damage to Núcleos and elites (Cazanúcleos). */
+  bossDamage: number;
+  /** Ordinary enemies at or under this fraction of their life are finished off (Protocolo de purga). */
+  execute: number;
+  /** How hard every hit pushes an enemy away (Repulsor). */
+  knockback: number;
+  /** Extra damage while moving (Inercia). */
+  movingDamage: number;
 }
 
 /** A level-up card. `evolve`: the evolution `id` replaces its base weapon (GDD §5.3). */

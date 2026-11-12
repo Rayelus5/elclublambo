@@ -1,6 +1,7 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { copy } from '../../copy/es';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
@@ -878,6 +879,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
               fx.burst(at.x, at.y, 0x45e3a6, 18, 90);
             }
             break;
+          case 'evade': {
+            // Fase cuántica (Nov plan B2): the hit went through; a cyan word over the probe says so.
+            const at = lastSim?.probes[e.probe] ?? lastProbe;
+            fx.label(at.x, at.y - 14, copy.arena.evaded, 0x6fe3ff);
+            break;
+          }
           case 'propBreak':
             fx.burst(e.x, e.y, parseInt(look.dust.slice(1), 16), 12, 70);
             fx.burst(e.x, e.y, 0xf3f5ff, 4, 40);

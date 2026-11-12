@@ -279,3 +279,39 @@ test('minas y saltos son deterministas: la misma semilla da el mismo hash', () =
   };
   expect(play()).toBe(play());
 });
+
+// Nov plan B1: a Núcleo is as tough and as harmful as the sector, the season's anomaly and the group say.
+describe('el Núcleo sigue los multiplicadores del sector, la anomalía y el grupo', () => {
+  function bossWith(over: (c: Content) => void): Sim {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.layerSeconds = 1;
+      over(c);
+    });
+    for (let i = 0; i < 70 && !sim.boss; i++) step(sim, [IDLE]);
+    return sim;
+  }
+  const bossDamage = (sim: Sim) => sim.enemies.damage[sim.boss!.index]!;
+  const bossHp = (sim: Sim) => sim.enemies.maxHp[sim.boss!.index]!;
+
+  test('el daño del sector multiplica el del Núcleo', () => {
+    const base = bossWith(() => {});
+    const harder = bossWith((c) => {
+      c.sectors[0]!.enemyDamage = 1.5;
+    });
+    expect(bossDamage(harder)).toBeCloseTo(bossDamage(base) * 1.5);
+  });
+
+  test('la anomalía de la temporada endurece su vida y su daño', () => {
+    const base = bossWith(() => {});
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.layerSeconds = 1;
+        c.anomalies.push({ ...c.anomalies[0]!, id: 'dura', enemyHp: 2, enemyDamage: 1.25 });
+      },
+      { anomaly: 'dura' },
+    );
+    for (let i = 0; i < 70 && !sim.boss; i++) step(sim, [IDLE]);
+    expect(bossHp(sim)).toBeCloseTo(bossHp(base) * 2);
+    expect(bossDamage(sim)).toBeCloseTo(bossDamage(base) * 1.25);
+  });
+});
