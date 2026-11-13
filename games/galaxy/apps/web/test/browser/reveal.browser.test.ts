@@ -193,19 +193,25 @@ test('la carta de una legendaria sigue como estaba: sin silencio, un haz, temblo
   await page.viewport(1280, 720);
   mountClassic({ ...pulled('legendary'), featured: false });
   const steps: string[] = [];
+  // The short shake lasts a moment: what the dialog's classes were at any time, watched from the start (a slow CI
+  // runner may look at the card step only after it is over).
+  let shook = false;
+  let shookLong = false;
   const watch = new MutationObserver(() => {
     const st = document.querySelector('.crt')?.getAttribute('data-step');
     if (st && steps.at(-1) !== st) steps.push(st);
+    const modal = document.querySelector('.modal.reveal-stage');
+    shook ||= !!modal?.classList.contains('shake');
+    shookLong ||= !!modal?.classList.contains('shake-long');
   });
-  watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step'], childList: true });
+  watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step', 'class'], childList: true });
   await until(() => document.querySelector('.crt[data-step="card"]') !== null);
-  watch.disconnect();
   expect(steps).not.toContain('hush');
   expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(1);
-  const modal = document.querySelector('.modal.reveal-stage')!;
-  expect(modal.classList.contains('shake')).toBe(true);
-  expect(modal.classList.contains('shake-long')).toBe(false);
-  await until(() => document.querySelector('.reveal-flash') !== null, 3000);
+  await until(() => shook, 15_000);
+  watch.disconnect();
+  expect(shookLong).toBe(false);
+  await until(() => document.querySelector('.reveal-flash') !== null, 15_000);
   const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
   expect(flash.dataset['iris']).toBeUndefined();
   expect(getComputedStyle(flash).backgroundImage).not.toContain('conic-gradient');
