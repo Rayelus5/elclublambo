@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { generateGalaxy, type CollectionPage, type GalaxyDetail, type GalaxySummary } from '@galaxy/shared';
+import { generateGalaxy, TIERS, type CollectionPage, type GalaxyDetail, type GalaxySummary } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { inTransaction } from '../../src/db/tx';
 import { credit, getWallet } from '../../src/economy/wallet';
@@ -64,12 +64,12 @@ test('la colección pagina sin repetir ni saltar, por fecha y por rareza (Review
       const page = await list(cookie, `?sort=${sort}&limit=60${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
       seen.push(...page.items);
       cursor = page.next;
-      expect(page.counts).toEqual({ common: 100, uncommon: 0, rare: 25, epic: 0, legendary: 5 });
+      expect(page.counts).toEqual({ common: 100, uncommon: 0, rare: 25, epic: 0, legendary: 5, mythic: 0 });
     } while (cursor);
     expect(seen, sort).toHaveLength(130);
     expect(new Set(seen.map((g) => g.id)).size).toBe(130);
     if (sort === 'rarity') {
-      const tiers = seen.map((g) => ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(g.tier));
+      const tiers = seen.map((g) => TIERS.indexOf(g.tier));
       expect(tiers).toEqual([...tiers].sort((a, b) => b - a));
     } else {
       const times = seen.map((g) => Date.parse(g.createdAt));
@@ -96,7 +96,13 @@ test('filtra por nivel, tipo, paleta y acabado, y solo enseña las propias', asy
   const mine = (await get(ctx.app, `/galaxy/api/galaxies/${legendary.items[0]!.id}`, { cookie: me.cookie })).json() as GalaxyDetail;
   expect(mine).toMatchObject({ origin: 'grant', lineage: [], level: 1 });
   expect(mine.dna).toMatch(/^[0-9a-f]{64}$/);
-  expect((await get(ctx.app, '/galaxy/api/galaxies?tier=mythic', { cookie: me.cookie })).statusCode).toBe(400);
+  // The sixth tier (plan «rareza Mítica»): a filter of its own, and nothing above it.
+  expect((await list(me.cookie, '?tier=mythic')).items).toHaveLength(0);
+  const [mythic] = await own(me.id, 5, 1, 'prismatic');
+  const mythics = await list(me.cookie, '?tier=mythic');
+  expect(mythics.items.map((g) => [g.id, g.tier])).toEqual([[mythic, 'mythic']]);
+  expect(mythics.counts).toMatchObject({ legendary: 3, mythic: 1 });
+  expect((await get(ctx.app, '/galaxy/api/galaxies?tier=divine', { cookie: me.cookie })).statusCode).toBe(400);
 });
 
 test('filtra por fenómeno: uno concreto, cualquiera o ninguno (plan «escáner pro», parte D)', async () => {

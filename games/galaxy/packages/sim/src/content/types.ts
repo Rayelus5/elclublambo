@@ -388,7 +388,7 @@ export type RelicSetDef =
   | { id: string; name: string; description: string; kind: 'combo'; type: string; phenomenon: string; bonus: SetBonus };
 
 export interface RelicTuning {
-  /** Magnitude by rarity tier (common → legendary). */
+  /** Magnitude by rarity tier (common → mythic; a list that stops at the legendary gives the mythic its value). */
   tier: number[];
   level: { step: number; cap: number };
   /**

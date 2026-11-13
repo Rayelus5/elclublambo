@@ -1,9 +1,10 @@
-import { deriveSeed, dna, drawTraits, galaxyName, scoreTraits, subRng, tierOfScore, type Traits } from '@galaxy/engine';
-import type { FeaturedTrait } from './types';
+import { deriveSeed, dna, drawTraits, galaxyName, isMythicScore, scoreTraits, subRng, tierOfScore, type Traits } from '@galaxy/engine';
+import { type FeaturedTrait, MYTHIC } from './types';
 
 // «Rareza coherente» (GDD §7): the tier is drawn first, then candidate seeds are tried until one's traits fall in
 // that tier's score band (and carry the featured trait, if any). The galaxy is always exactly
-// renderFromSeed(seed) — traits are never fixed, so what the server stores is what every client draws.
+// renderFromSeed(seed) — traits are never fixed, so what the server stores is what every client draws. A mythic is a
+// candidate in the engine's top band (MYTHIC_BAND, with a phenomenon); the five tiers keep their own bands.
 export const MAX_CANDIDATES = 200_000;
 
 export interface GeneratedGalaxy {
@@ -26,7 +27,8 @@ export function generateGalaxy(
     const traits = drawTraits(subRng(seed, 'traits'));
     if (featured && (traits as Readonly<Record<string, string | undefined>>)[featured.trait] !== featured.value) continue;
     const score = scoreTraits(traits);
-    if (tierOfScore(score, traits.phenomenon !== 'none') !== tier) continue;
+    const hasPhenomenon = traits.phenomenon !== 'none';
+    if (tier === MYTHIC ? !isMythicScore(score, hasPhenomenon) : tierOfScore(score, hasPhenomenon) !== tier) continue;
     const id = dna(traits);
     return { seed, traits, dna: id, score, name: galaxyName(seed), designation: `GX-${id.slice(0, 6).toUpperCase()}` };
   }

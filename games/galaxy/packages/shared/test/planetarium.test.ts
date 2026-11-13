@@ -26,7 +26,7 @@ describe('el prestigio', () => {
 
 describe('la configuración viva', () => {
   test('trae seis pedestales, ocho destacados y el tope del 5 %', () => {
-    expect(cfg).toEqual({ slots: 6, points: { tiers: [1, 2, 4, 7, 12], finish: 1 }, xpPerPoint: 0.001, cap: 0.05, featured: 8 });
+    expect(cfg).toEqual({ slots: 6, points: { tiers: [1, 2, 4, 7, 12, 20], finish: 1 }, xpPerPoint: 0.001, cap: 0.05, featured: 8 });
   });
 
   test('rechaza un tope por encima del 5 % y más pedestales de los seis que tiene la cúpula', () => {

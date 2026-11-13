@@ -20,6 +20,8 @@ export interface MarketRules {
   /** The share kept of each sale (0.07). */
   commission: number;
   minPrice: Record<Tier, number>;
+  /** A mythic may be put up for sale (off by default). */
+  mythicListing: boolean;
   maxPrice: number;
   canTrade: boolean;
   reason: 'level' | 'age' | null;

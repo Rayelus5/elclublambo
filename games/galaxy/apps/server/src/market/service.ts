@@ -3,6 +3,7 @@ import {
   commissionOf,
   type GalaxySummary,
   levelOf,
+  listable,
   type MarketConfig,
   type MarketListing,
   type MarketPage,
@@ -63,7 +64,8 @@ export async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketCo
   const reason = tradeBlock(levelOf(xp, cfgs.account).level, new Date(account.created_at), now, market);
   return {
     commission: market.commission,
-    minPrice: market.minPrice,
+    minPrice: Object.fromEntries(TIERS.map((t) => [t, minPriceFor(t, market)])) as MarketRules['minPrice'],
+    mythicListing: market.mythicListing,
     maxPrice: market.maxPrice,
     canTrade: reason === null,
     reason,
@@ -182,6 +184,8 @@ export async function listGalaxy(cfgs: MarketConfigs, trx: Kysely<DB>, accountId
     .execute();
   if (await isListed(trx, [g.id])) throw new HttpError(409, 'galaxy_listed');
   if (await isTraded(trx, [g.id])) throw new HttpError(409, 'galaxy_in_trade');
+  // A mythic stays out of the market unless the admin allows it (plan «rareza Mítica»); swaps always may.
+  if (!listable(TIERS[g.tier]!, cfgs.market)) throw new HttpError(409, 'mythic_not_listable');
   if (req.price < minPriceFor(TIERS[g.tier]!, cfgs.market)) throw new HttpError(400, 'price_too_low');
   if (req.price > cfgs.market.maxPrice) throw new HttpError(400, 'price_too_high');
   const row = await trx

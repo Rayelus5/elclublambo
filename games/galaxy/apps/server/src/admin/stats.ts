@@ -155,7 +155,7 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
   };
 }
 
-const TIER_CSV = ['comun', 'poco_comun', 'rara', 'epica', 'legendaria'];
+const TIER_CSV = ['comun', 'poco_comun', 'rara', 'epica', 'legendaria', 'mitica'];
 
 /** A CSV cell: as is, or quoted (doubling its quotes) when it has a comma, a quote or a line break. */
 const cell = (v: string | number) => {

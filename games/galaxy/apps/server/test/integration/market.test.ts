@@ -109,6 +109,15 @@ describe('poner en venta', () => {
     expect((await list(s, await own(other.id), 50)).json()).toEqual({ error: 'galaxy_not_found' });
   });
 
+  test('una mítica no se pone en venta mientras el mercado no lo permita (plan «rareza Mítica»)', async () => {
+    const s = await player();
+    const g = await own(s.id, 'mythic');
+    const res = await list(s, g, 20_000);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'mythic_not_listable' });
+    expect((await browse(s)).rules).toMatchObject({ mythicListing: false, minPrice: { legendary: 6000, mythic: 15_000 } });
+  });
+
   test('el límite de anuncios del día', async () => {
     const s = await player();
     for (let i = 0; i < 3; i++) expect((await list(s, await own(s.id), 50)).statusCode).toBe(200);

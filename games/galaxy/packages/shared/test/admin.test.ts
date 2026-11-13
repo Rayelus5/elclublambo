@@ -30,6 +30,9 @@ describe('cambios a un jugador', () => {
   test('conceder una galaxia elige rareza y acabado, y la semilla si se quiere', () => {
     expect(adminGalaxyGrantSchema.parse({ tier: 'epic', finish: 'holo', reason: 'Premio del torneo' })).toEqual({ tier: 'epic', finish: 'holo', reason: 'Premio del torneo' });
     expect(adminGalaxyGrantSchema.parse({ tier: 'rare', finish: 'normal', seed: '18446744073709551615', reason: 'Reposición' }).seed).toBe('18446744073709551615');
+    expect(() => adminGalaxyGrantSchema.parse({ tier: 'divine', finish: 'holo', reason: 'Premio' })).toThrow();
+    // A mythic (plan «rareza Mítica») can be granted, always with a special finish.
+    expect(adminGalaxyGrantSchema.parse({ tier: 'mythic', finish: 'prismatic', reason: 'Premio' }).tier).toBe('mythic');
     expect(() => adminGalaxyGrantSchema.parse({ tier: 'mythic', finish: 'normal', reason: 'Premio' })).toThrow();
     expect(() => adminGalaxyGrantSchema.parse({ tier: 'rare', finish: 'normal', seed: '-1', reason: 'Premio' })).toThrow();
   });

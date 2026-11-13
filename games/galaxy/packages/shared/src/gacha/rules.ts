@@ -1,6 +1,6 @@
 import { subRng } from '@galaxy/engine';
 import type { ConfigValue } from '../config/registry';
-import { FINISHES, type Finish } from './types';
+import { DRAWN_FINISHES, FINISHES, type Finish, FUSION_TOP, LEGENDARY, MYTHIC, perTier } from './types';
 
 // Deep-scan rules (GDD §9), pure: what a pull gives, from its 64-bit seed and the account's luck state. The server
 // supplies the seed (crypto) and stores the state; every random number comes from the engine's subRng streams.
@@ -25,14 +25,21 @@ export function legendaryChance(n: number, pity: Pity): number {
 }
 
 /**
- * Probability of each tier (common → legendary) on the next pull. The legendary chance comes from the luck curve
- * (welcome or standard); the other four share the rest in the proportions of `tiers.base`.
+ * Probability of each tier (common → legendary) in the normal tier roll of the next pull. The legendary chance comes
+ * from the luck curve (welcome or standard); the other four share the rest in the proportions of `tiers.base`. The
+ * mythic is not here: it is drawn before, on its own stream (tierRates gives the six together).
  */
 export function tierWeights(state: PityState, cfg: GachaConfig): number[] {
   const legendary = legendaryChance(state.sinceLegendary + 1, state.welcome ? cfg.welcome : cfg.standard);
   const others = cfg.tiers.base.slice(0, 4);
   const sum = others.reduce((a, b) => a + b, 0);
   return [...others.map((p) => (p / sum) * (1 - legendary)), legendary];
+}
+
+/** Probability of each of the six tiers (common → mythic) on the next pull: the mythic first, the rest after it. */
+export function tierRates(state: PityState, cfg: GachaConfig): number[] {
+  const m = cfg.mythic;
+  return [...tierWeights(state, cfg).map((p) => p * (1 - m)), m];
 }
 
 export interface PullOutcome {
@@ -43,22 +50,26 @@ export interface PullOutcome {
 }
 
 /**
- * One pull. Streams: "featured" (event banners only), "tier", "finish". A featured galaxy is a legendary with the
- * banner's featured trait; any legendary resets the legendary counter and ends the welcome luck.
+ * One pull. Streams: "mythic", "featured" (event banners only), "tier", "finish". The mythic is drawn first, on its
+ * own stream and with its own chance (`gacha.mythic`, never raised by the luck): while that chance is 0 every pull
+ * gives what it gave before the mythic existed. A mythic is not the featured galaxy, always has a special finish, and
+ * counts as a legendary for the luck. A featured galaxy is a legendary with the banner's featured trait; any
+ * legendary (or mythic) resets the legendary counter and ends the welcome luck.
  */
 export function drawPull(pullSeed: bigint, state: PityState, banner: Banner, cfg: GachaConfig): PullOutcome {
+  const mythic = cfg.mythic > 0 && subRng(pullSeed, 'mythic').random() < cfg.mythic;
   const featured =
-    banner.kind === 'event' && subRng(pullSeed, 'featured').random() < legendaryChance(state.sinceFeatured + 1, cfg.featured);
-  const tier = featured ? 4 : subRng(pullSeed, 'tier').choiceP(tierWeights(state, cfg));
-  const finish = drawFinish(pullSeed, cfg);
+    !mythic && banner.kind === 'event' && subRng(pullSeed, 'featured').random() < legendaryChance(state.sinceFeatured + 1, cfg.featured);
+  const tier = mythic ? MYTHIC : featured ? LEGENDARY : subRng(pullSeed, 'tier').choiceP(tierWeights(state, cfg));
+  const finish = mythic ? drawSpecialFinish(pullSeed, cfg) : drawFinish(pullSeed, cfg);
   return {
     tier,
     featured,
     finish,
     state: {
-      sinceLegendary: tier === 4 ? 0 : state.sinceLegendary + 1,
+      sinceLegendary: tier >= LEGENDARY ? 0 : state.sinceLegendary + 1,
       sinceFeatured: banner.kind === 'event' ? (featured ? 0 : state.sinceFeatured + 1) : state.sinceFeatured,
-      welcome: state.welcome && tier !== 4,
+      welcome: state.welcome && tier < LEGENDARY,
     },
   };
 }
@@ -75,6 +86,17 @@ export function seasonFinish(pullSeed: bigint, season: { finish: Finish | null; 
 /** The card finish of a pull or a fusion (stream "finish"): purely cosmetic (GDD §7). */
 export function drawFinish(seed: bigint, cfg: GachaConfig): Finish {
   return FINISHES[subRng(seed, 'finish').choiceP(cfg.finishes)]!;
+}
+
+/**
+ * A mythic's finish (stream "finish"): one of the drawn finishes but the plain one, in the proportions of
+ * `gacha.finishes` (evenly if those leave nothing to the special ones).
+ */
+export function drawSpecialFinish(seed: bigint, cfg: GachaConfig): Finish {
+  const special = cfg.finishes.slice(1, DRAWN_FINISHES.length);
+  const sum = special.reduce((a, b) => a + b, 0);
+  const weights = sum > 0 ? special.map((p) => p / sum) : special.map(() => 1 / special.length);
+  return DRAWN_FINISHES[1 + subRng(seed, 'finish').choiceP(weights)]!;
 }
 
 /**
@@ -97,7 +119,7 @@ export function eventCurrencyAlive(
 export function bannerOdds(state: PityState, banner: Banner, cfg: GachaConfig) {
   const pity = state.welcome ? cfg.welcome : cfg.standard;
   return {
-    nextRates: tierWeights(state, cfg),
+    nextRates: tierRates(state, cfg),
     sinceLegendary: state.sinceLegendary,
     untilGuarantee: Math.max(1, pity.hard - state.sinceLegendary),
     welcome: state.welcome,
@@ -107,12 +129,16 @@ export function bannerOdds(state: PityState, banner: Banner, cfg: GachaConfig) {
 
 /** Star dust for disintegrating a galaxy: per tier × finish multiplier (GDD §8.5). */
 export function disintegrateYield(tier: number, finish: Finish, cfg: GalaxiesConfig): number {
-  // A season's finish (M8c) has no weight of its own: it yields like the rarest drawn one.
+  // A season's finish (M8c) has no weight of its own: it yields like the rarest drawn one. A config published before
+  // the mythic yields for it as for a legendary.
   const f = cfg.disintegrate.finish;
-  return Math.round(cfg.disintegrate.tier[tier]! * (f[FINISHES.indexOf(finish)] ?? f[f.length - 1]!));
+  return Math.round(perTier(cfg.disintegrate.tier)[tier]! * (f[FINISHES.indexOf(finish)] ?? f[f.length - 1]!));
 }
 
-/** Fusion: `fusion.count` distinct galaxies of the same tier (below legendary) → one of the next tier, for dust. */
+/**
+ * Fusion: `fusion.count` distinct galaxies of the same tier (below legendary) → one of the next tier, for dust. It
+ * never makes a mythic, and a legendary or a mythic is never fused (FUSION_TOP).
+ */
 export function validateFusion(
   galaxies: ReadonlyArray<{ id: string; tier: number }>,
   cfg: GalaxiesConfig,
@@ -120,7 +146,7 @@ export function validateFusion(
   const tier = galaxies[0]?.tier;
   const valid =
     tier !== undefined &&
-    tier < 4 &&
+    tier < FUSION_TOP &&
     galaxies.length === cfg.fusion.count &&
     new Set(galaxies.map((g) => g.id)).size === galaxies.length &&
     galaxies.every((g) => g.tier === tier);

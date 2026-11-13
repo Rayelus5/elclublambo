@@ -163,13 +163,18 @@ export const configSchemas = {
     totpPerAccountTenMin: limit(10),
     resetRedeemPerIpHour: limit(10),
   }).strict(),
-  /** Deep scan (GDD §9). Tier order: common, uncommon, rare, epic, legendary. Finish order: see FINISHES. */
+  /**
+   * Deep scan (GDD §9). Tier order: common, uncommon, rare, epic, legendary. Finish order: see FINISHES. The mythic
+   * (sixth tier) has its own chance per pull, drawn before the rest and never raised by the luck: 0 until the owner
+   * publishes it.
+   */
   gacha: z
     .object({
       tiers: z
         .object({ base: distribution([0.5, 0.28, 0.13, 0.06, 0.03]) })
         .strict()
         .default({ base: [0.5, 0.28, 0.13, 0.06, 0.03] }),
+      mythic: z.number().min(0).max(0.05).default(0),
       standard: pity({ base: 0.03, softStart: 8, softStep: 0.06, hard: 20 }),
       welcome: z
         .object({ ...pityFields, signals: z.number().int().min(0).max(1000) })
@@ -202,11 +207,12 @@ export const configSchemas = {
     .object({
       disintegrate: z
         .object({
-          tier: z.array(z.number().int().min(0).max(1_000_000)).length(5),
+          // Common → mythic; one published before the mythic stops at the legendary (the mythic yields as it).
+          tier: z.array(z.number().int().min(0).max(1_000_000)).min(5).max(6),
           finish: z.array(z.number().min(0).max(100)).length(5),
         })
         .strict()
-        .default({ tier: [5, 12, 30, 75, 200], finish: [1, 1.5, 2, 2.5, 5] }),
+        .default({ tier: [5, 12, 30, 75, 200, 500], finish: [1, 1.5, 2, 2.5, 5] }),
       fusion: z
         .object({
           count: z.number().int().min(2).max(10),
@@ -480,10 +486,17 @@ export const configSchemas = {
           rare: z.number().int().min(1).default(400),
           epic: z.number().int().min(1).default(1500),
           legendary: z.number().int().min(1).default(6000),
+          // Absent in a config published before the mythic: the legendary's floor (minPriceFor).
+          mythic: z.number().int().min(1).optional(),
         })
         .strict()
-        .refine((m) => m.common <= m.uncommon && m.uncommon <= m.rare && m.rare <= m.epic && m.epic <= m.legendary, 'minPrice grows with the tier')
-        .default({ common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 }),
+        .refine(
+          (m) => m.common <= m.uncommon && m.uncommon <= m.rare && m.rare <= m.epic && m.epic <= m.legendary && (m.mythic === undefined || m.legendary <= m.mythic),
+          'minPrice grows with the tier',
+        )
+        .default({ common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15_000 }),
+      /** A mythic may be put up for sale (swaps always may). */
+      mythicListing: z.boolean().default(false),
       maxPrice: z.number().int().min(1).max(1_000_000_000).default(10_000_000),
       commission: z.number().min(0).max(0.5).default(0.07),
       days: z.number().int().min(1).max(60).default(7),
@@ -602,11 +615,12 @@ export const configSchemas = {
       slots: z.number().int().min(1).max(6).default(6),
       points: z
         .object({
-          tiers: z.array(z.number().int().min(0).max(100)).length(5).default([1, 2, 4, 7, 12]),
+          // Common → mythic; one published before the mythic stops at the legendary (the mythic counts as it).
+          tiers: z.array(z.number().int().min(0).max(100)).min(5).max(6).default([1, 2, 4, 7, 12, 20]),
           finish: z.number().int().min(0).max(100).default(1),
         })
         .strict()
-        .default({ tiers: [1, 2, 4, 7, 12], finish: 1 }),
+        .default({ tiers: [1, 2, 4, 7, 12, 20], finish: 1 }),
       xpPerPoint: z.number().min(0).max(0.05).default(0.001),
       cap: z.number().min(0).max(0.05).default(0.05),
       featured: z.number().int().min(1).max(24).default(8),

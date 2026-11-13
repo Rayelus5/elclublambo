@@ -309,7 +309,8 @@ const relicSet = z.discriminatedUnion('kind', [
 const factors = z.record(z.string().regex(/^[a-z0-9_]{1,40}$/), z.number().min(0).max(100));
 const relics = z
   .object({
-    tier: z.array(z.number().min(0).max(100)).length(5),
+    // Common → mythic; content published before the mythic stops at the legendary (the mythic counts as it).
+    tier: z.array(z.number().min(0).max(100)).min(5).max(6),
     level: z.object({ step: n, cap: n }).strict(),
     // Older published content has no stacking: the default keeps it valid.
     stacking: z.object({ from: z.number().int().min(1).max(6), decay: unit }).strict().default({ from: 3, decay: 0.5 }),

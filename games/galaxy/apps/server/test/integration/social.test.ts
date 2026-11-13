@@ -236,7 +236,7 @@ describe('la clasificación de la temporada', () => {
     expect(Date.parse(p.since)).not.toBeNaN();
     expect(p.season).toEqual({ score: 175, rank: 2, tier: null, maxDepth: 5, purges: 2, extractions: 1 });
     expect(p.records).toEqual({ maxDepth: 5, purges: 2, runs: 1 });
-    expect(p.collection).toEqual({ total: 2, counts: { common: 0, uncommon: 0, rare: 1, epic: 0, legendary: 1 } });
+    expect(p.collection).toEqual({ total: 2, counts: { common: 0, uncommon: 0, rare: 1, epic: 0, legendary: 1, mythic: 0 } });
     expect(p.planetarium).toMatchObject({ prestige: 13, exhibits: 1, cover: { id: legend, tier: 'legendary', finish: 'holo' } });
     expect(Object.keys(p.planetarium.cover!).sort()).toEqual(['designation', 'featured', 'finish', 'id', 'level', 'name', 'seed', 'tier', 'traits']);
 
@@ -262,7 +262,7 @@ describe('la clasificación de la temporada', () => {
     const all = (await get(ctx.app, `/galaxy/api/profiles/${owner.username}/galaxies`, { cookie: b.cookie })).json() as PublicCollectionPage;
     expect(all.items.map((g) => g.tier)).toEqual(['legendary', 'rare', 'rare']);
     expect(Object.keys(all.items[0]!).sort()).toEqual(['designation', 'featured', 'finish', 'id', 'level', 'name', 'seed', 'tier', 'traits']);
-    expect(all.counts).toEqual({ common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1 });
+    expect(all.counts).toEqual({ common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1, mythic: 0 });
     expect(all.next).toBeUndefined();
 
     const rare = (await get(ctx.app, `/galaxy/api/profiles/${owner.username}/galaxies?tier=rare`, { cookie: b.cookie })).json() as PublicCollectionPage;

@@ -12,15 +12,21 @@ import calibration from './calibration.json';
 export const ABSENT = '—';
 /** Score quantiles that separate common | uncommon | rare | epic | legendary. */
 export const TIER_QUANTILES = [0.5, 0.78, 0.91, 0.97] as const;
+/** Score quantile from which a legendary-grade galaxy is good enough to be a mythic (top 0.05 %). */
+export const MYTHIC_QUANTILE = 0.9995;
 
 export interface RarityCalibration {
   samples: number;
   counts: Record<string, Record<string, number>>;
   bands: [number, number, number, number];
+  /** The score at MYTHIC_QUANTILE. */
+  mythic: number;
 }
 
 const data = calibration as unknown as RarityCalibration;
 export const RARITY_BANDS = data.bands;
+/** The lowest score of a mythic (with a phenomenon too). */
+export const MYTHIC_BAND = data.mythic;
 
 const info = new Map<string, number>();
 for (const [key, values] of Object.entries(data.counts)) {
@@ -52,6 +58,11 @@ export function tierOfScore(score: number, hasPhenomenon: boolean): number {
   return 0;
 }
 
+/** Whether a galaxy of this score can be a mythic: the top band, and a phenomenon like every legendary. */
+export function isMythicScore(score: number, hasPhenomenon: boolean): boolean {
+  return hasPhenomenon && score >= MYTHIC_BAND;
+}
+
 /** The calibration from `samples` random galaxies (seeds deriveSeed('rarity-calibration', i)). Deterministic. */
 export function calibrateRarity(samples: number): RarityCalibration {
   const all: Traits[] = [];
@@ -72,5 +83,5 @@ export function calibrateRarity(samples: number): RarityCalibration {
   }
   const scores = Float64Array.from(all, (t) => scoreWith(t, table)).sort();
   const bands = TIER_QUANTILES.map((q) => scores[Math.floor(q * samples)]!) as RarityCalibration['bands'];
-  return { samples, counts, bands };
+  return { samples, counts, bands, mythic: scores[Math.floor(MYTHIC_QUANTILE * samples)]! };
 }

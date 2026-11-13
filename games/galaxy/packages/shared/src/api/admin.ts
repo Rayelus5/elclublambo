@@ -48,7 +48,9 @@ export type AdminWallet = z.infer<typeof adminWalletSchema>;
 
 export const adminGalaxyGrantSchema = z
   .object({ tier: z.enum(TIERS), finish: z.enum(FINISHES), seed: z.string().regex(/^\d{1,20}$/).optional(), type: z.enum(GALAXY_TYPES).optional(), reason })
-  .strict();
+  .strict()
+  // A mythic always has a special finish (plan «rareza Mítica»).
+  .refine((v) => v.tier !== 'mythic' || v.finish !== 'normal', { message: 'mythic_needs_finish', path: ['finish'] });
 export type AdminGalaxyGrant = z.infer<typeof adminGalaxyGrantSchema>;
 
 export const adminGalaxyRevokeSchema = z.object({ reason, password }).strict();

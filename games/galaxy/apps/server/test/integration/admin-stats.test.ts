@@ -95,7 +95,7 @@ describe('las cifras', () => {
     expect((await post(ctx.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 1, pay: 'signal' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     const after = await stats();
     expect(after.pulls.total).toBeGreaterThan(before.pulls.total);
-    expect(after.pulls.tiers).toHaveLength(5);
+    expect(after.pulls.tiers).toHaveLength(6);
     expect(after.pulls.tiers.reduce((n, t) => n + t.expected, 0)).toBeCloseTo(1, 5);
     expect(after.pulls.tiers.reduce((n, t) => n + t.count, 0)).toBe(after.pulls.total);
   });
