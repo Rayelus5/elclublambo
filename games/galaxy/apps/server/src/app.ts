@@ -32,6 +32,7 @@ import { registerModerationRoutes } from './admin/moderation-routes';
 import { registerAdminMarketRoutes } from './admin/market-routes';
 import { registerCommunicationRoutes } from './admin/communication-routes';
 import { registerStatsRoutes } from './admin/stats-routes';
+import { registerReferralRoutes } from './referrals/routes';
 import { type Disk, serverDisk } from './admin/storage';
 import { registerAdminRunRoutes } from './admin/runs-routes';
 import { registerAdminProgressRoutes } from './admin/progress-routes';
@@ -175,6 +176,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerModerationRoutes(api, { db: deps.db, config, env: deps.env, hub, now });
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });
     registerMailRoutes(api, { db: deps.db, config, now });
+    registerReferralRoutes(api, { db: deps.db, config, env: deps.env });
     registerMissionRoutes(api, { db: deps.db, config, now });
     registerCosmeticsRoutes(api, { db: deps.db, config });
     registerCatalogRoutes(api, { db: deps.db, config });

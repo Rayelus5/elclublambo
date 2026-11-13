@@ -36,7 +36,7 @@ export const CATEGORIES: Category[] = [
   { id: 'events', title: 'Eventos y multiplicadores', description: 'Metas por tiempo limitado y pagos dobles de fin de semana. Los eventos se crean mejor desde Eventos', icon: 'target', keys: ['events', 'boosts'] },
   { id: 'missions', title: 'Misiones y logros', description: 'Lo que sale cada día y cada semana, los logros y el álbum', icon: 'list', keys: ['missions', 'achievements', 'catalog'] },
   { id: 'gacha', title: 'Escáner', description: 'Probabilidades, garantías, precios y escáneres activos', icon: 'radar', keys: ['gacha'] },
-  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market'] },
+  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market', 'referrals'] },
   { id: 'coop', title: 'En grupo', description: 'Salas, cartas, caídas y reanimación, y cómo cambian la dificultad y el botín con los jugadores', icon: 'clan', keys: ['coop'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
   { id: 'shop', title: 'Tienda', description: 'Packs de pago, precios de Stripe, ofertas y límites', icon: 'store', keys: ['shop'] },
@@ -84,6 +84,7 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   boosts: { title: 'Multiplicadores', description: 'Pagos multiplicados durante un tiempo' },
   shop: { title: 'Tienda de recursos', description: 'Si está abierta y para quién, los packs con su precio de Stripe, las ofertas y el límite diario' },
   cosmetics: { title: 'Cosméticos del perfil', description: 'Avatares, marcos y títulos: nombre, rareza, de dónde salen y el texto de cómo conseguirlos' },
+  referrals: { title: 'Referidos', description: 'Código obligatorio al registrarse, regalos al invitado y al dueño, nivel de activación y topes contra cuentas secundarias' },
 };
 
 const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria'] as const;

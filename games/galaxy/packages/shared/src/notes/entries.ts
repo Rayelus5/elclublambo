@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-17-codigos-de-invitacion',
+    version: '1.17',
+    date: '2026-11-13',
+    title: 'Códigos de invitación',
+    summary: 'Entra con el código de un jugador y los dos recibís un regalo en el buzón',
+    items: [
+      { kind: 'nuevo', text: 'Al crear tu cuenta puedes escribir el código de invitación de un jugador, o llegar con su enlace y ya está escrito' },
+      { kind: 'nuevo', text: 'Si entras con un código, recibes un regalo de bienvenida en el buzón. Quien te invitó recibe el suyo cuando subes de nivel' },
+    ],
+  },
+  {
     id: 'v1-13-legendarias-mas-justas',
     version: '1.13',
     date: '2026-11-13',

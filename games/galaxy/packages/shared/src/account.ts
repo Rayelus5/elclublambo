@@ -9,8 +9,15 @@ export const usernameSchema = z
 /** Contraseña: de 10 a 128 caracteres (el máximo acota el coste de argon2). */
 export const passwordSchema = z.string().min(10).max(128);
 
+/** A referral code as players type it (plan «referidos»): 4 to 20 letters, digits or hyphens, any case (kept in capitals). */
+export const referralCodeSchema = z
+  .string()
+  .trim()
+  .transform((s) => s.toUpperCase())
+  .pipe(z.string().regex(/^[A-Z0-9-]{4,20}$/, 'referral_invalid'));
+
 export const registerInput = z
-  .object({ username: usernameSchema, password: passwordSchema })
+  .object({ username: usernameSchema, password: passwordSchema, referralCode: referralCodeSchema.optional() })
   .refine((v) => v.password.toLowerCase() !== v.username, { path: ['password'], message: 'password_equals_username' });
 
 /** En el login la contraseña solo se acota por arriba: una corta es simplemente incorrecta. */
