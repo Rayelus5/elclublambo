@@ -167,18 +167,39 @@ for (const [width, height] of [
     expect(s.cues.map((c) => c.id)).toEqual(expect.arrayContaining(['impacto-grande', 'fanfarria']));
     const face = s.faces[0]!.at;
     const strike = s.phases.find((p) => p.kind === 'impacto')!;
+    // M2: the held breath right before the impact, whose flash is iridescent (its tones turning), not white.
+    const hush = s.hushes[0]!;
     const shots: [string, number][] = [
-      ['impacto', strike.at + (strike.lead ?? 0) + 0.12],
+      ['silencio', hush.at + hush.dur * 0.85],
+      ['impacto', strike.at + (strike.lead ?? 0) + 0.08],
       ['cara', face + 0.04],
       ['rayos', face + 0.9],
     ];
+    const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
+    const cssVar = (name: string) => Number.parseFloat(rootEl.style.getPropertyValue(name));
     for (const [name, at] of shots) {
-      control.seek(at);
+      // Paused first, so the frame is exactly that moment (a software-WebGL frame inside the seek takes ~0,1 s).
       control.pause();
+      control.seek(at);
       await wait(260);
       expect(document.querySelector<HTMLCanvasElement>('.pro-canvas')!.clientWidth).toBe(width);
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
-      if (name === 'cara') expect(document.querySelector<HTMLElement>('.pro-root')!.dataset['flash']).toBe('mythic');
+      if (name === 'silencio') {
+        expect(cssVar('--black')).toBeGreaterThan(0.25);
+        expect(cssVar('--black')).toBeLessThan(0.5);
+      }
+      if (name === 'impacto') {
+        expect(rootEl.dataset['flash']).toBe('mythic');
+        expect(cssVar('--flash')).toBeGreaterThan(0.3);
+        expect(cssVar('--flash')).toBeLessThanOrEqual(0.6);
+        expect(cssVar('--sweep')).toBeGreaterThan(0);
+        expect(cssVar('--sweep')).toBeLessThan(1);
+        expect(getComputedStyle(document.querySelector('.pro-flash')!).backgroundImage).toContain('conic-gradient');
+      }
+      if (name === 'cara') {
+        expect(rootEl.dataset['flash']).toBe('mythic');
+        expect(cssVar('--flash')).toBeGreaterThan(0.3);
+      }
       if (name === 'rayos') {
         expect(document.querySelector<HTMLElement>('.pro-caption')!.dataset['pips']).toBe('6');
         expect(document.querySelectorAll('.pro-pips i')).toHaveLength(6);
@@ -188,3 +209,54 @@ for (const [width, height] of [
     }
   }, 120_000);
 }
+
+// M2 in a ten: the held breath before the mythic's close-up, its face with twice the god rays of the legendary's
+// before it, and the legendary's impact flash still white.
+test('diez con una mítica: el silencio antes de su primer plano y el doble de rayos que la legendaria', async () => {
+  await page.viewport(1600, 900);
+  const hooks: { control?: CinemaControl | null; phase?: Phase | null } = {};
+  const render = mount(null, hooks);
+  render([pull('common'), pull('legendary'), pull('uncommon'), pull('common'), pull('rare'), pull('common'), pull('mythic', { finish: 'prismatic' }), pull('common'), pull('uncommon'), pull('epic')]);
+  await until(() => !!hooks.control && !!document.querySelector('.pro-canvas'));
+  const control = hooks.control!;
+  const s = control.script;
+  const hush = s.hushes[0]!;
+  const legendary = s.faces.find((f) => f.slot === 8)!;
+  const mythic = s.faces.find((f) => f.slot === 9)!;
+  const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
+  for (const [name, at] of [
+    ['legendaria-rayos', legendary.at + 0.9],
+    ['silencio', hush.at + hush.dur * 0.85],
+    ['mitica-cara', mythic.at + 0.08],
+    ['mitica-rayos', mythic.at + 0.9],
+  ] as const) {
+    control.pause();
+    control.seek(at);
+    await wait(260);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1600);
+    if (name === 'silencio') expect(Number.parseFloat(rootEl.style.getPropertyValue('--black'))).toBeGreaterThan(0.25);
+    if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-diez-mitica-${name}.png` });
+    control.resume();
+  }
+}, 120_000);
+
+test('una legendaria sigue como estaba: sin silencio y su impacto destella en blanco', async () => {
+  await page.viewport(1280, 720);
+  const hooks: { control?: CinemaControl | null; phase?: Phase | null } = {};
+  const render = mount(null, hooks);
+  render([pull('legendary')]);
+  await until(() => !!hooks.control && !!document.querySelector('.pro-canvas'));
+  const control = hooks.control!;
+  expect(control.script.hushes).toEqual([]);
+  const strike = control.script.phases.find((p) => p.kind === 'impacto')!;
+  control.pause();
+  control.seek(strike.at + (strike.lead ?? 0) + 0.08);
+  await wait(200);
+  const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
+  expect(rootEl.dataset['flash']).toBe('white');
+  expect(Number.parseFloat(rootEl.style.getPropertyValue('--flash'))).toBeGreaterThan(0.3);
+  expect(Number.parseFloat(rootEl.style.getPropertyValue('--sweep'))).toBe(0);
+  expect(getComputedStyle(document.querySelector('.pro-flash')!).backgroundImage).not.toContain('conic-gradient');
+  if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-legendaria-impacto.png` });
+  control.resume();
+}, 60_000);

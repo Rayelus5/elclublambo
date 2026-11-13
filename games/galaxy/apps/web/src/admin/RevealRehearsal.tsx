@@ -1,6 +1,7 @@
 import { FINISHES, FUSION_TOP, TIERS, type Finish, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useEffect, useId, useState } from 'react';
 import { copy } from '../copy/es';
+import { ClassicStage } from '../scanner/ClassicStage';
 import { fabricatePulls, fusionInputs, randomSeed, REHEARSAL_PRESETS, type RehearsalPreset } from '../scanner/pro/fabricate';
 import type { CinemaControl } from '../scanner/pro/ProCinema';
 import { ProShell } from '../scanner/pro/ProShell';
@@ -16,11 +17,15 @@ import { Switch } from '../ui/Switch';
 // changing how long each phase lasts. Over the stage, the phase and its time, «Ir a la fase», pause and replay.
 // «Copiar guion» hands the numbers over as JSON. The durations stay in this browser. A fusion (plan «fusión pro»)
 // plays one new galaxy from 2 to 10 going in, of the tier below it (never a mythic: a fusion does not make one).
+// «Presentación» (plan «rareza Mítica» M2: the admin must be able to watch every animation) plays the same invented
+// pulls through the classic reveal too, as the scanner shows it with «Presentación pro» off; what only the pro one
+// has (the surge, the speed, the phase durations, the script) is not offered then. A fusion there shows its new
+// galaxy alone, as the collection does without the pro cinematic.
 
 const t = copy.admin.rehearsal;
 const KEY = 'galaxy.rehearsal.durations';
-const SINGLE: PhaseKind[] = ['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'carta', 'fenomeno', 'resumen'];
-const TEN: PhaseKind[] = ['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'reparto', 'giro', 'solo', 'final', 'resumen'];
+const SINGLE: PhaseKind[] = ['ignicion', 'salto', 'ascenso', 'caida', 'silencio', 'impacto', 'carta', 'fenomeno', 'resumen'];
+const TEN: PhaseKind[] = ['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'reparto', 'giro', 'silencio', 'solo', 'final', 'resumen'];
 const FUSION: PhaseKind[] = ['ignicion', 'orbita', 'ascenso', 'colapso', 'impacto', 'carta', 'fenomeno', 'resumen'];
 const INPUT_COUNTS = ['2', '3', '4', '5', '6', '7', '8', '9', '10'] as const;
 const PHENOMENA = Object.keys(copy.traitValues.phenomenon as Record<string, string>);
@@ -104,12 +109,14 @@ function Hud({ control, phase, onReplay }: { control: CinemaControl | null; phas
   );
 }
 
+/** The admin's rehearsal of the scanner's reveals, classic or pro, with invented pulls. */
 export function RevealRehearsal() {
   const ids = useId();
+  const [presentation, setPresentation] = useState<'classic' | 'pro'>('pro');
   const [origin, setOrigin] = useState<'scan' | 'fusion'>('scan');
   const [going, setGoing] = useState<(typeof INPUT_COUNTS)[number]>('5');
   // What was made for the take playing, and as what (the controls may change while the next one is being made).
-  const [shot, setShot] = useState<{ intro: 'scan' | 'fusion'; inputs: PulledGalaxy[] }>({ intro: 'scan', inputs: [] });
+  const [shot, setShot] = useState<{ intro: 'scan' | 'fusion'; inputs: PulledGalaxy[]; presentation: 'classic' | 'pro' }>({ intro: 'scan', inputs: [], presentation: 'pro' });
   const [count, setCount] = useState<'one' | 'ten'>('ten');
   const [tier, setTier] = useState<Tier>('legendary');
   const [preset, setPreset] = useState<RehearsalPreset>('variada');
@@ -126,6 +133,7 @@ export function RevealRehearsal() {
   const [take, setTake] = useState(0);
   const [copied, setCopied] = useState(false);
   const fusion = origin === 'fusion';
+  const pro = presentation === 'pro';
   const families = fusion ? FUSION : count === 'one' ? SINGLE : TEN;
   // A fusion never makes a mythic: with one picked, a fusion rehearses the legendary.
   const asked: Tier = fusion && !FUSED.includes(tier) ? FUSED[FUSED.length - 1]! : tier;
@@ -134,7 +142,8 @@ export function RevealRehearsal() {
     setBusy(true);
     try {
       const tiers = fusion || count === 'one' ? [asked] : [...REHEARSAL_PRESETS[preset]];
-      const inputs = fusion ? await fabricatePulls({ tiers: fusionInputs(asked, Number(going)) }, randomSeed()) : [];
+      // The classic reveal has no ring of galaxies going in: only the pro one needs them made.
+      const inputs = fusion && pro ? await fabricatePulls({ tiers: fusionInputs(asked, Number(going)) }, randomSeed()) : [];
       const made = await fabricatePulls({
         tiers,
         finish,
@@ -142,7 +151,7 @@ export function RevealRehearsal() {
         phenomenon: phenomenon === 'auto' ? null : phenomenon,
       });
       setPulls(made);
-      setShot({ intro: fusion ? 'fusion' : 'scan', inputs });
+      setShot({ intro: fusion ? 'fusion' : 'scan', inputs, presentation });
       setTake((n) => n + 1);
       setOpen(true);
     } finally {
@@ -176,6 +185,15 @@ export function RevealRehearsal() {
       <p className="panel-note">{t.intro}</p>
       <div className="lip panel rehearsal-panel">
         <div className="rehearsal-grid">
+          <div className="rehearsal-field">
+            <span id={`${ids}-presentation`}>{t.presentation}</span>
+            <Segmented
+              aria-labelledby={`${ids}-presentation`}
+              value={presentation}
+              options={(['classic', 'pro'] as const).map((x) => ({ value: x, label: t.presentations[x] }))}
+              onChange={setPresentation}
+            />
+          </div>
           <div className="rehearsal-field">
             <span id={`${ids}-origin`}>{t.origin}</span>
             <Segmented aria-labelledby={`${ids}-origin`} value={origin} options={(['scan', 'fusion'] as const).map((x) => ({ value: x, label: t.origins[x] }))} onChange={setOrigin} />
@@ -214,59 +232,73 @@ export function RevealRehearsal() {
             <span id={`${ids}-featured`}>{t.featured}</span>
             <Switch aria-labelledby={`${ids}-featured`} checked={featured} onChange={setFeatured} />
           </div>
-          <div className="rehearsal-field">
-            <span id={`${ids}-surge`}>{t.surge}</span>
-            <Segmented aria-labelledby={`${ids}-surge`} value={surge} options={(['auto', 'yes', 'no'] as const).map((x) => ({ value: x, label: t.surges[x] }))} onChange={setSurge} />
-          </div>
+          {pro ? (
+            <div className="rehearsal-field">
+              <span id={`${ids}-surge`}>{t.surge}</span>
+              <Segmented aria-labelledby={`${ids}-surge`} value={surge} options={(['auto', 'yes', 'no'] as const).map((x) => ({ value: x, label: t.surges[x] }))} onChange={setSurge} />
+            </div>
+          ) : null}
           <div className="rehearsal-field">
             <span id={`${ids}-motion`}>{t.motion}</span>
             <Segmented aria-labelledby={`${ids}-motion`} value={motion} options={(['full', 'reduced'] as const).map((x) => ({ value: x, label: t.motions[x] }))} onChange={setMotion} />
           </div>
-          <div className="rehearsal-field">
-            <span id={`${ids}-speed`}>{t.speed}</span>
-            <Segmented aria-labelledby={`${ids}-speed`} value={speed} options={(['1', '0.5', '0.25'] as const).map((x) => ({ value: x, label: `${x.replace('.', ',')}×` }))} onChange={setSpeed} />
-          </div>
+          {pro ? (
+            <div className="rehearsal-field">
+              <span id={`${ids}-speed`}>{t.speed}</span>
+              <Segmented aria-labelledby={`${ids}-speed`} value={speed} options={(['1', '0.5', '0.25'] as const).map((x) => ({ value: x, label: `${x.replace('.', ',')}×` }))} onChange={setSpeed} />
+            </div>
+          ) : null}
         </div>
-        <fieldset className="rehearsal-durations">
-          <legend>{t.durations}</legend>
-          <p className="panel-note">{t.durationsHint}</p>
-          <div className="rehearsal-durations-grid">
-            {families.map((k) => (
-              <label key={k} className="rehearsal-duration">
-                <span>{t.families[k]}</span>
-                <input inputMode="decimal" value={durations[k] !== undefined ? String(durations[k]) : ''} placeholder="—" onChange={(e) => setDuration(k, e.target.value)} />
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        {pro ? (
+          <fieldset className="rehearsal-durations">
+            <legend>{t.durations}</legend>
+            <p className="panel-note">{t.durationsHint}</p>
+            <div className="rehearsal-durations-grid">
+              {families.map((k) => (
+                <label key={k} className="rehearsal-duration">
+                  <span>{t.families[k]}</span>
+                  <input inputMode="decimal" value={durations[k] !== undefined ? String(durations[k]) : ''} placeholder="—" onChange={(e) => setDuration(k, e.target.value)} />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
         <div className="modal-actions rehearsal-actions">
-          <button
-            type="button"
-            className="lip pill"
-            onClick={() => {
-              setDurations({});
-              saveDurations({});
-            }}
-          >
-            {t.reset}
-          </button>
-          <button
-            type="button"
-            className="lip pill"
-            onClick={() => {
-              void navigator.clipboard?.writeText(script).then(() => setCopied(true));
-            }}
-          >
-            <Icon name="copy" />
-            <span>{copied ? t.copied : t.copy}</span>
-          </button>
+          {pro ? (
+            <>
+              <button
+                type="button"
+                className="lip pill"
+                onClick={() => {
+                  setDurations({});
+                  saveDurations({});
+                }}
+              >
+                {t.reset}
+              </button>
+              <button
+                type="button"
+                className="lip pill"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(script).then(() => setCopied(true));
+                }}
+              >
+                <Icon name="copy" />
+                <span>{copied ? t.copied : t.copy}</span>
+              </button>
+            </>
+          ) : null}
           <button type="button" className="lip pill pill-solar" disabled={busy} aria-busy={busy || undefined} onClick={() => void play()}>
             <Icon name="play" />
             <span>{busy ? t.making : t.play}</span>
           </button>
         </div>
       </div>
-      {open && pulls ? (
+      {open && pulls && shot.presentation === 'classic' ? (
+        // Each take starts the classic reveal afresh (its steps, images and focus).
+        <ClassicStage key={take} pulls={pulls} title={t.title} onClose={() => setOpen(false)} reduced={motion === 'reduced'} />
+      ) : null}
+      {open && pulls && shot.presentation === 'pro' ? (
         <ProShell
           pulls={pulls}
           title={t.title}

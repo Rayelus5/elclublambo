@@ -1,7 +1,7 @@
 import type { PulledGalaxy, Tier } from '@galaxy/shared';
 import { gsap } from 'gsap';
 import { expect, test } from 'vitest';
-import { buildScript } from '../src/scanner/pro/script';
+import { buildScript, GUION } from '../src/scanner/pro/script';
 import { buildTimeline, CINEMA, createRig, GRID, RING, ringSpot, SINGLE } from '../src/scanner/pro/timeline';
 
 // The pro scanner's timeline (plan «escáner pro», part B): one paused GSAP timeline, built from the script, that moves
@@ -93,6 +93,64 @@ test('una mítica trae los rayos de luz detrás de su carta, como una legendaria
   const solo = ten.script.faces.find((f) => f.slot === 9)!;
   ten.tl.time(solo.at + 0.5);
   expect(ten.rig.rays).toBeGreaterThan(0.5);
+});
+
+// Plan «rareza Mítica» M2: the held breath dims the screen a touch, and lifts for the impact; a mythic's flash sweeps
+// once through its four tones (the overlay turns its gradient by `sweep`), never back and forth; a legendary's does not.
+test('el silencio de una mítica oscurece un poco la pantalla y se levanta para el impacto; una legendaria no', () => {
+  const { rig, tl, at } = setup([pull('mythic')]);
+  const hush = at('silencio');
+  tl.time(hush.at - 0.05);
+  expect(rig.black).toBeCloseTo(0, 2);
+  tl.time(hush.at + hush.dur - 0.02);
+  expect(rig.black).toBeCloseTo(GUION.silencio.dim, 1);
+  expect(rig.black).toBeLessThanOrEqual(0.5);
+  const hit = at('impacto');
+  tl.time(hit.at + (hit.lead ?? 0));
+  expect(rig.black).toBeCloseTo(0, 2);
+  const legendary = setup([pull('legendary')]);
+  for (let t = legendary.at('caida').at; t < legendary.at('carta').at; t += 0.05) {
+    legendary.tl.time(t);
+    expect(legendary.rig.black).toBe(0);
+  }
+});
+
+test('el destello iridiscente de una mítica recorre sus tonos una sola vez, hacia delante; el de una legendaria no gira', () => {
+  const { rig, tl, script } = setup([pull('mythic')]);
+  const iris = script.flashes.filter((f) => f.color === 'mythic');
+  expect(iris.length).toBeGreaterThanOrEqual(2);
+  for (const f of iris) {
+    let last = -1;
+    for (let t = f.at; t <= f.at + 0.5; t += 0.025) {
+      tl.time(t);
+      expect(rig.sweep).toBeGreaterThanOrEqual(last - 1e-9);
+      last = rig.sweep;
+    }
+    expect(last).toBeCloseTo(1, 2);
+    tl.time(f.at + 0.05);
+    expect(rig.flashColor).toBe('mythic');
+    expect(rig.flash).toBeLessThanOrEqual(0.6);
+  }
+  const legendary = setup([pull('legendary')], 'full', true);
+  for (let t = 0; t <= legendary.script.duration; t += 0.05) {
+    legendary.tl.time(t);
+    expect(legendary.rig.sweep).toBe(0);
+  }
+});
+
+test('con movimiento reducido una mítica tampoco tiembla ni destella, y su silencio solo oscurece', () => {
+  const { rig, tl, at, script } = setup([pull('mythic')], 'reduced');
+  for (let t = 0; t <= script.duration; t += 0.05) {
+    tl.time(t);
+    expect(rig.shake).toBe(0);
+    expect(rig.flash).toBe(0);
+    expect(rig.warp).toBe(0);
+  }
+  const hush = at('silencio');
+  tl.time(hush.at + hush.dur - 0.02);
+  expect(rig.black).toBeGreaterThan(0.2);
+  tl.time(at('espera-carta').at);
+  expect(rig.black).toBeCloseTo(0, 2);
 });
 
 test('diez: reparto en la rejilla boca abajo, cascada de giros, primeros planos que vuelven a su sitio', () => {

@@ -8,6 +8,7 @@ import { duckMusic, onSettings } from '../audio/mixer';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
+import { beamsFor } from './fx';
 import { advance, revealSequence, skipToSummary, type Step } from './reveal-sequence';
 import { type FxTrigger, RevealFx } from './RevealFx';
 import { RevealSummary } from './RevealSummary';
@@ -19,6 +20,8 @@ import { sfx } from './sfx';
 // static, the signal bars climb, the scan line in the rarity's colour resolves the real engine image dot by dot,
 // a phenomenon is announced, a Legendary (or a Mítica) makes the screen fail, and the card lands. A tap (or Space) goes to the
 // pull's card or the next pull; Saltar goes to the summary. Each revealed galaxy is announced politely.
+// A Mítica (plan «rareza Mítica» M2) holds its breath before its card (the screen dims, nothing sounds), then lands
+// with its own chord, twice the beams, an iridescent flash and a longer shake (RevealFx).
 const IMAGE_PX = 420;
 const names = copy.traitValues.phenomenon as Record<string, string>;
 
@@ -102,6 +105,7 @@ export function ClassicStage({
   onClose,
   actions,
   status,
+  reduced: forceReduced,
 }: {
   pulls: readonly PulledGalaxy[];
   title?: string;
@@ -110,8 +114,11 @@ export function ClassicStage({
   actions?: ReactNode;
   /** A line over the summary's buttons: what is missing to scan again, or why it failed. */
   status?: ReactNode;
+  /** The Ensayo's motion (the player's setting otherwise). */
+  reduced?: boolean;
 }) {
-  const reduced = useReducedMotion();
+  const systemReduced = useReducedMotion();
+  const reduced = forceReduced ?? systemReduced;
   const steps = useMemo(() => revealSequence(pulls, { reduced }), [pulls, reduced]);
   const images = usePulledImages(pulls);
   const [at, setAt] = useState(0);
@@ -219,7 +226,7 @@ export function ClassicStage({
                 <span className="signal-label">{copy.scanner.signal}</span>
               </span>
             ) : null}
-            {step.kind === 'scan' || step.kind === 'phenomenon' || step.kind === 'glitch' ? <Scan canvas={images[step.index]} step={step} /> : null}
+            {step.kind === 'scan' || step.kind === 'phenomenon' || step.kind === 'glitch' || step.kind === 'hush' ? <Scan canvas={images[step.index]} step={step} /> : null}
             {step.kind === 'phenomenon' ? (
               <span className="phenomenon">
                 <b>{copy.scanner.phenomenon}</b>
@@ -230,7 +237,10 @@ export function ClassicStage({
           {/* The card pops out of the screen, over the bezel. */}
           {step.kind === 'card' && pull ? (
             <div className="stage-card" key={pull.id} data-tier={pull.tier}>
-              <span className="stage-beams" aria-hidden="true" />
+              {/* One set of beams (a Mítica's are doubled: a second set between the first's). */}
+              {Array.from({ length: Math.max(1, beamsFor(pull.tier)) }, (_, k) => (
+                <span key={k} className="stage-beams" data-set={k + 1} aria-hidden="true" />
+              ))}
               <GalaxyCard galaxy={pull} size={cardSize} interactive />
               {pull.featured ? <span className="stage-featured">{copy.scanner.featuredFound}</span> : null}
             </div>

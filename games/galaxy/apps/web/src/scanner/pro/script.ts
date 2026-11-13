@@ -1,4 +1,5 @@
 import { atLeast, TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import type { ScoreLevel } from '../../audio/score';
 
 /** The surge's swell runs this long before its burst (cues.ts plays it from the cue's time). */
 export const SURGE_LEAD = 0.34;
@@ -11,11 +12,31 @@ const HOLD = 0.01;
 // (the GSAP timeline's labels), the sounds on them, the flashes and shakes, the music's layers and where «Seguir»
 // lands. Every duration lives in GUION, by phase and by tier, so a note from the owner is one number here — and the
 // admin's «Ensayo» can try new ones (`overrides`) before they are written down.
+// A mythic (plan «rareza Mítica» M2) gets, on top of a legendary's cinematic: a held breath (`silencio`) right before
+// its impact — before its close-up in a ten, before its card with reduced motion — with no sound and the music ducked
+// (`hushes`); the impact's flash in its iridescent tones instead of white; twice the god rays (`raySets`); longer
+// shakes, never stronger; and its own music layer (level 4).
 
 /** The look of the trail: the neutral ice of the jump, or a tier's colour. */
 export type TrailTint = Tier | 'ice';
 
-export type PhaseKind = 'ignicion' | 'salto' | 'ascenso' | 'caida' | 'orbita' | 'colapso' | 'impacto' | 'carta' | 'fenomeno' | 'espera' | 'reparto' | 'giro' | 'solo' | 'final' | 'resumen';
+export type PhaseKind =
+  | 'ignicion'
+  | 'salto'
+  | 'ascenso'
+  | 'caida'
+  | 'orbita'
+  | 'colapso'
+  | 'silencio'
+  | 'impacto'
+  | 'carta'
+  | 'fenomeno'
+  | 'espera'
+  | 'reparto'
+  | 'giro'
+  | 'solo'
+  | 'final'
+  | 'resumen';
 
 /** What the reveal opens with: a scan's jump through the stars, or a fusion's galaxies spiralling into their core. */
 export type Intro = 'scan' | 'fusion';
@@ -33,7 +54,10 @@ export interface Phase {
   tier?: Tier;
   /** Waits for the player (the single pull's card). */
   hold?: boolean;
-  /** The impact's hit-stop: the world holds still this long before the strike. */
+  /**
+   * The impact's hit-stop: the world holds still this long before the strike. A `silencio`'s: what the card before
+   * still has due, before the hush itself begins.
+   */
   lead?: number;
 }
 
@@ -68,7 +92,14 @@ export interface Flash {
   at: number;
   /** 0–0.6 (photosensitivity: never a full white). */
   alpha: number;
+  /** `mythic`: the iridescent flash, its four tones swept once as it fades. */
   color: 'white' | TrailTint;
+}
+
+/** A held breath: the music ducks from `at` for `dur` seconds (and no sound plays in it). */
+export interface Hush {
+  at: number;
+  dur: number;
 }
 
 /** A card showing its face: when, and what comes with it. */
@@ -102,8 +133,10 @@ export interface Script {
   cues: Cue[];
   flashes: Flash[];
   shakes: Shake[];
-  /** The music's layer from each moment (0 base … 3 legendary or mythic): it only climbs. */
-  score: { at: number; level: 0 | 1 | 2 | 3 }[];
+  /** The music's layer from each moment (0 base … 3 legendary, 4 mythic): it only climbs. */
+  score: { at: number; level: ScoreLevel }[];
+  /** A mythic's held breath (its `silencio` phase): the music ducks there. */
+  hushes: Hush[];
   /** When each card shows its face (slot → time): the timeline waits for its image there. */
   faces: Face[];
   duration: number;
@@ -113,7 +146,9 @@ type ByTier = readonly [number, number, number, number, number, number];
 
 /**
  * Every duration (seconds), by phase and by tier (common, uncommon, rare, epic, legendary, mythic). The mythic (plan
- * «rareza Mítica» M1) builds up a little longer than the legendary everywhere; its own, more epic cinematic is M2.
+ * «rareza Mítica» M1) builds up a little longer than the legendary everywhere; what M2 adds on top of a legendary's
+ * cinematic (the held breath, the iridescent impact, twice the rays, longer shakes) is in `silencio`, `flash`, `rays`
+ * and `shake`.
  */
 export const GUION = {
   single: {
@@ -164,12 +199,36 @@ export const GUION = {
   surge: { epic: 0.25, legendary: 0.35, mythic: 0.5 },
   /** The trail takes the shown colour at this share of the jump. */
   trailShift: 0.6,
-  /** Never above 0.6 (photosensitivity); `legendaryFace` lights a legendary's or a mythic's face in its colour. */
+  /**
+   * Never above 0.6 (photosensitivity); `legendaryFace` lights a legendary's or a mythic's face in its colour. A
+   * mythic's impact flashes in its iridescent tones instead of white (M2), as bright as a legendary's.
+   */
   flash: { impact: [0.15, 0.2, 0.3, 0.45, 0.6, 0.6] as ByTier, surge: 0.5, legendaryFace: 0.5 },
-  shake: { impact: [0.2, 0.3, 0.45, 0.7, 1, 1.15] as ByTier },
+  /**
+   * The camera's jolts: the impact's (`impact` amplitude, `impactDur` seconds) and the one when a legendary's or a
+   * mythic's face shows (`face`, `faceDur`). A mythic's last far longer (M2), never stronger than they were.
+   */
+  shake: {
+    impact: [0.2, 0.3, 0.45, 0.7, 1, 1.15] as ByTier,
+    impactDur: [0.45, 0.55, 0.65, 0.75, 0.85, 1.4] as ByTier,
+    face: [0, 0, 0, 0, 0.5, 0.6] as ByTier,
+    faceDur: [0, 0, 0, 0, 0.35, 0.8] as ByTier,
+  },
+  /** Sets of god rays behind a card in focus: a legendary's one, a mythic's two — twice the rays (M2). */
+  rays: [0, 0, 0, 0, 1, 2] as ByTier,
+  /**
+   * A mythic's held breath (M2), right before its impact (`full`; in a ten, before its close-up) or its card (`calm`,
+   * reduced motion): no sound, the music ducked to `duck`, the screen dimmed to `dim` (the black veil's opacity).
+   */
+  silencio: { full: 0.7, calm: 0.5, duck: 0.2, dim: 0.35 },
 } as const;
 
 const tierAt = (t: Tier) => TIERS.indexOf(t);
+
+/** Sets of god rays turning behind a card of `tier` (0: none). */
+export function raySets(tier: Tier): number {
+  return GUION.rays[tierAt(tier)] ?? 0;
+}
 
 /** A number in [0, 1) from the pulls' ids (FNV-1a): the same scan always tells the same story. */
 export function surgeRoll(pulls: readonly PulledGalaxy[]): number {
@@ -214,6 +273,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   const flashes: Flash[] = [];
   const shakes: Shake[] = [];
   const faces: Face[] = [];
+  const hushes: Hush[] = [];
   let clock = 0;
   const dur = (kind: PhaseKind, value: number) => opts.overrides?.[kind] ?? value;
   const add = (label: string, kind: PhaseKind, length: number, extra: Partial<Phase> = {}): Phase => {
@@ -221,6 +281,24 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
     phases.push(p);
     clock += length;
     return p;
+  };
+  /**
+   * A mythic's held breath, once per reveal (before the first mythic's moment): nothing is cued inside it. What the
+   * card before still has due (a cascade's last face lands just past its own phase) plays first: the phase's `lead`.
+   */
+  const silence = (length: number, card: { slot: number; index: number }) => {
+    if (hushes.length > 0) return;
+    const due = cues.reduce((t, c) => Math.max(t, c.at), 0);
+    const lead = Math.max(0, due + 0.15 - clock);
+    const hush = dur('silencio', length);
+    // It belongs to the mythic's card that follows (a ten's progress already counts it).
+    const p = add('silencio', 'silencio', lead + hush, { tier: 'mythic', lead, ...card });
+    hushes.push({ at: p.at + lead, dur: hush });
+  };
+  /** The camera's jolt as a legendary's or a mythic's face shows (a mythic's lasts longer). */
+  const faceShake = (g: PulledGalaxy, face: number) => {
+    const t = tierAt(g.tier);
+    if (atLeast(g.tier, 'legendary')) shakes.push({ at: face + 0.1, amp: GUION.shake.face[t]!, dur: GUION.shake.faceDur[t]! });
   };
   /** The sounds and lights of a card showing its face at `at`. */
   const reveal = (g: PulledGalaxy, at: number, big: boolean) => {
@@ -240,6 +318,8 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
     if (fusion) add('colapso', 'colapso', dur('colapso', C.colapso));
     if (!ten) {
       const g = pulls[0]!;
+      // A mythic's held breath stays with reduced motion (nothing moves in it), right before its card.
+      if (g.tier === 'mythic') silence(GUION.silencio.calm, { slot: 0, index: 0 });
       const card = add('carta', 'carta', dur('carta', C.carta), { slot: 0, index: 0, tier: g.tier });
       faces.push({ slot: 0, index: 0, at: card.at + card.dur * 0.5, featured: g.featured, phenomenon: hasPhenomenon(g) });
       cues.push({ at: card.at + card.dur * 0.3, id: 'giro' });
@@ -254,6 +334,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
       cues.push({ at: deal.at, id: 'reparto' });
       order.forEach((index, slot) => {
         const g = pulls[index]!;
+        if (g.tier === 'mythic') silence(GUION.silencio.calm, { slot, index });
         const length = C.gap + dur('giro', C.giro);
         const p = add(`giro-${slot}`, 'giro', length, { slot, index, tier: g.tier });
         const face = p.at + C.gap + (p.dur - C.gap) * 0.5;
@@ -282,11 +363,13 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
     // A scan's shooting stars fall; a fusion's galaxies sink into the core.
     const fall = fusion ? add('colapso', 'colapso', dur('colapso', F.colapso[m]!)) : add('caida', 'caida', dur('caida', ten ? T.caida : S.caida[m]!));
     cues.push({ at: fall.at, id: 'meteoro', tier: maxTier });
+    // A single mythic holds its breath before the impact (a ten's waits for the mythic's own close-up).
+    if (!ten && maxTier === 'mythic') silence(GUION.silencio.full, { slot: 0, index: 0 });
     const hit = add('impacto', 'impacto', dur('impacto', ten ? T.impacto : S.impacto[m]!) + S.paron[m]!, { lead: S.paron[m]! });
     const strike = hit.at + S.paron[m]!;
     cues.push({ at: hit.at, id: m >= tierAt('epic') ? 'impacto-grande' : 'impacto', tier: maxTier, essential: true });
-    flashes.push({ at: strike, alpha: GUION.flash.impact[m]!, color: 'white' });
-    shakes.push({ at: strike, amp: GUION.shake.impact[m]!, dur: 0.45 + 0.1 * m });
+    flashes.push({ at: strike, alpha: GUION.flash.impact[m]!, color: maxTier === 'mythic' ? 'mythic' : 'white' });
+    shakes.push({ at: strike, amp: GUION.shake.impact[m]!, dur: GUION.shake.impactDur[m]! });
 
     if (!ten) {
       const g = pulls[0]!;
@@ -295,7 +378,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
       cues.push({ at: card.at + card.dur * 0.3, id: 'giro' });
       faces.push({ slot: 0, index: 0, at: face, featured: g.featured, phenomenon: hasPhenomenon(g) });
       reveal(g, face, true);
-      if (atLeast(g.tier, 'legendary')) shakes.push({ at: face + 0.1, amp: g.tier === 'mythic' ? 0.6 : 0.5, dur: 0.35 });
+      faceShake(g, face);
       if (hasPhenomenon(g)) {
         const f = add('fenomeno', 'fenomeno', dur('fenomeno', S.fenomeno), { slot: 0, index: 0, tier: g.tier });
         cues.push({ at: f.at, id: 'fenomeno' });
@@ -308,6 +391,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
         const g = pulls[index]!;
         const t = tierAt(g.tier);
         if (t >= tierAt('epic')) {
+          if (g.tier === 'mythic') silence(GUION.silencio.full, { slot, index });
           const turn = T.solo.giro;
           const length = dur('solo', T.solo.volar + turn + T.solo.quieto[t]! + T.solo.volver);
           const p = add(`solo-${slot}`, 'solo', length, { slot, index, tier: g.tier });
@@ -315,7 +399,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
           cues.push({ at: p.at + T.solo.volar, id: 'giro' });
           faces.push({ slot, index, at: face, featured: g.featured, phenomenon: hasPhenomenon(g) });
           reveal(g, face, true);
-          if (atLeast(g.tier, 'legendary')) shakes.push({ at: face + 0.1, amp: g.tier === 'mythic' ? 0.6 : 0.5, dur: 0.35 });
+          faceShake(g, face);
           if (hasPhenomenon(g)) cues.push({ at: face + 0.4, id: 'fenomeno' });
         } else {
           // A cascade: each card starts turning `gap` after the last (its edge lit first), before it has finished.
@@ -332,19 +416,20 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   const end = add('resumen', 'resumen', dur('resumen', reduced ? GUION.calm.resumen : ten ? GUION.ten.resumen : GUION.single.resumen));
   cues.push({ at: end.at, id: 'resumen', tier: maxTier });
 
-  // The music: the base from the ignition, then a layer more each time a rarer card shows its face.
+  // The music: the base from the ignition, then a layer more each time a rarer card shows its face (a mythic's own,
+  // the fifth, only with a mythic).
   const score: Script['score'] = [{ at: 0, level: 0 }];
-  let level = 0;
+  let level: ScoreLevel = 0;
   for (const f of [...faces].sort((a, b) => a.at - b.at)) {
     const t = tierAt(pulls[f.index]!.tier);
-    const want = t >= tierAt('legendary') ? 3 : t >= tierAt('epic') ? 2 : t >= tierAt('rare') ? 1 : 0;
+    const want: ScoreLevel = t >= tierAt('mythic') ? 4 : t >= tierAt('legendary') ? 3 : t >= tierAt('epic') ? 2 : t >= tierAt('rare') ? 1 : 0;
     if (want > level) {
       level = want;
-      score.push({ at: f.at, level: want as 1 | 2 | 3 });
+      score.push({ at: f.at, level: want });
     }
   }
   cues.sort((a, b) => a.at - b.at);
-  return { intro, inputs, count, reduced, maxTier, surge, trail, order, phases, cues, flashes, shakes, score, faces, duration: end.at + end.dur };
+  return { intro, inputs, count, reduced, maxTier, surge, trail, order, phases, cues, flashes, shakes, score, hushes, faces, duration: end.at + end.dur };
 }
 
 function hasPhenomenon(g: PulledGalaxy): boolean {
@@ -363,8 +448,8 @@ const first = (s: Script, kind: PhaseKind) => s.phases.find((p) => p.kind === ki
 
 /**
  * Where «Seguir» (a click, Space) lands from `t`. A single pull: before the card, its card (the turn still plays);
- * during it, its wait; then the summary. Ten: before the deal, the deal; along the chain, the next close-up (or the
- * end); in a close-up, its way back. The reveal is never skipped, only hurried.
+ * during it, its wait; then the summary. Ten: before the deal, the deal; along the chain, the next close-up (a mythic's
+ * held breath first) or the end; in a close-up, its way back. The reveal is never skipped, only hurried.
  */
 export function nextStop(s: Script, t: number): number {
   const summary = first(s, 'resumen')!.at;
@@ -383,7 +468,8 @@ export function nextStop(s: Script, t: number): number {
     if (t < back - 1e-9) return back;
   }
   if (now.kind === 'final' || now.kind === 'resumen') return summary;
-  const next = s.phases.find((p) => p.at > t + 1e-9 && (p.kind === 'solo' || p.kind === 'final'));
+  // A mythic's held breath belongs to its close-up: Seguir stops there first.
+  const next = s.phases.find((p) => p.at > t + 1e-9 && (p.kind === 'solo' || p.kind === 'silencio' || p.kind === 'final'));
   return next?.at ?? summary;
 }
 

@@ -1,6 +1,6 @@
 import { TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { expect, test } from 'vitest';
-import { buildScript, GUION, maxFlashesPerSecond, nextStop, phaseAt, surgeRoll } from '../src/scanner/pro/script';
+import { buildScript, GUION, maxFlashesPerSecond, nextStop, phaseAt, raySets, surgeRoll } from '../src/scanner/pro/script';
 
 // The pro scanner's script (plan «escáner pro», part B): the whole cinematic as data — phases with their labels and
 // times, the sounds on them, the flashes, the music's layers and where «Seguir» lands — so the rhythm is tested and
@@ -64,14 +64,15 @@ test('una legendaria con fenómeno, destacada y holo: ascenso, fenómeno, fanfar
 // face, the shake, the surge, the top music layer), in its own colour, and never shorter.
 test('una mítica: impacto grande, fanfarria, destello iridiscente en su cara, temblor y la música a tope', () => {
   const s = buildScript([pull('mythic', { finish: 'prismatic', traits: { phenomenon: 'supernova' } })], { motion: 'full', surge: true });
-  expect(labels(s)).toEqual(['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'carta', 'fenomeno', 'espera-carta', 'resumen']);
+  expect(labels(s)).toEqual(['ignicion', 'salto', 'ascenso', 'caida', 'silencio', 'impacto', 'carta', 'fenomeno', 'espera-carta', 'resumen']);
   // The trail lies as a legendary, then breaks into the mythic.
   expect(s.trail).toEqual({ shown: 'legendary', max: 'mythic' });
   expect(ids(s)).toEqual(expect.arrayContaining(['ascenso', 'impacto-grande', 'fanfarria', 'acabado', 'fenomeno']));
   const reveal = s.cues.find((c) => c.id === 'revelar')!;
   expect(s.flashes.some((f) => f.color === 'mythic' && Math.abs(f.at - reveal.at) < 1e-9)).toBe(true);
   expect(s.shakes.some((k) => k.at > reveal.at)).toBe(true);
-  expect(s.score.at(-1)).toEqual({ at: reveal.at, level: 3 });
+  // M2: a fifth layer of music, the mythic's own.
+  expect(s.score.at(-1)).toEqual({ at: reveal.at, level: 4 });
   const legendary = buildScript([pull('legendary', { traits: { phenomenon: 'supernova' } })], { motion: 'full', surge: true });
   expect(phase(s, 'espera-carta').at).toBeGreaterThanOrEqual(phase(legendary, 'espera-carta').at);
   // The surge can happen on a mythic, at least as often as on a legendary.
@@ -79,11 +80,115 @@ test('una mítica: impacto grande, fanfarria, destello iridiscente en su cara, t
 });
 
 test('cada duración por rareza tiene la de la mítica, nunca menor que la de la legendaria', () => {
-  const rows = [GUION.single.ignicion, GUION.single.salto, GUION.single.ascenso, GUION.single.caida, GUION.single.impacto, GUION.single.paron, GUION.single.carta, GUION.ten.ignicion, GUION.ten.salto, GUION.ten.ascenso, GUION.ten.gap, GUION.ten.solo.quieto, GUION.fusion.orbita, GUION.fusion.ascenso, GUION.fusion.colapso, GUION.flash.impact, GUION.shake.impact];
+  const rows = [GUION.single.ignicion, GUION.single.salto, GUION.single.ascenso, GUION.single.caida, GUION.single.impacto, GUION.single.paron, GUION.single.carta, GUION.ten.ignicion, GUION.ten.salto, GUION.ten.ascenso, GUION.ten.gap, GUION.ten.solo.quieto, GUION.fusion.orbita, GUION.fusion.ascenso, GUION.fusion.colapso, GUION.flash.impact, GUION.shake.impact, GUION.shake.impactDur, GUION.shake.face, GUION.shake.faceDur, GUION.rays];
   for (const row of rows) {
     expect(row).toHaveLength(TIERS.length);
     expect(row[5]!).toBeGreaterThanOrEqual(row[4]!);
   }
+});
+
+// Plan «rareza Mítica» M2: a more epic reveal for a mythic only — a held breath right before its impact (silent, the
+// music ducked), the impact's flash in its iridescent tones instead of white, twice the god rays, longer shakes (never
+// stronger), its own music layer. A legendary keeps every number it had.
+const inside = (s: ReturnType<typeof buildScript>, at: number, dur: number) => s.cues.filter((c) => c.at > at - 1e-9 && c.at < at + dur - 1e-9);
+
+test('una mítica contiene el aliento justo antes del impacto: un silencio corto, sin sonidos y con la música agachada', () => {
+  const s = buildScript([pull('mythic')], { motion: 'full', surge: false });
+  const hush = phase(s, 'silencio');
+  expect(hush.kind).toBe('silencio');
+  expect(hush.dur).toBe(GUION.silencio.full);
+  expect(hush.dur).toBeGreaterThanOrEqual(0.4);
+  expect(hush.dur).toBeLessThanOrEqual(1);
+  expect(phase(s, 'impacto').at).toBeCloseTo(hush.at + hush.dur, 6);
+  expect(inside(s, hush.at, hush.dur)).toEqual([]);
+  expect(s.hushes).toEqual([{ at: hush.at, dur: hush.dur }]);
+  expect(GUION.silencio.duck).toBeGreaterThan(0);
+  expect(GUION.silencio.duck).toBeLessThan(0.5);
+});
+
+test('el destello del impacto de una mítica es iridiscente; el de una legendaria sigue blanco', () => {
+  const strike = (s: ReturnType<typeof buildScript>) => {
+    const hit = phase(s, 'impacto');
+    return s.flashes.find((f) => Math.abs(f.at - (hit.at + (hit.lead ?? 0))) < 1e-9)!;
+  };
+  const mythic = buildScript([pull('mythic')], { motion: 'full', surge: false });
+  expect(strike(mythic)).toMatchObject({ color: 'mythic', alpha: GUION.flash.impact[5] });
+  expect(strike(mythic).alpha).toBeLessThanOrEqual(0.6);
+  const legendary = buildScript([pull('legendary')], { motion: 'full', surge: false });
+  expect(strike(legendary)).toMatchObject({ color: 'white', alpha: GUION.flash.impact[4] });
+  // Ten with a mythic: the shared impact is the mythic's.
+  const ten = buildScript([pull('mythic'), ...Array.from({ length: 9 }, () => pull('common'))], { motion: 'full', surge: false });
+  expect(strike(ten).color).toBe('mythic');
+});
+
+test('una mítica tiembla más rato que una legendaria, nunca más fuerte de lo que ya temblaba', () => {
+  const shakes = (tier: Tier) => buildScript([pull(tier)], { motion: 'full', surge: false }).shakes;
+  const [legendaryHit, legendaryFace] = shakes('legendary');
+  const [mythicHit, mythicFace] = shakes('mythic');
+  // The legendary's, as they were.
+  expect(legendaryHit).toMatchObject({ amp: 1, dur: 0.85 });
+  expect(legendaryFace).toMatchObject({ amp: 0.5, dur: 0.35 });
+  expect(mythicHit!.dur).toBeGreaterThan(legendaryHit!.dur);
+  expect(mythicFace!.dur).toBeGreaterThan(legendaryFace!.dur);
+  expect(mythicHit!.amp).toBe(GUION.shake.impact[5]);
+  expect(mythicFace!.amp).toBe(0.6);
+});
+
+test('una mítica tiene el doble de rayos de luz que una legendaria; por debajo, ninguno', () => {
+  expect(raySets('mythic')).toBe(2 * raySets('legendary'));
+  expect(raySets('legendary')).toBe(1);
+  expect(raySets('epic')).toBe(0);
+});
+
+test('una legendaria no contiene el aliento ni sube a la capa de música de la mítica', () => {
+  for (const tier of TIERS.filter((t) => t !== 'mythic')) {
+    for (const motion of ['full', 'reduced'] as const) {
+      const s = buildScript([pull(tier, { traits: { phenomenon: 'pulsar' } })], { motion, surge: true });
+      expect(labels(s)).not.toContain('silencio');
+      expect(s.hushes).toEqual([]);
+      expect(Math.max(...s.score.map((x) => x.level))).toBeLessThanOrEqual(3);
+    }
+  }
+});
+
+test('diez con una mítica: el silencio va justo antes de su primer plano, y Seguir se para en él', () => {
+  const pulls = [pull('common'), pull('legendary'), pull('mythic'), pull('rare'), pull('common'), pull('uncommon'), pull('common'), pull('epic'), pull('common'), pull('uncommon')];
+  const s = buildScript(pulls, { motion: 'full', surge: false });
+  const hush = phase(s, 'silencio');
+  const solo = phase(s, 'solo-9');
+  expect(solo.tier).toBe('mythic');
+  // It belongs to the mythic's card: the progress already counts it.
+  expect(hush).toMatchObject({ slot: 9, index: solo.index });
+  expect(solo.at).toBeCloseTo(hush.at + hush.dur, 6);
+  expect(labels(s).filter((l) => l === 'silencio')).toHaveLength(1);
+  expect(inside(s, hush.at, hush.dur)).toEqual([]);
+  expect(s.hushes).toEqual([{ at: hush.at, dur: hush.dur }]);
+  expect(s.score.at(-1)!.level).toBe(4);
+  expect(nextStop(s, phase(s, 'solo-8').at + phase(s, 'solo-8').dur - 0.05)).toBeCloseTo(hush.at, 6);
+  expect(nextStop(s, hush.at + 0.1)).toBeCloseTo(solo.at, 6);
+  expect(maxFlashesPerSecond(s.flashes)).toBeLessThanOrEqual(2);
+  // After a cascade, the last card's face (which lands just past its own phase) is heard before the hush begins.
+  const cascade = buildScript([...Array.from({ length: 9 }, (_, i) => pull(i % 3 === 0 ? 'rare' : 'common')), pull('mythic')], { motion: 'full', surge: false });
+  const quiet = cascade.hushes[0]!;
+  expect(quiet.dur).toBe(GUION.silencio.full);
+  expect(inside(cascade, quiet.at, quiet.dur)).toEqual([]);
+  expect(cascade.cues.filter((c) => c.id === 'revelar')).toHaveLength(10);
+  expect(phase(cascade, 'solo-9').at).toBeCloseTo(quiet.at + quiet.dur, 6);
+});
+
+test('con movimiento reducido el silencio se queda (no es movimiento), sin destellos ni temblores', () => {
+  const one = buildScript([pull('mythic')], { motion: 'reduced' });
+  expect(labels(one)).toEqual(['ignicion', 'silencio', 'carta', 'espera-carta', 'resumen']);
+  expect(phase(one, 'silencio').dur).toBe(GUION.silencio.calm);
+  expect(one.hushes).toHaveLength(1);
+  expect(one.flashes).toEqual([]);
+  expect(one.shakes).toEqual([]);
+  const ten = buildScript([pull('common'), pull('mythic'), pull('rare'), pull('common'), pull('common'), pull('common'), pull('common'), pull('common'), pull('common'), pull('common')], { motion: 'reduced' });
+  const hush = phase(ten, 'silencio');
+  expect(ten.phases[ten.phases.indexOf(hush) + 1]!.label).toBe('giro-9');
+  const quiet = ten.hushes[0]!;
+  expect(quiet.at + quiet.dur).toBeCloseTo(hush.at + hush.dur, 6);
+  expect(inside(ten, quiet.at, quiet.dur)).toEqual([]);
 });
 
 test('diez con una mítica: la última en primer plano, con su fanfarria', () => {

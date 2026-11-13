@@ -1,5 +1,6 @@
 import { atLeast, TIERS, type Tier } from '@galaxy/shared';
 import type { BankSound } from '../../audio/bank';
+import { detunedPair, MYTHIC_CHORD } from '../sfx';
 import { type CueId, SURGE_LEAD } from './script';
 
 // The pro scanner's sounds (plan «escáner pro», part B), one per moment of the script. Each is synthesised here with
@@ -16,13 +17,14 @@ export interface CueOpts {
 }
 
 /**
- * Spanish names for the files of tiered sounds (`revelar-rara`). The mythic (plan «rareza Mítica» M1) has no file of
- * its own yet: it plays the legendary's when there is one, and its own richer recipe otherwise.
+ * Spanish names for the files of tiered sounds (`revelar-rara`). The mythic (plan «rareza Mítica» M2) has a chord of
+ * its own, so a file of its own too (`revelar-mitica`): until there is one, its own recipe plays, never the legendary's.
  */
-export const TIER_FILE: Record<Tier, string> = { common: 'comun', uncommon: 'poco-comun', rare: 'rara', epic: 'epica', legendary: 'legendaria', mythic: 'legendaria' };
+export const TIER_FILE: Record<Tier, string> = { common: 'comun', uncommon: 'poco-comun', rare: 'rara', epic: 'epica', legendary: 'legendaria', mythic: 'mitica' };
 
 // Chord notes (Hz) per tier, brighter the rarer: a fifth, a triad, a seventh, a ninth, a shining arpeggio, and the
-// mythic's: the legendary's arpeggio climbing an octave higher.
+// mythic's: the legendary's arpeggio climbing an octave higher (only its surge's burst uses it: its card sounds
+// MYTHIC_CHORD, a swell under a Lydian bloom, through `mythicChord`).
 const CHORDS: Record<Tier, number[]> = {
   common: [261.63, 392],
   uncommon: [293.66, 369.99, 440],
@@ -88,7 +90,25 @@ function hiss(ctx: BaseAudioContext, out: AudioNode, at: number, type: BiquadFil
 
 const tierOf = (o: CueOpts) => TIERS.indexOf(o.tier ?? 'common');
 
+/**
+ * The mythic's own chord (plan «rareza Mítica» M2), weightier than the classic reveal's: a low swell growing under a
+ * G Lydian stack that blooms upward, every voice a detuned pair that shimmers, and a soft octave over the top voices.
+ */
+function mythicChord(ctx: BaseAudioContext, out: AudioNode, at: number, level: number) {
+  MYTHIC_CHORD.swell.forEach((hz, i) => osc(ctx, out, at, 'sine', hz, hz, 3.2, level * (i === 0 ? 0.2 : 0.11), 0.6));
+  const peak = (level * 0.2) / Math.sqrt(MYTHIC_CHORD.bloom.length * 2);
+  MYTHIC_CHORD.bloom.forEach((hz, i) => {
+    const t = at + 0.1 + i * MYTHIC_CHORD.stagger;
+    for (const v of detunedPair(hz)) osc(ctx, out, t, i < 4 ? 'triangle' : 'sine', v, v, 2.4 + i * 0.06, peak, 0.05);
+    if (i >= MYTHIC_CHORD.bloom.length - 3) osc(ctx, out, t + 0.04, 'sine', hz * 2, hz * 2, 1.8, peak * 0.4, 0.06);
+  });
+}
+
 function chord(ctx: BaseAudioContext, out: AudioNode, at: number, tier: Tier, level: number) {
+  if (tier === 'mythic') {
+    mythicChord(ctx, out, at, level);
+    return;
+  }
   const notes = CHORDS[tier];
   const k = TIERS.indexOf(tier);
   notes.forEach((hz, i) => {

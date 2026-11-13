@@ -227,6 +227,8 @@ function paintOverlay(latest: MutableRefObject<ProCinemaProps>, slots: readonly 
     style.setProperty('--bars', rig.bars.toFixed(4));
     style.setProperty('--black', rig.black.toFixed(4));
     style.setProperty('--flash', rig.flash.toFixed(4));
+    // A mythic's iridescent flash turns its tones by this (plan «rareza Mítica» M2).
+    style.setProperty('--sweep', rig.sweep.toFixed(4));
     style.setProperty('--stamp', rig.stamp.toFixed(4));
     style.setProperty('--featured', rig.featured.toFixed(4));
     style.setProperty('--phen', rig.phenomenon.toFixed(4));

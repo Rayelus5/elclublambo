@@ -118,10 +118,89 @@ for (const [width, height] of [
     await until(() => document.querySelector('.crt[data-step="card"]') !== null);
     watch.disconnect();
     expect(steps.indexOf('glitch')).toBeGreaterThan(steps.indexOf('scan'));
-    expect(steps.indexOf('card')).toBeGreaterThan(steps.indexOf('glitch'));
+    // M2: then it holds its breath, right before the card.
+    expect(steps.indexOf('hush')).toBeGreaterThan(steps.indexOf('glitch'));
+    expect(steps.indexOf('card')).toBe(steps.indexOf('hush') + 1);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
   }, 60_000);
 }
+
+// Plan «rareza Mítica» M2: a Mítica's card comes after a held breath (the screen dims), and lands with twice the
+// beams, one flash sweeping its four iridescent tones and a longer shake. A legendary's stays exactly as it was.
+const shots = !!import.meta.env['VITE_REVEAL_SHOTS'];
+function mountClassic(g: PulledGalaxy) {
+  document.body.style.margin = '0';
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  root = createRoot(host);
+  root.render(createElement(RevealStage, { pulls: [g], onClose: () => {} }));
+}
+/** The flash's and the shake's own animations (not the dialog's entrance). */
+const fxAnimations = () =>
+  [...document.querySelectorAll<HTMLElement>('.reveal-flash, .modal.reveal-stage')]
+    .flatMap((el) => el.getAnimations())
+    .filter((a) => /^(reveal-flash|iris-sweep|reveal-shake-long)$/.test((a as CSSAnimation).animationName ?? ''));
+/** Holds the flash and the shake still `ms` into their animation, for a screenshot of that very moment. */
+function freeze(ms: number) {
+  for (const a of fxAnimations()) {
+    a.pause();
+    a.currentTime = ms;
+  }
+}
+
+for (const [width, height] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`la carta de una mítica a ${width}×${height}: silencio, doble haz, destello iridiscente y temblor largo`, async () => {
+    await page.viewport(width, height);
+    mountClassic({ ...pulled('mythic'), featured: false });
+    await until(() => document.querySelector('.crt[data-step="hush"]') !== null);
+    // The dim fades in over .35 s.
+    await new Promise((r) => setTimeout(r, 250));
+    expect(getComputedStyle(document.querySelector('.crt-screen')!).filter).toContain('brightness');
+    if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-hush-${width}.png` });
+    await until(() => document.querySelector('.crt[data-step="card"]') !== null);
+    expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(2);
+    expect(document.querySelector('.modal.reveal-stage')!.classList.contains('shake-long')).toBe(true);
+    await until(() => document.querySelector('.reveal-flash') !== null, 3000);
+    const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
+    expect(flash.dataset['iris']).toBe('true');
+    expect(getComputedStyle(flash).backgroundImage).toContain('conic-gradient');
+    expect(getComputedStyle(flash).animationName).toContain('iris-sweep');
+    freeze(200);
+    if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-flash-${width}.png` });
+    freeze(700);
+    if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-flash-late-${width}.png` });
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+    // The shake lets go after its 0,9 s.
+    for (const a of fxAnimations()) a.play();
+    await until(() => !document.querySelector('.modal.reveal-stage')!.classList.contains('shake'), 3000);
+    if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-beams-${width}.png` });
+  }, 60_000);
+}
+
+test('la carta de una legendaria sigue como estaba: sin silencio, un haz, temblor corto y destello de su color', async () => {
+  await page.viewport(1280, 720);
+  mountClassic({ ...pulled('legendary'), featured: false });
+  const steps: string[] = [];
+  const watch = new MutationObserver(() => {
+    const st = document.querySelector('.crt')?.getAttribute('data-step');
+    if (st && steps.at(-1) !== st) steps.push(st);
+  });
+  watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step'], childList: true });
+  await until(() => document.querySelector('.crt[data-step="card"]') !== null);
+  watch.disconnect();
+  expect(steps).not.toContain('hush');
+  expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(1);
+  const modal = document.querySelector('.modal.reveal-stage')!;
+  expect(modal.classList.contains('shake')).toBe(true);
+  expect(modal.classList.contains('shake-long')).toBe(false);
+  await until(() => document.querySelector('.reveal-flash') !== null, 3000);
+  const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
+  expect(flash.dataset['iris']).toBeUndefined();
+  expect(getComputedStyle(flash).backgroundImage).not.toContain('conic-gradient');
+}, 60_000);
 
 // «¡Escanear otra!» and «Colección» (Nov plan A1): the summary's buttons fit, with the missing line over them.
 for (const [width, height] of [

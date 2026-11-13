@@ -4,8 +4,10 @@ import { createBank, filesByName, pickFormat } from '../src/audio/bank';
 import { holdMusic, musicPlaying, startMusic, stopMusic } from '../src/audio/music';
 import { setSettings } from '../src/audio/mixer';
 import { createScore } from '../src/audio/score';
-import { foldTail, SCORE_LENGTH, writeLayer } from '../src/audio/stems-synth';
+import { foldTail, resetStems, SCORE_BARS, SCORE_LENGTH, writeLayer } from '../src/audio/stems-synth';
 import { PRO_SOUNDS, type ProSound, TIER_FILE } from '../src/scanner/pro/cues';
+import { resetMythicStem, writeMythicLayer } from '../src/scanner/pro/mythic-stem';
+import { MUSIC_FILES, proStems } from '../src/scanner/pro/sounds';
 import { FakeAudioContext, FakeBuffer, fakeContext } from './fake-audio';
 
 // The pro scanner's sound (plan «escáner pro», part B): every moment has a synthesised sound, scheduled on the audio
@@ -72,8 +74,108 @@ test('cada sonido del guion tiene receta y nombre de archivo, y nunca suena ante
   }
   const file = PRO_SOUNDS.revelar.file as (o: { tier: 'legendary' | 'mythic' }) => string;
   expect(file({ tier: 'legendary' })).toBe(`revelar-${TIER_FILE.legendary}`);
-  // No file of its own: a mythic plays the legendary's file when there is one (its own recipe otherwise).
-  expect(file({ tier: 'mythic' })).toBe(`revelar-${TIER_FILE.legendary}`);
+  // Plan «rareza Mítica» M2: a mythic has its own chord, so its own file name (never the legendary's file).
+  expect(file({ tier: 'mythic' })).toBe('revelar-mitica');
+});
+
+/** The frequency each oscillator starts on, for every oscillator `f` creates on a fake context. */
+function notesOf(f: (ctx: ReturnType<typeof fakeContext>) => void): { hz: number; at: number }[] {
+  const ctx = fakeContext();
+  const params: { moves: { value: number; at: number }[] }[] = [];
+  const make = ctx.createOscillator.bind(ctx);
+  ctx.createOscillator = (() => {
+    const o = make();
+    params.push(o.frequency);
+    return o;
+  }) as never;
+  f(ctx);
+  return params.map((p) => ({ hz: p.moves[0]!.value, at: p.moves[0]!.at }));
+}
+const pitchClass = (hz: number) => (((Math.round(12 * Math.log2(hz / 440) + 69) % 12) + 12) % 12);
+
+test('la cara de una mítica suena su propio acorde, no el arpegio de la legendaria', () => {
+  const play = (tier: 'legendary' | 'mythic') => notesOf((ctx) => PRO_SOUNDS.revelar.synth(ctx, ctx.destination as unknown as AudioNode, 2, { tier })).map((n) => n.hz);
+  const legendary = play('legendary');
+  const mythic = play('mythic');
+  // The legendary's arpeggio, as it was: its six notes and their soft octaves.
+  expect(legendary).toEqual([392, 784, 493.88, 987.76, 587.33, 1174.66, 739.99, 1479.98, 880, 1760, 1174.66, 2349.32]);
+  expect(Math.min(...mythic)).toBeLessThan(150);
+  expect(mythic.some((hz) => pitchClass(hz) === 1)).toBe(true);
+  expect(legendary.some((hz) => pitchClass(hz) === 1)).toBe(false);
+  expect(mythic.length).toBeGreaterThan(legendary.length);
+  // The summary's softer chord is the mythic's own too.
+  const summary = notesOf((ctx) => PRO_SOUNDS.resumen.synth(ctx, ctx.destination as unknown as AudioNode, 2, { tier: 'mythic' })).map((n) => n.hz);
+  expect(summary.some((hz) => pitchClass(hz) === 1)).toBe(true);
+});
+
+test('la música de la mítica: una quinta capa que solo entra con una mítica', () => {
+  const ctx = fakeContext();
+  const layers = [0, 1, 2, 3, 4].map(() => new FakeBuffer(2, 100, 8000) as unknown as AudioBuffer);
+  const score = createScore(ctx, ctx.destination as unknown as AudioNode, layers);
+  score.start(1);
+  expect(ctx.started.filter((s) => s.kind === 'buffer')).toHaveLength(5);
+  const gains = ctx.gains.slice(0, 5);
+  const lastLinear = (g: (typeof gains)[number]) => g.gain.moves.filter((m) => m.kind === 'linear').at(-1)?.value ?? 0;
+  score.level(3, 4);
+  expect(lastLinear(gains[3]!)).toBe(1);
+  expect(lastLinear(gains[4]!)).toBe(0);
+  score.level(4, 6);
+  expect(lastLinear(gains[4]!)).toBe(1);
+});
+
+test('el silencio de una mítica agacha la música y la devuelve, sin tocar las capas', () => {
+  const ctx = fakeContext();
+  const layers = [0, 1, 2, 3, 4].map(() => new FakeBuffer(2, 100, 8000) as unknown as AudioBuffer);
+  const score = createScore(ctx, ctx.destination as unknown as AudioNode, layers);
+  score.start(0);
+  const master = ctx.gains[5]!;
+  score.duck(3, 0.7, 0.2);
+  const ramps = master.gain.moves.filter((m) => m.kind === 'linear');
+  expect(ramps[0]).toMatchObject({ value: 0.2 });
+  expect(ramps[0]!.at).toBeGreaterThan(3);
+  expect(ramps[0]!.at).toBeLessThanOrEqual(3.3);
+  expect(ramps.at(-1)).toMatchObject({ value: 1 });
+  expect(ramps.at(-1)!.at).toBeGreaterThanOrEqual(3.7);
+  expect(ramps.at(-1)!.at).toBeLessThan(4.2);
+  score.unduck(3.2);
+  expect(master.gain.moves.at(-1)).toMatchObject({ kind: 'linear', value: 1 });
+  expect(master.gain.moves.at(-1)!.at).toBeLessThan(3.6);
+});
+
+test('la capa de la mítica se escribe dentro del bucle y solo con notas de los acordes que ya suenan en cada compás', () => {
+  const bar = SCORE_LENGTH / SCORE_BARS;
+  const others = [...notesOf((ctx) => writeLayer(ctx, ctx.destination as unknown as AudioNode, 0)), ...notesOf((ctx) => writeLayer(ctx, ctx.destination as unknown as AudioNode, 1))].filter((n) => n.hz > 150);
+  const mythic = notesOf((ctx) => writeMythicLayer(ctx, ctx.destination as unknown as AudioNode));
+  expect(mythic.length).toBeGreaterThan(20);
+  expect(Math.max(...mythic.map((n) => n.at))).toBeLessThan(SCORE_LENGTH);
+  for (const n of mythic) {
+    const b = Math.floor((n.at + 1e-6) / bar);
+    const chord = new Set(others.filter((o) => Math.floor((o.at + 1e-6) / bar) === b).map((o) => pitchClass(o.hz)));
+    expect(chord.has(pitchClass(n.hz))).toBe(true);
+  }
+});
+
+test('sin archivos, la música trae cinco capas sincronizadas: las cuatro y la de la mítica, del mismo largo', async () => {
+  class FakeOffline extends FakeAudioContext {
+    constructor(
+      readonly channels: number,
+      readonly length: number,
+      rate: number,
+    ) {
+      super();
+      this.sampleRate = rate;
+    }
+    startRendering = async () => new FakeBuffer(this.channels, this.length, this.sampleRate);
+  }
+  vi.stubGlobal('OfflineAudioContext', FakeOffline);
+  resetStems();
+  resetMythicStem();
+  const layers = await proStems(fakeContext());
+  expect(layers).toHaveLength(5);
+  expect(new Set(layers!.map((l) => l.length)).size).toBe(1);
+  expect(MUSIC_FILES).toHaveLength(4);
+  resetStems();
+  resetMythicStem();
 });
 
 test('la música: las cuatro capas arrancan a la vez y entran según la rareza más alta vista', () => {

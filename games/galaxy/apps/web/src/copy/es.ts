@@ -790,7 +790,9 @@ export const copy = {
     // The pro scanner's rehearsal (plan «escáner pro», part B): direct the cinematic without paying or saving anything.
     rehearsal: {
       title: 'Ensayo del escáner',
-      intro: 'Reproduce la presentación pro con tiradas inventadas: no se paga ni se guarda nada. Cambia las duraciones, repítela y copia el guion para pasarlo',
+      intro: 'Reproduce la presentación del escáner, clásica o pro, con tiradas inventadas: no se paga ni se guarda nada. En la pro cambia las duraciones, repítela y copia el guion para pasarlo',
+      presentation: 'Presentación',
+      presentations: { classic: 'Clásica', pro: 'Pro' },
       count: 'Tiradas',
       counts: { one: 'Una', ten: 'Diez' },
       origin: 'Origen',
@@ -820,7 +822,7 @@ export const copy = {
       pause: 'Pausa',
       resume: 'Seguir',
       replay: 'Repetir',
-      families: { ignicion: 'Ignición', salto: 'Salto', ascenso: 'Ascenso', caida: 'Caída', orbita: 'Órbita', colapso: 'Colapso', impacto: 'Impacto', carta: 'Carta', fenomeno: 'Fenómeno', reparto: 'Reparto', giro: 'Entre giros', solo: 'Primer plano', final: 'Final', resumen: 'Resumen' } as Record<string, string>,
+      families: { ignicion: 'Ignición', salto: 'Salto', ascenso: 'Ascenso', caida: 'Caída', orbita: 'Órbita', colapso: 'Colapso', silencio: 'Silencio de la mítica', impacto: 'Impacto', carta: 'Carta', fenomeno: 'Fenómeno', reparto: 'Reparto', giro: 'Entre giros', solo: 'Primer plano', final: 'Final', resumen: 'Resumen' } as Record<string, string>,
     },
     search: 'Buscar por nombre, IP o clan',
     searchHint: 'Escribe un trozo del nombre, una IP o la etiqueta de un clan',
