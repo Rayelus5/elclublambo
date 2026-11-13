@@ -22,7 +22,7 @@ Esta carpeta guarda los archivos de audio de la cinemática del escáner (plan �
 | `impacto-grande` | Impacto de épica, legendaria o mítica: subgrave y cola larga | 1,5–2 s |
 | `reparto` | Las diez cartas caen en la rejilla | 0,7 s |
 | `giro` | Una carta se da la vuelta | 0,25 s |
-| `revelar-comun`, `revelar-poco-comun`, `revelar-rara`, `revelar-epica`, `revelar-legendaria` | La cara de la carta, uno por rareza. La mítica usa el de la legendaria | 1–2,5 s |
+| `revelar-comun`, `revelar-poco-comun`, `revelar-rara`, `revelar-epica`, `revelar-legendaria`, `revelar-mitica` | La cara de la carta, uno por rareza. Sin `revelar-mitica`, la mítica suena con su acorde sintetizado, nunca con el de la legendaria | 1–2,5 s |
 | `sello` | La rareza se estampa bajo el nombre | 0,3 s |
 | `fanfarria` | Las legendarias y las míticas | 2–2,5 s |
 | `fenomeno` | «Fenómeno detectado» | 1 s |
@@ -38,8 +38,10 @@ Esta carpeta guarda los archivos de audio de la cinemática del escáner (plan �
 | `musica-rara` | Entra con la primera carta rara |
 | `musica-epica` | Entra con la primera épica |
 | `musica-legendaria` | Entra con la primera legendaria o mítica |
+| `musica-mitica` | Opcional: entra con la primera mítica, encima de las otras cuatro |
 
 - **Las cuatro van juntas:** el mismo tempo, la misma duración y un bucle sin costura. Arrancan a la vez y solo cambia el volumen de cada capa.
-- **Si falta alguna** de las cuatro, suena la música sintetizada entera (72 bpm, 8 compases, unos 27 s).
+- **Si falta alguna** de las cuatro, suena la música sintetizada entera (72 bpm, 8 compases, unos 27 s), con su quinta capa sintetizada para la mítica.
+- **`musica-mitica` solo suena con las cuatro** y con el mismo tempo y duración. Sin ella, con las cuatro en la carpeta, una mítica tiene la música de la legendaria.
 - **Sonoridad:** unos −16 LUFS integrados en la base, picos a −1 dBTP como mucho.
 - **Sin silencio** al principio ni al final (el bucle salta del último instante al primero).

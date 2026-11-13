@@ -25,7 +25,7 @@ import {
 } from 'three';
 import { FOIL_FRAGMENT, FOIL_VERTEX } from '../../inspector/foil';
 import { drawMask } from '../../inspector/textures';
-import { GUION, type Script, type TrailTint } from './script';
+import { GUION, raySets, type Script, type TrailTint } from './script';
 import { GRID, RING, type Rig, ringSpot, SINGLE } from './timeline';
 
 /** The four tones the mythic's iridescent frame turns through (styles/app.css --color-iris-1…4). */
@@ -280,16 +280,23 @@ void main() {
   gl_FragColor = vec4(uColor * (ring + fill), 1.0);
 }`;
 
+// The god rays: 18 long and 10 short turning behind the card. A mythic (plan «rareza Mítica» M2) has twice as many: a
+// second set between the first's (|cos| where the first is |sin|), turning with it — one rigid wheel, never a flicker —
+// each ray a little dimmer so the light round the card stays about as bright.
 const RAYS_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
 uniform float uAmount;
 uniform float uTime;
+uniform float uSets;
 varying vec2 vUv;
 void main() {
   vec2 c = vUv - 0.5;
   float r = length(c) * 2.0;
   float ang = atan(c.y, c.x);
-  float rays = pow(abs(sin(ang * 9.0 + uTime * 0.35)), 10.0) + 0.6 * pow(abs(sin(ang * 5.0 - uTime * 0.22)), 14.0);
+  float a = ang * 9.0 + uTime * 0.35;
+  float b = ang * 5.0 - uTime * 0.22;
+  float rays = pow(abs(sin(a)), 10.0) + 0.6 * pow(abs(sin(b)), 14.0);
+  if (uSets > 1.5) rays = 0.8 * (rays + pow(abs(cos(a)), 12.0) + 0.6 * pow(abs(cos(b)), 16.0));
   float fall = smoothstep(1.0, 0.1, r);
   float core = smoothstep(0.45, 0.0, r) * 0.6;
   gl_FragColor = vec4(uColor * (rays * fall * 0.75 + core) * uAmount, 1.0);
@@ -440,7 +447,7 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
   const ring2 = new Mesh(plane(1, 1), shader(RING_FRAGMENT, ring2Uniforms));
   ring.renderOrder = ring2.renderOrder = 4;
   scene.add(ring, ring2);
-  const raysUniforms = { uColor: { value: color('legendary') }, uAmount: { value: 0 }, uTime: { value: 0 } };
+  const raysUniforms = { uColor: { value: color('legendary') }, uAmount: { value: 0 }, uTime: { value: 0 }, uSets: { value: 1 } };
   // A mythic's rays turn through the four iridescent tones of its card (still with reduced motion).
   const legendaryRays = color('legendary');
   const iris = IRIS.map((c) => new Color(c));
@@ -682,7 +689,9 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
       if (rays.visible) {
         const fc = rig.cards[lastFocus] ?? rig.cards[0]!;
         rays.position.set(fc.x, fc.y, fc.z - 0.4);
-        if (opts.cards[lastFocus]?.galaxy.tier === 'mythic') {
+        const focused = opts.cards[lastFocus]?.galaxy.tier ?? 'legendary';
+        raysUniforms.uSets.value = Math.max(1, raySets(focused));
+        if (focused === 'mythic') {
           const turn = opts.reduced ? 0 : (clock * 0.45) % iris.length;
           const k = Math.floor(turn);
           raysUniforms.uColor.value.copy(iris[k]!).lerp(iris[(k + 1) % iris.length]!, turn - k);

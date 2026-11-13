@@ -38,8 +38,11 @@ export const SHOT = {
   photon: 22,
   shell: 23,
 } as const;
-/** Area kinds (sim.areas.kind). `bomblet`: a cluster shell's bomblet, a warned blast like the strike's. */
-export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6, cone: 7, field: 8, strike: 9, bomblet: 10 } as const;
+/**
+ * Area kinds (sim.areas.kind). `bomblet`: a cluster shell's bomblet, a warned blast like the strike's. `singularity`:
+ * a mythic relic's black hole while it pulls; `collapse`: its burst when it closes (plan «rareza Mítica» M2).
+ */
+export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6, cone: 7, field: 8, strike: 9, bomblet: 10, singularity: 11, collapse: 12 } as const;
 
 const RADIUS: Record<number, number> = { 0: 3, 1: 4, 2: 3, 3: 2.5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5, 9: 3, 10: 4, 11: 5, 12: 6, 13: 4, 14: 3, 15: 5, 16: 7, 17: 6, 18: 2.5, 19: 3, 20: 6, 21: 6, 22: 4, 23: 4 };
 /** Reach to pick the first target of an arc. */

@@ -361,6 +361,11 @@ const relics = z
       .strict(),
     quasar: z.object({ cooldown: pos, damage: n, pierce: z.number().int().min(0).max(1000), speed: n }).strict(),
     double: z.object({ delay: n }).strict(),
+    // The mythic's own power (plan «rareza Mítica» M2): content published before it gets the default.
+    singularity: z
+      .object({ cooldown: pos, seconds: pos, seek: n, radius: n, pull: n, blast: n, damage: n, push: n, clear: n })
+      .strict()
+      .default(DEFAULT_CONTENT.relics.singularity),
     backgrounds: z.record(
       z.string().regex(/^[a-z0-9_]{1,40}$/),
       z.object({ stat: z.union([z.enum(STAT_KEYS), z.literal('vision')]), value: z.number().min(-10).max(10) }).strict(),

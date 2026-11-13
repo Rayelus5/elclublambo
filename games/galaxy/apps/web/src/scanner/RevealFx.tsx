@@ -1,11 +1,12 @@
 import { type Tier } from '@galaxy/shared';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { burstFor, type Burst, type Particle, stepParticles } from './fx';
+import { burstFor, type Burst, type Particle, SHAKE_MS, stepParticles } from './fx';
 
 // The reveal's burst on screen (open beta): one canvas over the whole page (outside the dialog, which clips), with
-// the sparks, confetti and rings of `fx.ts`, a flash over everything from epic up (iridescent for a mythic), and a
-// short shake of the dialog for a legendary or a mythic. Pixel-sharp (no smoothing). Nothing at all with reduced motion.
+// the sparks, confetti and rings of `fx.ts`, a flash over everything from epic up, and a short shake of the dialog for
+// a legendary or a mythic. A mythic's flash sweeps once through its four iridescent tones and its shake lasts longer
+// (plan «rareza Mítica» M2). Pixel-sharp (no smoothing). Nothing at all with reduced motion.
 
 export interface FxTrigger {
   /** Changes with every card: the same id never bursts twice. */
@@ -16,7 +17,7 @@ export interface FxTrigger {
 
 export function RevealFx({ trigger, reduced }: { trigger: FxTrigger | null; reduced: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [flash, setFlash] = useState<{ key: string; strength: number; tier: Tier } | null>(null);
+  const [flash, setFlash] = useState<{ key: string; strength: number; ms: number; iris: boolean; tier: Tier } | null>(null);
 
   useEffect(() => {
     if (!trigger || reduced || typeof window === 'undefined') return;
@@ -31,11 +32,13 @@ export function RevealFx({ trigger, reduced }: { trigger: FxTrigger | null; redu
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.imageSmoothingEnabled = false;
     const burst: Burst = burstFor(trigger.tier, trigger.seed, w, h);
-    // Flash and shake are separate layers; both run their own CSS animation.
-    const show = burst.flash > 0 ? requestAnimationFrame(() => setFlash({ key: trigger.id, strength: burst.flash, tier: trigger.tier })) : 0;
+    // Flash and shake are separate layers; both run their own CSS animation (a mythic's longer one: `shake-long`).
+    const show = burst.flash > 0 ? requestAnimationFrame(() => setFlash({ key: trigger.id, strength: burst.flash, ms: burst.flashMs, iris: burst.flashTones.length > 0, tier: trigger.tier })) : 0;
     const stage = burst.shake ? document.querySelector('.modal.reveal-stage') : null;
+    const long = burst.shakeMs > SHAKE_MS;
     stage?.classList.add('shake');
-    const unshake = stage ? setTimeout(() => stage.classList.remove('shake'), 480) : undefined;
+    if (long) stage?.classList.add('shake-long');
+    const unshake = stage ? setTimeout(() => stage.classList.remove('shake', 'shake-long'), burst.shakeMs + 30) : undefined;
     let ps: Particle[] = burst.particles;
     let elapsed = 0;
     let last = performance.now();
@@ -79,7 +82,7 @@ export function RevealFx({ trigger, reduced }: { trigger: FxTrigger | null; redu
       cancelAnimationFrame(raf);
       cancelAnimationFrame(show);
       if (unshake) clearTimeout(unshake);
-      stage?.classList.remove('shake');
+      stage?.classList.remove('shake', 'shake-long');
       g.clearRect(0, 0, w, h);
     };
   }, [trigger, reduced]);
@@ -93,8 +96,9 @@ export function RevealFx({ trigger, reduced }: { trigger: FxTrigger | null; redu
           key={flash.key}
           className="reveal-flash"
           data-tier={flash.tier}
-          style={{ '--flash': flash.strength } as CSSProperties}
-          onAnimationEnd={() => setFlash(null)}
+          data-iris={flash.iris || undefined}
+          style={{ '--flash': flash.strength, '--flash-ms': `${flash.ms}ms` } as CSSProperties}
+          onAnimationEnd={(e) => e.animationName === 'reveal-flash' && setFlash(null)}
         />
       ) : null}
     </div>,

@@ -1,5 +1,6 @@
 import { TIERS, type GalaxySummary } from '@galaxy/shared';
 import { activeSets, type Content, describeRelic, type RelicInput, type RelicSkill, type SetBonus } from '@galaxy/sim';
+import { singularityOf } from '../api/content-read';
 import { copy } from '../copy/es';
 
 // What a galaxy does as a relic, in words (plan «escáner pro», part D; the owner: «se nos debe abrir otra ventana donde
@@ -11,7 +12,7 @@ const h = copy.hangar;
 const i = h.skillInfo;
 const s = h.sheet;
 
-export type PowerKind = 'family' | 'count' | 'shape' | 'frequency' | 'element' | 'phenomenon' | 'quasar' | 'double' | 'background' | 'power';
+export type PowerKind = 'family' | 'count' | 'shape' | 'frequency' | 'element' | 'phenomenon' | 'mythic' | 'quasar' | 'double' | 'background' | 'power';
 
 export interface SheetPower {
   kind: PowerKind;
@@ -88,6 +89,8 @@ export function relicSheet(g: GalaxySummary, content: Content, opts: { loadout?:
   if (skill.frequency !== 1) powers.push({ kind: 'frequency', name: s.frequencyName, text: s.frequency(skill.frequency), from: s.from.frequency });
   if (skill.element) powers.push({ kind: 'element', name: h.elements[skill.element], text: i.element[skill.element], from: i.from.element });
   if (skill.phenomenon) powers.push({ kind: 'phenomenon', name: h.phenomena[skill.phenomenon], text: i.phenomenon[skill.phenomenon], from: i.from.phenomenon });
+  // A mythic's own power (plan «rareza Mítica» M2), with its time from the live content.
+  if (skill.mythic) powers.push({ kind: 'mythic', name: i.mythicName, text: i.singularity(singularityOf(content).cooldown), from: i.from.mythic });
   if (skill.quasar) powers.push({ kind: 'quasar', name: s.quasarName, text: s.quasar(R.quasar.cooldown, R.quasar.pierce), from: s.from.core });
   if (skill.double && (skill.family === 'ray' || skill.family === 'chaos')) powers.push({ kind: 'double', name: s.doubleName, text: s.double, from: s.from.core });
   if (skill.background) {

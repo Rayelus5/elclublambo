@@ -800,6 +800,9 @@
     44% { transform: translate(8px, -2px) skewX(2deg); filter: brightness(1.45) hue-rotate(40deg) drop-shadow(-6px 0 0 rgb(255 0 90 / .7)); }
   }
   .crt[data-step='card'] .crt-screen { background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--tc) 38%, transparent), #03040c 66%); }
+  /* A Mítica holds its breath before its card (plan «rareza Mítica» M2): silence, and the screen dims a touch (a
+     fade, not motion: it stays with reduced motion). */
+  .crt[data-step='hush'] .crt-screen { filter: brightness(.5) saturate(.8); transition: filter .35s ease-out; }
   .stage-card { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
   .stage-card .gcard { pointer-events: auto; animation: card-in .6s var(--ease-bounce) both; }
   @keyframes card-in { from { opacity: 0; transform: perspective(900px) rotateY(80deg) scale(.82); } }
@@ -826,6 +829,15 @@
       color-mix(in oklab, var(--color-iris-2) 55%, transparent) 30deg 39deg, transparent 39deg 60deg,
       color-mix(in oklab, var(--color-iris-3) 55%, transparent) 60deg 69deg, transparent 69deg 90deg,
       color-mix(in oklab, var(--color-iris-4) 60%, transparent) 90deg 99deg, transparent 99deg 120deg); }
+  /* M2: twice the beams. A second set sits between the first's (15° on), its tones shifted so no two neighbours match,
+     a little thinner and longer; it turns with the first (one rigid wheel of 24, never a flicker). */
+  .stage-card[data-tier='mythic'] .stage-beams[data-set='2'] { rotate: 15deg;
+    background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--color-iris-3) 50%, transparent) 0deg 7deg, transparent 7deg 30deg,
+      color-mix(in oklab, var(--color-iris-4) 55%, transparent) 30deg 37deg, transparent 37deg 60deg,
+      color-mix(in oklab, var(--color-iris-1) 55%, transparent) 60deg 67deg, transparent 67deg 90deg,
+      color-mix(in oklab, var(--color-iris-2) 50%, transparent) 90deg 97deg, transparent 97deg 120deg);
+    -webkit-mask-image: radial-gradient(circle, #000 14%, transparent 68%);
+    mask-image: radial-gradient(circle, #000 14%, transparent 68%); }
   @keyframes beams-turn { to { transform: rotate(360deg); } }
   @keyframes beams-in { from { opacity: 0; transform: scale(.6); } }
   .stage-featured { position: absolute; top: 8%; padding: 6px 14px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font: 400 18px var(--font-display); box-shadow: 0 4px 0 var(--color-solar-lip), 0 0 30px color-mix(in srgb, var(--color-solar) 70%, transparent); animation: featured-in .55s var(--ease-bounce) .35s both; }
@@ -835,21 +847,39 @@
   .summary-cards .summary-card.best .gcard { filter: drop-shadow(0 0 10px var(--tc)) drop-shadow(0 0 22px color-mix(in oklab, var(--tc) 60%, transparent)); }
   .reveal-fx { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
   .reveal-fx canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; image-rendering: pixelated; }
-  .reveal-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--tc) 70%, #fff) 26%, transparent 70%); animation: reveal-flash .7s ease-out both; }
-  .reveal-flash[data-tier='mythic'] { background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--color-iris-1) 65%, #fff) 18%, color-mix(in oklab, var(--color-iris-2) 45%, transparent) 36%, color-mix(in oklab, var(--color-iris-4) 30%, transparent) 52%, transparent 72%); }
+  .reveal-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--tc) 70%, #fff) 26%, transparent 70%); animation: reveal-flash var(--flash-ms, .7s) ease-out both; }
+  /* M2: a Mítica's flash is one rise and one fade (never brighter than a legendary's) whose colour sweeps once through
+     its four iridescent tones: a wheel of them turning a little more than half a turn round a soft white core. */
+  .reveal-flash[data-iris] {
+    background: radial-gradient(circle at 50% 46%, rgb(255 255 255 / .95) 0%, rgb(255 255 255 / .35) 12%, transparent 32%),
+      conic-gradient(from var(--iris) at 50% 46%, var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1));
+    -webkit-mask-image: radial-gradient(circle at 50% 46%, #000 20%, transparent 74%);
+    mask-image: radial-gradient(circle at 50% 46%, #000 20%, transparent 74%);
+    animation: reveal-flash var(--flash-ms, .9s) ease-out both, iris-sweep var(--flash-ms, .9s) cubic-bezier(.3, .6, .4, 1) both;
+  }
   @keyframes reveal-flash { 12% { opacity: var(--flash); } 100% { opacity: 0; } }
+  @keyframes iris-sweep { from { --iris: 0deg; } to { --iris: 200deg; } }
   .modal.reveal-stage.shake { animation: reveal-shake .45s steps(9) both; }
+  /* A Mítica's shake lasts twice as long as a legendary's, never wider (M2). */
+  .modal.reveal-stage.shake.shake-long { animation: reveal-shake-long .9s steps(9) both; }
 
   /* The pro scanner (plan «escáner pro», part B): the whole screen, black. The cinema (three.js) draws behind; the
      shell's overlays read CSS variables the player writes every frame (--bars, --black, --flash, --stamp, --featured,
      --phen): only transforms and opacities move. Captions live inside the cinema bands, like a film's titles. */
   .overlay:has(> .pro-stage) { padding: 0; background: #02030a; animation: none; }
   .lip.panel.modal.pro-stage { position: fixed; inset: 0; inline-size: 100vw; block-size: 100vh; max-inline-size: none; max-block-size: none; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: #02030a; box-shadow: none; overflow: hidden; }
-  .pro-root { --bars: 1; --black: 1; --flash: 0; --stamp: 0; --featured: 0; --phen: 0; --band: 12vh; position: absolute; inset: 0; overflow: hidden; cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .pro-root { --bars: 1; --black: 1; --flash: 0; --sweep: 0; --stamp: 0; --featured: 0; --phen: 0; --band: 12vh; position: absolute; inset: 0; overflow: hidden; cursor: pointer; user-select: none; -webkit-user-select: none; }
   .pro-canvas-host, .pro-canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; display: block; }
   .pro-veil { position: absolute; inset: 0; background: #02030a; opacity: var(--black); }
   .pro-flash { position: absolute; inset: 0; pointer-events: none; opacity: var(--flash); background: radial-gradient(circle at 50% 50%, #fff 0%, rgb(255 255 255 / .85) 40%, rgb(255 255 255 / .5) 100%); mix-blend-mode: screen; }
-  .pro-root[data-flash='mythic'] .pro-flash { background: radial-gradient(circle at 50% 50%, #fff 0%, color-mix(in oklab, var(--color-iris-1) 70%, #fff) 22%, var(--color-iris-2) 48%, var(--color-iris-4) 72%, var(--color-iris-1) 100%); }
+  /* A mythic's flash (plan «rareza Mítica» M2): its four iridescent tones round a white core, the wheel turned by the
+     rig's --sweep (0 → 1, once, forwards) while the flash rises and fades. One flash, its colour moving: never a strobe. */
+  .pro-root[data-flash='mythic'] .pro-flash {
+    background: radial-gradient(circle at 50% 50%, #fff 0%, rgb(255 255 255 / .55) 12%, transparent 38%),
+      conic-gradient(from calc(var(--sweep) * 200deg) at 50% 50%, var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1));
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 34%, rgb(0 0 0 / .5) 100%);
+    mask-image: radial-gradient(circle at 50% 50%, #000 34%, rgb(0 0 0 / .5) 100%);
+  }
   .pro-root[data-flash='legendary'] .pro-flash { background: radial-gradient(circle at 50% 50%, #fff7d6 0%, var(--color-tier-legendary) 45%, var(--color-solar-2) 100%); }
   .pro-root[data-flash='epic'] .pro-flash { background: radial-gradient(circle at 50% 50%, #f1ecff 0%, var(--color-tier-epic) 50%, var(--color-uv) 100%); }
   .pro-root[data-flash='rare'] .pro-flash { background: radial-gradient(circle at 50% 50%, #eef7ff 0%, var(--color-tier-rare) 55%, var(--color-sky) 100%); }
@@ -925,6 +955,20 @@
     45% { translate: -4px -2px; }
     60% { translate: 4px 3px; }
     75% { translate: -2px 1px; }
+  }
+  /* The legendary's jolts at the same size, held longer, then settling. */
+  @keyframes reveal-shake-long {
+    0%, 100% { translate: 0 0; }
+    8% { translate: -6px 3px; }
+    16% { translate: 5px -4px; }
+    24% { translate: -4px -2px; }
+    32% { translate: 5px 3px; }
+    40% { translate: -6px 2px; }
+    48% { translate: 4px -3px; }
+    58% { translate: -3px -2px; }
+    68% { translate: 3px 2px; }
+    78% { translate: -2px 1px; }
+    88% { translate: 1px -1px; }
   }
   .summary-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
   .scan-again small { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgb(58 23 0 / .16); }
@@ -2062,8 +2106,9 @@
   .rehearsal-durations { margin: 0; padding: 16px 18px; border: 2px solid rgb(255 255 255 / .06); border-radius: 16px; }
   .rehearsal-durations legend { padding: 0 8px; font-weight: 700; }
   .rehearsal-durations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; margin-top: 10px; }
-  .rehearsal-duration { display: grid; gap: 6px; font-weight: 600; font-size: 14px; color: var(--color-ink-soft); }
-  .rehearsal-duration input { block-size: 40px; padding: 0 12px; border: 2px solid rgb(255 255 255 / .08); border-radius: 11px; background: var(--color-panel-2); color: var(--color-ink); font: 600 15px var(--font-sans); font-variant-numeric: tabular-nums; }
+  .rehearsal-duration { display: grid; gap: 6px; min-inline-size: 0; font-weight: 600; font-size: 14px; color: var(--color-ink-soft); }
+  /* Each input fills its column (never its default width: they overlapped and the last one left the page). */
+  .rehearsal-duration input { inline-size: 100%; min-inline-size: 0; block-size: 40px; padding: 0 12px; border: 2px solid rgb(255 255 255 / .08); border-radius: 11px; background: var(--color-panel-2); color: var(--color-ink); font: 600 15px var(--font-sans); font-variant-numeric: tabular-nums; }
   .rehearsal-duration input:focus-visible { border-color: var(--color-ice); outline: none; }
   .rehearsal-actions { margin-top: 0; }
   .rehearsal-hud { --r: 16px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgb(11 12 36 / .88); backdrop-filter: blur(6px); }
@@ -3630,6 +3675,9 @@
   .skill-kind.k-family { color: #cfc4ff; background: rgb(114 89 238 / .24); }
   .skill-kind.k-element { color: #9fd4ff; background: rgb(111 183 255 / .16); }
   .skill-kind.k-phenomenon { color: var(--color-solar); background: rgb(255 201 74 / .14); }
+  /* A mythic's own power (plan «rareza Mítica» M2), in the mythic's colour. */
+  .skill-kind.k-mythic { color: var(--color-tier-mythic); background: rgb(255 79 216 / .14); }
+  .skill-row.k-mythic { --k: var(--color-tier-mythic); }
   .skill-row.k-family { --k: #9b86ff; } .skill-row.k-element { --k: #6fb7ff; } .skill-row.k-phenomenon { --k: var(--color-solar); } .skill-row.k-power { --k: var(--color-terminal); }
   .skill-row.is-burn { --k: #ffa25c; } .skill-row.is-corrosion { --k: #7cf09a; } .skill-row.is-shock { --k: #c6a8ff; } .skill-row.is-leech { --k: #ff8aa0; } .skill-row.is-chain { --k: #ff8ae6; } .skill-row.is-pure { --k: #fff; } .skill-row.is-hack { --k: #ffd27a; } .skill-row.is-breach { --k: #5fe0b8; }
   .skill-name { font: 400 16px var(--font-display); }

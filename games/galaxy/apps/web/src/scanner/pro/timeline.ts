@@ -89,6 +89,8 @@ export interface Rig {
   impact: number;
   flash: number;
   flashColor: 'white' | TrailTint;
+  /** How far a mythic's iridescent flash has swept through its four tones (0 … 1, once, only forwards). */
+  sweep: number;
   shake: number;
   /** The god rays of a legendary or a mythic. */
   rays: number;
@@ -133,6 +135,7 @@ export function createRig(s: Script): Rig {
     impact: 0,
     flash: 0,
     flashColor: 'white',
+    sweep: 0,
     shake: 0,
     rays: 0,
     dim: 0,
@@ -272,6 +275,15 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         tl.fromTo(rig, { meteor: 0 }, { meteor: 1, duration: dur, ease: 'power1.in', immediateRender: false }, at);
         tl.to(rig, { nebula: 0.35, duration: dur, ease: 'power1.out' }, at);
         break;
+      case 'silencio': {
+        // A mythic's held breath (plan «rareza Mítica» M2): the screen dims a touch, then lifts as the next phase starts
+        // (the impact's boom, the close-up, the card). A fade, never motion: it stays with reduced motion.
+        const from = at + (p.lead ?? 0);
+        const hush = at + dur - from;
+        tl.to(rig, { black: GUION.silencio.dim, duration: Math.max(0.05, hush * 0.6), ease: 'power2.out' }, from);
+        tl.to(rig, { black: 0, duration: 0.12, ease: 'power2.out' }, at + dur);
+        break;
+      }
       case 'impacto': {
         // The hit-stop first: nothing moves, then the shockwave rolls out past the end of the phase.
         const strike = at + (p.lead ?? 0);
@@ -365,11 +377,14 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
     }
   }
 
-  // The lights and the camera's jolts, from the script (never under reduced motion: the script has none then).
+  // The lights and the camera's jolts, from the script (never under reduced motion: the script has none then). A
+  // mythic's flash sweeps its four iridescent tones once as it rises and fades: one flash, its colour turning, never
+  // a strobe.
   for (const f of s.flashes) {
     tl.set(rig, { flashColor: f.color }, f.at);
     tl.fromTo(rig, { flash: 0 }, { flash: f.alpha, duration: 0.05, ease: 'none', immediateRender: false }, f.at);
     tl.to(rig, { flash: 0, duration: 0.45, ease: 'power2.out' }, f.at + 0.05);
+    if (f.color === 'mythic') tl.fromTo(rig, { sweep: 0 }, { sweep: 1, duration: 0.5, ease: 'sine.out', immediateRender: false }, f.at);
   }
   for (const k of s.shakes) tl.fromTo(rig, { shake: k.amp }, { shake: 0, duration: k.dur, ease: 'power2.out', immediateRender: false }, k.at);
   // The timeline reaches the end of the summary even where nothing moves then.

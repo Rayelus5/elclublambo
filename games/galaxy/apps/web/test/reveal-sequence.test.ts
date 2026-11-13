@@ -1,6 +1,6 @@
 import { TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { expect, test } from 'vitest';
-import { GLITCH_FLASHES, revealSequence, skipToSummary } from '../src/scanner/reveal-sequence';
+import { advance, GLITCH_FLASHES, HUSH_MS, revealSequence, skipToSummary } from '../src/scanner/reveal-sequence';
 
 // The deep-field scan (GDD §9): static, signal bars, the scan in the rarity's colour, «Fenómeno detectado», the
 // screen failing on a Legendary, the card — pull after pull — and a summary at the end that Saltar jumps to.
@@ -44,11 +44,40 @@ test('un fenómeno se anuncia y una Legendaria hace fallar la pantalla antes de 
 });
 
 test('una Mítica también hace fallar la pantalla, y en una tirada de diez su carta dura al menos lo que la de una legendaria', () => {
-  expect(kinds(revealSequence([pull('mythic', 'supernova')], { reduced: false }))).toEqual(['static', 'signal', 'scan', 'phenomenon', 'glitch', 'card', 'summary']);
+  expect(kinds(revealSequence([pull('mythic', 'supernova')], { reduced: false }))).toEqual(['static', 'signal', 'scan', 'phenomenon', 'glitch', 'hush', 'card', 'summary']);
   expect(kinds(revealSequence([pull('mythic')], { reduced: true }))).not.toContain('glitch');
   const steps = revealSequence([pull('legendary', 'none', 'a'), pull('mythic', 'none', 'b')], { reduced: false });
   const card = (i: number) => steps.find((s) => s.kind === 'card' && s.index === i)!.ms;
   expect(card(1)).toBeGreaterThanOrEqual(card(0));
+});
+
+// Plan «rareza Mítica» M2: a Mítica's card comes after a held breath (silence, the screen dimmed a touch). It is not
+// motion, so it stays with reduced motion; nothing below a Mítica gets it.
+test('una Mítica contiene el aliento justo antes de su carta, menos de un segundo, también con movimiento reducido', () => {
+  const steps = revealSequence([pull('mythic')], { reduced: false });
+  const hush = steps.findIndex((s) => s.kind === 'hush');
+  expect(steps[hush + 1]!.kind).toBe('card');
+  expect(steps[hush]).toMatchObject({ index: 0, tier: 'mythic', ms: HUSH_MS });
+  expect(HUSH_MS).toBeGreaterThanOrEqual(400);
+  expect(HUSH_MS).toBeLessThan(1000);
+  const reduced = revealSequence([pull('mythic')], { reduced: true });
+  expect(kinds(reduced)).toEqual(['static', 'signal', 'scan', 'hush', 'card', 'summary']);
+  // In a run of ten too, right before the Mítica's own card.
+  const ten = revealSequence([pull('common', 'none', 'a'), pull('mythic', 'none', 'b')], { reduced: false });
+  expect(ten.filter((s) => s.kind === 'hush').map((s) => s.index)).toEqual([1]);
+});
+
+test('una Legendaria (ni nada por debajo) no contiene el aliento', () => {
+  for (const tier of TIERS.filter((t) => t !== 'mythic')) {
+    for (const reduced of [false, true]) expect(kinds(revealSequence([pull(tier, 'supernova')], { reduced }))).not.toContain('hush');
+  }
+});
+
+test('Seguir desde el escaneo de una Mítica va a su carta, como siempre', () => {
+  const steps = revealSequence([pull('mythic')], { reduced: false });
+  const scan = steps.findIndex((s) => s.kind === 'scan');
+  expect(steps[advance(steps, scan)]!.kind).toBe('card');
+  expect(steps[advance(steps, steps.findIndex((s) => s.kind === 'hush'))]!.kind).toBe('card');
 });
 
 test('el fallo de pantalla nunca destella más de tres veces por segundo', () => {

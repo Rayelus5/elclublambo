@@ -790,7 +790,9 @@ export const copy = {
     // The pro scanner's rehearsal (plan «escáner pro», part B): direct the cinematic without paying or saving anything.
     rehearsal: {
       title: 'Ensayo del escáner',
-      intro: 'Reproduce la presentación pro con tiradas inventadas: no se paga ni se guarda nada. Cambia las duraciones, repítela y copia el guion para pasarlo',
+      intro: 'Reproduce la presentación del escáner, clásica o pro, con tiradas inventadas: no se paga ni se guarda nada. En la pro cambia las duraciones, repítela y copia el guion para pasarlo',
+      presentation: 'Presentación',
+      presentations: { classic: 'Clásica', pro: 'Pro' },
       count: 'Tiradas',
       counts: { one: 'Una', ten: 'Diez' },
       origin: 'Origen',
@@ -820,7 +822,7 @@ export const copy = {
       pause: 'Pausa',
       resume: 'Seguir',
       replay: 'Repetir',
-      families: { ignicion: 'Ignición', salto: 'Salto', ascenso: 'Ascenso', caida: 'Caída', orbita: 'Órbita', colapso: 'Colapso', impacto: 'Impacto', carta: 'Carta', fenomeno: 'Fenómeno', reparto: 'Reparto', giro: 'Entre giros', solo: 'Primer plano', final: 'Final', resumen: 'Resumen' } as Record<string, string>,
+      families: { ignicion: 'Ignición', salto: 'Salto', ascenso: 'Ascenso', caida: 'Caída', orbita: 'Órbita', colapso: 'Colapso', silencio: 'Silencio de la mítica', impacto: 'Impacto', carta: 'Carta', fenomeno: 'Fenómeno', reparto: 'Reparto', giro: 'Entre giros', solo: 'Primer plano', final: 'Final', resumen: 'Resumen' } as Record<string, string>,
     },
     search: 'Buscar por nombre, IP o clan',
     searchHint: 'Escribe un trozo del nombre, una IP o la etiqueta de un clan',
@@ -2596,8 +2598,14 @@ export const copy = {
     } satisfies Record<PhenomenonId, string>,
     // What each relic skill does (the owner: «pulsar en cada tag de habilidad para ver más info»), from the sim.
     skillInfo: {
-      kinds: { family: 'Pasiva', element: 'Elemento', phenomenon: 'Fenómeno', power: 'Potencia' },
-      from: { family: 'Por el tipo de la galaxia', element: 'Por su paleta', phenomenon: 'Por su fenómeno', power: 'Por su tamaño, su núcleo, su nivel y sus conjuntos' },
+      kinds: { family: 'Pasiva', element: 'Elemento', phenomenon: 'Fenómeno', mythic: 'Poder mítico', power: 'Potencia' },
+      from: {
+        family: 'Por el tipo de la galaxia',
+        element: 'Por su paleta',
+        phenomenon: 'Por su fenómeno',
+        mythic: 'Por ser mítica',
+        power: 'Por su tamaño, su núcleo, su nivel y sus conjuntos',
+      },
       tags: (name: string) => `Habilidades de ${name}`,
       title: (name: string) => `Poderes de ${name}`,
       open: (name: string) => `Ver los poderes de ${name}`,
@@ -2637,6 +2645,9 @@ export const copy = {
         anomaly: 'Cada poco, un efecto glitch impredecible',
       } satisfies Record<PhenomenonId, string>,
       power: 'Multiplica la fuerza de sus habilidades. Varias reliquias de la misma familia rinden menos cuantas más llevas',
+      // The mythic's own power (plan «rareza Mítica» M2); its seconds are the live content.relics.singularity.cooldown.
+      mythicName: 'Singularidad',
+      singularity: (seconds: number) => `Cada ${fmt(seconds)} s abre un agujero negro en el grupo de enemigos más denso: los atrae y después estalla`,
     },
     // The relic sheet (plan «escáner pro», part D): everything a galaxy does as a relic, before equipping it.
     sheet: {

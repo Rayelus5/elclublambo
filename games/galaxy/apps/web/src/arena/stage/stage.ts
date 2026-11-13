@@ -1,6 +1,7 @@
 import 'pixi.js/unsafe-eval';
-import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
+import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent, ticks } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { singularityOf } from '../../api/content-read';
 import { copy } from '../../copy/es';
 import { probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
@@ -107,6 +108,15 @@ const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT
 const PHOTON = 0xffc94a;
 const HOLO = 0x6fe3ff;
 const GRAVITY = 0xb39dff;
+/**
+ * A mythic's singularity (plan «rareza Mítica» M2): the four tones of the mythic's iridescent frame (styles/app.css
+ * --color-iris-1…4) for its ring, its motes and its burst, around a core darker than the field.
+ */
+const IRIS = [0xff4fd8, 0x6fe3ff, 0xffc94a, 0xb39dff] as const;
+const VOID = 0x05030d;
+/** Its core at full size (world units) and how long its collapse's burst lasts (systems/relics.ts COLLAPSE_SHOW_TICKS). */
+const HOLE_CORE = 11;
+const COLLAPSE_TICKS = 24;
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
 const STEP_RAD = (Math.PI * 2) / 4096;
 /** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
@@ -433,6 +443,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
 
   function drawAreas(sim: Sim): void {
     const a = sim.areas;
+    // While the run advances (not paused on a card or a menu): the singularities' motes only fall then.
+    const live = sim.status === 'running' && clock - tickAt < 0.1;
     areas.clear();
     beams.clear();
     for (let i = 0; i < a.top; i++) {
@@ -501,6 +513,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         areas.circle(x, y, r).stroke({ width: 1, color: 0xff9a3c, alpha: 0.5 });
         areas.circle(x, y, Math.max(1, r * k)).stroke({ width: 1, color: 0xffc94a, alpha: 0.85 });
         areas.rect(x - 1, y - 1, 2, 2).fill({ color: 0xffc94a, alpha: blink });
+      } else if (kind === AREA.singularity) {
+        drawSingularity(x, y, r, t, i * 65536 + a.gen[i]!, live);
+      } else if (kind === AREA.collapse) {
+        drawCollapse(x, y, r, t);
       } else if (kind === AREA.slowField) {
         areas.circle(x, y, r).fill({ color: 0x6fb7ff, alpha: 0.12 }).stroke({ width: 1, color: 0x6fb7ff, alpha: 0.5 });
       } else if (kind === AREA.aura) {
@@ -528,6 +544,64 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const ang = clock * 0.8 + (k * Math.PI) / 6;
         areas.rect(Math.round(b.x + Math.cos(ang) * (b.radius - 6)), Math.round(b.y + Math.sin(ang) * (b.radius - 6)), 1, 1).fill({ color: 0xbfe3ff, alpha: 0.9 });
       }
+    }
+  }
+
+  /**
+   * A mythic's singularity while it pulls (plan «rareza Mítica» M2): over its reach a faint violet well with arcs in its
+   * four tones winding in towards it; a core darker than the field (under the fauna it swallows) in a dark halo, that
+   * opens fast and shrinks just before it collapses; its rings of light turning round it over the fauna, and motes
+   * spiralling in while the run advances. With reduced motion: no motes, the rings and arcs still and soft, the core at
+   * its size.
+   */
+  function drawSingularity(x: number, y: number, reach: number, ttl: number, key: number, live: boolean): void {
+    const total = Math.max(1, ticks(singularityOf(content).seconds));
+    const k = Math.max(0, Math.min(1, 1 - (ttl - 2) / total));
+    const calm = opts.reduced;
+    const grow = calm ? 1 : Math.min(1, k / 0.1);
+    const shrink = calm || k < 0.85 ? 1 : 1 - ((k - 0.85) / 0.15) * 0.5;
+    const core = HOLE_CORE * grow * shrink;
+    areas.circle(x, y, reach).fill({ color: 0x1a0d3a, alpha: 0.16 }).stroke({ width: 1, color: IRIS[3], alpha: 0.2 });
+    for (let q = 0; q < 4; q++) {
+      // Each arc slides from the edge of its reach into the core, brightening, and starts again.
+      const f = calm ? (q + 0.5) / 4 : (clock * 0.9 + q / 4) % 1;
+      const rr = core + (reach - core) * (1 - f);
+      const a0 = (calm ? 0 : -clock * 2.4) + (q * Math.PI) / 2 + f * 2.5;
+      arcFrom(areas, x, y, rr, a0, a0 + 0.9 + f * 0.6).stroke({ width: 1.5, color: IRIS[q]!, alpha: 0.2 + 0.4 * f });
+    }
+    areas.circle(x, y, core * 1.9).fill({ color: VOID, alpha: 0.35 });
+    areas.circle(x, y, core).fill({ color: VOID, alpha: 0.97 });
+    // Light that adds up over the fauna it pulls in: a violet and a magenta glow, and two rings in its tones turning
+    // opposite ways round the core.
+    beams.circle(x, y, core * 2.4).fill({ color: IRIS[3], alpha: calm ? 0.05 : 0.08 });
+    beams.circle(x, y, core * 1.5).fill({ color: IRIS[0], alpha: calm ? 0.06 : 0.1 });
+    const spin = calm ? 0 : clock * 5;
+    for (let q = 0; q < 4; q++) {
+      const a0 = spin + (q * Math.PI) / 2;
+      arcFrom(beams, x, y, core + 2, a0, a0 + Math.PI / 2 - 0.1).stroke({ width: 3, color: IRIS[q]!, alpha: calm ? 0.6 : 1 });
+      const b0 = -spin * 0.6 + (q * Math.PI) / 2 + Math.PI / 4;
+      arcFrom(beams, x, y, core * 1.6 + 2, b0, b0 + Math.PI / 2 - 0.5).stroke({ width: 1.5, color: IRIS[(q + 1) % 4]!, alpha: calm ? 0.35 : 0.65 });
+    }
+    if (!calm && live) fx.swirl(key, x, y, reach, frameDt, IRIS);
+  }
+
+  /**
+   * Its collapse: an iridescent ring bursting out to its blast with a brief light at its heart (plus the sparks fed by
+   * its event). With reduced motion it does not grow: a soft ring where it hit, fading.
+   */
+  function drawCollapse(x: number, y: number, blast: number, ttl: number): void {
+    const k = Math.max(0, Math.min(1, ttl / COLLAPSE_TICKS));
+    if (opts.reduced) {
+      for (let q = 0; q < 4; q++) arcFrom(beams, x, y, blast * 0.7, (q * Math.PI) / 2, ((q + 1) * Math.PI) / 2 - 0.12).stroke({ width: 2, color: IRIS[q]!, alpha: 0.5 * k });
+      return;
+    }
+    const rad = blast * (0.2 + 0.85 * Math.sqrt(1 - k));
+    beams.circle(x, y, rad).fill({ color: 0xffffff, alpha: 0.12 * k * k });
+    const spin = clock * 3;
+    for (let q = 0; q < 4; q++) {
+      const a0 = spin + (q * Math.PI) / 2;
+      arcFrom(beams, x, y, rad, a0, a0 + Math.PI / 2 - 0.12).stroke({ width: 3, color: IRIS[q]!, alpha: k });
+      arcFrom(beams, x, y, rad * 0.6, -a0, -a0 + Math.PI / 2 - 0.2).stroke({ width: 1, color: IRIS[(q + 2) % 4]!, alpha: 0.6 * k });
     }
   }
 
@@ -1295,6 +1369,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
           case 'propBreak':
             fx.burst(e.x, e.y, parseInt(look.dust.slice(1), 16), 12, 70);
             fx.burst(e.x, e.y, 0xf3f5ff, 4, 40);
+            break;
+          case 'singularity':
+            // A mythic's singularity collapsing (plan «rareza Mítica» M2): sparks in its four tones (none with reduced
+            // motion, where the burst only fades), and a small shake when it is mine.
+            if (e.what === 'collapse') {
+              if (!opts.reduced) for (const c of IRIS) fx.burst(e.x, e.y, c, 8, 110);
+              if (e.probe === (opts.me ?? opts.probe)) fx.shake(3);
+            }
             break;
           case 'dash':
             if (e.ticks === 0) glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });

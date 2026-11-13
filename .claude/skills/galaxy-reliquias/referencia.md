@@ -6,7 +6,7 @@ Rutas relativas a `games/galaxy/`.
 
 | Qué | Dónde |
 |---|---|
-| Rasgos a poder (`relicSkill`), familias, fenómenos, cuásar, doble núcleo | `packages/sim/src/systems/relics.ts` (`TYPE_FAMILY`, `SHAPE`, `runFamily`, `runPhenomenon`, `runQuasar`, `relicBonuses`, `relicPersistent`, `relicVision`) |
+| Rasgos a poder (`relicSkill`), familias, fenómenos, cuásar, doble núcleo, la Singularidad de las míticas | `packages/sim/src/systems/relics.ts` (`TYPE_FAMILY`, `SHAPE`, `runFamily`, `runPhenomenon`, `runQuasar`, `runSingularity`, `relicBonuses`, `relicPersistent`, `relicVision`) |
 | Conjuntos | `packages/sim/src/systems/sets.ts` (`activeSets`, `possibleSets`) |
 | Bonos a stats | `packages/sim/src/systems/stats.ts` (`relicHooks.bonuses`) |
 | Recarga del escudo | `packages/sim/src/systems/probes.ts` |
@@ -24,6 +24,7 @@ Rutas relativas a `games/galaxy/`.
 | Test | Qué fija |
 |---|---|
 | `packages/sim/test/relics.test.ts` | Valores literales: magnitud 2 / 1,15 / 0,85, frecuencia 1,3, nivel 1,04, eco 0,8, escudo 24 cada 5 s, lente 1,8, explorador ×1,29 / ×1,07, aura 3×5, caos cada 4 s, cuásar cada 3 s, supernova 40/120/8 s, púlsar 8/70/1,2 s, cometa 90/30, cúmulo 4 orbes… Varios nombres de test llevan el número |
+| `packages/sim/test/singularity.test.ts` | La Singularidad de las míticas: dónde se abre, qué atrae, su colapso y una por sonda |
 | `packages/sim/test/sets.test.ts` | 0,25 / 0,5, ×1,15, ×1,5, 0,08; aserciones exactas como `toEqual(['lineage'])` |
 | `packages/sim/test/stats.test.ts`, `calibration.test.ts`, `builds.test.ts`, `golden.test.ts` | Bonos a stats, topes del GDD §8.6 y partidas de referencia (sin reliquias) |
 | `packages/sim/test/content.test.ts` | Casos del esquema de conjuntos |

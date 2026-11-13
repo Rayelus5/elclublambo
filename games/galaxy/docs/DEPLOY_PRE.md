@@ -1118,3 +1118,18 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - el aviso de PERKINS la primera vez;
   - las señales en el HUD;
   - «N de satélites» en Resultados.
+
+## Singularidad, el poder de las míticas (SIM 1.11.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.11.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Singularidad.** Una mítica equipada como reliquia abre cada 12 s un agujero negro en el grupo de fauna más denso, atrae a la fauna 2 s y colapsa con daño en área (× la magnitud de la reliquia), lanzando hacia fuera a lo que sobrevive. Nunca atrae al Núcleo ni al botín, nunca se abre encima de una sonda en pie y hay una sola por sonda.
+- **Dónde está su ajuste.** Va en `content.relics.singularity` y vale por defecto aunque el `content` publicado (v7 en PRE) no lo traiga: no hace falta volver a publicar `content`. Si se publica `relics` de nuevo desde `draft-config`, el bloque sale del código.
+- **Las partidas de referencia no cambian:** juegan sin reliquias.
+- **Partidas en grupo a medias al desplegar:** al desplegar no existía ninguna mítica en PRE, así que ninguna partida en grupo de 1.10.0 a medias llevaba una. Pagarlas con la simulación nueva no puede divergir por la Singularidad.
+- **Aviso para cualquier subida de `SIM_VERSION`:** `recover()` (las partidas en grupo huérfanas) y `settleFromLog` (`apps/server/src/coop/service.ts`) vuelven a jugar el registro de entradas con la simulación del servidor desplegado, no con la versión con la que empezó la partida. Si el cambio toca a una partida en grupo a medias durante el despliegue, puede acabar con otro estado y otro pago. Antes de desplegar un cambio así, comprueba que no hay salas en curso o acéptalo.
+- **Lo que ve el jugador:**
+  - en la arena, el agujero negro con su anillo iridiscente, motas que caen en espiral y un estallido al colapsar (con movimiento reducido, sin motas y quieto);
+  - en el Hangar, «Singularidad» en el chip de poderes de la reliquia y en su ficha;
+  - en el escáner, clásico y pro, el revelado de una mítica con su silencio, su destello iridiscente, más rayos, más sacudida, su acorde y una capa de música más; el ensayo del escáner deja elegir «Clásica» o «Pro».

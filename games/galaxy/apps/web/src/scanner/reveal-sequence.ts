@@ -5,7 +5,8 @@ import { atLeast, TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
 // resolving the galaxy → «Fenómeno detectado» if it has one → the screen failing on a Legendary (or a Mítica, which
 // also lights a sixth bar past the five) → the card. The
 // sequence always ends in the summary, which Saltar jumps to. Rarer pulls build up longer, so the wait tells too.
-export type StepKind = 'static' | 'signal' | 'scan' | 'phenomenon' | 'glitch' | 'card' | 'summary';
+// A Mítica (plan «rareza Mítica» M2) holds its breath right before its card: a short hush, silent and a touch darker.
+export type StepKind = 'static' | 'signal' | 'scan' | 'phenomenon' | 'glitch' | 'hush' | 'card' | 'summary';
 
 export interface Step {
   kind: StepKind;
@@ -22,6 +23,11 @@ export interface Step {
 /** Luminance jolts in one screen failure: two in 900 ms stays well under three flashes per second (WCAG 2.3.1). */
 export const GLITCH_FLASHES = 2;
 const GLITCH_MS = 900;
+/**
+ * A Mítica's held breath before its card (plan «rareza Mítica» M2): no sound, the screen dimmed a touch. Short, so it
+ * reads as anticipation, and kept with reduced motion (nothing moves in it).
+ */
+export const HUSH_MS = 700;
 
 const STATIC_FIRST = 900;
 const STATIC_NEXT = 200;
@@ -33,6 +39,7 @@ const PHENOMENON_MS = 1300;
 /** How long a card stays in a run of ten, by tier: the rare ones are looked at longer. */
 const CARD_IN_RUN_MS = [900, 1100, 1500, 1900, 2400, 2800];
 
+/** The steps of revealing `pulls`, one pull after another, ending in the summary. */
 export function revealSequence(pulls: readonly PulledGalaxy[], opts: { reduced: boolean }): Step[] {
   const steps: Step[] = [];
   const inRun = pulls.length > 1;
@@ -45,6 +52,7 @@ export function revealSequence(pulls: readonly PulledGalaxy[], opts: { reduced: 
     const phenomenon = p.traits['phenomenon'];
     if (phenomenon && phenomenon !== 'none') steps.push({ kind: 'phenomenon', index, tier: p.tier, phenomenon, ms: PHENOMENON_MS });
     if (atLeast(p.tier, 'legendary') && !opts.reduced) steps.push({ kind: 'glitch', index, tier: p.tier, ms: GLITCH_MS });
+    if (p.tier === 'mythic') steps.push({ kind: 'hush', index, tier: p.tier, ms: HUSH_MS });
     // One pull, or reduced motion: the card waits for the player. In a run of ten, cards follow on their own.
     const waits = pulls.length === 1 || opts.reduced;
     steps.push({ kind: 'card', index, tier: p.tier, ms: waits ? Infinity : (CARD_IN_RUN_MS[t] ?? CARD_IN_RUN_MS[0]!) });

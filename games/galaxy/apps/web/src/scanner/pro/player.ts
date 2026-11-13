@@ -1,8 +1,8 @@
 import type { Bank } from '../../audio/bank';
-import type { Score } from '../../audio/score';
+import type { Score, ScoreLevel } from '../../audio/score';
 import type { StageClock } from './clock';
 import type { CueOpts, ProSound } from './cues';
-import { type Face, nextStop, type Phase, phaseAt, type Script } from './script';
+import { type Face, GUION, nextStop, type Phase, phaseAt, type Script } from './script';
 import type { Rig } from './timeline';
 
 // The pro scanner's player (plan «escáner pro», part B): one frame loop that reads the clock, seeks the timeline there,
@@ -10,6 +10,7 @@ import type { Rig } from './timeline';
 // the waits — the single card's (until the player goes on), a card whose image is still coming (up to 4 s, then it
 // turns anyway) — and moves through the script: «Seguir» to the next stop, «Saltar» to the summary. Seeking silences
 // what was scheduled and sets the music to what has been revealed; skipping past a reveal still lets it be heard.
+// A mythic's held breath (plan «rareza Mítica» M2) ducks the music, scheduled like its layers; a jump lifts it again.
 
 /** How far ahead sounds are scheduled (seconds of script time at 1×). */
 const LOOKAHEAD = 0.12;
@@ -95,6 +96,7 @@ export function createPlayer(deps: PlayerDeps): Player {
   let score: Score | null = null;
   let cueAt = 0;
   let scoreAt = 0;
+  let hushAt = 0;
   let lastT = -1;
   let lastPhase: Phase | null = null;
   let faceAt = 0;
@@ -109,9 +111,20 @@ export function createPlayer(deps: PlayerDeps): Player {
 
   const ctxTime = (t: number) => (audio ? audio.ctx.currentTime + clock.until(t) : 0);
   const levelAt = (t: number) => {
-    let level: 0 | 1 | 2 | 3 = 0;
+    let level: ScoreLevel = 0;
     for (const x of s.score) if (x.at <= t + 1e-9) level = x.level;
     return level;
+  };
+  /** The first hush that has not begun by `t`. */
+  const hushFrom = (t: number) => {
+    const i = s.hushes.findIndex((h) => h.at > t + 1e-9);
+    return i < 0 ? s.hushes.length : i;
+  };
+  /** Ducks the music for whatever is left of a hush `t` falls inside (a jump into the middle of one). */
+  const duckInside = (t: number) => {
+    if (!score || !audio) return;
+    const h = s.hushes.find((x) => x.at <= t + 1e-9 && t < x.at + x.dur - 1e-9);
+    if (h) score.duck(audio.ctx.currentTime, (h.at + h.dur - t) / clock.rate, GUION.silencio.duck);
   };
 
   function play(id: ProSound, at: number, opts: CueOpts) {
@@ -161,6 +174,13 @@ export function createPlayer(deps: PlayerDeps): Player {
         if (clock.until(x.at) === Infinity) break;
         if (x.level > 0) score.level(x.level, ctxTime(x.at));
         scoreAt++;
+      }
+      // A mythic's held breath: the music ducks for it.
+      while (hushAt < s.hushes.length && s.hushes[hushAt]!.at <= horizon) {
+        const h = s.hushes[hushAt]!;
+        if (clock.until(h.at) === Infinity) break;
+        score.duck(ctxTime(h.at), h.dur / clock.rate, GUION.silencio.duck);
+        hushAt++;
       }
     }
   }
@@ -229,7 +249,12 @@ export function createPlayer(deps: PlayerDeps): Player {
     if (cueAt < 0) cueAt = s.cues.length;
     scoreAt = s.score.findIndex((x) => x.at > target + 1e-9);
     if (scoreAt < 0) scoreAt = s.score.length;
-    if (score?.started && audio) score.level(levelAt(target), audio.ctx.currentTime, 0.25);
+    hushAt = hushFrom(target);
+    if (score?.started && audio) {
+      score.level(levelAt(target), audio.ctx.currentTime, 0.25);
+      score.unduck(audio.ctx.currentTime);
+      duckInside(target);
+    }
     faceAt = s.faces.findIndex((f) => f.at > target + 1e-9);
     if (faceAt < 0) faceAt = s.faces.length;
     // Faces jumped over need no image wait any more.
@@ -285,10 +310,12 @@ export function createPlayer(deps: PlayerDeps): Player {
       score = next;
       scoreAt = s.score.findIndex((x) => x.at > clock.now() + 1e-9);
       if (scoreAt < 0) scoreAt = s.score.length;
+      hushAt = hushFrom(clock.now());
       if (audio) {
         score.start(audio.ctx.currentTime + 0.05, 2);
         const level = levelAt(clock.now());
         if (level > 0) score.level(level, audio.ctx.currentTime + 0.05, 0.6);
+        duckInside(clock.now());
       }
     },
     stop() {

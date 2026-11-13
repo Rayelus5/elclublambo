@@ -26,6 +26,7 @@ import { HttpError } from '../errors';
 import { withNotices } from '../realtime/notices';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { contentEtag } from './content-etag';
 import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
 import { chooseSkin, chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
@@ -130,12 +131,12 @@ export function registerRunRoutes(
     return view;
   });
 
-  // The live content, for what the web tells about relics and sets (plan «escáner pro», part D): the version as an
-  // ETag, so an unchanged one is a 304.
+  // The live content, for what the web tells about relics and sets (plan «escáner pro», part D): its version and the
+  // simulation's as an ETag (content-etag.ts), so an unchanged one is a 304 and a deploy that changes it is not.
   api.get('/galaxy/api/content', async (req, reply) => {
     requireSession(req);
     const { value, version } = await deps.config.getVersioned('content');
-    const etag = `"content-${version}"`;
+    const etag = contentEtag(version);
     reply.header('etag', etag).header('cache-control', 'private, max-age=60');
     if (req.headers['if-none-match'] === etag) return reply.code(304).send();
     const view: LiveContentView = { version, content: value };

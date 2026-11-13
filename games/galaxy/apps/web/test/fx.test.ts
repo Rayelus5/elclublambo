@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
-import { createFx, reactionLabel } from '../src/arena/stage/fx';
+import { createFx, reactionLabel, SWIRL_MAX } from '../src/arena/stage/fx';
 
 // Combat juice that is pure state (DESIGN_SYSTEM §8 quater): the shake decays to rest, damage numbers rise and fade
 // with a cap, particles age out, and reduced motion removes the shake and halves the particles.
@@ -153,4 +153,45 @@ test('la estela de un disparo suelta motas lentas a ritmo constante que se apaga
   lively.trail(0, 0, 0, 0xffffff, 0.5);
   expect(calm.particles.length).toBeGreaterThan(0);
   expect(calm.particles.length).toBeLessThan(lively.particles.length / 2);
+});
+
+// Plan «rareza Mítica» M2: a mythic's singularity draws its fauna in, and so do its motes: they spiral towards the
+// black hole in the iridescent tones, at a steady rate, and are gone by the time they reach it. None with reduced motion.
+test('la singularidad atrae motas que giran en espiral hacia su centro, y con movimiento reducido no hay ninguna', () => {
+  const IRIS = [0xff4fd8, 0x6fe3ff, 0xffc94a, 0xb39dff];
+  const fx = createFx(false);
+  fx.swirl(1, 100, 50, 60, 0.5, IRIS);
+  const motes = [...fx.particles];
+  expect(motes.length).toBeGreaterThanOrEqual(20);
+  for (const m of motes) expect(IRIS).toContain(m.color);
+  const dist = (m: { x: number; y: number }) => Math.hypot(m.x - 100, m.y - 50);
+  for (const m of motes) expect(dist(m)).toBeLessThanOrEqual(61);
+  const m = motes[0]!;
+  const d0 = dist(m);
+  const a0 = Math.atan2(m.y - 50, m.x - 100);
+  fx.update(0.1);
+  expect(dist(m)).toBeLessThan(d0);
+  // It turns around the centre, not straight in.
+  expect(Math.abs(Math.atan2(m.y - 50, m.x - 100) - a0)).toBeGreaterThan(0.05);
+  for (let i = 0; i < 90; i++) fx.update(1 / 60);
+  expect(fx.particles).toHaveLength(0);
+
+  const calm = createFx(true);
+  calm.swirl(1, 100, 50, 60, 0.5, IRIS);
+  expect(calm.particles).toHaveLength(0);
+});
+
+// Review of PR #180: each hole kept ~77 motes alive, so four in co-op took half the particle budget. A cap per hole.
+test('cada singularidad tiene un tope de motas vivas, aunque pase mucho tiempo entre fotogramas', () => {
+  const IRIS = [0xff4fd8, 0x6fe3ff, 0xffc94a, 0xb39dff];
+  const fx = createFx(false);
+  for (let k = 0; k < 20; k++) {
+    fx.swirl(1, 0, 0, 60, 0.1, IRIS);
+    fx.swirl(2, 300, 0, 60, 0.1, IRIS);
+    fx.update(0.02);
+  }
+  const of = (cx: number) => fx.particles.filter((p) => p.orbit?.cx === cx).length;
+  expect(of(0)).toBeGreaterThan(10);
+  expect(of(0)).toBeLessThanOrEqual(SWIRL_MAX);
+  expect(of(300)).toBeLessThanOrEqual(SWIRL_MAX);
 });

@@ -149,7 +149,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
             );
           }
           const skill = describeRelic(relicInput(g), all, content);
-          const names = skillTags(skill)
+          const names = skillTags(skill, content)
             .filter((x) => x.kind !== 'power')
             .map((x) => x.name);
           return (
@@ -163,7 +163,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
                   {copy.tiers[g.tier]}
                   <span className="lobby-slot-power">{copy.hangar.power(skill.magnitude)}</span>
                 </span>
-                <SkillsChip skill={skill} galaxy={g.name} />
+                <SkillsChip skill={skill} galaxy={g.name} content={content} />
                 <span className="sr-only">{names.join(', ')}</span>
               </span>
               <button

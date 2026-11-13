@@ -1,6 +1,7 @@
 import type { PulledGalaxy, Tier } from '@galaxy/shared';
 import { expect, test, vi } from 'vitest';
 import type { Bank } from '../src/audio/bank';
+import type { Score } from '../src/audio/score';
 import { createClock } from '../src/scanner/pro/clock';
 import type { CueOpts, ProSound } from '../src/scanner/pro/cues';
 import { createPlayer, GUARD_SEEK_MS, GUARD_START_MS, IMAGE_WAIT_MS } from '../src/scanner/pro/player';
@@ -160,6 +161,66 @@ test('diez: sin esperas por el camino, hasta el resumen; Seguir salta al siguien
   expect(h.clock.now()).toBeCloseTo(h.script.duration, 6);
   // The faces jumped over are not announced one by one (the summary lists them).
   expect(h.faces).toEqual([7, 8, 9]);
+});
+
+// Plan «rareza Mítica» M2: in a mythic's held breath the music ducks (and comes back for the impact) and no sound plays;
+// a jump lets the music up again at once. A legendary's music never ducks.
+function fakeScore() {
+  const calls: { kind: string; at: number; dur?: number; level?: number }[] = [];
+  let started = false;
+  const score: Score = {
+    start: (at) => {
+      started = true;
+      calls.push({ kind: 'start', at });
+    },
+    level: (level, at) => calls.push({ kind: 'level', at, level }),
+    stop: (at) => calls.push({ kind: 'stop', at }),
+    duck: (at, dur) => calls.push({ kind: 'duck', at, dur }),
+    unduck: (at) => calls.push({ kind: 'unduck', at }),
+    get started() {
+      return started;
+    },
+  };
+  return { score, calls };
+}
+
+test('en el silencio de una mítica la música se agacha y no suena nada; una legendaria no la agacha', () => {
+  const h = harness([pull('mythic')]);
+  const { score, calls } = fakeScore();
+  h.player.setScore(score);
+  h.player.start();
+  h.step(20_000);
+  const hush = h.at('silencio');
+  const ducks = calls.filter((c) => c.kind === 'duck');
+  expect(ducks).toHaveLength(1);
+  expect(ducks[0]!.at).toBeCloseTo(hush.at, 1);
+  expect(ducks[0]!.dur).toBeCloseTo(hush.dur, 6);
+  expect(h.plays.filter((p) => p.at > hush.at + 1e-6 && p.at < hush.at + hush.dur - 1e-6)).toEqual([]);
+  // The mythic's own layer joins with its face.
+  expect(calls.filter((c) => c.kind === 'level').at(-1)!.level).toBe(4);
+  const l = harness([pull('legendary')]);
+  const other = fakeScore();
+  l.player.setScore(other.score);
+  l.player.start();
+  l.step(20_000);
+  expect(other.calls.filter((c) => c.kind === 'duck')).toEqual([]);
+});
+
+test('saltar desde el silencio de una mítica levanta la música enseguida', () => {
+  const h = harness([pull('mythic')]);
+  const { score, calls } = fakeScore();
+  h.player.setScore(score);
+  h.player.start();
+  const hush = h.at('silencio');
+  h.step(Math.round((hush.at + 0.2) * 1000));
+  expect(calls.some((c) => c.kind === 'duck')).toBe(true);
+  h.player.seek(h.at('carta').at);
+  expect(calls.some((c) => c.kind === 'unduck')).toBe(true);
+  // Landing in the middle of the silence (the Ensayo's «ir a la fase») ducks it for what is left of it.
+  calls.length = 0;
+  h.player.seek(hush.at + 0.3);
+  const duck = calls.find((c) => c.kind === 'duck')!;
+  expect(duck.dur).toBeCloseTo(hush.dur - 0.3, 6);
 });
 
 test('la pausa (pestaña oculta) detiene el tiempo', () => {
