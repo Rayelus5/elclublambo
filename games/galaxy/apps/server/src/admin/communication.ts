@@ -88,7 +88,7 @@ export async function withdrawMail(deps: CommunicationDeps, actor: AuditActor, i
   });
 }
 
-/** The latest 50 messages with how many they reached (their receipts), read and claimed. */
+/** The latest 50 messages the admins sent (not the game's own notes to one player), with how many they reached, read and claimed. */
 export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]> {
   const rows = await deps.db
     .selectFrom('galaxy.mailbox_messages as m')
@@ -107,6 +107,7 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.read_at', 'is not', null).as('read'),
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.claimed_at', 'is not', null).as('claimed'),
     ])
+    .where('m.created_by', 'is not', null)
     .orderBy('m.created_at', 'desc')
     .limit(50)
     .execute();

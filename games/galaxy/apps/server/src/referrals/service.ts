@@ -16,7 +16,7 @@ import {
   type ReferralRules,
   referralRules,
 } from '@galaxy/shared';
-import { type Kysely, sql } from 'kysely';
+import { type Expression, type Kysely, type RawBuilder, sql } from 'kysely';
 import type { AuditActor } from '../audit';
 import { writeAudit } from '../audit';
 import { isUniqueViolation } from '../auth/accounts';
@@ -37,6 +37,25 @@ type Db = Kysely<DB>;
 export type ReferralsConfig = ConfigValue<'referrals'>;
 const DAY = 86_400_000;
 const PAGE = 50;
+
+/**
+ * An address's block: the address itself for IPv4, its /64 network for IPv6 (a home on IPv6 changes its address inside
+ * its /64 all the time, so an exact match would never catch the same person; review of #174).
+ */
+const block = (ip: Expression<unknown> | RawBuilder<unknown>) => sql`network(set_masklen(${ip}::inet, case when family(${ip}::inet) = 6 then 64 else 32 end))`;
+
+/** Whether the newcomer has been seen at one of the owner's addresses (by block) within the window. */
+async function sharesOwnerAddress(db: Db, newcomer: string, owner: string, days: number): Promise<boolean> {
+  const row = await db
+    .selectFrom('galaxy.account_ips as n')
+    .innerJoin('galaxy.account_ips as o', (j) => j.on(sql<boolean>`${block(sql.ref('n.ip'))} = ${block(sql.ref('o.ip'))}`))
+    .select('n.ip')
+    .where('n.account_id', '=', newcomer)
+    .where('o.account_id', '=', owner)
+    .where('o.last_seen', '>', sql<Date>`now() - make_interval(days => ${days})`)
+    .executeTakeFirst();
+  return !!row;
+}
 
 const globalRules = (cfg: ReferralsConfig): ReferralRules => ({ ownerGifts: cfg.ownerGifts, newcomerGifts: cfg.newcomerGifts, activationLevel: cfg.activationLevel });
 
@@ -67,7 +86,7 @@ async function payOwner(trx: Db, r: { account_id: string; owner_id: string; code
     await sendSystemMail(
       trx,
       { id: r.owner_id, username: owner },
-      { title: `${newcomer} ya es de nivel ${rules.activationLevel}`, body: `${newcomer} entró con tu código ${r.code} y ya ha llegado al nivel ${rules.activationLevel}. Gracias por traerlo: aquí tienes tu premio`, gifts: rules.ownerGifts },
+      { title: `${newcomer} ya es de nivel ${rules.activationLevel}`, body: `${newcomer} entró con tu código ${r.code} y ya ha llegado al nivel ${rules.activationLevel}. Gracias por traerlo. Aquí tienes tu premio`, gifts: rules.ownerGifts },
       out,
     );
   }
@@ -90,15 +109,19 @@ export async function signUpWithCode(
   if (!row) throw new HttpError(400, 'referral_invalid');
   const uses = Number((await trx.selectFrom('galaxy.referrals').select(sql<number>`count(*)::int`.as('n')).where('code_id', '=', row.id).executeTakeFirstOrThrow()).n);
   if (!row.enabled || (row.expires_at && new Date(row.expires_at) <= new Date()) || (row.max_uses !== null && uses >= row.max_uses)) throw new HttpError(409, 'referral_unavailable');
+  // A suspended or deleted owner's code no longer brings anyone in.
+  const owner = await trx.selectFrom('galaxy.accounts').select(['banned_until', 'deleted_at']).where('id', '=', row.owner_id).executeTakeFirstOrThrow();
+  if (owner.deleted_at || (owner.banned_until && new Date(owner.banned_until) > new Date())) throw new HttpError(409, 'referral_unavailable');
 
   const flags: ReferralFlag[] = [];
   const since = (days: number) => sql<Date>`now() - make_interval(days => ${days})`;
   if (newcomer.ip) {
     const ip = newcomer.ip;
+    const here = block(sql`${ip}`);
     const [ownerIp, sibling, burst] = await Promise.all([
-      trx.selectFrom('galaxy.account_ips').select('ip').where('account_id', '=', row.owner_id).where('ip', '=', ip).where('last_seen', '>', since(cfg.sharedIpDays)).executeTakeFirst(),
-      trx.selectFrom('galaxy.referrals').select('account_id').where('code_id', '=', row.id).where('signup_ip', '=', ip).where('created_at', '>', since(cfg.sharedIpDays)).executeTakeFirst(),
-      trx.selectFrom('galaxy.referrals').select(sql<number>`count(*)::int`.as('n')).where('signup_ip', '=', ip).where('created_at', '>', since(1)).executeTakeFirstOrThrow(),
+      trx.selectFrom('galaxy.account_ips').select('ip').where('account_id', '=', row.owner_id).where(sql<boolean>`${block(sql.ref('ip'))} = ${here}`).where('last_seen', '>', since(cfg.sharedIpDays)).executeTakeFirst(),
+      trx.selectFrom('galaxy.referrals').select('account_id').where('code_id', '=', row.id).where(sql<boolean>`${block(sql.ref('signup_ip'))} = ${here}`).where('created_at', '>', since(cfg.sharedIpDays)).executeTakeFirst(),
+      trx.selectFrom('galaxy.referrals').select(sql<number>`count(*)::int`.as('n')).where(sql<boolean>`${block(sql.ref('signup_ip'))} = ${here}`).where('created_at', '>', since(1)).executeTakeFirstOrThrow(),
     ]);
     if (ownerIp) flags.push('owner_ip');
     if (sibling) flags.push('sibling_ip');
@@ -134,15 +157,24 @@ export async function onLevel(db: Db, cfg: ReferralsConfig, accountId: string, l
   if (!r) return;
   const rules = await rulesFor(db, r.owner_id, cfg);
   if (level < rules.activationLevel) return;
+  // Checked again before paying: a newcomer who has played from the owner's address since signing up looks like the
+  // same person (review of #174), and is held for an admin instead.
+  const shared = await sharesOwnerAddress(db, accountId, r.owner_id, cfg.sharedIpDays);
   await inTransaction(db, async (trx) => {
     const won = await trx
       .updateTable('galaxy.referrals')
       .set({ activated_at: sql<Date>`now()` })
       .where('account_id', '=', accountId)
       .where('activated_at', 'is', null)
-      .returning(['state'])
+      .returning(['state', 'flags'])
       .executeTakeFirst();
-    if (won?.state === 'pending') await payOwner(trx, r, rules, out);
+    if (won?.state !== 'pending') return;
+    if (shared) {
+      const flags = won.flags.includes('owner_ip') ? won.flags : [...won.flags, 'owner_ip'];
+      await trx.updateTable('galaxy.referrals').set({ state: 'held', flags }).where('account_id', '=', accountId).execute();
+      return;
+    }
+    await payOwner(trx, r, rules, out);
   });
 }
 

@@ -144,6 +144,52 @@ describe('contra el abuso', () => {
   });
 });
 
+describe('contra el abuso, más fino (revisión de #174)', () => {
+  test('en IPv6 cuenta la misma red /64, no solo la misma dirección', async () => {
+    const owner = await signUp(ctx, { ip: '2001:db8:aa:1::10' });
+    const { code } = await codeFor(ctx, owner.username);
+    const alt = await signUp(ctx, { code, ip: '2001:db8:aa:1:ffff::2' });
+    expect(alt.res.statusCode).toBe(201);
+    expect(await gifts(ctx, alt.cookie)).toEqual([]);
+    const rows = ((await get(ctx.app, `/galaxy/api/admin/referrals?q=${alt.username}`, { cookie: admin })).json() as { rows: AdminReferralRow[] }).rows;
+    expect(rows[0]!.flags).toContain('owner_ip');
+  });
+
+  test('si el invitado juega después desde la dirección del dueño, el premio del dueño queda retenido', async () => {
+    const home = randomIp();
+    const owner = await signUp(ctx, { ip: home });
+    const { code } = await codeFor(ctx, owner.username);
+    const alt = await signUp(ctx, { code });
+    expect(await gifts(ctx, alt.cookie)).toHaveLength(1);
+    // The alt signs in again from the owner's home.
+    const again = await post(ctx.app, '/galaxy/api/auth/login', { username: alt.username, password: 'una-clave-larga' }, { ip: home });
+    expect(again.statusCode).toBe(200);
+    await reachLevel(ctx, alt.id, alt.cookie, 2);
+    expect(await gifts(ctx, owner.cookie)).toEqual([]);
+    const rows = ((await get(ctx.app, `/galaxy/api/admin/referrals?q=${alt.username}`, { cookie: admin })).json() as { rows: AdminReferralRow[] }).rows;
+    expect(rows[0]).toMatchObject({ state: 'held', flags: ['owner_ip'] });
+  });
+
+  test('el código de un dueño suspendido no se puede usar', async () => {
+    const owner = await signUp(ctx);
+    const { code } = await codeFor(ctx, owner.username);
+    await ctx.db.updateTable('galaxy.accounts').set({ banned_until: new Date(Date.now() + 86_400_000), ban_reason: 'Prueba' }).where('id', '=', owner.id).execute();
+    const res = await signUp(ctx, { code });
+    expect(res.res.statusCode).toBe(409);
+    expect(res.res.json()).toEqual({ error: 'referral_unavailable' });
+  });
+
+  test('los regalos de los referidos no llenan la lista de mensajes del panel', async () => {
+    const owner = await signUp(ctx);
+    const { code } = await codeFor(ctx, owner.username);
+    const newcomer = await signUp(ctx, { code });
+    const ours = (await mailbox(ctx, newcomer.cookie)).messages.map((m) => m.id);
+    expect(ours).toHaveLength(1);
+    const list = (await get(ctx.app, '/galaxy/api/admin/mail', { cookie: admin })).json() as { id: string }[];
+    expect(list.map((m) => m.id)).not.toContain(ours[0]);
+  });
+});
+
 describe('el panel', () => {
   test('los premios propios de un dueño sustituyen a los globales', async () => {
     const owner = await signUp(ctx);

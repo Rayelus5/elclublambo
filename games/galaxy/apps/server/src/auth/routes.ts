@@ -63,11 +63,16 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
     await hitRateLimit(db, `ip:${ip}`, 'register', auth.registerPerIpHour, HOUR);
     let id: string;
     try {
-      ({ id } = await inTransaction(db, async (trx) => {
-        const made = await registerAccount(trx, input);
-        if (input.referralCode) await signUpWithCode(trx, referrals, { id: made.id, ip: isIP(ip) ? ip : null, userAgent: userAgent(req) || null }, input.referralCode);
-        return made;
-      }));
+      // With a code, the account and its referral in one transaction (a code that cannot be used makes no account);
+      // without one, no transaction holds a connection while the password is hashed.
+      const code = input.referralCode;
+      ({ id } = code
+        ? await inTransaction(db, async (trx) => {
+            const made = await registerAccount(trx, input);
+            await signUpWithCode(trx, referrals, { id: made.id, ip: isIP(ip) ? ip : null, userAgent: userAgent(req) || null }, code);
+            return made;
+          })
+        : await registerAccount(db, input));
     } catch (err) {
       if (err instanceof UsernameTakenError) throw new HttpError(409, 'username_taken');
       if (err instanceof UsernameReservedError) throw new HttpError(409, 'username_reserved');
