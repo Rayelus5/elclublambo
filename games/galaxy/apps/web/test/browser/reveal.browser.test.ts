@@ -155,6 +155,13 @@ for (const [width, height] of [
   test(`la carta de una mítica a ${width}×${height}: silencio, doble haz, destello iridiscente y temblor largo`, async () => {
     await page.viewport(width, height);
     mountClassic({ ...pulled('mythic'), featured: false });
+    // The long shake lasts under a second: watch for it from the start (a slow CI runner may look at the card step
+    // only after it is over).
+    let shookLong = false;
+    const watch = new MutationObserver(() => {
+      if (document.querySelector('.modal.reveal-stage.shake-long')) shookLong = true;
+    });
+    watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true });
     await until(() => document.querySelector('.crt[data-step="hush"]') !== null);
     // The dim fades in over .35 s.
     await new Promise((r) => setTimeout(r, 250));
@@ -162,7 +169,8 @@ for (const [width, height] of [
     if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-hush-${width}.png` });
     await until(() => document.querySelector('.crt[data-step="card"]') !== null);
     expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(2);
-    expect(document.querySelector('.modal.reveal-stage')!.classList.contains('shake-long')).toBe(true);
+    await until(() => shookLong, 15_000);
+    watch.disconnect();
     // Waits, not durations: a CI runner shared with every other suite is slow, never stuck.
     await until(() => document.querySelector('.reveal-flash') !== null, 15_000);
     const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
@@ -185,19 +193,25 @@ test('la carta de una legendaria sigue como estaba: sin silencio, un haz, temblo
   await page.viewport(1280, 720);
   mountClassic({ ...pulled('legendary'), featured: false });
   const steps: string[] = [];
+  // The short shake lasts a moment: what the dialog's classes were at any time, watched from the start (a slow CI
+  // runner may look at the card step only after it is over).
+  let shook = false;
+  let shookLong = false;
   const watch = new MutationObserver(() => {
     const st = document.querySelector('.crt')?.getAttribute('data-step');
     if (st && steps.at(-1) !== st) steps.push(st);
+    const modal = document.querySelector('.modal.reveal-stage');
+    shook ||= !!modal?.classList.contains('shake');
+    shookLong ||= !!modal?.classList.contains('shake-long');
   });
-  watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step'], childList: true });
+  watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step', 'class'], childList: true });
   await until(() => document.querySelector('.crt[data-step="card"]') !== null);
-  watch.disconnect();
   expect(steps).not.toContain('hush');
   expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(1);
-  const modal = document.querySelector('.modal.reveal-stage')!;
-  expect(modal.classList.contains('shake')).toBe(true);
-  expect(modal.classList.contains('shake-long')).toBe(false);
-  await until(() => document.querySelector('.reveal-flash') !== null, 3000);
+  await until(() => shook, 15_000);
+  watch.disconnect();
+  expect(shookLong).toBe(false);
+  await until(() => document.querySelector('.reveal-flash') !== null, 15_000);
   const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
   expect(flash.dataset['iris']).toBeUndefined();
   expect(getComputedStyle(flash).backgroundImage).not.toContain('conic-gradient');

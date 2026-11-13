@@ -798,3 +798,76 @@ for (const [w, h] of [
     }
   }, 180_000);
 }
+
+// A relic's anomaly (the owner: «parece más un bug del juego que algo intencionado»): it now glitches on purpose. Thrown
+// aside, the probe leaves red and cyan copies, a broken line of static and a tear behind, glides (the camera with it,
+// never a jump) and tunes in; a freeze closes a ring of static; a strike throws broken bolts. With reduced motion: still
+// outlines, no glide.
+const ANOMALY = { ...MYTHIC, id: 'a', tier: 2, traits: { ...MYTHIC.traits, phenomenon: 'anomaly' } };
+const OUTCOME = { blink: 0, freeze: 1, strike: 2 } as const;
+
+function withAnomaly(what: keyof typeof OUTCOME): { sim: Sim; event: Extract<Sim['events'][number], { t: 'anomaly' }> } {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [ANOMALY] }] });
+  const p = sim.probes[0]!;
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  for (const [dx, dy] of [
+    [40, 10],
+    [90, -60],
+    [-70, 80],
+    [120, 70],
+  ] as const) {
+    const e = spawnEnemy(sim, mite, p.x + dx, p.y + dy);
+    sim.enemies.hp[e] = sim.enemies.maxHp[e] = 5000;
+  }
+  let k = 0;
+  sim.rng.relic.int = (n: number) => (k++ === 0 ? OUTCOME[what] : n - 1);
+  step(sim, [IDLE]);
+  const event = sim.events.find((e) => e.t === 'anomaly');
+  expect(event?.t).toBe('anomaly');
+  return { sim, event: event as Extract<Sim['events'][number], { t: 'anomaly' }> };
+}
+
+for (const reduced of [false, true]) {
+  test(`la anomalía se ve como un fallo a propósito: salto, congelación y descarga${reduced ? ', quietos con movimiento reducido' : ''}`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      for (const what of ['blink', 'freeze', 'strike'] as const) {
+        const { sim, event } = withAnomaly(what);
+        document.body.innerHTML = '';
+        const canvas = await mount(1280, 720);
+        stage?.destroy();
+        stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '20261113', preserve: true });
+        stage.resize(1280, 720);
+        const world = stage.app.stage.getChildByLabel('world')!;
+        const layer = world.getChildByLabel('anomaly')!;
+        expect(world.getChildIndex(world.getChildByLabel('probes')!)).toBeGreaterThan(world.getChildIndex(layer));
+        const frames = (n: number) => {
+          for (let f = 0; f < n; f++) {
+            now += 1000 / 60;
+            stage!.render(sim, 1);
+          }
+        };
+        stage.feed(sim.events, sim.tick);
+        frames(1);
+        if (what === 'blink') {
+          // The camera glides with the probe: on the first frame it is still on its way (at once with reduced motion).
+          const cam = stage.camera()!;
+          if (reduced) expect(cam.x).toBeCloseTo(event.tx, 0);
+          else expect(Math.abs(cam.x - event.tx)).toBeGreaterThan(5);
+        }
+        frames(4);
+        const box = layer.getLocalBounds();
+        expect(box.width).toBeGreaterThan(4);
+        if (what === 'strike') expect(box.width).toBeGreaterThan(30);
+        if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-anomalia-${what}${reduced ? '-reducida' : ''}.png`, element: canvas });
+        // Over within half a second: nothing left of it.
+        frames(30);
+        expect(layer.getLocalBounds().width).toBe(0);
+        expect(stage.camera()!.x).toBeCloseTo(sim.probes[0]!.x, 0);
+      }
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}

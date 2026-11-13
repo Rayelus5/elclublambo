@@ -2642,7 +2642,7 @@ export const copy = {
         relativistic_jets: 'Dispara dos láseres gemelos, hacia delante y hacia atrás',
         pulsar: 'Ondas rítmicas a tu alrededor que dañan a los cercanos',
         einstein_ring: 'Tus disparos llevan un proyectil más',
-        anomaly: 'Cada poco, un efecto glitch impredecible',
+        anomaly: 'Cada poco, un fallo de la realidad impredecible: te lanza lejos del enemigo más cercano, congela lo que tienes cerca o descarga sobre varios enemigos',
       } satisfies Record<PhenomenonId, string>,
       power: 'Multiplica la fuerza de sus habilidades. Varias reliquias de la misma familia rinden menos cuantas más llevas',
       // The mythic's own power (plan «rareza Mítica» M2); its seconds are the live content.relics.singularity.cooldown.
@@ -3129,6 +3129,8 @@ export const copy = {
     extracting: 'Extrayendo',
     // Fase cuántica (Nov plan B2): a hit that went through the probe.
     evaded: '¡Fase!',
+    // A relic's anomaly went off on my probe (a glitch: thrown aside, a freeze or a strike).
+    anomaly: '¡Anomalía!',
     beaconLeft: (s: number) => `Cierra en ${s} s`,
     beaconDistance: (u: number) => `${u} u`,
     closeRadio: 'Cerrar mensaje',

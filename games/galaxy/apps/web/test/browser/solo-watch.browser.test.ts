@@ -76,8 +76,8 @@ for (const [w, h] of [
     while (cut + 5 < ev.length && ev[cut]! <= 2400) cut += 6;
     await expect.poll(() => Sock.last).not.toBeNull();
     Sock.last!.push({ t: 'hello', run: { id: 'r1', player: 'vega', startedAt: '2026-11-12T10:00:00.000Z' }, start, contentFallback: false, log: toBase64(encodeLog({ probes: 1, events: ev.slice(0, cut) })), to: 2400, s: 'run' });
-    // It catches up, and then nothing is said over the arena while it plays.
-    await expect.poll(() => document.querySelector('.solo-status')?.textContent ?? 'x', { timeout: 15_000 }).toBe('');
+    // It catches up (2400 ticks: slow on a busy CI runner), and then nothing is said over the arena while it plays.
+    await expect.poll(() => document.querySelector('.solo-status')?.textContent ?? 'x', { timeout: 30_000 }).toBe('');
     Sock.last!.push({ t: 'f', b: toBase64(encodeEvents(ev.slice(cut), ev[cut - 6]!).bytes), to: full.tick, s: 'run' });
     await new Promise((r) => setTimeout(r, 1500));
     const canvas = document.querySelector<HTMLCanvasElement>('.replay-stage canvas')!;
@@ -87,6 +87,6 @@ for (const [w, h] of [
     if (import.meta.env['VITE_SOLO_SHOTS']) await page.screenshot({ path: `__shots__/solo-watch-${w}.png` });
     Sock.last!.push({ t: 'st', s: 'pause' });
     // The later piece may still be catching up on a slow runner («Sincronizando…» first).
-    await expect.poll(() => document.querySelector('.solo-status')?.textContent, { timeout: 15_000 }).toBe('El jugador tiene el juego en pausa');
-  }, 60_000);
+    await expect.poll(() => document.querySelector('.solo-status')?.textContent, { timeout: 20_000 }).toBe('El jugador tiene el juego en pausa');
+  }, 90_000);
 }

@@ -87,6 +87,23 @@ export function playEvents(events: readonly SimEvent[], me = 0): void {
       case 'dash':
         tone('dash', 0.15, (a, t) => hiss(a, t, 1800, 500, e.kind === 'comet' ? 0.3 : 0.2, 0.07, 0.9));
         break;
+      case 'anomaly':
+        // A relic's anomaly: the ship's own «error», a crackle of static and two square steps down, then its outcome
+        // (thrown aside: a zip; a freeze: an icy hiss; a strike: a zap).
+        tone('anomaly', 0.25, (a, t) => {
+          for (const [d, hz] of [
+            [0, 3200],
+            [0.035, 1400],
+            [0.06, 2600],
+          ] as const)
+            hiss(a, t + d, hz, hz * 0.9, 0.03, 0.06, 8);
+          blip(a, t + 0.02, 660, 640, 0.05, 0.03);
+          blip(a, t + 0.08, 440, 420, 0.06, 0.03);
+          if (e.what === 'blink') hiss(a, t + 0.05, 3000, 400, 0.14, 0.06, 1.4);
+          else if (e.what === 'freeze') hiss(a, t + 0.06, 5200, 2400, 0.3, 0.05, 3);
+          else blip(a, t + 0.06, 1800, 160, 0.12, 0.035, 'sawtooth');
+        });
+        break;
       case 'propBreak':
         tone('prop', 0.05, (a, t) => {
           hiss(a, t, 900, 180, 0.16, 0.08, 1.6);

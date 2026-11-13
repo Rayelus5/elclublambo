@@ -18,6 +18,11 @@ export type SimEvent =
    * hitting within `radius`.
    */
   | { t: 'singularity'; probe: number; what: 'open' | 'collapse'; x: number; y: number; radius: number }
+  /**
+   * A relic's anomaly went off (a negative glitch, render only): `blink` threw the probe from (fx, fy) to (tx, ty),
+   * `freeze` froze what was within `radius`, `strike` hit the enemies at `targets` (x, y pairs).
+   */
+  | { t: 'anomaly'; probe: number; what: 'blink' | 'freeze' | 'strike'; fx: number; fy: number; tx: number; ty: number; radius: number; targets: number[] }
   /** A dash (a quirk's jump, a comet's charge): from (fx, fy) to (tx, ty) over `ticks` (0: instant), for the effects. */
   | { t: 'dash'; probe: number; kind: 'quirk' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
   | { t: 'levelUp'; probe: number; level: number }

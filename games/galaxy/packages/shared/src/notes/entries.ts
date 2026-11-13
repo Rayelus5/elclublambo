@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-21-la-anomalia-se-ve',
+    version: '1.21',
+    date: '2026-11-13',
+    title: 'La anomalía se ve',
+    summary: 'La anomalía de las reliquias ya no parece un fallo del juego: se ve, se oye y se explica',
+    items: [
+      { kind: 'mejora', text: 'Cuando salta una anomalía, tu sonda se parte en copias rojas y cianes, el campo se rasga y suena un chasquido de estática' },
+      { kind: 'mejora', text: 'Si te lanza a un lado, la sonda y la cámara se deslizan hasta allí en vez de saltar de golpe. Si congela o descarga, ves el anillo de estática o los rayos sobre los enemigos' },
+      { kind: 'mejora', text: 'En el Hangar, la anomalía explica lo que puede hacer: lanzarte lejos del enemigo más cercano, congelar lo que tienes cerca o descargar sobre varios enemigos' },
+      { kind: 'arreglo', text: 'El dorso de las cartas Míticas ya se ve en el detalle de la colección' },
+    ],
+  },
+  {
     id: 'v1-20-singularidad',
     version: '1.20',
     date: '2026-11-13',
