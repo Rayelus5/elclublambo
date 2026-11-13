@@ -1,6 +1,17 @@
 /** Inline SVG icons (DESIGN_SYSTEM §7): 24×24, round 2.2 px strokes, decorative unless given a label. The title-screen
  * set comes from the approved demo's sprite (titulo-v2.html). */
 const PATHS = {
+  // The Discord mascot's face, drawn in the set's own strokes (the community button of the home screen).
+  discord: (
+    <>
+      <path d="M8.6 6.2c-1.7.3-3.2.8-4.5 1.7C2.3 10.8 1.8 13.8 2 16.8c1.5 1.1 3.1 1.9 4.7 2.3l1-1.7" />
+      <path d="M15.4 6.2c1.7.3 3.2.8 4.5 1.7 1.8 2.9 2.3 5.9 2.1 8.9-1.5 1.1-3.1 1.9-4.7 2.3l-1-1.7" />
+      <path d="M6.8 16.4c3.4 1.5 7 1.5 10.4 0" />
+      <path d="M8.6 6.2l.7 1.5c1.8-.3 3.6-.3 5.4 0l.7-1.5" />
+      <circle cx="9.2" cy="12.6" r="1.3" />
+      <circle cx="14.8" cy="12.6" r="1.3" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />

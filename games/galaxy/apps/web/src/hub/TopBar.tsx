@@ -7,6 +7,9 @@ import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
 import { LeftoversNotice } from './Leftovers';
 import { NewsButton } from './News';
+
+/** The game's Discord community invitation. */
+const DISCORD_URL = 'https://discord.gg/2TA8RvKXv3';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
@@ -91,6 +94,19 @@ export function TopBar({
           {requests > 0 ? <span className="friends-request" aria-hidden="true" /> : null}
         </button>
         <NewsButton style={delay('1.11s')} />
+        {/* The game's Discord community (the owner): out of the game, in a new tab. */}
+        <a
+          href={DISCORD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="lip pill fold enter discord-button"
+          style={delay('1.14s')}
+          aria-label={copy.hub.discordLabel}
+          title={copy.hub.discordLabel}
+        >
+          <Icon name="discord" />
+          <span className="label">{copy.hub.discord}</span>
+        </a>
       </nav>
       <div className="group">
         <div className="lip panel hud hud-me enter" style={delay('1s')} data-tour="wallet">

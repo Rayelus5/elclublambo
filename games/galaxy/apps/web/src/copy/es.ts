@@ -2154,6 +2154,9 @@ export const copy = {
   },
   hub: {
     shortcuts: 'Accesos',
+    // The game's Discord community (the owner), next to Noticias.
+    discord: 'Discord',
+    discordLabel: 'Únete a la comunidad del juego en Discord. Se abre en otra pestaña',
     menu: 'Menú principal',
     scanner: 'Escáner profundo',
     freePull: 'Tirada gratis',

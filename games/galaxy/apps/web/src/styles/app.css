@@ -3023,6 +3023,9 @@
   /* Noticias (open beta): a Solar count on the top bar's button; a window with the notices (an important one in Solar,
      information in Hielo) and the multipliers running now, one card per launch with each currency's factor and end. */
   .news-button { position: relative; }
+  /* The Discord community: the shortcuts' own pill, with Discord's blurple on its icon. */
+  .discord-button .ico { color: #8c96ff; }
+  .discord-button:hover .ico, .discord-button:focus-visible .ico { color: #a7aeff; }
   .news-badge { position: absolute; inset-block-start: -6px; inset-inline-end: -6px; min-inline-size: 22px; block-size: 22px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 99px; background: var(--color-solar); color: var(--color-void); font: 800 12px/1 var(--font-sans); box-shadow: 0 0 0 3px var(--color-panel); }
   .modal.news { inline-size: min(620px, 100%); }
   .news-section { margin-block-start: 18px; }
