@@ -40,7 +40,7 @@ test('la cuenta sin ajustes recibe los de este navegador', async () => {
   await settle();
   await vi.advanceTimersByTimeAsync(800);
   expect(deps.save).toHaveBeenCalledTimes(1);
-  expect(deps.save.mock.calls[0]![0]).toMatchObject({ v: 1, colorVision: 'protan', scannerPro: false, music: 0.3, sfx: DEFAULT_AUDIO.sfx, cursor: true, cursorSize: 'medium', manualAim: false });
+  expect(deps.save.mock.calls[0]![0]).toMatchObject({ v: 1, colorVision: 'protan', scannerPro: false, music: 0.3, sfx: DEFAULT_AUDIO.sfx, cursor: true, cursorSize: 'medium', manualAim: true });
   expect(getSyncStatus()).toBe('saved');
 });
 
