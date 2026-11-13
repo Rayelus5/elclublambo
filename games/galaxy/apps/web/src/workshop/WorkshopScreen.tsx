@@ -25,24 +25,38 @@ import { playEquip, playLevelUp } from './sfx';
 const t = copy.workshop;
 const BAY_W = 128;
 const BAY_H = 72;
+// The grid's height on screen (`.workshop-grid`: min(780px, 100dvh − 140px)) and the gap between the bay and its plate.
+const GRID_MAX = 780;
+const GRID_CHROME = 140;
+const PLATE_GAP = 16;
 
-/** The bay's pixel size: the biggest whole number of screen pixels per art pixel that fits its box (measured as soon
- * as the box exists, and again whenever it changes size). */
+/**
+ * The bay's pixel size: the biggest whole number of screen pixels per art pixel that fits its column's width and, with
+ * its plate under it, the grid's height on screen. The bay sits at the top of its column and its plate right under it
+ * (the owner), so the height comes from the screen, never from the column: a tall sheet beside it (the skins) stretches
+ * the column but not the art. Measured as soon as the boxes exist, and again whenever they or the window change size.
+ */
 function useBayScale() {
   const [el, ref] = useState<HTMLDivElement | null>(null);
+  const [plate, plateRef] = useState<HTMLDivElement | null>(null);
   const [px, setPx] = useState(4);
   useEffect(() => {
     if (!el) return;
     const fit = () => {
-      const r = el.getBoundingClientRect();
-      setPx(Math.max(2, Math.floor(Math.min(r.width / BAY_W, r.height / BAY_H))));
+      const height = Math.min(GRID_MAX, window.innerHeight - GRID_CHROME) - (plate?.getBoundingClientRect().height ?? 0) - PLATE_GAP;
+      setPx(Math.max(2, Math.floor(Math.min(el.getBoundingClientRect().width / BAY_W, height / BAY_H))));
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     ro?.observe(el);
-    return () => ro?.disconnect();
-  }, [el]);
-  return { ref, px };
+    if (plate) ro?.observe(plate);
+    window.addEventListener('resize', fit);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, [el, plate]);
+  return { ref, plateRef, px };
 }
 
 function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
@@ -138,7 +152,7 @@ export function WorkshopScreen() {
   const [params, setParams] = useSearchParams();
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const [clamp, setClamp] = useState(0);
-  const { ref: bayRef, px } = useBayScale();
+  const { ref: bayRef, plateRef, px } = useBayScale();
   useEffect(() => {
     if (!celebrate) return;
     const id = setTimeout(() => setCelebrate(null), 2600);
@@ -185,7 +199,7 @@ export function WorkshopScreen() {
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>
               </div>
-              <div className="workshop-plate">
+              <div className="workshop-plate" ref={plateRef}>
                 <h2>{probe.name}</h2>
                 <span className="workshop-pips" aria-label={copy.hangar.level(probe.level, probe.maxLevel)}>
                   {Array.from({ length: probe.maxLevel }, (_, i) => (

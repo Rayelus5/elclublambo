@@ -3210,8 +3210,9 @@
   .workshop-pick .probe-tile-progress { display: flex; align-items: center; gap: 8px; }
   .workshop-pick .probe-tile-bar { flex: 1; }
 
-  .workshop-bay { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; min-inline-size: 0; }
-  .workshop-bay-frame { display: grid; place-items: center; min-block-size: 340px; min-inline-size: 0; overflow: hidden; }
+  /* The bay at the top of its column and its plate right under it (the owner), however tall the sheet beside it. */
+  .workshop-bay { display: grid; grid-template-rows: auto auto; align-content: start; gap: 16px; min-inline-size: 0; }
+  .workshop-bay-frame { display: grid; justify-items: center; padding-block-start: 9px; min-inline-size: 0; overflow: hidden; }
   .workshop-bay-art { position: relative; inline-size: calc(128 * var(--px)); block-size: calc(72 * var(--px)); background-repeat: no-repeat; background-size: 600% 100%; image-rendering: pixelated; border-radius: 20px; overflow: hidden; animation: workshop-bay .84s steps(6) infinite; box-shadow: 0 0 0 6px #0b0c24, 0 0 0 9px #2a2f5e, 0 30px 60px rgb(0 0 0 / .55); }
   @keyframes workshop-bay { to { background-position-x: 120%; } }
   .workshop-probe { position: absolute; left: 50%; bottom: calc(var(--px) * 14); translate: -50% 0; inline-size: calc(var(--px) * 24); block-size: auto; image-rendering: pixelated; filter: drop-shadow(0 calc(var(--px) * 2) 0 rgb(0 0 0 / .4)) drop-shadow(0 0 18px rgb(191 227 255 / .35)); animation: workshop-in .45s var(--ease-bounce) both, workshop-hover 3s ease-in-out .45s infinite; }
