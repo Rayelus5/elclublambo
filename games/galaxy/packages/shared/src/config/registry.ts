@@ -519,7 +519,7 @@ export const configSchemas = {
       tradeAlertTierGap: z.number().int().min(1).max(4).default(3),
     })
     .strict()
-    .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),
+    .refine((m) => m.maxPrice >= Math.max(m.minPrice.legendary, m.minPrice.mythic ?? 0), 'maxPrice is at least the legendary and mythic floors'),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
   /**
    * Co-op (multiplayer plan, phases 5–6): who may play (account level, after the tutorial), the rooms (how many at

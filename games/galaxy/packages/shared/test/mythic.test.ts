@@ -112,6 +112,27 @@ describe('la tirada', () => {
     );
   });
 
+  // Review of #177: with the mythic chance on, the sure pull is still a legendary or better (a mythic then, with its
+  // own chance), never less.
+  test('con la mítica activada, la tirada segura da una legendaria o una mítica, nunca menos', () => {
+    const on = { ...cfg, mythic: 0.3 };
+    let mythics = 0;
+    fc.assert(
+      fc.property(seed64, (s) => {
+        const r = drawPull(s, { sinceLegendary: on.standard.hard - 1, sinceFeatured: 0, welcome: false }, standard, on);
+        expect(r.tier === LEGENDARY || r.tier === MYTHIC).toBe(true);
+        if (r.tier === MYTHIC) mythics++;
+      }),
+      { numRuns: 300 },
+    );
+    expect(mythics).toBeGreaterThan(0);
+  });
+
+  test('el precio máximo del mercado cubre también el mínimo de una mítica', () => {
+    expect(() => parseConfig('market', { minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 20000 }, maxPrice: 10000 })).toThrow();
+    expect(parseConfig('market', { minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 20000 }, maxPrice: 20000 }).maxPrice).toBe(20000);
+  });
+
   test('se tira en su propio flujo: con el 50 % sale en la mitad de las semillas', () => {
     const half = { ...cfg, mythic: 0.5 };
     let hits = 0;
