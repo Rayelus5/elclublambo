@@ -30,6 +30,39 @@ export const ITEMS: Record<string, SpriteDef> = {
   ),
   // A component: a steel nut with a Terminal core (the wallet's colour).
   component: still(grid('..k.k..', '.kTkTk.', 'kTYYYTk', '.kYgYk.', 'kTYYYTk', '.kTkTk.', '..k.k..')),
+  // A signal for the deep scanner (SIM 1.10.0, from an abandoned satellite): a cyan diamond whose heart pulses.
+  'signal-ticket': loop(
+    4,
+    grid('...k...', '..kck..', '.kcwck.', 'kcwwwck', '.kcwck.', '..kck..', '...k...'),
+    grid('...k...', '..kck..', '.kcick.', 'kcicick', '.kcick.', '..kck..', '...k...'),
+  ),
+  // An abandoned satellite (SIM 1.10.0): flat like the probes, two blue solar panels on struts, a steel body with a dish,
+  // its last status light still blinking.
+  satellite: loop(
+    2,
+    grid(
+      '.........kkk.........',
+      '........kYwYk........',
+      '.........kTk.........',
+      'kkkkkkk.kkkkk.kkkkkkk',
+      'kdDdDdkkkYYYkkkdDdDdk',
+      'kDdDdDTTkYsYkTTDdDdDk',
+      'kdDdDdkkkYYYkkkdDdDdk',
+      'kkkkkkk.kTTTk.kkkkkkk',
+      '.........kkk.........',
+    ),
+    grid(
+      '.........kkk.........',
+      '........kYwYk........',
+      '.........kTk.........',
+      'kkkkkkk.kkkkk.kkkkkkk',
+      'kdDdDdkkkYYYkkkdDdDdk',
+      'kDdDdDTTkYYYkTTDdDdDk',
+      'kdDdDdkkkYYYkkkdDdDdk',
+      'kkkkkkk.kTTTk.kkkkkkk',
+      '.........kkk.........',
+    ),
+  ),
 
   bolt: still(grid('.kkk.', 'kwwsk', '.kkk.')),
   lance: still(grid('.kkkkkkkk.', 'kciiiiwwwk', '.kkkkkkkk.')),

@@ -33,6 +33,7 @@ export {
 export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
+export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';
 export { coopFactor, playersIn } from './systems/coop';
 export { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 export { CoopFeed } from './coop-feed';

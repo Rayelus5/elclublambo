@@ -435,6 +435,23 @@ const shape = z
       .strict()
       .refine((p) => p.dustMax >= p.dustMin, 'props_dust_range')
       .default(D.props),
+    // Plan «skins, perfil y entorno», part E: abandoned satellites. The chances only go down (at least one, two, three).
+    satellites: z
+      .object({
+        chances: z.array(unit).max(3),
+        earliest: z.number().min(0).max(1200),
+        latest: z.number().min(0).max(1200),
+        drift: z.number().min(5).max(300),
+        distance: z.number().min(0).max(2000),
+        speed: z.number().min(0).max(400),
+        hp: pos,
+        hpPerLayer: n,
+        radius: z.number().min(2).max(64),
+      })
+      .strict()
+      .refine((s) => s.latest >= s.earliest, 'satellites_window')
+      .refine((s) => s.chances.every((c, k) => k === 0 || c <= s.chances[k - 1]!), 'satellites_chances')
+      .default(D.satellites),
   })
   .strict();
 

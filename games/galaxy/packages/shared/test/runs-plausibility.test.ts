@@ -155,3 +155,16 @@ describe('maldición y ritmo de bajas (revisión final de M3b-1)', () => {
     expect(r.flags).not.toContain('kills_rate');
   });
 });
+
+// SIM 1.10.0: the abandoned satellites' signals ride the claim untouched (the server bounds them by the run's seed).
+test('al recortar el botín, las señales de satélite se conservan', () => {
+  const r = checkRun(claim({ loot: [{ coins: 999_999, dust: 15, signals: 1 }] }), ctx);
+  expect(r.flags).toContain('loot_cap');
+  expect(r.claim.loot[0]!.signals).toBe(1);
+});
+
+test('las señales de capas a las que no le dio tiempo de llegar se quedan fuera con ellas', () => {
+  const r = checkRun(claim({ depth: 3, bossKills: 3, loot: [{ coins: 40, dust: 15 }, { coins: 1, dust: 1, signals: 1 }, { coins: 1, dust: 1, signals: 1 }] }), ctx);
+  expect(r.claim.depth).toBeLessThan(3);
+  expect(r.claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0)).toBeLessThan(2);
+});

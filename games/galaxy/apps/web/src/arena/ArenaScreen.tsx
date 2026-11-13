@@ -10,7 +10,7 @@ import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { announceFor } from './announce';
 import { playEvents } from './arena-sfx';
-import { BeaconMarker, BossBar, Radio } from './hud/Overlays';
+import { BeaconMarker, BossBar, Radio, SatelliteMarker } from './hud/Overlays';
 import { Hud } from './hud/Hud';
 import { LevelUp } from './hud/LevelUp';
 import { PauseMenu } from './hud/PauseMenu';
@@ -191,6 +191,7 @@ export function ArenaScreen({
           else say('boss', copy.arena.radio.boss);
         }
         else if (e.t === 'beaconOpen') say('beacon', copy.arena.radio.beacon);
+        else if (e.t === 'satellite' && e.what === 'appear') say('satellite', copy.arena.radio.satellite);
         else if (e.t === 'layer') say('layer', copy.arena.radio.layer(e.layer));
       }
     };
@@ -385,6 +386,7 @@ export function ArenaScreen({
       <Hud hud={hud} content={run.content} onPause={pause} announce={announce} />
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
+      {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}
       {briefing ? (
         <Briefing

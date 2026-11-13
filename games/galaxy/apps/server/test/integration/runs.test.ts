@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { generateGalaxy, type FinishRunRequest, PROBE_TEST, type RunResult, type RunStart, type Wallet } from '@galaxy/shared';
-import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
+import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64, worldSchedule } from '@galaxy/sim';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { madridDay } from '../../src/economy/day';
@@ -330,4 +330,43 @@ test('el laboratorio (M4b-2): la partida sale con sus bonos y cobra más monedas
   expect(res.statusCode).toBe(200);
   // The same claim as «extraer paga…» (70 coins, 21 dust, 56 material), with +10 %, +10 % and +20 %.
   expect((res.json() as RunResult).payout).toMatchObject({ coins: 77, dust: 23, material: 67 });
+});
+
+// Plan «skins, perfil y entorno», part E (SIM 1.10.0): the abandoned satellites' signals. A solo run is not replayed,
+// so the server pays only the satellites its seed had up to the depth it reached, never more than the cap.
+test('las señales de satélite solo se pagan si la semilla de la partida trajo satélites', async () => {
+  const T = DEFAULT_CONTENT.satellites;
+  const seedWith = (n: number) => {
+    for (let k = 1; ; k++) if (worldSchedule(String(k), T).length === n) return String(k);
+  };
+  const paid = async (seed: string) => {
+    const p = await player();
+    const run = await played(p.cookie, 7);
+    await ctx.db.updateTable('galaxy.runs').set({ seed }).where('id', '=', run.id).execute();
+    const res = await finish(p.cookie, run.id, body({ loot: [{ coins: 40, dust: 12, signals: 1 }] }));
+    expect(res.statusCode, res.body).toBe(200);
+    return (res.json() as RunResult).payout.satellites;
+  };
+  expect(await paid(seedWith(0))).toBe(0);
+  expect(await paid(seedWith(1))).toBe(1);
+});
+
+test('una partida que acaba antes de la hora de su satélite no cobra su señal, y pedir más de las que hubo se marca', async () => {
+  const T = DEFAULT_CONTENT.satellites;
+  // A seed whose only satellite comes late in layer 1.
+  let seed = '';
+  for (let k = 1; !seed; k++) {
+    const plan = worldSchedule(String(k), T);
+    if (plan.length === 1 && plan[0]!.at > 120) seed = String(k);
+  }
+  const p = await player();
+  const run = await played(p.cookie, 7);
+  await ctx.db.updateTable('galaxy.runs').set({ seed }).where('id', '=', run.id).execute();
+  // A minute played: the satellite was still to come.
+  const res = await finish(p.cookie, run.id, body({ outcome: 'died', ticks: 60 * 60, bossKills: 0, kills: 50, loot: [{ coins: 5, dust: 2, signals: 3 }] }));
+  expect(res.statusCode, res.body).toBe(200);
+  const r = res.json() as RunResult;
+  expect(r.payout.satellites).toBe(0);
+  const row = await ctx.db.selectFrom('galaxy.runs').select('flags').where('id', '=', run.id).executeTakeFirstOrThrow();
+  expect(row.flags).toContain('satellite_cap');
 });

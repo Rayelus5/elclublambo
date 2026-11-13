@@ -9,7 +9,7 @@ import type { RunsConfig } from './rewards';
 // depth and loot to what those kills drop. A cheating flag also pays only the death share. Replaying the inputs
 // comes later (M5).
 
-export type RunFlag = 'too_fast' | 'depth_vs_time' | 'kills_rate' | 'boss_kills' | 'log_mismatch' | 'loot_cap' | 'payout_cap' | 'coop_idle';
+export type RunFlag = 'too_fast' | 'depth_vs_time' | 'kills_rate' | 'boss_kills' | 'log_mismatch' | 'loot_cap' | 'payout_cap' | 'coop_idle' | 'satellite_cap';
 
 /** Flags that point at a forged claim rather than a lucky one: the run pays only the death share. */
 const CHEATING: readonly RunFlag[] = ['too_fast', 'depth_vs_time', 'kills_rate', 'boss_kills', 'log_mismatch'];
@@ -78,7 +78,7 @@ export function checkRun(claim: RunClaim, ctx: RunCheckContext): { flags: RunFla
     flags,
     claim: same
       ? claim
-      : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((_, i) => ({ coins: coins[i]!, dust: dust[i]!, components: components[i]! })) },
+      : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((l, i) => ({ coins: coins[i]!, dust: dust[i]!, components: components[i]!, ...(l.signals ? { signals: l.signals } : {}) })) },
     penalized: flags.some((f) => CHEATING.includes(f)),
   };
 }

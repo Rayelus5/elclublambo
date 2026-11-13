@@ -444,6 +444,7 @@ export interface Content {
   limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number };
   anomalies: AnomalyDef[];
   props: PropsTuning;
+  satellites: SatellitesTuning;
 }
 
 /**
@@ -451,6 +452,24 @@ export interface Content {
  * layer past the first) and `radius`. Breaking one drops `components` with `componentChance` and `dustMin`–`dustMax`
  * star dust.
  */
+/**
+ * Abandoned satellites (plan «skins, perfil y entorno», part E; systems/world-events.ts): `chances[k]` is a run's
+ * chance of at least k + 1 of them (one per layer from the first), each `earliest`–`latest` seconds into its layer's
+ * waves. It comes `distance` from a probe, drifts by at `speed` (units/s) for `drift` seconds, has `hp` (+`hpPerLayer`
+ * per layer past the first) and `radius`, and breaking it drops one signal.
+ */
+export interface SatellitesTuning {
+  chances: number[];
+  earliest: number;
+  latest: number;
+  drift: number;
+  distance: number;
+  speed: number;
+  hp: number;
+  hpPerLayer: number;
+  radius: number;
+}
+
 export interface PropsTuning {
   perChunk: number;
   hp: number;

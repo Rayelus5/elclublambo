@@ -154,7 +154,7 @@ export const PICKUP_FIELDS = {
   to: 'u8',
 } as const;
 
-export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5 } as const;
+export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5, signal: 6 } as const;
 
 /**
  * Breakable props of the sector's ground (rocks, ice, coral, slag, rift crystals): placed per chunk from the run

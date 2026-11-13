@@ -156,6 +156,7 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
           <Paid kind="coins" value={r.payout.coins} />
           <Paid kind="dust" value={r.payout.dust} />
           {r.payout.signals > 0 && <Paid kind="signal" value={r.payout.signals} />}
+          {r.payout.satellites ? <span className="result-paid-note">{copy.results.fromSatellites(r.payout.satellites)}</span> : null}
           {r.payout.material > 0 && <Paid kind="material" value={r.payout.material} />}
           {(r.payout.components ?? 0) > 0 && <Paid kind="components" value={r.payout.components ?? 0} />}
         </div>

@@ -308,6 +308,90 @@ for (const sector of DEFAULT_CONTENT.sectors) {
   }, 90_000);
 }
 
+/** The canvas's pixels (RGBA), copied through a 2D canvas. */
+function pixels(canvas: HTMLCanvasElement): Uint8ClampedArray {
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d')!;
+  ctx.drawImage(canvas, 0, 0);
+  return ctx.getImageData(0, 0, copy.width, copy.height).data;
+}
+
+/** The share of pixels (one in 7) that changed visibly between two frames, in the first `bytes` (default: all). */
+function changed(a: Uint8ClampedArray, b: Uint8ClampedArray, bytes = a.length): number {
+  let n = 0;
+  let seen = 0;
+  for (let i = 0; i < bytes; i += 4 * 7) {
+    seen++;
+    if (Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!) > 12) n++;
+  }
+  return n / seen;
+}
+
+// Plan «banda sonora, skins, perfil y entorno», part E: the Núcleo's storm at full strength in every biome, against
+// the same scene calm, with its fauna around so the review sees it still reads; and its still version (reduced motion).
+for (const sector of DEFAULT_CONTENT.sectors) {
+  test(`la tormenta del Núcleo en ${sector.name}: el fondo cambia bajo la fauna, y con movimiento reducido queda quieta`, async () => {
+    // The stage's clock under control: each frame is 1/60 s, so the waves and the first flash land the same every time.
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: sector.id, probes: [{ probe: 'lumen', relics: [] }] });
+      const p = sim.probes[0]!;
+      p.hp = 1e9;
+      const species = [...new Set(sector.spawns.map((sp) => sp.enemy))];
+      species.forEach((id, k) => {
+        const def = DEFAULT_CONTENT.enemies.find((e) => e.id === id)!;
+        for (let j = 0; j < 2; j++) {
+          const a = ((k * 2 + j) / (species.length * 2)) * Math.PI * 2 + 0.3;
+          spawnEnemy(sim, def, p.x + Math.cos(a) * 120, p.y + Math.sin(a) * 90);
+        }
+      });
+      spawnBoss(sim);
+      // The Core on screen, up and to the right of the probe.
+      const b = sim.boss!.index;
+      sim.enemies.x[b] = sim.enemies.px[b] = p.x + 170;
+      sim.enemies.y[b] = sim.enemies.py[b] = p.y - 70;
+      const canvas = await mount(1280, 720);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '5', preserve: true, biome: sector.biome });
+      stage.resize(1280, 720);
+      const frames = (n: number) => {
+        for (let k = 0; k < n; k++) {
+          now += 1000 / 60;
+          stage!.render(sim, 1);
+        }
+      };
+      // Calm: the same scene with the storm off.
+      sim.phase = 'waves';
+      frames(1);
+      const calm = pixels(canvas);
+      // The storm lives under the world: what is played draws over it.
+      const root = stage.app.stage;
+      expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeLessThan(root.getChildIndex(root.getChildByLabel('world')!));
+      expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeGreaterThan(root.getChildIndex(root.getChildByLabel('veil')!));
+      // Full storm (2 s into the Core), a third of a second on: CI draws without a GPU, so every frame counts.
+      sim.phase = 'boss';
+      sim.phaseTick = 120;
+      frames(20);
+      expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.05);
+      expect(distinctColours(canvas)).toBeGreaterThan(20);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}.png`, element: canvas });
+      // Reduced motion: the tint and the vignette only, the same frame after frame (the sky's top band, where no
+      // sprite moves).
+      stage.setReduced(true);
+      frames(2);
+      const still = pixels(canvas);
+      expect(changed(calm, still)).toBeGreaterThan(0.02);
+      frames(10);
+      expect(changed(still, pixels(canvas), 1280 * 60 * 4)).toBe(0);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}-reduced.png`, element: canvas });
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}
+
 test('el lienzo deja el cursor al juego: al pasar el ratón, PixiJS no le escribe un cursor propio (la mira de Ajustes se ve en la partida)', async () => {
   const canvas = await mount(640, 360);
   stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107' });
@@ -417,6 +501,21 @@ test('la flecha de un compañero justo encima queda debajo de la barra de arriba
   };
   expect(green(0, 100)).toBe(false);
   expect(green(100, 200)).toBe(true);
+}, 90_000);
+
+// Plan «skins, perfil y entorno», part E (SIM 1.10.0): an abandoned satellite drifting by and a signal on the ground.
+test('un satélite abandonado a la deriva y una señal en el suelo', async () => {
+  const sim = createSim({ seed: '20261112', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  step(sim, [IDLE]);
+  const p = sim.probes[0]!;
+  sim.world.satellites.push({ x: p.x + 60, y: p.y - 30, px: p.x + 60, py: p.y - 30, vx: 0, vy: 0, hp: 30, maxHp: 60, radius: 10, until: 99_999, flashT: 0, shot: 0, shotGen: 0, touchT: 0 });
+  dropPickup(sim, PICKUP.signal, 1, p.x - 40, p.y + 20);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '20261112', preserve: true, zoom: 2 });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(8);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-satellite.png', element: canvas });
 }, 90_000);
 
 // Plan «skins», part C: each probe drawn with its skin (only drawing), the rest with their own drawing.

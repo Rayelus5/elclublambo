@@ -44,7 +44,7 @@ describe('qué sale y cuándo', () => {
     const sim = spawning({ cap: 400 });
     sim.probes[0]!.hp = 1e9;
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
     sim.clocks['layerStart'] = 0;
     run(sim, 40 * 60);
     expect(Object.keys(census(sim)).sort()).toEqual(['cell', 'mite', 'ray', 'shell', 'spitter']);

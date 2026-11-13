@@ -256,6 +256,8 @@ export const configSchemas = {
           componentsPerMinute: z.number().min(0).max(10_000).default(20),
           /** Star dust the props can add per minute played, on top of what the kills drop. */
           propDustPerMinute: z.number().min(0).max(10_000).default(30),
+          /** Signals from abandoned satellites (SIM 1.10.0): the most one run pays (and never more than its seed had). */
+          satelliteSignals: z.number().int().min(0).max(3).default(3),
         })
         .strict()
         .default({
@@ -271,6 +273,7 @@ export const configSchemas = {
           runComponents: 30,
           componentsPerMinute: 20,
           propDustPerMinute: 30,
+          satelliteSignals: 3,
         }),
       expireHours: z.number().int().min(1).max(168).default(24),
       startPerHour: limit(30),

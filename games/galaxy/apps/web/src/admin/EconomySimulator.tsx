@@ -1,6 +1,6 @@
 import { HScroll } from '../ui/HScroll';
 import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, simulateEconomy } from '@galaxy/shared';
-import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, step } from '@galaxy/sim';
+import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
 import { copy, fmt } from '../copy/es';
@@ -59,7 +59,11 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
         setPct(Math.round(((i + sim.tick / ticks) / SEEDS.length) * 100));
       }
       const s = runSummary(sim);
-      samples.push({ outcome: sim.status === 'dead' ? 'died' : sim.status === 'extracted' ? 'extracted' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot: s.loot });
+      // The bot never chases the abandoned satellites (SIM 1.10.0): count every one the seed had in the time played, as
+      // a player who breaks them all would (the most the economy can get from them).
+      const satellites = satelliteSignalsUpTo(seed, DEFAULT_CONTENT.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds: DEFAULT_CONTENT.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300 });
+      const loot = s.loot.map((l, k) => ({ ...l, signals: k === 0 ? satellites : 0 }));
+      samples.push({ outcome: sim.status === 'dead' ? 'died' : sim.status === 'extracted' ? 'extracted' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot });
     }
     const at = new Date();
     const liveRuns = liveOf('runs');

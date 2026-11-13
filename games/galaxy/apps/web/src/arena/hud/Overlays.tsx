@@ -39,6 +39,22 @@ export function BeaconMarker({ beacon, camera, width, height }: { beacon: NonNul
   );
 }
 
+/** An abandoned satellite drifting by (SIM 1.10.0): an arrow at the screen edge while it is off screen. */
+export function SatelliteMarker({ satellite, camera, width, height }: { satellite: NonNullable<HudSnapshot['satellite']>; camera: Camera | null; width: number; height: number }) {
+  const zoom = camera?.zoom ?? 2;
+  const { x, y, angle, inside } = edgePoint({ width, height, bars: camera?.bars ?? 0 }, satellite.dx * zoom, satellite.dy * zoom, 56);
+  if (inside) return null;
+  return (
+    <div className="hud-satellite" style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` } as CSSProperties}>
+      <span className="hud-satellite-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />
+      <span className="hud-satellite-label">
+        <b>{copy.arena.satellite}</b>
+        <span>{copy.arena.satelliteHint}</span>
+      </span>
+    </div>
+  );
+}
+
 export function Radio({ text, onClose }: { text: string; onClose: () => void }) {
   const [who, ...rest] = text.split(': ');
   return (

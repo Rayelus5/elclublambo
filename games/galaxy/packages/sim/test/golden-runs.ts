@@ -41,7 +41,7 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
         { probe: C.probes[3]!.id, relics: [] },
       ],
     }),
-    hashes: ['1200:e346a9a72c66e6a9', '2400:61b585c41d5d821a', '3600:61d3ea23b1b1fbb4', '4800:df4e9cb31139c140', '6000:096b3e01e18dd25a', '7200:e956afb9a57ed2cd'],
+    hashes: ['1200:e346a9a72c66e6a9', '2400:61b585c41d5d821a', '3600:61d3ea23b1b1fbb4', '4800:ba5d0cd48d7be176', '6000:b566e41f87fbe9ad', '7200:bb884a7d980978ac'],
   },
 ];
 

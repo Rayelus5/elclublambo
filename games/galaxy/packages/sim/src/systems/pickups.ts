@@ -7,7 +7,7 @@ import { gainXp } from './xp';
 // pickup radius they are pulled in, faster and faster, and collected on touch. Coins, dust and components count for
 // the layer they are picked up in. A magnet (SIM 1.7.0) pulls every data fragment on the ground to whoever took it.
 
-const KIND_NAMES = ['xp', 'coin', 'dust', 'repair', 'magnet', 'component'] as const;
+const KIND_NAMES = ['xp', 'coin', 'dust', 'repair', 'magnet', 'component', 'signal'] as const;
 /** Fragments a magnet pulls fly faster than the ones a probe's radius takes. */
 const MAGNET_SPEED = 20;
 
@@ -88,6 +88,7 @@ function collect(sim: Sim, i: number, probe: number): void {
     const bag = sim.loot[sim.layer - 1]!;
     if (kind === PICKUP.coin) bag.coins += value;
     else if (kind === PICKUP.component) bag.components += value;
+    else if (kind === PICKUP.signal) bag.signals += value;
     else bag.dust += value;
   }
   sim.events.push({ t: 'pickup', probe, kind: KIND_NAMES[kind] ?? 'xp', value });
