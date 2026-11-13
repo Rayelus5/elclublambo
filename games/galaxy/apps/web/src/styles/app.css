@@ -317,8 +317,9 @@
 
   .topbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-left: -16px; }
   .topbar .group { display: flex; gap: 12px; align-items: center; }
-  /* Narrow screens: the locked shortcuts keep only their icon (the name stays for screen readers). */
-  @media (max-width: 1599px) {
+  /* Narrow screens: the locked shortcuts keep only their icon (the name stays for screen readers). With Discord next to
+     Noticias the bar needs about 1740 px with every name. */
+  @media (max-width: 1759px) {
     .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     /* Folded to its icon, the friends' count goes on the corner, as Noticias' does (owner, 2026-11-12); a request's dot
@@ -366,8 +367,8 @@
   .res.event-signal { position: relative; color: var(--color-uv-soft); }
   .res.event-signal .ico { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-uv) 70%, transparent)); }
   .res.event-signal::after { content: ''; position: absolute; inset-block-start: 6px; inset-inline-start: 22px; inline-size: 8px; block-size: 8px; background: var(--color-solar); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
-  /* With the event ticket the home's bar needs about 1590 px: up to 1699 px its shortcuts keep only their icon. */
-  @media (max-width: 1699px) {
+  /* With the event ticket (and Discord) the home's bar needs about 1840 px: up to 1859 px its shortcuts keep only their icon. */
+  @media (max-width: 1859px) {
     .topbar:has(.res.event-signal) .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .topbar:has(.res.event-signal) .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .topbar:has(.res.event-signal) .pill.fold .friends-online { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; min-inline-size: 20px; block-size: 20px; padding: 0 5px; box-sizing: border-box; box-shadow: 0 0 0 3px var(--color-panel); }
