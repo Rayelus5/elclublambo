@@ -1974,7 +1974,8 @@ export const DEFAULT_CONTENT: Content = {
     ],
   },
   relics: {
-    tier: [1, 1.15, 1.35, 1.6, 2],
+    // Legendary at ×1.75 (it was ×2) and the supernova toned down: the owner found them «muy rotas» in the open beta.
+    tier: [1, 1.15, 1.35, 1.6, 1.75],
     level: { step: 0.04, cap: 0.5 },
     stacking: { from: 3, decay: 0.5 },
     size: { compact: 0.85, medium: 1, large: 1.15, colossal: 1.3 },
@@ -1998,7 +1999,7 @@ export const DEFAULT_CONTENT: Content = {
       echo: { share: 0.8 },
     },
     phenomena: {
-      supernova: { cooldown: 8, damage: 40, radius: 120 },
+      supernova: { cooldown: 10, damage: 26, radius: 90 },
       satellite_galaxy: { cooldown: 0.8, damage: 8, range: 220, speed: 300 },
       globular_cluster: { count: 4, damage: 6, radius: 64, speed: 140, interval: 0.5 },
       comet: { cooldown: 6, distance: 90, seconds: 0.2, damage: 30 },
