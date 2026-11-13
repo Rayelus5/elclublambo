@@ -1,10 +1,10 @@
 {
   "season": [
     {
-      "id": "s-runs50",
-      "name": "Juega 50 incursiones",
+      "id": "s-runs70",
+      "name": "Juega 70 incursiones",
       "stat": "runs",
-      "target": 50,
+      "target": 70,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -14,10 +14,10 @@
       }
     },
     {
-      "id": "s-runs150",
-      "name": "Juega 150 incursiones",
+      "id": "s-runs200",
+      "name": "Juega 200 incursiones",
       "stat": "runs",
-      "target": 150,
+      "target": 200,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -27,10 +27,10 @@
       }
     },
     {
-      "id": "s-boss40",
-      "name": "Purga 40 Núcleos",
+      "id": "s-boss55",
+      "name": "Purga 55 Núcleos",
       "stat": "bossKills",
-      "target": 40,
+      "target": 55,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -40,10 +40,10 @@
       }
     },
     {
-      "id": "s-boss120",
-      "name": "Purga 120 Núcleos",
+      "id": "s-boss160",
+      "name": "Purga 160 Núcleos",
       "stat": "bossKills",
-      "target": 120,
+      "target": 160,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -79,10 +79,10 @@
       }
     },
     {
-      "id": "s-extract30",
-      "name": "Extrae 30 veces",
+      "id": "s-extract40",
+      "name": "Extrae 40 veces",
       "stat": "extractions",
-      "target": 30,
+      "target": 40,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -92,10 +92,10 @@
       }
     },
     {
-      "id": "s-extract80",
-      "name": "Extrae 80 veces",
+      "id": "s-extract110",
+      "name": "Extrae 110 veces",
       "stat": "extractions",
-      "target": 80,
+      "target": 110,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -105,10 +105,10 @@
       }
     },
     {
-      "id": "s-group40",
-      "name": "Juega 40 partidas en grupo",
+      "id": "s-group55",
+      "name": "Juega 55 partidas en grupo",
       "stat": "coopRuns",
-      "target": 40,
+      "target": 55,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -118,10 +118,10 @@
       }
     },
     {
-      "id": "s-revive40",
-      "name": "Reanima a 40 compañeros",
+      "id": "s-revive55",
+      "name": "Reanima a 55 compañeros",
       "stat": "revives",
-      "target": 40,
+      "target": 55,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -131,10 +131,10 @@
       }
     },
     {
-      "id": "s-legend5",
-      "name": "Consigue 5 legendarias",
+      "id": "s-legend7",
+      "name": "Consigue 7 legendarias",
       "stat": "legendaries",
-      "target": 5,
+      "target": 7,
       "reward": {
         "coins": 0,
         "dust": 800,
@@ -144,10 +144,10 @@
       }
     },
     {
-      "id": "s-kills100k",
-      "name": "Elimina 100.000 enemigos",
+      "id": "s-kills135k",
+      "name": "Elimina 135.000 enemigos",
       "stat": "kills",
-      "target": 100000,
+      "target": 135000,
       "reward": {
         "coins": 0,
         "dust": 0,

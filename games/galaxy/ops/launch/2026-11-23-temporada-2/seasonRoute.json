@@ -6,7 +6,7 @@
   },
   "steps": [
     {
-      "at": 200,
+      "at": 300,
       "reward": {
         "coins": 300,
         "dust": 0,
@@ -19,7 +19,7 @@
       }
     },
     {
-      "at": 500,
+      "at": 700,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -32,7 +32,7 @@
       }
     },
     {
-      "at": 900,
+      "at": 1200,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -45,7 +45,7 @@
       }
     },
     {
-      "at": 1500,
+      "at": 2000,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -58,7 +58,7 @@
       }
     },
     {
-      "at": 2100,
+      "at": 2800,
       "reward": {
         "coins": 0,
         "dust": 400,
@@ -71,7 +71,7 @@
       }
     },
     {
-      "at": 2800,
+      "at": 3800,
       "reward": {
         "coins": 800,
         "dust": 0,
@@ -84,7 +84,7 @@
       }
     },
     {
-      "at": 3600,
+      "at": 4900,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -97,7 +97,7 @@
       }
     },
     {
-      "at": 4500,
+      "at": 6000,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -110,7 +110,7 @@
       }
     },
     {
-      "at": 5300,
+      "at": 7200,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -123,7 +123,7 @@
       }
     },
     {
-      "at": 6000,
+      "at": 8000,
       "reward": {
         "coins": 0,
         "dust": 800,
@@ -136,7 +136,7 @@
       }
     },
     {
-      "at": 7000,
+      "at": 9500,
       "reward": {
         "coins": 1200,
         "dust": 0,
@@ -149,7 +149,7 @@
       }
     },
     {
-      "at": 8000,
+      "at": 10800,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -162,7 +162,7 @@
       }
     },
     {
-      "at": 9000,
+      "at": 12000,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -175,7 +175,7 @@
       }
     },
     {
-      "at": 10200,
+      "at": 13800,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -188,7 +188,7 @@
       }
     },
     {
-      "at": 11500,
+      "at": 15600,
       "reward": {
         "coins": 0,
         "dust": 1200,
@@ -201,7 +201,7 @@
       }
     },
     {
-      "at": 12800,
+      "at": 17400,
       "reward": {
         "coins": 1800,
         "dust": 0,
@@ -214,7 +214,7 @@
       }
     },
     {
-      "at": 14000,
+      "at": 19000,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -227,7 +227,7 @@
       }
     },
     {
-      "at": 15000,
+      "at": 20500,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -240,7 +240,7 @@
       }
     },
     {
-      "at": 16000,
+      "at": 22000,
       "reward": {
         "coins": 0,
         "dust": 1600,
@@ -253,7 +253,7 @@
       }
     },
     {
-      "at": 17500,
+      "at": 24000,
       "reward": {
         "coins": 2500,
         "dust": 0,
@@ -266,64 +266,12 @@
       }
     },
     {
-      "at": 19000,
+      "at": 26000,
       "reward": {
         "coins": 0,
         "dust": 0,
         "signal": 0,
         "shards": 160,
-        "title": null,
-        "frame": null,
-        "avatar": null,
-        "skin": null
-      }
-    },
-    {
-      "at": 20500,
-      "reward": {
-        "coins": 0,
-        "dust": 0,
-        "signal": 0,
-        "shards": 0,
-        "title": null,
-        "frame": null,
-        "avatar": null,
-        "skin": "skin-anchor-aurora"
-      }
-    },
-    {
-      "at": 22000,
-      "reward": {
-        "coins": 0,
-        "dust": 0,
-        "signal": 3,
-        "shards": 0,
-        "title": null,
-        "frame": null,
-        "avatar": null,
-        "skin": null
-      }
-    },
-    {
-      "at": 24000,
-      "reward": {
-        "coins": 0,
-        "dust": 2200,
-        "signal": 0,
-        "shards": 0,
-        "title": null,
-        "frame": null,
-        "avatar": null,
-        "skin": null
-      }
-    },
-    {
-      "at": 26000,
-      "reward": {
-        "coins": 3000,
-        "dust": 0,
-        "signal": 0,
-        "shards": 0,
         "title": null,
         "frame": null,
         "avatar": null,
@@ -340,11 +288,63 @@
         "title": null,
         "frame": null,
         "avatar": null,
-        "skin": "skin-prism-aurora"
+        "skin": "skin-anchor-aurora"
       }
     },
     {
       "at": 30000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 32500,
+      "reward": {
+        "coins": 0,
+        "dust": 2200,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 35500,
+      "reward": {
+        "coins": 3000,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 38000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-prism-aurora"
+      }
+    },
+    {
+      "at": 40500,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -357,7 +357,7 @@
       }
     },
     {
-      "at": 32000,
+      "at": 43500,
       "reward": {
         "coins": 0,
         "dust": 3000,
@@ -370,7 +370,7 @@
       }
     },
     {
-      "at": 34000,
+      "at": 46000,
       "reward": {
         "coins": 4000,
         "dust": 0,
@@ -383,7 +383,7 @@
       }
     },
     {
-      "at": 36000,
+      "at": 49000,
       "reward": {
         "coins": 0,
         "dust": 0,
@@ -396,7 +396,7 @@
       }
     },
     {
-      "at": 38000,
+      "at": 51500,
       "reward": {
         "coins": 0,
         "dust": 4000,
@@ -409,7 +409,7 @@
       }
     },
     {
-      "at": 40000,
+      "at": 55000,
       "reward": {
         "coins": 0,
         "dust": 0,

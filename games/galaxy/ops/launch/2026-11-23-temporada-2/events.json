@@ -1,148 +1,6 @@
 {
   "list": [
     {
-      "id": "escuadron-estelar",
-      "name": "Escuadrón estelar",
-      "description": "Vuelve el escuadrón, más exigente. Metas para jugar en grupo y metas que tu clan completa entre todos, con el Eco de coral para quien llegue al final",
-      "startsAt": "2026-11-29T23:00:00.000Z",
-      "endsAt": "2026-12-20T23:00:00.000Z",
-      "goals": [
-        {
-          "id": "ee-group",
-          "name": "Juega 15 partidas en grupo",
-          "stat": "coopRuns",
-          "target": 15,
-          "scope": "personal",
-          "reward": {
-            "coins": 1500,
-            "dust": 0,
-            "signal": 3,
-            "xp": 0,
-            "points": 150,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-revive",
-          "name": "Reanima a 25 compañeros",
-          "stat": "revives",
-          "target": 25,
-          "scope": "personal",
-          "reward": {
-            "coins": 0,
-            "dust": 800,
-            "signal": 4,
-            "xp": 0,
-            "points": 200,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-clan-runs",
-          "name": "Tu clan juega 500 incursiones",
-          "stat": "runs",
-          "target": 500,
-          "scope": "clan",
-          "reward": {
-            "coins": 0,
-            "dust": 2000,
-            "signal": 3,
-            "xp": 0,
-            "points": 200,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-clan-boss",
-          "name": "Tu clan purga 250 Núcleos",
-          "stat": "bossKills",
-          "target": 250,
-          "scope": "clan",
-          "reward": {
-            "coins": 3000,
-            "dust": 0,
-            "signal": 4,
-            "xp": 0,
-            "points": 250,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-clan-extract",
-          "name": "Tu clan extrae 200 veces",
-          "stat": "extractions",
-          "target": 200,
-          "scope": "clan",
-          "reward": {
-            "coins": 2500,
-            "dust": 0,
-            "signal": 3,
-            "xp": 0,
-            "points": 200,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-clan-group",
-          "name": "Tu clan juega 150 partidas en grupo",
-          "stat": "coopRuns",
-          "target": 150,
-          "scope": "clan",
-          "reward": {
-            "coins": 0,
-            "dust": 2500,
-            "signal": 4,
-            "xp": 0,
-            "points": 250,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": null
-          }
-        },
-        {
-          "id": "ee-group-50",
-          "name": "Juega 50 partidas en grupo",
-          "stat": "coopRuns",
-          "target": 50,
-          "scope": "personal",
-          "reward": {
-            "coins": 0,
-            "dust": 0,
-            "signal": 6,
-            "xp": 0,
-            "points": 300,
-            "eventSignals": 0,
-            "title": null,
-            "frame": null,
-            "avatar": null,
-            "skin": "skin-echo-coral"
-          }
-        }
-      ]
-    },
-    {
       "id": "rumbo-profundo",
       "name": "Rumbo profundo",
       "description": "Dos semanas de metas duras para ti. Ganas señales del escáner de Rumbo profundo, con púlsares destacados, y el avatar Primer contacto si llegas al final",
@@ -337,6 +195,148 @@
             "frame": null,
             "avatar": "first-contact",
             "skin": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "escuadron-estelar",
+      "name": "Escuadrón estelar",
+      "description": "Vuelve el escuadrón, más exigente. Metas para jugar en grupo y metas que tu clan completa entre todos, con el Eco de coral para quien llegue al final",
+      "startsAt": "2026-12-06T23:00:00.000Z",
+      "endsAt": "2026-12-30T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "ee-group",
+          "name": "Juega 17 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 17,
+          "scope": "personal",
+          "reward": {
+            "coins": 1500,
+            "dust": 0,
+            "signal": 3,
+            "xp": 0,
+            "points": 150,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-revive",
+          "name": "Reanima a 28 compañeros",
+          "stat": "revives",
+          "target": 28,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 800,
+            "signal": 4,
+            "xp": 0,
+            "points": 200,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-clan-runs",
+          "name": "Tu clan juega 570 incursiones",
+          "stat": "runs",
+          "target": 570,
+          "scope": "clan",
+          "reward": {
+            "coins": 0,
+            "dust": 2000,
+            "signal": 3,
+            "xp": 0,
+            "points": 200,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-clan-boss",
+          "name": "Tu clan purga 285 Núcleos",
+          "stat": "bossKills",
+          "target": 285,
+          "scope": "clan",
+          "reward": {
+            "coins": 3000,
+            "dust": 0,
+            "signal": 4,
+            "xp": 0,
+            "points": 250,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-clan-extract",
+          "name": "Tu clan extrae 230 veces",
+          "stat": "extractions",
+          "target": 230,
+          "scope": "clan",
+          "reward": {
+            "coins": 2500,
+            "dust": 0,
+            "signal": 3,
+            "xp": 0,
+            "points": 200,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-clan-group",
+          "name": "Tu clan juega 170 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 170,
+          "scope": "clan",
+          "reward": {
+            "coins": 0,
+            "dust": 2500,
+            "signal": 4,
+            "xp": 0,
+            "points": 250,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "ee-group-60",
+          "name": "Juega 60 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 60,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 6,
+            "xp": 0,
+            "points": 300,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": "skin-echo-coral"
           }
         }
       ]
