@@ -1,0 +1,572 @@
+{
+  "currency": {
+    "name": "Esquirlas",
+    "perPoint": 0.25,
+    "dustRate": 2
+  },
+  "steps": [
+    {
+      "at": 200,
+      "reward": {
+        "coins": 300,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 500,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 40,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 900,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 1,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 1500,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-lumen-aurora"
+      }
+    },
+    {
+      "at": 2100,
+      "reward": {
+        "coins": 0,
+        "dust": 400,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 2800,
+      "reward": {
+        "coins": 800,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 3600,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 4500,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-bastion-aurora"
+      }
+    },
+    {
+      "at": 5300,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 80,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 6000,
+      "reward": {
+        "coins": 0,
+        "dust": 800,
+        "signal": 0,
+        "shards": 0,
+        "title": "Explorador del vacío",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 7000,
+      "reward": {
+        "coins": 1200,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 8000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 9000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-spark-aurora"
+      }
+    },
+    {
+      "at": 10200,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 120,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 11500,
+      "reward": {
+        "coins": 0,
+        "dust": 1200,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 12800,
+      "reward": {
+        "coins": 1800,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": "nebula",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 14000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-sentinel-aurora"
+      }
+    },
+    {
+      "at": 15000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 16000,
+      "reward": {
+        "coins": 0,
+        "dust": 1600,
+        "signal": 0,
+        "shards": 0,
+        "title": "Forjado en estática",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 17500,
+      "reward": {
+        "coins": 2500,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 19000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 160,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 20500,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-anchor-aurora"
+      }
+    },
+    {
+      "at": 22000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 24000,
+      "reward": {
+        "coins": 0,
+        "dust": 2200,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 26000,
+      "reward": {
+        "coins": 3000,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 28000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-prism-aurora"
+      }
+    },
+    {
+      "at": 30000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 4,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 32000,
+      "reward": {
+        "coins": 0,
+        "dust": 3000,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 34000,
+      "reward": {
+        "coins": 4000,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 36000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-comet-aurora"
+      }
+    },
+    {
+      "at": 38000,
+      "reward": {
+        "coins": 0,
+        "dust": 4000,
+        "signal": 5,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "at": 40000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "shards": 0,
+        "title": "Leyenda de la Temporada 2",
+        "frame": null,
+        "avatar": null,
+        "skin": "skin-echo-aurora"
+      }
+    }
+  ],
+  "shop": [
+    {
+      "id": "signal",
+      "name": "Señal de galaxia",
+      "price": 40,
+      "limit": 30,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 1,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "dust-bag",
+      "name": "Saco de polvo estelar",
+      "price": 80,
+      "limit": 10,
+      "reward": {
+        "coins": 0,
+        "dust": 300,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "coin-bag",
+      "name": "Bolsa de monedas",
+      "price": 80,
+      "limit": 10,
+      "reward": {
+        "coins": 200,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "title-transcriber",
+      "name": "Título Transcriptor",
+      "price": 600,
+      "limit": 1,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": "Transcriptor",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "frame-abyss",
+      "name": "Marco Abismo",
+      "price": 900,
+      "limit": 1,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 0,
+        "shards": 0,
+        "title": null,
+        "frame": "abyss",
+        "avatar": null,
+        "skin": null
+      }
+    }
+  ],
+  "closing": {
+    "tiers": [
+      {
+        "coins": 1000,
+        "dust": 300,
+        "signal": 2,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      },
+      {
+        "coins": 2500,
+        "dust": 800,
+        "signal": 4,
+        "shards": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      },
+      {
+        "coins": 5000,
+        "dust": 1500,
+        "signal": 7,
+        "shards": 0,
+        "title": "Oro de la Temporada 2",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      },
+      {
+        "coins": 8000,
+        "dust": 2500,
+        "signal": 10,
+        "shards": 0,
+        "title": "Platino de la Temporada 2",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      },
+      {
+        "coins": 12000,
+        "dust": 4000,
+        "signal": 15,
+        "shards": 0,
+        "title": "Estelar de la Temporada 2",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    ],
+    "podium": {
+      "coins": 0,
+      "dust": 5000,
+      "signal": 20,
+      "shards": 0,
+      "title": "Podio de la Temporada 2",
+      "frame": "crown",
+      "avatar": null,
+      "skin": null
+    },
+    "podiumSize": 3
+  }
+}

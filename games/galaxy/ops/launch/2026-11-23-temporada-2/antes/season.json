@@ -1,0 +1,23 @@
+{
+  "id": "season-1",
+  "name": "Temporada 1",
+  "startsAt": "2026-11-12T23:00:00.000Z",
+  "endsAt": "2026-11-22T23:00:00.000Z",
+  "points": {
+    "layer": 20,
+    "core": 100,
+    "extraction": 50
+  },
+  "tiers": [
+    500,
+    2000,
+    5000,
+    20000,
+    100000
+  ],
+  "top": 100,
+  "capPerMinute": 20,
+  "anomaly": "contagion",
+  "finish": "rift",
+  "finishChance": 0.02
+}

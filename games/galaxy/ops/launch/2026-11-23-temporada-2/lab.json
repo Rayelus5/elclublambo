@@ -1,0 +1,688 @@
+{
+  "season": [
+    {
+      "id": "t2-assault",
+      "branch": "probe",
+      "name": "Asalto",
+      "effect": {
+        "kind": "stat",
+        "stat": "damage"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-rapid",
+      "branch": "probe",
+      "name": "Ráfaga",
+      "effect": {
+        "kind": "stat",
+        "stat": "cooldown"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-assault",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-sweep",
+      "branch": "probe",
+      "name": "Barrido",
+      "effect": {
+        "kind": "stat",
+        "stat": "area"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-assault",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-hunter",
+      "branch": "probe",
+      "name": "Cazador",
+      "effect": {
+        "kind": "stat",
+        "stat": "critDamage"
+      },
+      "per": 0.015,
+      "max": 3,
+      "requires": "t2-rapid",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-frenzy",
+      "branch": "probe",
+      "name": "Frenesí",
+      "effect": {
+        "kind": "stat",
+        "stat": "speed"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-sweep",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-volley",
+      "branch": "probe",
+      "name": "Andanada",
+      "effect": {
+        "kind": "stat",
+        "stat": "velocity"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-rapid",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-spark",
+      "branch": "probe",
+      "name": "Chispazo",
+      "effect": {
+        "kind": "stat",
+        "stat": "crit"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-sweep",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-predator",
+      "branch": "probe",
+      "name": "Depredador",
+      "effect": {
+        "kind": "stat",
+        "stat": "damage"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-hunter",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-overdrive",
+      "branch": "probe",
+      "name": "Desenfreno",
+      "effect": {
+        "kind": "stat",
+        "stat": "cooldown"
+      },
+      "per": 0.004,
+      "max": 3,
+      "requires": "t2-frenzy",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reach",
+      "branch": "probe",
+      "name": "Alcance",
+      "effect": {
+        "kind": "stat",
+        "stat": "duration"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-volley",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-shatter",
+      "branch": "probe",
+      "name": "Quiebre",
+      "effect": {
+        "kind": "stat",
+        "stat": "critDamage"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-spark",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-storm",
+      "branch": "probe",
+      "name": "Tormenta",
+      "effect": {
+        "kind": "stat",
+        "stat": "area"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-predator",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-shell",
+      "branch": "relics",
+      "name": "Caparazón",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-pulse",
+      "branch": "relics",
+      "name": "Latido",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-shell",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-wall",
+      "branch": "relics",
+      "name": "Muralla",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-shell",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reflex",
+      "branch": "relics",
+      "name": "Reflejos",
+      "effect": {
+        "kind": "stat",
+        "stat": "barrier"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-pulse",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-vigor",
+      "branch": "relics",
+      "name": "Vigor",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-wall",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-leech",
+      "branch": "relics",
+      "name": "Sorbo",
+      "effect": {
+        "kind": "stat",
+        "stat": "lifesteal"
+      },
+      "per": 0.002,
+      "max": 3,
+      "requires": "t2-pulse",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-bastion",
+      "branch": "relics",
+      "name": "Bastión",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-wall",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-aura",
+      "branch": "relics",
+      "name": "Aura",
+      "effect": {
+        "kind": "stat",
+        "stat": "elemental"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-reflex",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-endure",
+      "branch": "relics",
+      "name": "Aguante",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-vigor",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-ward",
+      "branch": "relics",
+      "name": "Guarda",
+      "effect": {
+        "kind": "stat",
+        "stat": "barrier"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-bastion",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-lucky",
+      "branch": "relics",
+      "name": "Talismán",
+      "effect": {
+        "kind": "stat",
+        "stat": "luck"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-leech",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-heart",
+      "branch": "relics",
+      "name": "Corazón de hierro",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-endure",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-harvest",
+      "branch": "extraction",
+      "name": "Cosecha",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-gather",
+      "branch": "extraction",
+      "name": "Recolector",
+      "effect": {
+        "kind": "stat",
+        "stat": "pickup"
+      },
+      "per": 0.015,
+      "max": 3,
+      "requires": "t2-harvest",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-coins",
+      "branch": "extraction",
+      "name": "Diezmo",
+      "effect": {
+        "kind": "payout",
+        "currency": "coins"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-harvest",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-salvage",
+      "branch": "extraction",
+      "name": "Hallazgo",
+      "effect": {
+        "kind": "payout",
+        "currency": "material"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-gather",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-wisdom",
+      "branch": "extraction",
+      "name": "Saber",
+      "effect": {
+        "kind": "stat",
+        "stat": "xp"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-gather",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-fortune",
+      "branch": "extraction",
+      "name": "Fortuna de temporada",
+      "effect": {
+        "kind": "stat",
+        "stat": "luck"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-coins",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-hoard",
+      "branch": "extraction",
+      "name": "Acopio",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-coins",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-tracker",
+      "branch": "extraction",
+      "name": "Rastreador",
+      "effect": {
+        "kind": "stat",
+        "stat": "pickup"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-salvage",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-sage",
+      "branch": "extraction",
+      "name": "Lección",
+      "effect": {
+        "kind": "stat",
+        "stat": "xp"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-wisdom",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-tithe",
+      "branch": "extraction",
+      "name": "Tributo",
+      "effect": {
+        "kind": "payout",
+        "currency": "coins"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-fortune",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reap",
+      "branch": "extraction",
+      "name": "Siega",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-hoard",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-scrap",
+      "branch": "extraction",
+      "name": "Rebusca",
+      "effect": {
+        "kind": "payout",
+        "currency": "material"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-tracker",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    }
+  ]
+}

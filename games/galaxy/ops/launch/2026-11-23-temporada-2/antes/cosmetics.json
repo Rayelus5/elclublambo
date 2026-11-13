@@ -1,0 +1,742 @@
+{
+  "avatars": [
+    {
+      "id": "crew-pilot",
+      "name": "Piloto",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-navigator",
+      "name": "Navegante",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-technician",
+      "name": "Técnica",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-medic",
+      "name": "Médica",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-cadet",
+      "name": "Cadete",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-veteran",
+      "name": "Veterano",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-scientist",
+      "name": "Científica",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-android",
+      "name": "Androide",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-drone",
+      "name": "Dron",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-xeno-green",
+      "name": "Xeno verde",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-xeno-violet",
+      "name": "Xeno violeta",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "crew-cat",
+      "name": "Gato de a bordo",
+      "rarity": "common",
+      "source": "default",
+      "hint": "De serie: es tuyo desde el primer día",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-hive",
+      "name": "La Colmena Rota",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Vence a la Colmena Rota por primera vez",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-glacier",
+      "name": "La Madre Glaciar",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Vence a la Madre Glaciar por primera vez",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-anemone",
+      "name": "La Anémona Rey",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Vence a la Anémona Rey por primera vez",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-anvil",
+      "name": "El Yunque",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Vence al Yunque por primera vez",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-echo-core",
+      "name": "El Eco Profundo",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Vence al Eco Profundo por primera vez",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "portrait-signal",
+      "name": "La Señal",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Vence a la Señal en la Fisura de su temporada",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "probe-lumen",
+      "name": "Lumen",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Primer despegue»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "probe-bastion",
+      "name": "Bastión",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Siempre vuelvo»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "probe-spark",
+      "name": "Chispa",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Exterminador»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "static-ghost",
+      "name": "Fantasma de estática",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Logro «Azote de Núcleos»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "cartographer",
+      "name": "La Cartógrafa",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Completa la mitad del Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "first-contact",
+      "name": "Primer contacto",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Se gana en un evento",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "shop-nebula-queen",
+      "name": "Reina de la nebulosa",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "shop-void-knight",
+      "name": "Caballero del vacío",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "shop-star-fox",
+      "name": "Zorro estelar",
+      "rarity": "epic",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "shop-comet-rider",
+      "name": "Jinete del cometa",
+      "rarity": "epic",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": false
+    }
+  ],
+  "frames": [
+    {
+      "id": "bronze",
+      "name": "Bronce",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "Logro «Primera legendaria»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "silver",
+      "name": "Plata",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "Logro «Veterano»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "gold",
+      "name": "Oro",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Completa el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "nebula",
+      "name": "Nebulosa",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "abyss",
+      "name": "Abismo",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Logro «Abismo»",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "crown",
+      "name": "Corona",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Podio de la temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Completa tres cuartos del Catálogo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "circuit",
+      "name": "Circuito",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Alquimista»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "orbit",
+      "name": "Órbita",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Escuadrón»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "frost",
+      "name": "Escarcha",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Logro «Ángel de la guarda»",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "ember",
+      "name": "Ascua",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Logro «Purgador»",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "quasar",
+      "name": "Cuásar",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Logro «Leyenda del ECN»",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "prism",
+      "name": "Prisma",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "solar",
+      "name": "Corona solar",
+      "rarity": "epic",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "eclipse",
+      "name": "Eclipse",
+      "rarity": "rare",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "starlight",
+      "name": "Luz de estrellas",
+      "rarity": "rare",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": false
+    }
+  ],
+  "titles": [
+    {
+      "text": "Mecenas estelar",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "style": "aurora",
+      "enabled": true
+    },
+    {
+      "text": "Pionero del ECN",
+      "rarity": "epic",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "style": "flare",
+      "enabled": true
+    },
+    {
+      "text": "Guardián de la nebulosa",
+      "rarity": "rare",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "style": "shine",
+      "enabled": true
+    },
+    {
+      "text": "Viajero del vacío",
+      "rarity": "rare",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "style": "plain",
+      "enabled": true
+    },
+    {
+      "text": "Leyenda del ECN",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Logro «Leyenda del ECN»",
+      "style": "shine",
+      "enabled": true
+    },
+    {
+      "text": "Guardián del cielo",
+      "rarity": "legendary",
+      "source": "reward",
+      "hint": "Completa el Catálogo",
+      "style": "aurora",
+      "enabled": true
+    }
+  ],
+  "skins": [
+    {
+      "id": "skin-lumen-chatarra",
+      "name": "Lumen de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Lumen",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-bastion-chatarra",
+      "name": "Bastión de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Bastión",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-spark-chatarra",
+      "name": "Chispa de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Chispa",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-sentinel-chatarra",
+      "name": "Vigía de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Vigía",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-anchor-chatarra",
+      "name": "Áncora de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Áncora",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-prism-chatarra",
+      "name": "Prisma de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Prisma",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-comet-chatarra",
+      "name": "Cometa de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Cometa",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-echo-chatarra",
+      "name": "Eco de chatarra",
+      "rarity": "common",
+      "source": "reward",
+      "hint": "25 incursiones con Eco",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-lumen-coral",
+      "name": "Lumen de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-bastion-coral",
+      "name": "Bastión de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-spark-coral",
+      "name": "Chispa de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-sentinel-coral",
+      "name": "Vigía de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-anchor-coral",
+      "name": "Áncora de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-prism-coral",
+      "name": "Prisma de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-comet-coral",
+      "name": "Cometa de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-echo-coral",
+      "name": "Eco de coral",
+      "rarity": "rare",
+      "source": "reward",
+      "hint": "Se gana en eventos y en el Catálogo",
+      "enabled": true,
+      "animated": false
+    },
+    {
+      "id": "skin-lumen-aurora",
+      "name": "Lumen aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-bastion-aurora",
+      "name": "Bastión aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-spark-aurora",
+      "name": "Chispa aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-sentinel-aurora",
+      "name": "Vigía aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-anchor-aurora",
+      "name": "Áncora aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-prism-aurora",
+      "name": "Prisma aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-comet-aurora",
+      "name": "Cometa aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-echo-aurora",
+      "name": "Eco aurora",
+      "rarity": "epic",
+      "source": "reward",
+      "hint": "Ruta de temporada",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-lumen-leyenda",
+      "name": "Lumen leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-bastion-leyenda",
+      "name": "Bastión leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-spark-leyenda",
+      "name": "Chispa leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-sentinel-leyenda",
+      "name": "Vigía leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-anchor-leyenda",
+      "name": "Áncora leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-prism-leyenda",
+      "name": "Prisma leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-comet-leyenda",
+      "name": "Cometa leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    },
+    {
+      "id": "skin-echo-leyenda",
+      "name": "Eco leyenda",
+      "rarity": "legendary",
+      "source": "shop",
+      "hint": "Exclusivo de la tienda, en la pestaña Estilo",
+      "enabled": true,
+      "animated": true
+    }
+  ]
+}

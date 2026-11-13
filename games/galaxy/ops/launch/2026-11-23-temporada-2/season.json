@@ -1,0 +1,23 @@
+{
+  "id": "season-2",
+  "name": "Temporada 2",
+  "startsAt": "2026-11-22T23:00:00.000Z",
+  "endsAt": "2026-12-20T23:00:00.000Z",
+  "points": {
+    "layer": 20,
+    "core": 100,
+    "extraction": 50
+  },
+  "tiers": [
+    1500,
+    6000,
+    16000,
+    40000,
+    100000
+  ],
+  "top": 100,
+  "capPerMinute": 20,
+  "anomaly": "iron-static",
+  "finish": "rift",
+  "finishChance": 0.02
+}
