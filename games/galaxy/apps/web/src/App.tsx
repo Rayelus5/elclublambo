@@ -64,6 +64,7 @@ import { TrophiesScreen } from './season/TrophiesScreen';
 import { SettingsScreen } from './hub/SettingsScreen';
 import { ShopScreen } from './shop/ShopScreen';
 import { ShopAdminScreen } from './admin/shop/ShopAdminScreen';
+import { ReferralsScreen } from './admin/referrals/ReferralsScreen';
 
 function Splash() {
   return (
@@ -160,6 +161,7 @@ export function App() {
             <Route path="eventos" element={<EventsScreen />} />
             <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
+            <Route path="referidos" element={<ReferralsScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
             <Route path="almacenamiento" element={<StorageScreen />} />
             <Route path="partidas" element={<RunsScreen />} />

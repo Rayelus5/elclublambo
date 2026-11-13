@@ -2,6 +2,7 @@ import { type ReactNode, useId, useState } from 'react';
 import { useAdminPost } from '../api/admin';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { DateField } from '../ui/DateField';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
@@ -11,6 +12,8 @@ const t = copy.admin;
 /** A field of a change; `initial` puts the value it has now (M6d-4: a level, a counter). */
 export type FieldSpec =
   | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean; initial?: string }
+  /** A day and time in the admin's own time, with the game's calendar (plan «referidos»: when a code ends): its value is «2026-12-31T23:59» or ''. */
+  | { name: string; label: string; kind: 'datetime'; hint?: string; optional?: boolean; initial?: string }
   | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string }
   /** On or off (plan «escáner pro», part F: «Reservar el nombre»): its value is '1' or ''. */
   | { name: string; label: string; kind: 'switch'; hint?: string; initial?: string };
@@ -22,6 +25,7 @@ export type FieldSpec =
  */
 export function ActionDialog({
   url,
+  method = 'POST',
   title,
   submit = t.apply,
   fields = [],
@@ -34,9 +38,12 @@ export function ActionDialog({
   onResult,
   onDone,
   onClose,
+  errors,
 }: {
   /** Where it posts, after `/galaxy/api`. */
   url: string;
+  /** PUT for the changes that replace something (a code's limits); POST by default. */
+  method?: 'POST' | 'PUT';
   title: string;
   /** The submit button's text (Aplicar by default). */
   submit?: string;
@@ -55,6 +62,8 @@ export function ActionDialog({
   onResult?: (r: Record<string, unknown>) => void;
   onDone: (values: Record<string, string>) => void;
   onClose: () => void;
+  /** What an error code means for this change, when the general text says something else. */
+  errors?: Record<string, string>;
 }) {
   const ids = useId();
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -86,7 +95,7 @@ export function ActionDialog({
             if (!ready) return;
             const body = { ...build(values), reason: reason.trim(), ...(needsPassword ? { password: secret } : {}) };
             action.mutate(
-              { url, body },
+              { url, body, method },
               {
                 onSuccess: (r) => {
                   onResult?.(r);
@@ -114,7 +123,9 @@ export function ActionDialog({
             <div key={f.name} className="field">
               <label htmlFor={`${ids}-${f.name}`}>{f.label}</label>
               <div className="control">
-                {f.kind === 'select' ? (
+                {f.kind === 'datetime' ? (
+                  <DateField id={`${ids}-${f.name}`} time value={values[f.name]!} onChange={(v) => set(f.name, v)} aria-describedby={f.hint ? `${ids}-${f.name}-hint` : undefined} />
+                ) : f.kind === 'select' ? (
                   <Select id={`${ids}-${f.name}`} size="lg" block value={values[f.name]!} options={f.options.map(([value, label]) => ({ value, label }))} onChange={(v) => set(f.name, v)} />
                 ) : (
                   <input
@@ -122,12 +133,17 @@ export function ActionDialog({
                     type="text"
                     inputMode={f.kind === 'number' ? 'numeric' : undefined}
                     autoComplete="off"
+                    aria-describedby={'hint' in f && f.hint ? `${ids}-${f.name}-hint` : undefined}
                     value={values[f.name]}
                     onChange={(e) => set(f.name, f.kind === 'number' ? e.target.value.replace(/[^\d-]/g, '') : e.target.value)}
                   />
                 )}
               </div>
-              {'hint' in f && f.hint ? <p className="hint">{f.hint}</p> : null}
+              {'hint' in f && f.hint ? (
+                <p id={`${ids}-${f.name}-hint`} className="hint">
+                  {f.hint}
+                </p>
+              ) : null}
             </div>
             ),
           )}
@@ -148,7 +164,7 @@ export function ActionDialog({
           ) : null}
           {action.error ? (
             <p className="field-error" role="alert">
-              {errorText(action.error, copy.errors)}
+              {errorText(action.error, { ...copy.errors, ...errors })}
             </p>
           ) : null}
           <div className="confirm-actions">

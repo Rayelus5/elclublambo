@@ -1,4 +1,5 @@
 import { type LoginResponse, type MeResponse, loginInput, registerInput, resetRedeemInput, totpInput } from '@galaxy/shared';
+import { isIP } from 'node:net';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { ConfigReader } from '../config/reader';
@@ -15,6 +16,8 @@ import { InvalidResetCodeError, redeemResetCode } from './recovery';
 import { createSession, revokeSession, rolesOf } from './sessions';
 import { verifyTotp } from './totp';
 import { accountLevel } from '../social/progress';
+import { inTransaction } from '../db/tx';
+import { onLevel, signUpWithCode } from '../referrals/service';
 
 export type AuthDeps = { env: Env; db: Kysely<DB>; config: ConfigReader; now: () => Date; onLogout?: (sessionId: string) => void };
 
@@ -51,11 +54,25 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
   app.post('/galaxy/api/auth/register', async (req, reply) => {
     const input = registerInput.parse(req.body);
     if (!(await deps.config.get('features')).registrationOpen) throw new HttpError(403, 'registration_closed');
+    // Referrals (plan «referidos»): a code may be required to sign up; one given must be usable, or no account is made.
+    const referrals = await deps.config.get('referrals');
+    if (referrals.required && !input.referralCode) throw new HttpError(400, 'referral_required');
     const auth = await deps.config.get('auth');
-    await hitRateLimit(db, `ip:${clientIp(req, deps.env.TRUST_CF_IP)}`, 'register', auth.registerPerIpHour, HOUR);
+    const ip = clientIp(req, deps.env.TRUST_CF_IP);
+    // Counted before the code is looked at: trying codes costs sign-up attempts too.
+    await hitRateLimit(db, `ip:${ip}`, 'register', auth.registerPerIpHour, HOUR);
     let id: string;
     try {
-      ({ id } = await registerAccount(db, input));
+      // With a code, the account and its referral in one transaction (a code that cannot be used makes no account);
+      // without one, no transaction holds a connection while the password is hashed.
+      const code = input.referralCode;
+      ({ id } = code
+        ? await inTransaction(db, async (trx) => {
+            const made = await registerAccount(trx, input);
+            await signUpWithCode(trx, referrals, { id: made.id, ip: isIP(ip) ? ip : null, userAgent: userAgent(req) || null }, code);
+            return made;
+          })
+        : await registerAccount(db, input));
     } catch (err) {
       if (err instanceof UsernameTakenError) throw new HttpError(409, 'username_taken');
       if (err instanceof UsernameReservedError) throw new HttpError(409, 'username_reserved');
@@ -134,11 +151,15 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
   app.get('/galaxy/api/auth/me', async (req): Promise<MeResponse> => {
     const s = requireSession(req);
     // The account level (M5a) for the top bar.
-    const [level, look] = await Promise.all([
+    const [level, look, referrals] = await Promise.all([
       accountLevel(deps.db, s.accountId, await deps.config.get('account')),
       // Nov plan C2: the avatar and frame the top bar shows.
       deps.db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
+      deps.config.get('referrals'),
     ]);
+    // A newcomer who came with a code: past the owner's level, the owner's gift goes out (once). The game reads the
+    // account after every run, so this follows the level closely. A failure here never costs the player their page.
+    await onLevel(deps.db, referrals, s.accountId, level).catch((err: unknown) => req.log.warn({ err }, 'referral activation failed'));
     return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, level, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
   });
 }
