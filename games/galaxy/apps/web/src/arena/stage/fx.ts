@@ -22,6 +22,11 @@ export interface FxParticle {
   age: number;
   life: number;
   size: number;
+  /**
+   * A mote spiralling into a singularity (plan «rareza Mítica» M2): it turns around (cx, cy) at `spin` radians per
+   * second while its distance `rad` shrinks by `sink` per second; its velocity is unused.
+   */
+  orbit?: { cx: number; cy: number; ang: number; rad: number; spin: number; sink: number };
 }
 
 export interface FxLabel {
@@ -66,6 +71,12 @@ export interface Fx {
    * steady rate over `dt` seconds, fading fast. `key` keeps each shot's own rate.
    */
   trail(key: number, x: number, y: number, color: number, dt: number): void;
+  /**
+   * A mythic's singularity (plan «rareza Mítica» M2): motes in `colors` born within `radius` of (x, y) that spiral into
+   * it, at a steady rate over `dt` seconds, reaching the centre as they fade. `key` keeps each singularity's own rate.
+   * None with reduced motion.
+   */
+  swirl(key: number, x: number, y: number, radius: number, dt: number, colors: readonly number[]): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
   update(dt: number): { x: number; y: number };
   /** Ajustes → Movimiento changed mid-run (plan «escáner pro», part A): applies from the next frame. */
@@ -91,6 +102,10 @@ const FLAME_COLORS = [0xffffff, 0xfff3c4, 0xffd36e];
 const EMBER_COLORS = [0xffd36e, 0xff9d2e, 0xff9d2e, 0xff6b3d, 0xe8453c];
 /** A shot's wake: motes per second (a third with reduced motion). */
 const TRAIL_RATE = 40;
+/** A singularity's motes: per second, how fast they turn (radians per second) and how long they take to fall in. */
+const SWIRL_RATE = 140;
+const SWIRL_SPIN = 4;
+const SWIRL_LIFE = 0.55;
 
 /** Reaction colours by what they do (the name is always shown too: never colour alone). */
 const REACTION_COLOR: Record<string, number> = {
@@ -118,6 +133,7 @@ export function createFx(startReduced: boolean): Fx {
   const rings: FxRing[] = [];
   const thrusters = new Map<number, number>();
   const trails = new Map<number, number>();
+  const swirls = new Map<number, number>();
   // A small deterministic wobble (no Math.random: frames stay comparable in screenshots and tests).
   let seed = 1;
   const rand = () => {
@@ -197,6 +213,28 @@ export function createFx(startReduced: boolean): Fx {
       }
       trails.set(key, Math.min(due, 1));
     },
+    swirl(key, x, y, radius, dt, colors) {
+      if (reduced || colors.length === 0) return;
+      let due = (swirls.get(key) ?? 0) + dt * SWIRL_RATE;
+      while (due >= 1 && particles.length < MAX_PARTICLES) {
+        due -= 1;
+        const ang = rand() * Math.PI * 2;
+        const rad = radius * (0.55 + rand() * 0.45);
+        const life = SWIRL_LIFE * (0.8 + rand() * 0.4);
+        particles.push({
+          x: x + Math.cos(ang) * rad,
+          y: y + Math.sin(ang) * rad,
+          vx: 0,
+          vy: 0,
+          color: colors[Math.floor(rand() * colors.length)]!,
+          age: 0,
+          life,
+          size: rand() < 0.5 ? 2 : 1,
+          orbit: { cx: x, cy: y, ang, rad, spin: SWIRL_SPIN * (0.8 + rand() * 0.5), sink: rad / life },
+        });
+      }
+      swirls.set(key, Math.min(due, 1));
+    },
     setReduced(on) {
       reduced = on;
       if (on) trauma = 0;
@@ -237,6 +275,15 @@ export function createFx(startReduced: boolean): Fx {
         p.age += dt;
         if (p.age >= p.life) {
           particles.splice(i, 1);
+          continue;
+        }
+        if (p.orbit) {
+          // A singularity's mote: around its centre and in, faster the closer it gets (it spirals, never overshoots).
+          const o = p.orbit;
+          o.rad = Math.max(0, o.rad - o.sink * dt);
+          o.ang += o.spin * dt * (1 + 40 / Math.max(o.rad, 8));
+          p.x = o.cx + Math.cos(o.ang) * o.rad;
+          p.y = o.cy + Math.sin(o.ang) * o.rad;
           continue;
         }
         p.x += p.vx * dt;

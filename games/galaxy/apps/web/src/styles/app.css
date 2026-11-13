@@ -3626,6 +3626,9 @@
   .skill-kind.k-family { color: #cfc4ff; background: rgb(114 89 238 / .24); }
   .skill-kind.k-element { color: #9fd4ff; background: rgb(111 183 255 / .16); }
   .skill-kind.k-phenomenon { color: var(--color-solar); background: rgb(255 201 74 / .14); }
+  /* A mythic's own power (plan «rareza Mítica» M2), in the mythic's colour. */
+  .skill-kind.k-mythic { color: var(--color-tier-mythic); background: rgb(255 79 216 / .14); }
+  .skill-row.k-mythic { --k: var(--color-tier-mythic); }
   .skill-row.k-family { --k: #9b86ff; } .skill-row.k-element { --k: #6fb7ff; } .skill-row.k-phenomenon { --k: var(--color-solar); } .skill-row.k-power { --k: var(--color-terminal); }
   .skill-row.is-burn { --k: #ffa25c; } .skill-row.is-corrosion { --k: #7cf09a; } .skill-row.is-shock { --k: #c6a8ff; } .skill-row.is-leech { --k: #ff8aa0; } .skill-row.is-chain { --k: #ff8ae6; } .skill-row.is-pure { --k: #fff; } .skill-row.is-hack { --k: #ffd27a; } .skill-row.is-breach { --k: #5fe0b8; }
   .skill-name { font: 400 16px var(--font-display); }

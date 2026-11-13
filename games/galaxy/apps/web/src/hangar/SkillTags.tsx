@@ -1,11 +1,12 @@
-import type { RelicSkill } from '@galaxy/sim';
+import type { Content, RelicSkill } from '@galaxy/sim';
 import { useState } from 'react';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 
 // A relic's skills (the owner: «no se muestran las habilidades… permitir pulsar en cada tag», then «en una sola»): its
-// passive (from the galaxy's type), its element (palette), its phenomenon and its power, behind one chip that opens
-// what each does, where it comes from, and for an echo which passive it copies now.
+// passive (from the galaxy's type), its element (palette), its phenomenon, a mythic's own power (plan «rareza Mítica»
+// M2, with its time from the live content) and its power, behind one chip that opens what each does, where it comes
+// from, and for an echo which passive it copies now.
 
 const h = copy.hangar;
 const i = h.skillInfo;
@@ -19,7 +20,7 @@ export interface SkillTag {
   extra?: string;
 }
 
-export function skillTags(skill: RelicSkill): SkillTag[] {
+export function skillTags(skill: RelicSkill, content: Content): SkillTag[] {
   const tags: SkillTag[] = [
     {
       kind: 'family',
@@ -31,6 +32,7 @@ export function skillTags(skill: RelicSkill): SkillTag[] {
   ];
   if (skill.element) tags.push({ kind: 'element', id: skill.element, name: h.elements[skill.element], text: i.element[skill.element] });
   if (skill.phenomenon) tags.push({ kind: 'phenomenon', id: skill.phenomenon, name: h.phenomena[skill.phenomenon], text: i.phenomenon[skill.phenomenon] });
+  if (skill.mythic) tags.push({ kind: 'mythic', id: 'singularity', name: i.mythicName, text: i.singularity(content.relics.singularity.cooldown) });
   tags.push({ kind: 'power', id: 'power', name: h.power(skill.magnitude), text: i.power });
   return tags;
 }
@@ -39,10 +41,10 @@ export function skillTags(skill: RelicSkill): SkillTag[] {
  * A relic's powers in one chip (the owner: «todas las etiquetas… en una sola»): its passive's name and how many more
  * it has. Pressing it opens every power with what it does and where it comes from.
  */
-export function SkillsChip({ skill, galaxy }: { skill: RelicSkill; galaxy: string }) {
+export function SkillsChip({ skill, galaxy, content }: { skill: RelicSkill; galaxy: string; content: Content }) {
   const [open, setOpen] = useState(false);
-  const tags = skillTags(skill).filter((x) => x.kind !== 'power');
-  const all = skillTags(skill);
+  const all = skillTags(skill, content);
+  const tags = all.filter((x) => x.kind !== 'power');
   const first = tags[0]!;
   return (
     <>

@@ -494,3 +494,22 @@ test('cada reliquia lleva un chip con sus poderes, que abre lo que hace cada uno
   expect(rows[2]).toHaveTextContent(i.phenomenon.pulsar);
   expect(rows[3]).toHaveTextContent(i.power);
 });
+
+// Plan «rareza Mítica» M2: a mythic's own power, «Singularidad», is one more row of the same chip, with its time from
+// the live content.
+test('una mítica suma su Singularidad al chip de poderes, con el tiempo de la configuración', async () => {
+  const i = copy.hangar.skillInfo;
+  mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy({ tier: 'mythic', finish: 'prismatic' }), null] })) });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
+  const chip = within(slot).getByRole('button', { name: i.open('Kathra') });
+  expect(chip).toHaveTextContent('+3');
+  fireEvent.click(chip);
+  const info = await screen.findByRole('dialog', { name: i.title('Kathra') });
+  const rows = within(within(info).getByRole('list', { name: i.tags('Kathra') })).getAllByRole('listitem');
+  expect(rows).toHaveLength(5);
+  const mythic = rows.find((r) => r.textContent?.includes(i.mythicName))!;
+  expect(mythic).toHaveTextContent(i.kinds.mythic);
+  expect(mythic).toHaveTextContent(i.singularity(DEFAULT_CONTENT.relics.singularity.cooldown));
+  expect(mythic).toHaveTextContent(i.from.mythic);
+});

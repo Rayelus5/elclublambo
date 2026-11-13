@@ -610,3 +610,184 @@ test('el brillo detrás de tu sonda solo se ve si lo activas, y es suave', async
   }
 });
 
+
+// Plan «rareza Mítica» M2: a mythic's own power in the arena. The singularity is a dark core with an iridescent ring
+// (the mythic's four tones) and motes spiralling in, drawn under the probes; it collapses in a burst. With reduced
+// motion: no motes, a soft ring that stays still, and the burst only fades.
+const IRIS_RGB: [number, number, number][] = [
+  [0xff, 0x4f, 0xd8],
+  [0x6f, 0xe3, 0xff],
+  [0xff, 0xc9, 0x4a],
+  [0xb3, 0x9d, 0xff],
+];
+const MYTHIC = {
+  id: 'm',
+  seed: '1',
+  tier: 5,
+  level: 1,
+  traits: { galaxy_type: 'elliptical', size: 'medium', core: 'bright', star_density: 'normal', palette: 'monochrome', background: 'deep_void', phenomenon: 'none', inclination: 'face_on' },
+};
+
+/** A probe with a mythic and a group of fauna to its right: one step opens the singularity on it. */
+function withSingularity(): { sim: Sim; hole: number } {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [MYTHIC] }] });
+  step(sim, [IDLE]);
+  const p = sim.probes[0]!;
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  for (const [dx, dy] of [
+    [110, -30],
+    [130, 10],
+    [95, 35],
+    [150, -15],
+    [120, 45],
+  ] as const)
+    spawnEnemy(sim, mite, p.x + dx, p.y + dy);
+  step(sim, [IDLE]);
+  let hole = -1;
+  for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.singularity) hole = i;
+  expect(hole).toBeGreaterThanOrEqual(0);
+  // The fauna gone (its sprites animate), so only the singularity moves on screen; then most of a second on, open wide.
+  for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+  for (let t = 0; t < 50; t++) step(sim, [IDLE]);
+  expect(sim.areas.alive[hole]).toBe(1);
+  return { sim, hole };
+}
+
+function visibleParticles(s: Stage): number {
+  const layer = s.app.stage.getChildByLabel('world')!.getChildByLabel('particles')!;
+  return layer.children.filter((c) => c.visible).length;
+}
+
+/**
+ * Whether a pixel in one of the mythic's tones (at any brightness from 45 %: a soft ring is one) lies within `half`
+ * screen pixels of (cx, cy).
+ */
+function hasIris(canvas: HTMLCanvasElement, cx: number, cy: number, half: number): boolean {
+  const data = pixels(canvas);
+  for (let y = Math.max(0, cy - half); y < Math.min(canvas.height, cy + half); y++) {
+    for (let x = Math.max(0, cx - half); x < Math.min(canvas.width, cx + half); x++) {
+      const i = (y * canvas.width + x) * 4;
+      const px = [data[i]!, data[i + 1]!, data[i + 2]!];
+      for (const tone of IRIS_RGB) {
+        const k = (px[0]! * tone[0] + px[1]! * tone[1] + px[2]! * tone[2]) / (tone[0] ** 2 + tone[1] ** 2 + tone[2] ** 2);
+        if (k < 0.45 || k > 1.1) continue;
+        if (px.every((v, c) => Math.abs(v - tone[c]! * k) < 28)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+for (const reduced of [false, true]) {
+  test(`la singularidad de una mítica: núcleo oscuro con anillo iridiscente bajo tu sonda${reduced ? ', y con movimiento reducido sin motas y quieta' : ' y motas que caen en espiral'}`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const { sim, hole } = withSingularity();
+      const p = sim.probes[0]!;
+      const canvas = await mount(1280, 720);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '20261113', preserve: true });
+      stage.resize(1280, 720);
+      const frames = (n: number) => {
+        for (let k = 0; k < n; k++) {
+          now += 1000 / 60;
+          stage!.render(sim, 1);
+        }
+      };
+      frames(30);
+      const world = stage.app.stage.getChildByLabel('world')!;
+      // Drawn on the abilities' layers, which lie under the probes (only the foes' bullets go over them).
+      const areas = world.getChildByLabel('areas')!.getLocalBounds();
+      const hx = sim.areas.x[hole]!;
+      const hy = sim.areas.y[hole]!;
+      expect(areas.x).toBeLessThanOrEqual(hx);
+      expect(areas.x + areas.width).toBeGreaterThanOrEqual(hx);
+      expect(areas.y).toBeLessThanOrEqual(hy);
+      expect(areas.y + areas.height).toBeGreaterThanOrEqual(hy);
+      expect(world.getChildIndex(world.getChildByLabel('probes')!)).toBeGreaterThan(world.getChildIndex(world.getChildByLabel('areas')!));
+      // On screen (the camera on the probe, ×2): its ring in the mythic's tones.
+      const sx = Math.round(640 + (hx - p.x) * 2);
+      const sy = Math.round(360 + (hy - p.y) * 2);
+      expect(hasIris(canvas, sx, sy, 40)).toBe(true);
+      if (reduced) {
+        expect(visibleParticles(stage)).toBe(0);
+        // The singularity stays still: the same pixels round it, frame after frame.
+        const around = (data: Uint8ClampedArray) => {
+          const out: number[] = [];
+          for (let y = sy - 60; y < sy + 60; y++) for (let x = sx - 60; x < sx + 60; x++) out.push(data[(y * 1280 + x) * 4]!, data[(y * 1280 + x) * 4 + 1]!, data[(y * 1280 + x) * 4 + 2]!);
+          return out;
+        };
+        const still = around(pixels(canvas));
+        frames(10);
+        expect(around(pixels(canvas))).toEqual(still);
+      } else {
+        expect(visibleParticles(stage)).toBeGreaterThan(10);
+      }
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad${reduced ? '-reducida' : ''}.png`, element: canvas });
+      // The collapse: a burst in its tones (with reduced motion, only a short fade where it was).
+      const before = visibleParticles(stage);
+      for (let t = 0; t < 200 && !sim.events.some((e) => e.t === 'singularity' && e.what === 'collapse'); t++) step(sim, [IDLE]);
+      stage.feed(sim.events, sim.tick);
+      frames(3);
+      expect(hasIris(canvas, sx, sy, 160)).toBe(true);
+      if (reduced) expect(visibleParticles(stage)).toBe(0);
+      else expect(visibleParticles(stage)).toBeGreaterThan(before / 4);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad-colapso${reduced ? '-reducida' : ''}.png`, element: canvas });
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}
+
+// The review's captures (plan «rareza Mítica» M2): a run with two mythics and a swarm coming in, mid-pull, at 1280 and
+// 1920. Only the last seconds before the capture are drawn (the software WebGL of CI is slow at 1920).
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`una partida con míticas a ${w}: la singularidad tirando de la fauna`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const spiral = { ...MYTHIC, id: 'n', traits: { ...MYTHIC.traits, galaxy_type: 'spiral', arms: '3', palette: 'solar_gold' } };
+      const sim = createSim({ seed: '2026111302', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [MYTHIC, spiral] }] });
+      const p = sim.probes[0]!;
+      p.hp = 1e9;
+      const canvas = await mount(w, h);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '2026111302', preserve: true });
+      stage.resize(w, h);
+      const play = () => {
+        if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
+        else step(sim, [botInput(sim, 0, 99)]);
+        stage!.feed(sim.events, sim.tick);
+      };
+      while (sim.tick < 30 * 60) play();
+      // A swarm off to the right, sturdy enough to be pulled in before it dies.
+      const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+      for (let k = 0; k < 28; k++) {
+        const e = spawnEnemy(sim, mite, p.x + 110 + (k % 7) * 16, p.y - 50 + Math.floor(k / 7) * 26);
+        sim.enemies.hp[e] = sim.enemies.maxHp[e] = 600;
+      }
+      let opened = -1;
+      let shot = false;
+      for (let t = 0; t < 30 * 60 && !shot; t++) {
+        play();
+        const open = sim.events.find((e) => e.t === 'singularity' && e.what === 'open');
+        if (open && open.t === 'singularity' && Math.abs(open.x - p.x) < 260 && Math.abs(open.y - p.y) < 140) opened = sim.tick;
+        if (opened > 0 && sim.tick >= opened + 30) {
+          now += 1000 / 60;
+          stage.render(sim, 1);
+        }
+        if (opened > 0 && sim.tick === opened + 75) {
+          expect(visibleParticles(stage)).toBeGreaterThan(10);
+          expect(distinctColours(canvas)).toBeGreaterThan(12);
+          if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad-partida-${w}.png`, element: canvas });
+          shot = true;
+        }
+      }
+      expect(shot).toBe(true);
+    } finally {
+      clock.mockRestore();
+    }
+  }, 180_000);
+}
