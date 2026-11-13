@@ -427,7 +427,8 @@ describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
 test('la peculiaridad y el rendimiento diario dicen los números de la configuración viva', () => {
   // An admin can change a quirk's numbers in the content and the daily hours in the economy: the texts follow.
   const q = copy.probeTest.quirks;
-  expect(q.dash({ kind: 'dash', every: 20, distance: 50, invuln: 0.3 })).toBe('Esquiva un golpe con un salto, cada 20 s');
+  expect(q.dash({ kind: 'dash', invuln: 0.3, charges: 1, recharge: 4, pause: 0.3 })).toBe('Dash ágil: una carga más, que vuelven cada 4 s');
+  expect(q.dash({ kind: 'dash', invuln: 0.3, charges: 2, recharge: 3.5, pause: 0.3 })).toBe('Dash ágil: 2 cargas más, que vuelven cada 3,5 s');
   expect(q.salvage({ kind: 'salvage', kills: 40 })).toBe('Cada 40 bajas encuentra un kit de reparación');
   expect(q.magnet({ kind: 'magnet', every: 45, radius: 160 })).toBe('Cada 45 s atrae los fragmentos cercanos');
   expect(q.thorns({ kind: 'thorns', share: 0.3 })).toBe('Devuelve el 30 % del daño a quien la toca');

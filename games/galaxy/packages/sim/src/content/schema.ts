@@ -74,7 +74,18 @@ const passive = z
 const quirk = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('magnet'), every: pos, radius: pos }).strict(),
   z.object({ kind: z.literal('thorns'), share: n }).strict(),
-  z.object({ kind: z.literal('dash'), every: pos, distance: n, invuln: n }).strict(),
+  // Spark's agile dash (owner's plan 2026-11-13): content published before it (every, distance) still parses.
+  z
+    .object({
+      kind: z.literal('dash'),
+      invuln: n,
+      charges: z.number().int().min(0).max(4).default(1),
+      recharge: z.number().min(0.5).max(60).default(4),
+      pause: z.number().min(0).max(5).default(0.3),
+      every: pos.optional(),
+      distance: n.optional(),
+    })
+    .strict(),
   z.object({ kind: z.literal('overwatch'), drones: z.number().int().min(0).max(8) }).strict(),
   z.object({ kind: z.literal('second-wind'), hp: unit }).strict(),
   z.object({ kind: z.literal('prism-touch'), chance: unit, cycle: z.array(elementId).min(1).max(11) }).strict(),
@@ -343,7 +354,8 @@ const relics = z
         supernova: z.object({ cooldown: pos, damage: n, radius: n }).strict(),
         satellite_galaxy: z.object({ cooldown: pos, damage: n, range: n, speed: n }).strict(),
         globular_cluster: z.object({ count: z.number().int().min(1).max(32), damage: n, radius: n, speed: n, interval: pos }).strict(),
-        comet: z.object({ cooldown: pos, distance: n, seconds: pos, damage: n }).strict(),
+        // Its dash is the player's now (content.dash); its old charge's numbers still parse.
+        comet: z.object({ damage: n, cooldown: pos.optional(), distance: n.optional(), seconds: pos.optional() }).strict(),
         relativistic_jets: z.object({ cooldown: pos, damage: n, pierce: z.number().int().min(0).max(1000), speed: n }).strict(),
         pulsar: z.object({ cooldown: pos, radius: n, damage: n }).strict(),
         einstein_ring: z.object({ projectiles: z.number().int().min(0).max(8) }).strict(),
@@ -458,6 +470,22 @@ const shape = z
       .refine((s) => s.latest >= s.earliest, 'satellites_window')
       .refine((s) => s.chances.every((c, k) => k === 0 || c <= s.chances[k - 1]!), 'satellites_chances')
       .default(D.satellites),
+    // The player's dash (owner's plan 2026-11-13): content published before it gets the default.
+    dash: z
+      .object({
+        charges: z.number().int().min(1).max(5),
+        recharge: z.number().min(0.5).max(60),
+        pause: z.number().min(0).max(5),
+        distance: z.number().min(10).max(400),
+        seconds: z.number().min(0.05).max(1),
+        invuln: z.number().min(0).max(2),
+        cometCharges: z.number().int().min(0).max(5),
+        cometMax: z.number().int().min(0).max(5),
+      })
+      .strict()
+      // At most 24 units a tick: a comet's dash checks 12 units round each step, so it never jumps over an enemy.
+      .refine((d) => d.distance / Math.max(1, Math.round(d.seconds * 60)) <= 24, 'dash_too_fast')
+      .default(D.dash),
   })
   .strict();
 

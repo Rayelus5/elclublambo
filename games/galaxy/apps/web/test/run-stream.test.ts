@@ -58,6 +58,25 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('el directo de la partida', () => {
+  test('una pieza con más detrás acaba en un tick entero: el movimiento y el dash de un tick van juntos', () => {
+    start();
+    const s = Sock.all[0]!;
+    // 249 moves, then a move and a dash on tick 250 (events 250 and 251), then one more.
+    for (let t = 1; t <= 250; t++) move(t, t % 2 ? 1 : -1);
+    log.events.push(250, 0, 4, -1, 0, 0);
+    move(251);
+    tick = 251;
+    s.open();
+    s.push({ t: 'hello', have: 0, tick: 0, watched: true });
+    const [first, second] = s.pieces();
+    const a = decodeEvents(fromBase64(first!.b), 0, 1);
+    // The cut went back before tick 250, so the first piece claims tick 249 and the second carries both of tick 250.
+    expect(first!.to).toBe(249);
+    expect(a.events.at(-6)).toBe(249);
+    const b = decodeEvents(fromBase64(second!.b), a.tick, 1).events;
+    expect(b.slice(0, 12)).toEqual([250, 0, 0, -1, 0, -1, 250, 0, 4, -1, 0, 0]);
+  });
+
   test('espera al hola, manda lo que falta, poco si nadie mira y a menudo si alguien mira', () => {
     const stream = start();
     const s = Sock.all[0]!;

@@ -44,6 +44,12 @@ export function stateHash(sim: Sim): string {
     h.num(p.hp);
     h.num(p.shield);
     h.num(p.alive ? 1 : 0);
+    // The player's dash (SIM 1.12.0).
+    h.num(p.dash.charges);
+    h.num(p.dash.recharge);
+    h.num(p.dash.pause);
+    h.num(p.dash.t);
+    h.num(p.dash.dir);
     h.num(p.level);
     h.num(p.xp);
     for (const w of p.weapons) {

@@ -103,3 +103,44 @@ test('la carta de evolución, dorada y primera, y el arma evolucionada en el kit
   await vi.waitFor(() => expect(document.querySelector('.levelup-card.evolve')).not.toBeNull(), { timeout: 30_000 });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/evolve-1280.png' });
 }, 120_000);
+
+// The dash (SIM 1.12.0): SHIFT or Space asks for one, and its meter by the life bar says the charges ready, the next one
+// filling and the short pause between two. Spark has two charges.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`el dash con SHIFT y Espacio y su medidor junto a la vida a ${w}×${h}`, async () => {
+    const sim = await show(w, h, 600);
+    // A Spark for its two charges (the screen's run is Lumen: same sim, its quirk swapped before the first dash).
+    const p = sim.probes[0]!;
+    p.def = { ...p.def, quirk: { kind: 'dash', invuln: 0.3, charges: 1, recharge: 4, pause: 0.3 } };
+    p.dash.charges = 2;
+    // No level-up card in the way (a dash never happens while the cards are up), and no fall.
+    p.xpNext = 1e12;
+    p.hp = p.stats.maxHp = 1e9;
+    await vi.waitFor(() => expect(sim.status).toBe('running'), { timeout: 30_000 });
+    await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(2), { timeout: 30_000 });
+    expect(document.querySelector('.hud-dash')!.classList.contains('ready')).toBe(true);
+    expect(document.querySelector('.hud-dash kbd')!.textContent).toBe('SHIFT');
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hud-dash-ready-${w}.png` });
+    const x0 = p.x;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft', key: 'Shift' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft', key: 'Shift' }));
+    await vi.waitFor(() => expect(p.dash.charges).toBe(1), { timeout: 10_000 });
+    await vi.waitFor(() => expect(Math.hypot(p.x - x0, p.y)).toBeGreaterThan(40), { timeout: 10_000 });
+    await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(1), { timeout: 10_000 });
+    expect(document.querySelector('.hud-dash-charges i.next')).not.toBeNull();
+    // Pressed during the pause between two dashes: it waits for it instead of being lost.
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ' }));
+    await vi.waitFor(() => expect(p.dash.charges).toBe(0), { timeout: 10_000 });
+    await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(0), { timeout: 10_000 });
+    expect(document.querySelector('.hud-dash')!.getAttribute('aria-label')).toMatch(/^Dash con SHIFT o Espacio: 0 de 2 cargas, la siguiente en \d s$/);
+    // Inside the top bar, nothing out of the screen.
+    const vitals = document.querySelector('.hud-vitals')!.getBoundingClientRect();
+    const center = document.querySelector('.hud-center')!.getBoundingClientRect();
+    expect(vitals.right).toBeLessThanOrEqual(center.left);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hud-dash-${w}.png` });
+  }, 120_000);
+}

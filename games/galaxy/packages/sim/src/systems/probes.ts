@@ -2,7 +2,8 @@ import { angleTo } from '../math/trig';
 import { IDLE, type ProbeInput, type ProbeState, type Sim } from '../types';
 import { ticks } from '../version';
 import { downProbe } from './coop';
-import { dodge, onContact, rescue, tickQuirk } from './quirks';
+import { tickDash } from './dash';
+import { onContact, rescue, tickQuirk } from './quirks';
 
 // Probes (GDD §5.2, §6): movement from per-tick inputs, contact damage with half a second of invulnerability, shield,
 // regeneration, and death. The run ends when every probe is down.
@@ -54,7 +55,6 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
 /** Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. */
 export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
-  if (dodge(sim, p)) return;
   // Fase cuántica (Nov plan B2): the hit goes through; the usual breather follows, so contact does not hit next tick.
   if (p.stats.evasion > 0 && sim.rng.combat.chance(p.stats.evasion)) {
     p.invulnT = ticks(INVULN_SECONDS);
@@ -116,6 +116,7 @@ export function tickProbes(sim: Sim): void {
     if (!p.alive) continue;
     if (p.invulnT > 0) p.invulnT--;
     tickQuirk(sim, p);
+    tickDash(sim, p);
     if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen / 60);
     rechargeShield(sim, p);
   }

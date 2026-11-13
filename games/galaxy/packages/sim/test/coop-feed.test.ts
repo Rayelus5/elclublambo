@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { botInput, CoopFeed, createSim, DEFAULT_COOP_RULES, type ProbeInput, replay, type Sim, stateHash, step } from '../src/index';
+import { botInput, CoopFeed, createSim, DASH, DEFAULT_COOP_RULES, MOVE, type ProbeInput, replay, type Sim, stateHash, step } from '../src/index';
 import { options, tinyContent } from './fixtures';
 
 // The co-op input feed (multiplayer plan, phase 6): the server seals inputs as log events and hands them out in
@@ -77,4 +77,15 @@ test('una carta vale solo en su tick; el movimiento y la presencia siguen hasta 
     { mx: 50, my: -20, aim: 100, pick: -1, presence: 0 },
     { mx: 0, my: 0, aim: -1, pick: -1, presence: 1 },
   ]);
+});
+
+test('un dash cuenta solo en su tick, con su ángulo', () => {
+  const feed = new CoopFeed(2);
+  feed.push([5, 1, DASH, 1024, 0, 0, 5, 0, MOVE, 127, 0, -1]);
+  expect(feed.inputsFor(4).every((i) => i.dash === undefined)).toBe(true);
+  const at = feed.inputsFor(5);
+  expect(at[1]!.dash).toBe(1024);
+  expect(at[0]!.dash).toBeUndefined();
+  expect(at[0]!.mx).toBe(127);
+  expect(feed.inputsFor(6)[1]!.dash).toBeUndefined();
 });

@@ -51,9 +51,13 @@ export function cameraFor(viewportW: number, viewportH: number, focus: { x: numb
   };
 }
 
-/** Wheel turns as zoom steps: a mouse notch is one (up comes closer); a trackpad's small deltas add up to one. */
-export function wheelSteps(rest: number, e: { deltaY: number; deltaMode: number }): { steps: number; rest: number } {
-  const total = rest + e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+/**
+ * Wheel turns as zoom steps: a mouse notch is one (up comes closer); a trackpad's small deltas add up to one. With
+ * SHIFT held (a dash) the browser turns the wheel sideways: its sideways delta zooms the same.
+ */
+export function wheelSteps(rest: number, e: { deltaY: number; deltaX?: number; shiftKey?: boolean; deltaMode: number }): { steps: number; rest: number } {
+  const delta = e.deltaY === 0 && e.shiftKey ? (e.deltaX ?? 0) : e.deltaY;
+  const total = rest + delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
   const whole = Math.trunc(total / 100);
   return { steps: whole === 0 ? 0 : -whole, rest: total - whole * 100 };
 }

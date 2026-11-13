@@ -1,6 +1,6 @@
 import { createSim, step } from './sim';
 import { CoopFeed } from './coop-feed';
-import { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
+import { DASH, MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 import { IDLE, type InputLog, type ProbeInput, type Sim, type SimOptions } from './types';
 
 // Recorded inputs (GDD §5.7, §14.7). A run keeps, per probe, the input in effect whenever it changes (movement and
@@ -13,6 +13,8 @@ import { IDLE, type InputLog, type ProbeInput, type Sim, type SimOptions } from 
 // Version 2 (co-op, multiplayer plan) is the same with two more kinds; a log without them is still written as 1:
 //   kind 2 (pick while the world runs): [index: byte] [offer sequence mod 256: byte]
 //   kind 3 (presence): [0 here, 1 away, 2 left: byte]
+// Both versions also have, since SIM 1.12.0, the player's dash (a solo kind too: a dash does not make a log co-op):
+//   kind 4 (dash): [pointer angle + 1: varint]
 
 const VERSION = 1;
 const VERSION_COOP = 2;
@@ -36,7 +38,7 @@ function writeEvents(out: number[], ev: readonly number[], prevTick: number, sol
   for (let i = 0; i + 5 < ev.length; i += 6) {
     const tick = ev[i]!;
     const kind = ev[i + 2]!;
-    if (tick < prev || (solo && kind !== MOVE && kind !== PICK)) bad();
+    if (tick < prev || (solo && kind !== MOVE && kind !== PICK && kind !== DASH)) bad();
     pushVarint(out, tick - prev);
     prev = tick;
     pushVarint(out, ev[i + 1]!);
@@ -45,6 +47,7 @@ function writeEvents(out: number[], ev: readonly number[], prevTick: number, sol
       out.push(ev[i + 3]! + 127, ev[i + 4]! + 127);
       pushVarint(out, ev[i + 5]! + 1);
     } else if (kind === PICK_SEQ) out.push(ev[i + 3]!, ev[i + 4]!);
+    else if (kind === DASH) pushVarint(out, ev[i + 3]! + 1);
     else out.push(ev[i + 3]!);
   }
   return prev;
@@ -52,7 +55,7 @@ function writeEvents(out: number[], ev: readonly number[], prevTick: number, sol
 
 export function encodeLog(log: InputLog): Uint8Array {
   let coop = false;
-  for (let i = 2; i < log.events.length; i += 6) if (log.events[i]! >= PICK_SEQ) coop = true;
+  for (let i = 2; i < log.events.length; i += 6) if (log.events[i] === PICK_SEQ || log.events[i] === PRESENCE) coop = true;
   const out: number[] = [coop ? VERSION_COOP : VERSION];
   pushVarint(out, log.probes);
   writeEvents(out, log.events, 0, false);
@@ -111,6 +114,10 @@ function readEvents(bytes: Uint8Array, start: number, tick0: number, probes: num
       const state = byte();
       if (state > 2) bad();
       events.push(tick, probe, PRESENCE, state, 0, 0);
+    } else if (kind === DASH) {
+      const angle = varint() - 1;
+      if (angle > 4095) bad();
+      events.push(tick, probe, DASH, angle, 0, 0);
     } else bad();
   }
   return { events, tick };
@@ -136,7 +143,8 @@ export function decodeLog(bytes: Uint8Array): InputLog {
 
 /**
  * Reads a piece written by encodeEvents (part G), counting ticks from `prevTick`, for a run of `probes` probes. Throws
- * on anything that is not a solo run's moves and picks: co-op kinds, a probe the run does not have, a cut-short event.
+ * on anything that is not a solo run's moves, picks and dashes: co-op kinds, a probe the run does not have, a cut-short
+ * event.
  */
 export function decodeEvents(bytes: Uint8Array, prevTick: number, probes: number): { events: number[]; tick: number } {
   return readEvents(bytes, 0, prevTick, probes, false);
@@ -184,15 +192,29 @@ export function createReplayer(opts: SimOptions, log: InputLog, until: number): 
       return true;
     }
     if (sim.tick >= until) return false;
-    const nextTick = sim.tick + 1;
-    while (i + 5 < ev.length && ev[i + 2] === MOVE && ev[i]! <= nextTick) {
-      current[ev[i + 1]!] = { mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]!, pick: -1 };
-      i += 6;
-    }
-    step(sim, current);
+    i = worldStep(sim, current, ev, i);
     return true;
   }
   return { sim, next };
+}
+
+/**
+ * One world tick of a solo replay: the moves logged up to it (sticky) and the dashes logged on it (that tick only),
+ * then the step. Where the log goes on.
+ */
+function worldStep(sim: Sim, current: ProbeInput[], ev: readonly number[], from: number): number {
+  let i = from;
+  const nextTick = sim.tick + 1;
+  let dashes: Map<number, number> | null = null;
+  while (i + 5 < ev.length && (ev[i + 2] === MOVE || ev[i + 2] === DASH) && ev[i]! <= nextTick) {
+    const p = ev[i + 1]!;
+    if (ev[i + 2] === MOVE) current[p] = { mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]!, pick: -1 };
+    else (dashes ??= new Map()).set(p, ev[i + 3]!);
+    i += 6;
+  }
+  const asked = dashes;
+  step(sim, asked ? current.map((c, k) => (asked.has(k) ? { ...c, dash: asked.get(k)! } : c)) : current);
+  return i;
 }
 
 /** A solo run replayed as its log arrives (part G). */
@@ -234,12 +256,7 @@ export function createLiveReplayer(opts: SimOptions): LiveReplayer {
       return 'stepped';
     }
     if (sim.tick >= to) return 'wait';
-    const nextTick = sim.tick + 1;
-    while (i + 5 < ev.length && ev[i + 2] === MOVE && ev[i]! <= nextTick) {
-      current[ev[i + 1]!] = { mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]!, pick: -1 };
-      i += 6;
-    }
-    step(sim, current);
+    i = worldStep(sim, current, ev, i);
     return 'stepped';
   }
   return {

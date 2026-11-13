@@ -7,6 +7,7 @@ import { updateBlasts } from './systems/blasts';
 import { updateLayer } from './systems/layers';
 import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
+import { dashRules, moveDash, startDashes } from './systems/dash';
 import { updatePickups } from './systems/pickups';
 import { updateRelics } from './systems/relics';
 import { applyCoopInputs, updateDowned, updateOffers } from './systems/coop';
@@ -120,6 +121,7 @@ export function createSim(opts: SimOptions): Sim {
       downs: 0,
       stats: { maxHp: def.hp } as ProbeState['stats'],
       shield: 0,
+      dash: { charges: 0, recharge: 0, pause: 0, t: 0, dir: 0 },
       kills: 0,
       fx: {},
     };
@@ -128,6 +130,7 @@ export function createSim(opts: SimOptions): Sim {
   for (const p of sim.probes) {
     refreshStats(sim, p);
     p.hp = p.stats.maxHp;
+    p.dash.charges = dashRules(sim, p).max;
   }
   return sim;
 }
@@ -209,6 +212,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickProbes(sim);
   moveProbes(sim, inputs);
   recordMoves(sim, inputs);
+  startDashes(sim, inputs);
   tickFlashes(sim);
   direct(sim);
   updateEnemies(sim, relocate);
@@ -220,6 +224,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   syncProps(sim);
   updateWorld(sim);
   for (const p of sim.probes) {
+    moveDash(sim, p);
     fireWeapons(sim, p);
     updateRelics(sim, p);
   }

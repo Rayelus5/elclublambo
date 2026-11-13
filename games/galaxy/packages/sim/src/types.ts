@@ -20,6 +20,23 @@ export interface ProbeInput {
   offer?: number;
   /** Co-op: the player's presence (sticky): 0 here, 1 away (disconnected), 2 left the run for good. */
   presence?: number;
+  /**
+   * A dash asked for on this tick (SHIFT, Space or the pad's A; SIM 1.12.0), with the pointer's angle step at the press
+   * (−1: none) for a probe standing still. Absent: no dash.
+   */
+  dash?: number;
+}
+
+/**
+ * The player's dash (systems/dash.ts): charges ready, ticks until the next one comes back (0 while full), ticks before
+ * another is allowed, and the dash in course (ticks left, 0 when none, and its direction as an angle step).
+ */
+export interface DashState {
+  charges: number;
+  recharge: number;
+  pause: number;
+  t: number;
+  dir: number;
 }
 
 /**
@@ -193,6 +210,8 @@ export interface ProbeState {
   stats: Stats;
   /** Damage absorbed before life (elliptical relics). */
   shield: number;
+  /** The player's dash (SIM 1.12.0). */
+  dash: DashState;
   kills: number;
   /** Per-probe state of later systems (relic cooldowns, buffs…). */
   fx: Record<string, number>;

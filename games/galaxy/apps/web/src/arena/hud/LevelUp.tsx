@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Dialog } from '../../ui/Dialog';
 import { spriteDataUrl } from '../sprites';
-import { typing } from '../../ui/keys';
+import { cardKey, typing } from '../../ui/keys';
 
 // The level-up choice (GDD §5.1): 1 of 3. Number keys pick, the arrows move, Enter confirms; a click confirms at once.
 // With a gamepad the D-pad or the left stick moves and A confirms (on the press, not while held).
@@ -41,7 +41,8 @@ export function LevelUp({ offer, content, onPick }: { offer: Offer[]; content: C
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       if (typing(e)) return;
-      const n = Number.parseInt(e.key, 10);
+      // By the key's place (Digit1, Numpad1): with SHIFT held for a dash, the key would read «!».
+      const n = cardKey(e.code);
       if (n >= 1 && n <= offer.length) {
         setSel(n - 1);
         e.preventDefault();

@@ -34,6 +34,27 @@ function Kit({ items, content, kind }: { items: { id: string; level: number; evo
   );
 }
 
+/**
+ * The dash (SIM 1.12.0): its key, then a diamond per charge, lit when ready, and the next one filling as it comes back.
+ * While the short pause between two dashes runs, the ready ones dim.
+ */
+export function DashMeter({ dash }: { dash: HudSnapshot['dash'] }) {
+  const { charges, max, recharge, rechargeTotal, pause } = dash;
+  const filling = charges < max && rechargeTotal > 0 ? Math.max(0, Math.min(1, 1 - recharge / rechargeTotal)) : 0;
+  const waiting = pause > 0;
+  const label = copy.arena.dash.label(charges, max, charges < max ? Math.max(1, Math.ceil(recharge)) : 0);
+  return (
+    <div className={`hud-dash${charges > 0 && !waiting ? ' ready' : ''}${waiting ? ' waiting' : ''}`} role="img" aria-label={label} title={label}>
+      <kbd aria-hidden="true">{copy.arena.dash.key}</kbd>
+      <span className="hud-dash-charges" aria-hidden="true">
+        {Array.from({ length: max }, (_, k) => (
+          <i key={k} className={k < charges ? 'on' : k === charges ? 'next' : undefined} style={k === charges ? ({ '--k': filling } as CSSProperties) : undefined} />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 /** The run's HUD; without `onPause` (the panel's replayer, M6d-3) it has no pause button of its own. */
 export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; content: Content; onPause?: () => void; announce: string }) {
   const hp = Math.max(0, Math.round(hud.hp));
@@ -56,6 +77,7 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
               <small>/{maxHp}</small>
             </b>
           </div>
+          <DashMeter dash={hud.dash} />
         </div>
         <div className="hud-center lip panel">
           <span className="hud-time" aria-label={`${copy.arena.time} ${clockText(hud.tick / 60)}`}>

@@ -1,5 +1,5 @@
 import { COOP_SUM_EVERY, type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
-import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
+import { CoopFeed, createSim, DASH, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
 
 // One co-op run as the server plays it (multiplayer plan, phase 6). Inputs arrive from the players' sockets and are
 // sealed at once, as log events, on the next tick not yet closed; the clock closes ticks at 60 Hz whatever the
@@ -181,6 +181,16 @@ export class CoopRun {
     if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
     this.withdraw(slot, PICK_SEQ);
     this.pending.push(this.closed + 1, slot, PICK_SEQ, index, seq, 0);
+  }
+
+  /**
+   * A dash asked for (SIM 1.12.0), with the pointer's angle: sealed on the next tick, one per tick (a second one on the
+   * same open tick replaces it). The referee decides whether it can (a charge, past the pause, standing).
+   */
+  dash(slot: number, angle: number): void {
+    if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
+    this.withdraw(slot, DASH);
+    this.pending.push(this.closed + 1, slot, DASH, angle, 0, 0);
   }
 
   /** Whether the player in `slot` still has a play socket open (who went has their result told elsewhere). */

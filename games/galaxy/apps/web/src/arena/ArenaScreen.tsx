@@ -14,7 +14,7 @@ import { BeaconMarker, BossBar, Radio, SatelliteMarker } from './hud/Overlays';
 import { Hud } from './hud/Hud';
 import { LevelUp } from './hud/LevelUp';
 import { PauseMenu } from './hud/PauseMenu';
-import { emptyInput, readInput } from './input';
+import { DASH_BUTTONS, DASH_KEYS, dashWaits, emptyInput, pointerAngle, readInput } from './input';
 import { createLoop, type Loop } from './loop';
 import { arenaZoom, manualAim as storedAim, markRadioSeen, radioSeen, setManualAim } from './settings';
 import { useWheelZoom } from './zoom';
@@ -158,6 +158,11 @@ export function ArenaScreen({
   const choose = useCallback((i: number) => {
     pick.current = { index: i, offer: shownOffer.current };
   }, []);
+  // A dash asked for (SHIFT, Space, the pad's A or RB; SIM 1.12.0): it goes with the next world tick.
+  const dashAsked = useRef(false);
+  const askDash = useCallback(() => {
+    if (sim.status === 'running' && !loopRef.current?.paused && !briefingRef.current) dashAsked.current = true;
+  }, [sim]);
 
   const say = useCallback((id: string, text: string) => {
     if (radioSeen(id)) return;
@@ -167,6 +172,7 @@ export function ArenaScreen({
 
   const pause = useCallback(() => {
     if (ended.current || sim.status === 'choosing') return;
+    dashAsked.current = false;
     loopRef.current?.pause();
     setPaused(true);
   }, [sim]);
@@ -204,6 +210,13 @@ export function ArenaScreen({
         const rect = canvasRef.current?.getBoundingClientRect();
         const aimFrom = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
         const i = readInput(input.current, { manualAim: aimRef.current }, aimFrom);
+        // A press a moment early (the pause between two dashes) waits for it; otherwise it goes now. One left from
+        // before the cards opened is dropped (the pause menu drops it too).
+        if (sim.status !== 'running') dashAsked.current = false;
+        if (dashAsked.current && !dashWaits(sim.probes[0]?.dash)) {
+          dashAsked.current = false;
+          if (sim.status === 'running') i.dash = pointerAngle(input.current, aimFrom);
+        }
         if (pick.current) {
           // A quick second Enter belongs to the offer on screen; once the simulation has moved on, it is dropped.
           if (pick.current.offer === sim.probes[0]?.offer) i.pick = pick.current.index;
@@ -284,6 +297,7 @@ export function ArenaScreen({
           h.hp <= h.maxHp * 0.3 && !radioSeen('coach:lowhp') ? ['coach:lowhp', c.lowHp]
           : !radioSeen('coach:move') ? ['coach:move', c.move]
           : h.kills >= 3 && !radioSeen('coach:gems') ? ['coach:gems', c.gems]
+          : h.kills >= 12 && !radioSeen('coach:dash') ? ['coach:dash', c.dash]
           : h.kills >= 25 && !radioSeen('coach:loot') ? ['coach:loot', c.loot]
           : h.phase === 'waves' && h.layer === 1 && h.phaseLeft <= 60 && !radioSeen('coach:boss') ? ['coach:boss', c.boss]
           : null;
@@ -327,8 +341,13 @@ export function ArenaScreen({
         else pause();
         return;
       }
+      if (DASH_KEYS.includes(e.code)) {
+        if (!e.repeat) askDash();
+        e.preventDefault();
+        return;
+      }
       input.current.keys.add(e.code);
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+      if (e.code.startsWith('Arrow')) e.preventDefault();
     };
     const up = (e: KeyboardEvent) => input.current.keys.delete(e.code);
     const move = (e: MouseEvent) => {
@@ -358,12 +377,14 @@ export function ArenaScreen({
       window.removeEventListener('beforeunload', leave);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [pause, resume, sim]);
+  }, [askDash, pause, resume, sim]);
 
-  // Gamepad: left stick moves, right stick aims (manual aim), Start pauses, A picks the highlighted upgrade.
+  // Gamepad: left stick moves, right stick aims (manual aim), Start pauses, A or RB dash (A picks the highlighted
+  // upgrade while the cards are up: no dash then).
   useEffect(() => {
     let raf = 0;
     let startWas = false;
+    let dashWas = false;
     const poll = () => {
       const pad = typeof navigator.getGamepads === 'function' ? navigator.getGamepads()[0] : null;
       if (pad) {
@@ -374,12 +395,15 @@ export function ArenaScreen({
           else pause();
         }
         startWas = start;
+        const dash = DASH_BUTTONS.some((b) => pad.buttons[b]?.pressed);
+        if (dash && !dashWas) askDash();
+        dashWas = dash;
       }
       raf = requestAnimationFrame(poll);
     };
     if (typeof requestAnimationFrame === 'function' && typeof navigator.getGamepads === 'function') raf = requestAnimationFrame(poll);
     return () => cancelAnimationFrame(raf);
-  }, [pause, resume]);
+  }, [askDash, pause, resume]);
 
   const choosing = hud.status === 'choosing' && hud.offer && !paused;
   return (

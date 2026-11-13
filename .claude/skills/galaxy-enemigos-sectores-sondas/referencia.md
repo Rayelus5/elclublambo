@@ -9,7 +9,7 @@ Rutas relativas a `games/galaxy/`. Los commits citados sirven de ejemplo real: `
 | Tipos | `packages/sim/src/content/types.ts`: `ENEMY_FAMILIES`, `Behavior`, `BossPattern`, `BIOMES`, `Quirk`, `ELEMENT_IDS` (solo se añade al final) |
 | Esquema | `packages/sim/src/content/schema.ts`: uniones de `behavior`, `bossPattern` y `quirk`; enum de élites; `superRefine` con las referencias |
 | Datos | `packages/sim/src/content/default.ts`: `enemies`, `bosses`, `sectors` (`SECTOR_BASE`, `DEEP`), `anomalies`, `probes` |
-| Comportamientos | `systems/enemies.ts` (switch de `behavior`, `ELITE_CODE`), `systems/boss.ts` (switch de patrones), `systems/director.ts` (apariciones, multiplicadores de anomalía), `systems/combat.ts` (muertes, botín, contagio), `systems/quirks.ts`, `systems/props.ts` |
+| Comportamientos | `systems/enemies.ts` (switch de `behavior`, `ELITE_CODE`), `systems/boss.ts` (switch de patrones), `systems/director.ts` (apariciones, multiplicadores de anomalía), `systems/combat.ts` (muertes, botín, contagio), `systems/quirks.ts`, `systems/dash.ts` (el dash del jugador; la peculiaridad `dash` de Chispa lo mejora), `systems/props.ts` |
 | Avisos | `packages/sim/src/events.ts` (`telegraph`) |
 
 ## Web

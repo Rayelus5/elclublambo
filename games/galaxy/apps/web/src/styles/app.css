@@ -1119,6 +1119,20 @@
   .hud-hp b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: var(--color-ink); text-shadow: 0 2px 0 rgb(0 0 0 / .55); }
   .hud-hp b small { font-size: 12px; color: var(--color-ink-soft); margin-left: 2px; }
   .hud-hp.low { animation: hud-low 1s ease-in-out infinite; }
+  /* The dash (SIM 1.12.0): its key, a diamond per charge in the dash's cyan, lit when ready; the next one fills from
+     the bottom as it comes back (between the HUD's reads it glides there). The ready ones dim while the pause runs. */
+  .hud-dash { display: flex; align-items: center; gap: 8px; }
+  .hud-dash kbd { display: grid; place-items: center; height: 26px; padding: 0 8px; border-radius: 8px; background: var(--color-panel-2); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .35); font-family: inherit; font-weight: 800; font-size: 11px; line-height: 1; letter-spacing: .08em; color: var(--color-ink-mute); transition: color .2s ease, background .2s ease; }
+  .hud-dash.ready kbd { color: #04222b; background: linear-gradient(180deg, #a6f0ff, #6fe3ff); box-shadow: inset 0 -3px 0 #2b9bb8; }
+  .hud-dash-charges { display: flex; align-items: center; gap: 11px; padding-inline: 4px; }
+  .hud-dash-charges i { position: relative; display: block; inline-size: 14px; block-size: 14px; rotate: 45deg; border-radius: 3px; background: var(--color-panel-lip); box-shadow: inset 0 0 0 2px rgb(111 227 255 / .35); overflow: hidden; }
+  .hud-dash-charges i::after { content: ''; position: absolute; inset: 0; background: #6fe3ff; transform-origin: 0 100%; transform: scale(0); }
+  .hud-dash-charges i.on::after { transform: none; box-shadow: 0 0 8px #6fe3ff; }
+  .hud-dash-charges i.on { box-shadow: inset 0 0 0 2px #c9f6ff, 0 0 10px rgb(111 227 255 / .6); animation: dash-charge .35s var(--ease-bounce) both; }
+  .hud-dash-charges i.next::after { background: rgb(111 227 255 / .55); transform: scale(var(--k, 0)); transition: transform .25s linear; }
+  .hud-dash.waiting .hud-dash-charges i.on { opacity: .45; box-shadow: inset 0 0 0 2px rgb(111 227 255 / .5); }
+  @keyframes dash-charge { 0% { scale: .6; } 60% { scale: 1.25; } 100% { scale: 1; } }
+  .arena.reduced .hud-dash-charges i, .arena.reduced .hud-dash-charges i::after, .arena.reduced .hud-dash kbd { animation: none; transition: none; }
   @keyframes hud-low { 50% { box-shadow: inset 0 2px 0 rgb(0 0 0 / .4), 0 0 0 3px rgb(255 77 109 / .55); } }
   .hud-center { justify-self: center; display: flex; align-items: center; gap: 12px; }
   .hud-time { font: 400 22px var(--font-display); color: var(--color-ink); letter-spacing: .02em; }
@@ -2381,6 +2395,17 @@
   .setting.setting-wide { grid-template-columns: minmax(0, 1fr) minmax(240px, 380px); }
   .setting.setting-stack { grid-template-columns: minmax(0, 1fr); }
   .setting.setting-stack .setting-control { justify-content: flex-start; }
+  /* The run's controls (Ajustes › Incursión): a small table of keys and buttons. */
+  .controls { display: grid; gap: 6px; padding: 16px 0 4px; border-block-start: 2px solid rgb(255 255 255 / .05); }
+  .controls h3 { margin: 0; }
+  .controls-table { inline-size: 100%; border-collapse: collapse; font-size: 14px; }
+  .controls-table th, .controls-table td { padding: 2px 10px 2px 0; text-align: start; vertical-align: middle; }
+  .settings-shell.in-run .controls { padding-block-start: 12px; }
+  .controls-table thead th { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--color-ink-mute); }
+  .controls-table tbody th { font-weight: 600; color: var(--color-ink-soft); }
+  .controls-table tbody tr + tr > * { border-block-start: 1px solid rgb(255 255 255 / .05); }
+  .controls-table kbd { display: inline-grid; place-items: center; min-inline-size: 24px; block-size: 22px; margin: 1px 5px 1px 0; padding: 0 7px; border-radius: 7px; background: var(--color-panel-2); box-shadow: inset 0 -2px 0 rgb(0 0 0 / .35); font-family: inherit; font-weight: 700; font-size: 12px; line-height: 1; color: var(--color-ink); }
+  .controls-none { color: var(--color-ink-mute); }
   .setting-label { display: block; font-size: 16.5px; font-weight: 700; color: var(--color-ink); transition: color .15s ease; }
   .setting-hint { margin: 3px 0 0; max-inline-size: 56ch; font-size: 14px; line-height: 1.4; color: var(--color-ink-mute); }
   .setting-hint-now { display: block; margin-block-start: 4px; color: var(--color-ice); font-weight: 600; }
@@ -2726,9 +2751,9 @@
   .ev-nav { display: flex; justify-content: space-between; gap: 12px; padding-block-start: 6px; }
   /* The tutorial run's briefing: three tips shown in motion, over the waiting arena. */
   .briefing { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgb(4 6 22 / .7); }
-  .briefing-card { display: grid; gap: 18px; inline-size: min(760px, 100%); padding: 24px 26px; border-radius: 24px; background: linear-gradient(170deg, #23286a, #161a46); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08), 0 22px 50px rgb(0 0 0 / .55); color: var(--color-ink); animation: tour-in .3s var(--ease-bounce) both; }
+  .briefing-card { display: grid; gap: 18px; inline-size: min(900px, 100%); padding: 24px 26px; border-radius: 24px; background: linear-gradient(170deg, #23286a, #161a46); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08), 0 22px 50px rgb(0 0 0 / .55); color: var(--color-ink); animation: tour-in .3s var(--ease-bounce) both; }
   .briefing-card h2 { margin: 0; font: 400 30px var(--font-display); }
-  .briefing-tips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .briefing-tips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .briefing-tips li { display: grid; justify-items: center; gap: 6px; padding: 16px 12px; border-radius: 18px; background: rgb(0 0 0 / .25); text-align: center; }
   .briefing-tips b { font-size: 16px; }
   .briefing-tips small { color: var(--color-ink-soft); font-size: 13px; }
@@ -2753,8 +2778,20 @@
   @keyframes brief-gem { 50% { translate: 0 -8px; filter: brightness(1.4); } }
   .briefing-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .briefing-go { height: 52px; font-size: 18px; padding-inline: 26px; display: inline-flex; align-items: center; gap: 8px; }
-  @media (max-width: 760px) { .briefing-tips { grid-template-columns: minmax(0, 1fr); } }
-  :where(:root[data-motion='reduced']) { .briefing-keys i, .briefing-probe .shot, .briefing-gems i, .briefing-card { animation: none; } }
+  /* The dash (SIM 1.12.0): its key goes down, and the probe jumps sideways leaving two cyan afterimages. */
+  .briefing-dash { display: grid; justify-items: center; align-content: center; gap: 10px; block-size: 76px; }
+  .briefing-dash .k-shift { display: grid; place-items: center; block-size: 26px; padding: 0 10px; border-radius: 8px; background: var(--color-panel-2); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .35); font-style: normal; font-weight: 800; font-size: 11px; letter-spacing: .08em; animation: brief-shift 2s steps(1) infinite; }
+  @keyframes brief-shift { 0%, 19% { background: #6fe3ff; color: #04222b; transform: translateY(2px); } 20%, 100% { background: var(--color-panel-2); color: var(--color-ink); transform: none; } }
+  .briefing-dash .dash-probe { position: relative; inline-size: 96px; block-size: 20px; }
+  .briefing-dash .dash-probe i { position: absolute; top: 2px; left: 4px; inline-size: 16px; block-size: 16px; border-radius: 50%; }
+  .briefing-dash .core { background: radial-gradient(circle at 35% 35%, #fff, var(--color-ice) 55%, #2a6bd6); box-shadow: 0 0 10px var(--color-ice); animation: brief-dash 2s var(--ease-out, ease-out) infinite; }
+  .briefing-dash .ghost { background: #6fe3ff; opacity: 0; animation: brief-ghost 2s ease-out infinite; }
+  .briefing-dash .g2 { animation-delay: .06s; }
+  @keyframes brief-dash { 0%, 2% { translate: 0 0; } 18%, 70% { translate: 72px 0; } 100% { translate: 0 0; } }
+  @keyframes brief-ghost { 0%, 3% { translate: 0 0; opacity: 0; } 6% { opacity: .5; } 12% { translate: 36px 0; opacity: .35; } 26%, 100% { translate: 56px 0; opacity: 0; } }
+  @media (max-width: 900px) { .briefing-tips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .briefing-tips { grid-template-columns: minmax(0, 1fr); } }
+  :where(:root[data-motion='reduced']) { .briefing-keys i, .briefing-probe .shot, .briefing-gems i, .briefing-card, .briefing-dash .k-shift, .briefing-dash .core, .briefing-dash .ghost { animation: none; } }
   /* The season's anomaly: a tag with its name, and «Más información» opening what it does. */
   .missions.season-screen { inline-size: min(100% - 48px, 1240px); gap: 20px; }
   .season-left { margin-inline-start: auto; color: var(--color-ink-soft); font-weight: 600; }

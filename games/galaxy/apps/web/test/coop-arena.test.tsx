@@ -167,6 +167,24 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   await waitFor(() => expect(screen.queryByRole('region', { name: t.cards })).not.toBeInTheDocument());
 });
 
+// The dash (SIM 1.12.0): SHIFT or Space sends it to the referee, once per press (a held key repeats nothing), and the
+// world plays it on the tick the server sealed it; with SHIFT held the number keys still pick a card.
+test('SHIFT y Espacio mandan un dash, uno por pulsación, y el mundo lo hace en su tick', async () => {
+  const { clock, ws, sim } = await mount();
+  ws.push({ t: 'f', to: 30, ev: [] });
+  clock.frames(30);
+  const dashes = () => ws.sent.filter((m) => (m as { t: string }).t === 'dash');
+  fireEvent.keyDown(window, { code: 'ShiftLeft', key: 'Shift' });
+  fireEvent.keyDown(window, { code: 'ShiftLeft', key: 'Shift', repeat: true });
+  expect(dashes()).toEqual([{ t: 'dash', a: -1 }]);
+  // The server seals it on tick 31 for probe 0 (facing right, standing still: it goes right).
+  const x0 = sim().probes[0]!.x;
+  ws.push({ t: 'f', to: 60, ev: [31, 0, 4, -1, 0, 0] });
+  clock.frames(60);
+  expect(sim().probes[0]!.x).toBeGreaterThan(x0 + DEFAULT_CONTENT.dash.distance - 1);
+  expect(sim().probes[0]!.dash.charges).toBe(0);
+});
+
 describe('avisos rápidos', () => {
   const m = copy.coop.marks;
   const sentMarks = (ws: FakeSocket) => ws.sent.filter((x) => (x as { t: string }).t === 'mark');

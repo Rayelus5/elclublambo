@@ -23,8 +23,11 @@ export type SimEvent =
    * `freeze` froze what was within `radius`, `strike` hit the enemies at `targets` (x, y pairs).
    */
   | { t: 'anomaly'; probe: number; what: 'blink' | 'freeze' | 'strike'; fx: number; fy: number; tx: number; ty: number; radius: number; targets: number[] }
-  /** A dash (a quirk's jump, a comet's charge): from (fx, fy) to (tx, ty) over `ticks` (0: instant), for the effects. */
-  | { t: 'dash'; probe: number; kind: 'quirk' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
+  /**
+   * The player's dash (SIM 1.12.0): from (fx, fy) to (tx, ty) over `ticks`, for the effects; `comet` when a comet relic
+   * makes it hit what it crosses.
+   */
+  | { t: 'dash'; probe: number; kind: 'player' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
   | { t: 'levelUp'; probe: number; level: number }
   | { t: 'evolve'; probe: number; from: string; to: string }
   | { t: 'fire'; weapon: string; x: number; y: number }

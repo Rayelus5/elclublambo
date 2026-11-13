@@ -7,6 +7,21 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-22-el-dash-es-tuyo',
+    version: '1.22',
+    date: '2026-11-13',
+    title: 'El dash es tuyo',
+    summary: 'Todas las sondas tienen un dash que decides tú con SHIFT o Espacio, y lo ves junto a tu vida',
+    items: [
+      { kind: 'nuevo', text: 'Pulsa SHIFT o Espacio (A o RB en el mando) para hacer un dash hacia donde te mueves, o hacia el ratón si estás quieto. Nada te toca mientras dura' },
+      { kind: 'nuevo', text: 'Junto a tu vida ves sus cargas: un rombo por carga, encendido si está lista, y la siguiente llenándose mientras vuelve. Entre dos dashes hay una pausa corta' },
+      { kind: 'equilibrio', text: 'Chispa ya no esquiva sola: su dash es el más ágil, con una carga más que vuelve antes' },
+      { kind: 'equilibrio', text: 'El Cometa ya no embiste solo al moverte: cada reliquia Cometa te da una carga más y hace que tu dash dañe lo que atraviesa' },
+      { kind: 'mejora', text: 'En Ajustes › Incursión tienes la tabla de controles, con teclado y con mando' },
+      { kind: 'arreglo', text: 'Las teclas 1, 2 y 3 eligen carta aunque tengas SHIFT pulsado, y la rueda del ratón sigue acercando la vista' },
+    ],
+  },
+  {
     id: 'v1-21-la-anomalia-se-ve',
     version: '1.21',
     date: '2026-11-13',

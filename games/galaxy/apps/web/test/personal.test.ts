@@ -11,7 +11,7 @@ test('el daño de un compañero no es mío', () => {
 test('subir de nivel, recoger y el acelerón de otro tampoco', () => {
   expect(isPersonal({ t: 'levelUp', probe: 2, level: 5 }, 0)).toBe(false);
   expect(isPersonal({ t: 'pickup', probe: 1, kind: 'coin', value: 1 }, 0)).toBe(false);
-  expect(isPersonal({ t: 'dash', probe: 1, kind: 'quirk', fx: 0, fy: 0, tx: 1, ty: 1, ticks: 0 }, 0)).toBe(false);
+  expect(isPersonal({ t: 'dash', probe: 1, kind: 'player', fx: 0, fy: 0, tx: 1, ty: 1, ticks: 0 }, 0)).toBe(false);
   expect(isPersonal({ t: 'levelUp', probe: 1, level: 5 }, 1)).toBe(true);
 });
 

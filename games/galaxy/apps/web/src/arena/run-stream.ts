@@ -76,7 +76,10 @@ export function createRunStream(opts: {
     if (cursor >= total && to === sentTo && s === sentState) return;
     let pieces = 0;
     do {
-      const upto = Math.min(total, cursor + PER_PIECE);
+      let upto = Math.min(total, cursor + PER_PIECE);
+      // A piece with more behind it ends on a whole tick: the live replayer steps a tick once, so a move and a dash of
+      // the same tick (SIM 1.12.0) never go in two pieces.
+      if (upto < total) while (upto > cursor + 1 && events[upto * 6] === events[(upto - 1) * 6]) upto--;
       const piece = encodeEvents(events.slice(cursor * 6, upto * 6), prevTick);
       // A piece with more behind it only claims the tick its own events reach.
       const reach = upto < total ? piece.tick : Math.max(to, piece.tick);

@@ -1,5 +1,4 @@
 import type { ElementId } from '../content/types';
-import { cosA, sinA } from '../math/trig';
 import type { ProbeState, Sim } from '../types';
 import { ticks } from '../version';
 import { PICKUP } from '../world/pools';
@@ -15,7 +14,7 @@ function quirkOf<K extends NonNullable<ProbeState['def']['quirk']>['kind']>(p: P
   return q && q.kind === kind ? (q as Extract<NonNullable<ProbeState['def']['quirk']>, { kind: K }>) : null;
 }
 
-/** One tick of a probe's quirk clocks (magnet, dash cooldown, afterburner). */
+/** One tick of a probe's quirk clocks (magnet, afterburner). Spark's dash is the player's now (systems/dash.ts). */
 export function tickQuirk(sim: Sim, p: ProbeState): void {
   const magnet = quirkOf(p, 'magnet');
   if (magnet) {
@@ -34,27 +33,10 @@ export function tickQuirk(sim: Sim, p: ProbeState): void {
       sim.events.push({ t: 'quirk', probe: p.index, kind: 'magnet' });
     }
   }
-  if ((p.fx['quirkDashT'] ?? 0) > 0) p.fx['quirkDashT'] = p.fx['quirkDashT']! - 1;
   if ((p.fx['quirkBurnT'] ?? 0) > 0) {
     p.fx['quirkBurnT'] = p.fx['quirkBurnT']! - 1;
     if (p.fx['quirkBurnT'] === 0) refreshStats(sim, p);
   }
-}
-
-/** A hit is about to land: a ready dash dodges it (true: no damage). */
-export function dodge(sim: Sim, p: ProbeState): boolean {
-  const dash = quirkOf(p, 'dash');
-  if (!dash || (p.fx['quirkDashT'] ?? 0) > 0) return false;
-  p.fx['quirkDashT'] = ticks(dash.every);
-  // A jump along the way it faces (the renderer glides it, the sim lands it at once).
-  const fx = p.x;
-  const fy = p.y;
-  p.x += cosA(p.facing) * dash.distance;
-  p.y += sinA(p.facing) * dash.distance;
-  p.invulnT = ticks(dash.invuln);
-  sim.events.push({ t: 'quirk', probe: p.index, kind: 'dash' });
-  sim.events.push({ t: 'dash', probe: p.index, kind: 'quirk', fx, fy, tx: p.x, ty: p.y, ticks: 0 });
-  return true;
 }
 
 /** Life is gone: a second wind not yet used brings the probe back (true: still alive). */

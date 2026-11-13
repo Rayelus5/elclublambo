@@ -23,12 +23,12 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
   {
     name: 'una sonda en el primer sector',
     options: () => ({ seed: '9001', content: C, sector: C.sectors[0]!.id, probes: [{ probe: C.probes[0]!.id, relics: [] }] }),
-    hashes: ['1200:37da867e6f378d62', '2400:195a4cdf9487229c', '3600:3337806048cde56e', '4800:4575c6e4b2b917ec', '6000:37e8028b8ba7cce9', '7200:325c52fe60747952'],
+    hashes: ['1200:9098d4d12960591f', '2400:5bc4270853d925c1', '3600:b558fc7fe457be0f', '4800:6eb30a8fcd2bf094', '6000:7e67c9d84a2bb847', '7200:f7a5dfa14761c7c7'],
   },
   {
     name: 'otra sonda en otro sector',
     options: () => ({ seed: '31337', content: C, sector: C.sectors[2]!.id, probes: [{ probe: C.probes[2]!.id, relics: [] }] }),
-    hashes: ['1200:f9ecafc4a3ff2273', '2400:782adaabb5be479f', '3600:bae16040ae840574', '4800:43759b5f29e88c77'],
+    hashes: ['1200:b23771646437d721', '2400:8c6ea2910327f380', '3600:0f314759af388c6d', '4800:f86f636b95641aa7', '6000:5fc488218941e76d', '7200:c2857501e4100dce'],
   },
   {
     name: 'dos sondas',
@@ -41,7 +41,7 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
         { probe: C.probes[3]!.id, relics: [] },
       ],
     }),
-    hashes: ['1200:e346a9a72c66e6a9', '2400:61b585c41d5d821a', '3600:61d3ea23b1b1fbb4', '4800:ba5d0cd48d7be176', '6000:b566e41f87fbe9ad', '7200:bb884a7d980978ac'],
+    hashes: ['1200:3cbf58ebcee4a6ac', '2400:a8c803fcd179f5be', '3600:6b19520f9e480ce7', '4800:8f4181ff32298a40', '6000:5310acd436f60320', '7200:afba4c1b932f5812'],
   },
 ];
 
