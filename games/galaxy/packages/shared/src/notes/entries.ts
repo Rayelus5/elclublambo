@@ -15,6 +15,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     items: [
       { kind: 'nuevo', text: 'Al crear tu cuenta puedes escribir el código de invitación de un jugador, o llegar con su enlace y ya está escrito' },
       { kind: 'nuevo', text: 'Si entras con un código, recibes un regalo de bienvenida en el buzón. Quien te invitó recibe el suyo cuando subes de nivel' },
+      { kind: 'nuevo', text: 'Si tienes un código de invitación, lo ves en tu perfil: cópialo o comparte su enlace, y mira cuántos han entrado con él' },
     ],
   },
   {
