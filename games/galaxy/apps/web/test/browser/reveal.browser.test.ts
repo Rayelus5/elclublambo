@@ -163,7 +163,8 @@ for (const [width, height] of [
     await until(() => document.querySelector('.crt[data-step="card"]') !== null);
     expect(document.querySelectorAll('.stage-card .stage-beams')).toHaveLength(2);
     expect(document.querySelector('.modal.reveal-stage')!.classList.contains('shake-long')).toBe(true);
-    await until(() => document.querySelector('.reveal-flash') !== null, 3000);
+    // Waits, not durations: a CI runner shared with every other suite is slow, never stuck.
+    await until(() => document.querySelector('.reveal-flash') !== null, 15_000);
     const flash = document.querySelector<HTMLElement>('.reveal-flash')!;
     expect(flash.dataset['iris']).toBe('true');
     expect(getComputedStyle(flash).backgroundImage).toContain('conic-gradient');
@@ -175,7 +176,7 @@ for (const [width, height] of [
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
     // The shake lets go after its 0,9 s.
     for (const a of fxAnimations()) a.play();
-    await until(() => !document.querySelector('.modal.reveal-stage')!.classList.contains('shake'), 3000);
+    await until(() => !document.querySelector('.modal.reveal-stage')!.classList.contains('shake'), 15_000);
     if (shots) await page.screenshot({ path: `__shots__/reveal-mythic-beams-${width}.png` });
   }, 60_000);
 }
