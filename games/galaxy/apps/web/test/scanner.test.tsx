@@ -329,3 +329,22 @@ test('mientras «¡Escanear otra!» espera, dice que está escaneando y no deja 
   expect(busy).toBeDisabled();
   expect(busy).toHaveAttribute('aria-busy', 'true');
 });
+
+// The owner: in the tutorial, once the reveal is over, only «Cerrar» can be pressed («Colección» broke the tutorial).
+test('durante el tutorial del escáner, el resumen solo deja «Cerrar»', async () => {
+  const after = view({ wallet: { coins: 250, dust: 0, signal: 9 } });
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'GET /galaxy/api/tutorial': () => jsonResponse(200, { status: 'active', chapter: 'scanner', gift: 0 }),
+    'POST /galaxy/api/gacha/pull': pullSequence([after]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  expect(await within(stage).findByRole('button', { name: copy.scanner.close })).toBeInTheDocument();
+  expect(within(stage).queryByRole('link', { name: copy.scanner.toCollection })).toBeNull();
+  expect(within(stage).queryByRole('button', { name: new RegExp(copy.scanner.again(1)) })).toBeNull();
+});
+

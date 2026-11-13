@@ -570,3 +570,43 @@ test('Aurora y Leyenda en la arena, con su llama propia', async () => {
   expect(distinctColours(canvas)).toBeGreaterThan(8);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins-animadas.png', element: canvas });
 }, 90_000);
+
+// The owner: your probe is drawn over its own abilities (shots, beams, blasts, sparks), never under them; the foes'
+// bullets stay over it, so you see what hits you. The glow behind it sits right under the probes.
+test('tu sonda va encima de tus habilidades; las balas enemigas, encima de tu sonda', async () => {
+  const canvas = await mount(640, 360);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5' });
+  const world = stage.app.stage.getChildByLabel('world')!;
+  const at = (label: string) => world.getChildIndex(world.getChildByLabel(label)!);
+  for (const own of ['shots', 'beams', 'particles', 'areas']) expect(at('probes')).toBeGreaterThan(at(own));
+  expect(at('probeGlow')).toBe(at('probes') - 1);
+  expect(at('foeShots')).toBeGreaterThan(at('probes'));
+});
+
+// Accesibilidad › «Brillo detrás de tu sonda» (the owner): a soft white glow behind your own probe, off by default.
+test('el brillo detrás de tu sonda solo se ve si lo activas, y es suave', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    stage.render(sim, 1);
+    const off = pixels(canvas);
+    stage.setProbeGlow(true);
+    stage.render(sim, 1);
+    const on = pixels(canvas);
+    // Something around the probe lights up, and only a little of the screen (a glow, not a wash).
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/probe-glow.png', element: canvas });
+    const lit = changed(off, on);
+    expect(lit).toBeGreaterThan(0.002);
+    expect(lit).toBeLessThan(0.05);
+    stage.setProbeGlow(false);
+    stage.render(sim, 1);
+    expect(changed(off, pixels(canvas))).toBe(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+

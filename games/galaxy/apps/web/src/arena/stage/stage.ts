@@ -1,6 +1,6 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
-import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { copy } from '../../copy/es';
 import { probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
@@ -44,6 +44,8 @@ export interface StageOptions {
   colorVision?: ColorVisionMode;
   /** The skin each probe wears, by probe (plan «skins», part C; null or absent: its own drawing). Only drawing. */
   skins?: readonly (string | null | undefined)[];
+  /** Accesibilidad › «Brillo detrás de tu sonda» (the owner): a soft white glow behind my own probe. */
+  probeGlow?: boolean;
 }
 
 export interface Stage {
@@ -65,6 +67,8 @@ export interface Stage {
   setReduced(on: boolean): void;
   /** Ajustes → Visión del color changed while playing (part C): applies from the next frame. */
   setColorVision(mode: ColorVisionMode): void;
+  /** Ajustes → Accesibilidad → «Brillo detrás de tu sonda» changed while playing: applies from the next frame. */
+  setProbeGlow(on: boolean): void;
   destroy(): void;
 }
 
@@ -113,6 +117,27 @@ const GHOST_LIFE = 0.28;
 const DASH_TINT = 0x6fe3ff;
 /** Half a probe drawing (24 × 24 since part B of the plan «banda sonora, skins, perfil y entorno»): where its marks go. */
 const PROBE_HALF = 12;
+// The glow behind my own probe (Accesibilidad): about two and a half probes wide, at most 0.35 of white (the storm's
+// cap for overlays), never a hard disc.
+const GLOW_SIZE = 60;
+const GLOW_ALPHA = 0.32;
+
+/** A soft white disc, fading from the centre to nothing at its edge, drawn once for the glow. */
+function glowTexture(): Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  return Texture.from(canvas);
+}
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
@@ -274,19 +299,31 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const propLayer = new Container();
   const propMarks = new Graphics();
   const pickups = new Container();
-  const areas = new Graphics();
+  const areas = new Graphics({ label: 'areas' });
   // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
-  const beams = new Graphics();
+  const beams = new Graphics({ label: 'beams' });
   beams.blendMode = 'add';
   const warnings = new Graphics();
   const marks = new Graphics();
   const enemies = new Container({ label: 'enemies' });
-  const probes = new Container();
+  const probes = new Container({ label: 'probes' });
   // A dash's afterimages, under the probes.
   const ghostLayer = new Container();
-  const shots = new Container();
-  const particles = new Container();
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, probes, beams, shots, particles);
+  // The probes' own shots, the foes' bullets apart (over the probes: you see what hits you).
+  const shots = new Container({ label: 'shots' });
+  const foeShots = new Container({ label: 'foeShots' });
+  const particles = new Container({ label: 'particles' });
+  // A soft white glow behind my own probe (Accesibilidad, off by default), right under the probes.
+  const glowLayer = new Container({ label: 'probeGlow' });
+  const glow = new Sprite(glowTexture());
+  glow.anchor.set(0.5);
+  glow.width = glow.height = GLOW_SIZE;
+  glow.alpha = GLOW_ALPHA;
+  glow.visible = false;
+  glowLayer.addChild(glow);
+  // Your probe goes over its own abilities (the owner: shots, beams, blasts and sparks never cover it); only the foes'
+  // bullets go over it.
+  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glowLayer, probes, foeShots);
   const numbers = new Container();
   // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
   const mateArrows = new Graphics();
@@ -307,7 +344,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
   const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number }[] = [];
   const shotPool = new SpritePool(shots);
-  const foePool = new SpritePool(shots);
+  const foePool = new SpritePool(foeShots);
   const probePool = new SpritePool(probes);
   const particleSprites: Sprite[] = [];
   const numberTexts: BitmapText[] = [];
@@ -897,6 +934,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     const flags = new Uint8Array(sim.probes.length);
     const coop = sim.coop;
     tagAt.length = 0;
+    glow.visible = false;
     sim.probes.forEach((p, i) => {
       // Co-op: a fallen probe stays on the ground (to be revived) and an away one shows as a ghost.
       const shown = p.alive || (coop !== null && (p.life === 'down' || p.life === 'away'));
@@ -923,6 +961,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         }
       }
       s.position.set(x, y);
+      // My own probe's glow, under it, where it is drawn (Accesibilidad; off by default).
+      if (i === (opts.me ?? opts.probe)) {
+        glow.position.set(x, y);
+        glow.visible = !!opts.probeGlow;
+      }
       s.scale.set(view.flip, 1);
       s.tint = (hurtBlink.get(i) ?? 0) > clock ? pal.hurt : 0xffffff;
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
@@ -1339,6 +1382,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     setColorVision(mode) {
       opts.colorVision = mode;
       pal = stagePalette(mode);
+    },
+    setProbeGlow(on) {
+      opts.probeGlow = on;
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

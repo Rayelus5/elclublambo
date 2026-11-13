@@ -18,6 +18,40 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-16-desintegrar-varias',
+    version: '1.16',
+    date: '2026-11-13',
+    title: 'Desintegrar varias',
+    summary: 'Elige varias galaxias y desintégralas de una vez, con una animación que lleva su polvo a tu cartera',
+    items: [
+      { kind: 'nuevo', text: 'En la Colección, Desintegrar varias: elige hasta 50 galaxias y desintégralas juntas. Antes de confirmar ves el polvo que dan y cuáles son épicas o mejores' },
+      { kind: 'mejora', text: 'Al desintegrar, las cartas se deshacen en el color de su rareza y su polvo vuela a tu cartera' },
+    ],
+  },
+  {
+    id: 'v1-15-tu-sonda-delante',
+    version: '1.15',
+    date: '2026-11-13',
+    title: 'Tu sonda, delante',
+    summary: 'Tu sonda se ve siempre por encima de sus habilidades, y puedes ponerle un brillo para distinguirla del fondo',
+    items: [
+      { kind: 'arreglo', text: 'Tus disparos, rayos, explosiones y chispas ya no tapan tu sonda: van por debajo. Las balas enemigas siguen encima, para que veas lo que te da' },
+      { kind: 'nuevo', text: 'En Ajustes, en Accesibilidad, Brillo detrás de tu sonda: un halo blanco suave que la separa del fondo' },
+    ],
+  },
+  {
+    id: 'v1-14-apunta-con-el-raton',
+    version: '1.14',
+    date: '2026-11-13',
+    title: 'Apunta con el ratón',
+    summary: 'El apuntado con el ratón viene activado para todos y el tutorial estrena la presentación pro del escáner',
+    items: [
+      { kind: 'mejora', text: 'Apuntar con el ratón viene activado. Si prefieres que tu sonda apunte sola, apágalo en Ajustes, en Incursión' },
+      { kind: 'mejora', text: 'En el tutorial, tu primer escaneo se ve con la presentación pro' },
+      { kind: 'arreglo', text: 'En el tutorial, al acabar el revelado solo queda Cerrar: ya no se pierde el paso al salir por otro botón' },
+    ],
+  },
+  {
     id: 'v1-13-legendarias-mas-justas',
     version: '1.13',
     date: '2026-11-13',

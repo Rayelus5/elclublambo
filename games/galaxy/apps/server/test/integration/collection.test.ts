@@ -251,3 +251,46 @@ test('el laboratorio (M4b-2): Reciclaje da más polvo al desintegrar y Fusión e
   expect(fused.statusCode).toBe(200);
   expect((fused.json() as { wallet: { dust: number } }).wallet.dust).toBe(135 - 48);
 });
+
+// Desintegrar varias (the owner: «no se puede hacer desintegración por galaxias seleccionadas, como sí al fusionar»):
+// up to 50 in one go, all or none, paid as if one by one, with a preview that changes nothing.
+test('desintegrar varias paga lo mismo que una a una, y el aviso previo no cambia nada', async () => {
+  const { cookie, id } = await player();
+  const commons = await own(id, 0, 3);
+  const [rare] = await own(id, 2, 1, 'holo');
+  const ids = [...commons, rare!];
+  const preview = await post(ctx.app, '/galaxy/api/galaxies/disintegrate', { ids, preview: true }, { cookie });
+  expect(preview.statusCode).toBe(200);
+  // 3 commons (5 each) and a holo rare (45).
+  expect(preview.json()).toEqual({ count: 4, dust: 60 });
+  expect((await list(cookie)).items).toHaveLength(4);
+  expect((await getWallet(ctx.db, id)).dust).toBe(0);
+  const key = randomUUID();
+  const res = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids }, key);
+  expect(res.statusCode).toBe(200);
+  expect(res.json()).toMatchObject({ count: 4, dust: 60, wallet: { dust: 60 } });
+  // The same request again (a lost answer) pays nothing more.
+  const again = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids }, key);
+  expect(again.statusCode).toBe(200);
+  expect((await getWallet(ctx.db, id)).dust).toBe(60);
+  expect((await list(cookie)).items).toHaveLength(0);
+});
+
+test('desintegrar varias es todo o nada: una que no se puede deja todas en su sitio', async () => {
+  const { cookie, id } = await player();
+  const ids = await own(id, 0, 3);
+  await ctx.db.updateTable('galaxy.galaxies').set({ locked: true }).where('id', '=', ids[1]!).execute();
+  const res = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids });
+  expect(res.statusCode).toBe(409);
+  expect(res.json()).toEqual({ error: 'galaxy_locked' });
+  expect((await list(cookie)).items).toHaveLength(3);
+  expect((await getWallet(ctx.db, id)).dust).toBe(0);
+  // Someone else's galaxy, a repeated id, or more than 50: refused before anything moves.
+  const other = await player();
+  const [theirs] = await own(other.id, 0, 1);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: [ids[0]!, theirs!] })).statusCode).toBe(404);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: [ids[0]!, ids[0]!] })).statusCode).toBe(400);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: Array.from({ length: 51 }, () => randomUUID()) })).statusCode).toBe(400);
+  expect((await list(other.cookie)).items).toHaveLength(1);
+});
+

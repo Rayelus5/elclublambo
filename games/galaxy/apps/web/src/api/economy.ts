@@ -1,7 +1,7 @@
 import type {
   AutoFusionCriteria,
   AutoFusionPreview,
-  AutoFusionResult, CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
+  AutoFusionResult, CollectionPage, DisintegrateManyPreview, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 import { syncWallet } from './wallet';
@@ -107,6 +107,31 @@ export function useDisintegrate() {
     },
     onError: () => refresh(qc),
     onSettled: (_res, error, id) => endIntent(`disintegrate:${id}`, error),
+  });
+}
+
+const dissolveIntent = (ids: readonly string[]) => `disintegrate-many:${[...ids].sort().join(',')}`;
+
+/** What disintegrating these galaxies would give, asked before confirming (nothing changes on the server). */
+export function previewDisintegrate(ids: readonly string[]): Promise<DisintegrateManyPreview> {
+  return api<DisintegrateManyPreview>('/galaxies/disintegrate', { method: 'POST', body: { ids: [...ids].sort(), preview: true } });
+}
+
+/**
+ * Desintegrar varias (the owner): all of them or none, in one operation (its key travels with the chosen galaxies, so a
+ * retry reuses it). The wallet follows the answer and the collection reads again; a refusal reads everything again.
+ */
+export function useDisintegrateMany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: readonly string[]) =>
+      api<DisintegrateManyPreview & { wallet: Wallet }>('/galaxies/disintegrate', { method: 'POST', body: { ids: [...ids].sort() }, headers: keyFor(dissolveIntent(ids)) }),
+    onSuccess: (res, ids) => {
+      settle(qc, res.wallet);
+      for (const id of ids) qc.removeQueries({ queryKey: [GALAXY_KEY, id] });
+    },
+    onError: () => refresh(qc),
+    onSettled: (_res, error, ids) => endIntent(dissolveIntent(ids), error),
   });
 }
 

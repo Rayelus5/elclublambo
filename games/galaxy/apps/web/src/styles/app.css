@@ -570,9 +570,10 @@
   .collection-bar h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .02em; }
   /* One toolbar: the filters on the left (rarity chips, then type, palette, finish, favourites and the order), and the
      two ways to fuse together on the right. */
-  .collection-toolbar { --r: 22px; --lip-h: 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 28px; padding: 14px 18px; }
+  .collection-toolbar { --r: 22px; --lip-h: 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 14px 28px; padding: 14px 18px; }
   .collection > .collection-bar h1 { flex: none; }
   .collection-count { margin-inline-end: auto; padding: 4px 12px; border-radius: 99px; background: rgb(0 0 0 / .28); color: var(--color-ink-soft); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .collection-tools { display: grid; gap: 10px; align-content: start; }
   .fuse-group { display: grid; gap: 8px; padding: 10px 12px 12px; border-radius: 18px; background: rgb(0 0 0 / .24); border: 2px solid rgb(255 255 255 / .06); }
   .fuse-group.on { border-color: color-mix(in oklab, var(--color-solar) 55%, transparent); }
   .fuse-group-title { font: 400 14px var(--font-display); color: var(--color-ink-soft); }
@@ -2894,6 +2895,30 @@
   .mission-card.just .mission-done { animation: stamp-in .45s var(--ease-bounce, cubic-bezier(.34, 1.56, .64, 1)) both; }
   @keyframes stamp-in { 0% { transform: scale(2.2) rotate(-14deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-4deg); } }
   .claim-fx { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+  /* Desintegrar (the owner): the cards come forward, glow in their rarity's colour and come apart from the bottom up
+     into motes; the dust flies into the wallet (.claim-chip). With reduced motion they only fade. */
+  .dissolve-tiers { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .dissolve-tier { color: var(--tc, var(--color-ink-soft)); font-weight: 600; }
+  .dissolve-best { color: var(--color-solar); font-weight: 600; }
+  .dissolve-fx { position: fixed; inset: 0; z-index: 65; pointer-events: none; display: grid; place-items: center; background: radial-gradient(60% 45% at 50% 48%, rgb(6 8 26 / .55), transparent 75%); animation: dissolve-veil 2.4s ease both; }
+  .dissolve-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px; max-inline-size: min(1100px, 92vw); }
+  .dissolve-slot { position: relative; }
+  .dissolve-card { animation: dissolve-card 1.1s cubic-bezier(.45, 0, .7, .3) calc(350ms + var(--i) * 90ms) both; }
+  .dissolve-edge { position: absolute; inset-inline: -6px; bottom: 0; block-size: 3px; border-radius: 2px; background: color-mix(in srgb, var(--tc, #fff) 70%, white); box-shadow: 0 0 10px var(--tc, #fff), 0 0 22px var(--tc, #fff); opacity: 0; animation: dissolve-edge 1.1s linear calc(350ms + var(--i) * 90ms) both; }
+  @keyframes dissolve-edge { 0%, 44% { opacity: 0; bottom: 0; } 46% { opacity: 1; bottom: 0; } 96% { opacity: 1; bottom: 100%; } 100% { opacity: 0; bottom: 100%; } }
+  .dissolve-more { font: 400 28px var(--font-display); color: var(--color-ink); text-shadow: 0 3px 0 rgb(0 0 0 / .45); }
+  .dissolve-mote { position: absolute; inline-size: 6px; block-size: 6px; border-radius: 1px; background: color-mix(in srgb, var(--tc, #fff) 60%, white); box-shadow: 0 0 10px var(--tc, #fff); opacity: 0; animation: dissolve-mote 1s ease-out var(--d) both; }
+  @keyframes dissolve-veil { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes dissolve-card {
+    0% { opacity: 0; translate: 0 14px; scale: .96; }
+    20% { opacity: 1; translate: 0 0; scale: 1; filter: none; clip-path: inset(0 0 0 0); }
+    45% { filter: brightness(1.5) drop-shadow(0 0 14px var(--tc, #fff)); clip-path: inset(0 0 0 0); }
+    100% { filter: brightness(2) drop-shadow(0 0 18px var(--tc, #fff)); clip-path: inset(0 0 100% 0); }
+  }
+  @keyframes dissolve-mote { 0% { opacity: 0; translate: 0 0; } 15% { opacity: 1; } 100% { opacity: 0; translate: var(--dx) var(--dy); scale: .4; } }
+  .dissolve-fx.reduced { animation: dissolve-veil .6s ease both; }
+  .dissolve-fx.reduced .dissolve-card { animation: dissolve-fade .5s ease both; }
+  @keyframes dissolve-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
   .claim-chip { position: fixed; display: grid; place-items: center; inline-size: 26px; block-size: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: rgb(0 0 0 / .45); font-size: 16px; animation: chip-fly .9s cubic-bezier(.5, -0.35, .4, 1) both; }
   .claim-chip.coins { color: var(--color-solar); box-shadow: 0 0 12px color-mix(in srgb, var(--color-solar) 60%, transparent); }
   .claim-chip.dust { color: var(--color-uv-soft, #b39dff); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 60%, transparent); }
