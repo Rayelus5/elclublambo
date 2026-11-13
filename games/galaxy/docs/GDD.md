@@ -253,7 +253,7 @@ Tabla de partida, ajustable:
 | **Star Density** | Frecuencia |
 | **Palette** → elemento | Solar Gold: quemadura · Andromeda Blue: ralentización · Terminal Green: corrosión · Ultraviolet: descarga · Amber CRT: hackeo (el enemigo lucha un rato a tu favor) · Crimson Nebula: robo de vida · Emerald Void: daño a escudos · Neon Synapse: rebotes encadenados · Monochrome: daño puro con más crítico · Prismatic: rota elementos · Antimatter: invierte proyectiles enemigos |
 | **Background** | Bonus de entorno (recogida, visión, experiencia, suerte de botín, resistencia a la Estática) |
-| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: embestida · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: efecto glitch impredecible |
+| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: embestida · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: un fallo de la realidad, al azar entre lanzarte lejos del enemigo más cercano, congelar lo cercano o descargar sobre varios enemigos; se ve como un glitch rojo y cian con su chasquido de estática |
 | **Conjunto** | Bonus por combinaciones de rasgos entre reliquias equipadas, por ejemplo 3 de la misma paleta o tipo + fenómeno |
 
 ### 8.4 Ranuras [U]

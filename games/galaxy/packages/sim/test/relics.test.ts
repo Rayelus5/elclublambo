@@ -271,6 +271,43 @@ describe('fenómenos en partida', () => {
     expect(sim.enemies.x[e]).toBe(x);
   });
 
+  // The anomaly once looked like a bug (the owner: «parece más un bug del juego que algo intencionado»): each outcome now
+  // says what it did, where, so the arena can draw it as a glitch and play its sound.
+  test('anomalía: cada resultado avisa de qué hizo y dónde (salto, congelación, descarga)', () => {
+    const anomalies = (sim: Sim) => sim.events.filter((e) => e.t === 'anomaly');
+
+    const blink = equipped(quiet('anomaly'));
+    blink.rng.relic.int = () => 0;
+    target(blink, 40, 0);
+    step(blink, [IDLE]);
+    const p = blink.probes[0]!;
+    expect(anomalies(blink)).toEqual([{ t: 'anomaly', probe: 0, what: 'blink', fx: 0, fy: 0, tx: p.x, ty: p.y, radius: 0, targets: [] }]);
+    // Away from the nearest, by the content's distance.
+    expect(p.x).toBeCloseTo(-C.relics.phenomena.anomaly.blink, 6);
+
+    const freeze = equipped(quiet('anomaly'));
+    freeze.rng.relic.int = () => 1;
+    step(freeze, [IDLE]);
+    expect(anomalies(freeze)).toEqual([
+      { t: 'anomaly', probe: 0, what: 'freeze', fx: 0, fy: 0, tx: 0, ty: 0, radius: C.relics.phenomena.anomaly.freezeRadius, targets: [] },
+    ]);
+
+    const strike = equipped(quiet('anomaly'));
+    let k = 0;
+    strike.rng.relic.int = (n: number) => (k++ === 0 ? 2 : n - 1);
+    const a = target(strike, 60, 0);
+    const b = target(strike, 0, 70);
+    step(strike, [IDLE]);
+    const [ev] = anomalies(strike);
+    expect(ev).toMatchObject({ what: 'strike', fx: 0, fy: 0 });
+    // The struck, as x, y pairs: both dummies, each hit once.
+    const pairs = ev!.t === 'anomaly' ? ev!.targets : [];
+    expect(pairs).toHaveLength(4);
+    expect([pairs[0], pairs[2]].sort()).toEqual([0, 60]);
+    expect(lost(strike, a)).toBeGreaterThan(0);
+    expect(lost(strike, b)).toBeGreaterThan(0);
+  });
+
   test('antimateria: las balas enemigas cercanas pueden volverse', () => {
     const sim = equipped(relic({ galaxy_type: 'elliptical', palette: 'antimatter' }));
     sim.rng.combat.chance = (p: number) => p === 0.4;

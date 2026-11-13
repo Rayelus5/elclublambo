@@ -356,6 +356,12 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
   - **Elementos:** partículas de su color (quemadura naranja, ralentización azul, corrosión verde, descarga violeta, hackeo ámbar, robo de vida rojo, escudo esmeralda, rebote neón).
   - **Daño recibido:** sacudida de 3 a 6 px que decae al 85 % por fotograma, más un borde rojo en la pantalla (HUD).
   - **Élites y jefe:** cada 0,8 s, durante 80 ms, glitch de la Estática con copias desplazadas 1 px en rojo y cian.
+  - **Anomalía de una reliquia** (`arena/stage/anomaly.ts`): un fallo a propósito, en el lenguaje del glitch de la Estática y la rasgadura de la Fisura, a saltos de 1/20 s y siempre local. Sobre la sonda sale «¡Anomalía!» en magenta, con una sacudida de 2 y un chasquido de estática seguido de dos pasos cuadrados que bajan.
+    - **Salto:** donde estaba quedan sus copias roja y cian temblando 0,3 s, una línea rota de estática hasta el destino y una rasgadura de cuatro franjas lila y magenta. La sonda y la cámara se deslizan 0,12 s y la sonda aparece en escalones con sus copias juntándose.
+    - **Congelación:** un anillo de estática en arcos rotos que se cierra sobre su radio, con un velo lila de 0,07.
+    - **Descarga:** un rayo quebrado magenta o cian hasta cada enemigo golpeado.
+    - **Fotosensibilidad y grupo:** la rasgadura no pasa de 0,35 ni sale más de 2 veces por segundo, y solo en la tuya. La de un compañero se ve con la mitad de chispas, sin rasgadura ni sonido.
+    - **Movimiento reducido:** sin deslizamiento, temblor ni rasgadura; contornos quietos que se apagan.
 - **Avisos (siempre antes del golpe):**
   - **Embestida:** banda roja translúcida que late, con flecha.
   - **Ráfaga del jefe:** anillo que se cierra.

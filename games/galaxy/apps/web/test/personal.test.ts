@@ -15,6 +15,12 @@ test('subir de nivel, recoger y el acelerón de otro tampoco', () => {
   expect(isPersonal({ t: 'levelUp', probe: 1, level: 5 }, 1)).toBe(true);
 });
 
+test('la anomalía de la reliquia de otro tampoco suena en mi pantalla', () => {
+  const anomaly = { t: 'anomaly' as const, what: 'blink' as const, fx: 0, fy: 0, tx: 70, ty: 0, radius: 0, targets: [] as number[] };
+  expect(isPersonal({ ...anomaly, probe: 1 }, 0)).toBe(false);
+  expect(isPersonal({ ...anomaly, probe: 0 }, 0)).toBe(true);
+});
+
 test('lo que pasa en el mundo es de todos', () => {
   expect(isPersonal({ t: 'bossDown', x: 0, y: 0 }, 0)).toBe(true);
   expect(isPersonal({ t: 'kill', x: 0, y: 0, enemy: 'swarmer', elite: false }, 3)).toBe(true);

@@ -393,23 +393,33 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
 function anomaly(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {
   const A = sim.content.relics.phenomena.anomaly;
   const en = sim.enemies;
+  const fx = p.x;
+  const fy = p.y;
+  // What it did, for the arena's glitch and its sound (render only: nothing in the sim reads it).
+  const tell = (what: 'blink' | 'freeze' | 'strike', radius = 0, targets: number[] = []) =>
+    sim.events.push({ t: 'anomaly', probe: p.index, what, fx, fy, tx: p.x, ty: p.y, radius, targets });
   switch (sim.rng.relic.int(3)) {
     case 0: {
       const [e] = nearestEnemies(sim, p.x, p.y, 600, 1);
       const away = e === undefined ? sim.rng.relic.int(ANGLE_STEPS) : angleTo(p.x - en.x[e]!, p.y - en.y[e]!);
       p.x += cosA(away) * A.blink;
       p.y += sinA(away) * A.blink;
+      tell('blink');
       return;
     }
     case 1:
       for (const e of nearestEnemies(sim, p.x, p.y, A.freezeRadius, 400)) if (!en.boss[e]) en.freezeT[e] = ticks(A.freezeSeconds);
+      tell('freeze', A.freezeRadius);
       return;
     default: {
       const pool = nearestEnemies(sim, p.x, p.y, sim.content.arena.viewH / 2, 400);
+      const struck: number[] = [];
       for (let k = 0; k < A.strikeCount && pool.length > 0; k++) {
         const e = pool.splice(sim.rng.relic.int(pool.length), 1)[0]!;
+        struck.push(en.x[e]!, en.y[e]!);
         dealDamage(sim, e, A.strikeDamage * m * p.stats.damage, source(p, ri, r));
       }
+      tell('strike', 0, struck);
     }
   }
 }

@@ -17,6 +17,7 @@ import { mateMarkers } from './mates';
 import { type Insets, NO_INSETS } from './edge';
 import { type Warning, warningFrom, warningProgress } from './warnings';
 import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
+import { type AnomalyMark, drawAnomaly, GLITCH_CYAN, GLITCH_LILAC, GLITCH_MAGENTA, GLITCH_RED, landingAlpha, splitOffset, SPLIT_S, TEAR_GAP } from './anomaly';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
@@ -323,6 +324,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const shots = new Container({ label: 'shots' });
   const foeShots = new Container({ label: 'foeShots' });
   const particles = new Container({ label: 'particles' });
+  // A relic's anomaly (a negative glitch): its static, tear and bolts, over the shots and under the probes.
+  const glitchFx = new Graphics({ label: 'anomaly' });
   // A soft white glow behind my own probe (Accesibilidad, off by default), right under the probes.
   const glowLayer = new Container({ label: 'probeGlow' });
   const glow = new Sprite(glowTexture());
@@ -333,7 +336,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   glowLayer.addChild(glow);
   // Your probe goes over its own abilities (the owner: shots, beams, blasts and sparks never cover it); only the foes'
   // bullets go over it.
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glowLayer, probes, foeShots);
+  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots);
   const numbers = new Container();
   // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
   const mateArrows = new Graphics();
@@ -352,7 +355,15 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const ghostSprites: Sprite[] = [];
   /** Dashes being drawn: a quirk's jump glides from where it took off; every dash leaves afterimages. */
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
-  const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number }[] = [];
+  /** `shake`: how far (px) the afterimage jumps from side to side (an anomaly's split copies; 0 for a dash's). */
+  const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number; shake: number }[] = [];
+  /** Anomalies being drawn (anomaly.ts), when the last one tore the field, and a counter for their jitter. */
+  const anomalyMarks: AnomalyMark[] = [];
+  let lastTearAt = -Infinity;
+  let anomalyCount = 0;
+  // A thrown probe's red and cyan copies, under it (one of each per probe).
+  const splitA = new SpritePool(ghostLayer);
+  const splitB = new SpritePool(ghostLayer);
   const shotPool = new SpritePool(shots);
   const foePool = new SpritePool(foeShots);
   const probePool = new SpritePool(probes);
@@ -809,7 +820,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       s.visible = true;
       s.texture = atlas.white[gh.id]?.[0] ?? atlas.pixel;
       s.tint = gh.tint;
-      s.position.set(Math.round(gh.x), Math.round(gh.y));
+      // An anomaly's copies jump from side to side, in steps (still with reduced motion).
+      const jump = gh.shake > 0 && !opts.reduced ? (Math.floor(age * 20) % 2 ? gh.shake : -gh.shake) : 0;
+      s.position.set(Math.round(gh.x + jump), Math.round(gh.y));
       s.scale.set(gh.flip, 1);
       s.alpha = 0.5 * (1 - age / gh.life);
       k++;
@@ -829,7 +842,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       const n = 5;
       for (let k = 0; k < n; k++) {
         const f = k / (n - 1);
-        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint });
+        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint, shake: 0 });
       }
     }
     fx.burst(fx0, fy0, tint, 6, 40);
@@ -1021,20 +1034,28 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       const view = probeView(drawing, probeHeading(p));
       s.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       s.anchor.set(0.5);
-      let x = Math.round(lerp(p.px, p.x, alpha));
-      let y = Math.round(lerp(p.py, p.y, alpha));
-      // A quirk's jump lands at once in the sim: the sprite glides there, eased out.
-      const gl = glides.get(i);
-      if (gl) {
-        const k = (clock - gl.t0) / gl.dur;
-        if (k >= 1 || opts.reduced) glides.delete(i);
-        else {
-          const e = 1 - (1 - k) * (1 - k);
-          x = Math.round(gl.fx + (gl.tx - gl.fx) * e + (x - gl.tx));
-          y = Math.round(gl.fy + (gl.ty - gl.fy) * e + (y - gl.ty));
-        }
-      }
+      const at = glided(i, lerp(p.px, p.x, alpha), lerp(p.py, p.y, alpha));
+      const x = Math.round(at.x);
+      const y = Math.round(at.y);
       s.position.set(x, y);
+      // Thrown by an anomaly: it tunes in, in steps, with its red and cyan copies coming together under it.
+      const thrown = anomalyMarks.findLast((m) => m.e.probe === i && m.e.what === 'blink');
+      const thrownAge = thrown ? clock - thrown.at : Infinity;
+      const split = thrown ? splitOffset(thrown, thrownAge, opts.reduced) : 0;
+      for (const [pool, tint, side] of [
+        [splitA, GLITCH_RED, -1],
+        [splitB, GLITCH_CYAN, 1],
+      ] as const) {
+        if (split > 0 && p.alive) {
+          const c = pool.at(i);
+          c.texture = atlas.white[view.id]?.[frameOf(view.id)] ?? atlas.pixel;
+          c.anchor.set(0.5);
+          c.position.set(x + side * split, y);
+          c.scale.set(view.flip, 1);
+          c.tint = tint;
+          c.alpha = 0.7 * (1 - thrownAge / SPLIT_S);
+        } else if (pool.list[i]) pool.list[i]!.visible = false;
+      }
       // My own probe's glow, under it, where it is drawn (Accesibilidad; off by default).
       if (i === (opts.me ?? opts.probe)) {
         glow.position.set(x, y);
@@ -1076,11 +1097,75 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       // Invulnerable: a soft shimmer, not a hard blink.
       s.alpha = p.invulnT > 0 ? (opts.reduced ? 0.75 : 0.72 + 0.28 * Math.sin(clock * 14)) : 1;
+      if (thrown) s.alpha *= landingAlpha(thrownAge, opts.reduced);
       if (p.invulnT > 0) marks.circle(x, y, PROBE_HALF + 2).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
       if (p.shield > 0) marks.circle(x, y, PROBE_HALF + 3).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
       if (i === opts.probe) lastProbe = { x, y };
     });
     probePool.hideFrom(flags, flags.length);
+    splitA.hideFrom(flags, flags.length);
+    splitB.hideFrom(flags, flags.length);
+  }
+
+  /**
+   * Where probe `i` is drawn: at (x, y), or on its way there while a jump that lands at once in the sim (a quirk's
+   * dash, an anomaly's throw) glides, eased out. The camera follows the same point, so it never jumps either.
+   */
+  function glided(i: number, x: number, y: number): { x: number; y: number } {
+    const gl = glides.get(i);
+    if (!gl) return { x, y };
+    const k = (clock - gl.t0) / gl.dur;
+    if (k >= 1 || opts.reduced) {
+      glides.delete(i);
+      return { x, y };
+    }
+    const e = 1 - (1 - k) * (1 - k);
+    return { x: gl.fx + (gl.tx - gl.fx) * e + (x - gl.tx), y: gl.fy + (gl.ty - gl.fy) * e + (y - gl.ty) };
+  }
+
+  /** The anomalies going off (anomaly.ts), dropped once over. */
+  function drawAnomalies(): void {
+    glitchFx.clear();
+    for (let i = anomalyMarks.length - 1; i >= 0; i--) {
+      if (!drawAnomaly(glitchFx, anomalyMarks[i]!, clock - anomalyMarks[i]!.at, opts.reduced)) anomalyMarks.splice(i, 1);
+    }
+  }
+
+  /** A relic's anomaly went off: its glitch, sparks and (mine) a word over the probe and a small jolt. */
+  function anomalyFx(e: Extract<SimEvent, { t: 'anomaly' }>): void {
+    const mine = e.probe === (opts.me ?? opts.probe);
+    const tear = mine && !opts.reduced && clock - lastTearAt >= TEAR_GAP;
+    if (tear) lastTearAt = clock;
+    anomalyCount = (anomalyCount + 1) | 0;
+    anomalyMarks.push({ e, at: clock, mine, tear, seed: Math.imul(anomalyCount, 2654435761) });
+    const n = mine ? 1 : 0.5;
+    if (e.what === 'blink') {
+      glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });
+      // Where it was: its red and cyan copies, left behind, jumping; where it lands: static.
+      const p = lastSim?.probes[e.probe];
+      const drawing = p ? drawingOf(e.probe, p.def) : 'probe-lumen';
+      const { id, flip } = p ? probeView(drawing, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+      if (!opts.reduced) {
+        ghosts.push({ x: e.fx - 2, y: e.fy, at: clock, life: 0.3, id, flip, tint: GLITCH_RED, shake: 2 });
+        ghosts.push({ x: e.fx + 2, y: e.fy, at: clock, life: 0.3, id, flip, tint: GLITCH_CYAN, shake: 2 });
+      }
+      fx.burst(e.fx, e.fy, GLITCH_LILAC, Math.round(8 * n), 50);
+      fx.burst(e.tx, e.ty, GLITCH_MAGENTA, Math.round(10 * n), 70);
+      fx.burst(e.tx, e.ty, GLITCH_RED, Math.round(4 * n), 40);
+      fx.burst(e.tx, e.ty, GLITCH_CYAN, Math.round(4 * n), 40);
+    } else if (e.what === 'freeze') {
+      fx.burst(e.fx, e.fy, GLITCH_LILAC, Math.round(12 * n), 90);
+      fx.burst(e.fx, e.fy, GLITCH_CYAN, Math.round(6 * n), 60);
+    } else {
+      for (let t = 0; t + 1 < e.targets.length; t += 2) {
+        fx.burst(e.targets[t]!, e.targets[t + 1]!, GLITCH_MAGENTA, Math.round(6 * n), 60);
+        fx.burst(e.targets[t]!, e.targets[t + 1]!, GLITCH_CYAN, Math.round(3 * n), 40);
+      }
+    }
+    if (mine) {
+      fx.label(e.tx, e.ty - PROBE_HALF - 4, copy.arena.anomaly, GLITCH_MAGENTA);
+      fx.shake(2);
+    }
   }
 
   function drawParticles(): void {
@@ -1378,6 +1463,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
               if (e.probe === (opts.me ?? opts.probe)) fx.shake(3);
             }
             break;
+          case 'anomaly':
+            anomalyFx(e);
+            break;
           case 'dash':
             if (e.ticks === 0) glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });
             dashTrail(lastSim, e.probe, e.fx, e.fy, e.tx, e.ty, e.ticks > 0 ? e.ticks / 60 : GLIDE_S);
@@ -1398,7 +1486,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         tickAt = clock;
       }
       const p = sim.probes[opts.probe] ?? sim.probes[0]!;
-      const focus = { x: lerp(p.px, p.x, alpha), y: lerp(p.py, p.y, alpha) };
+      const focus = glided(opts.probe, lerp(p.px, p.x, alpha), lerp(p.py, p.y, alpha));
       clampCloser();
       shownCloser = opts.reduced || Math.abs(closer - shownCloser) < 0.02 ? closer : shownCloser + (closer - shownCloser) * (1 - Math.exp(-dt * 16));
       const c = cameraFor(w, h, focus, opts.vision, shownCloser);
@@ -1434,6 +1522,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       drawGhosts();
       drawProbes(sim, alpha);
       drawParticles();
+      drawAnomalies();
       drawNumbers(c, originX + shake.x, originY + shake.y);
       drawMates(sim, c);
       drawBars(c);
