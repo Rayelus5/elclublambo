@@ -58,6 +58,19 @@ test('Noticias va junto a Comunidad y Amigos y dice cuántas hay sin ver (los do
   expect(news).toHaveTextContent(t.button);
 });
 
+// The owner: a button to join the game's Discord community, right next to Noticias, opening in a new tab.
+test('al lado de Noticias, el botón de Discord lleva a la comunidad en otra pestaña', async () => {
+  api();
+  renderAt('/', { '/': bar() });
+  const news = await screen.findByRole('button', { name: t.buttonLabel(3) });
+  const discord = screen.getByRole('link', { name: copy.hub.discordLabel });
+  expect(news.nextElementSibling).toBe(discord);
+  expect(discord).toHaveAttribute('href', 'https://discord.gg/2TA8RvKXv3');
+  expect(discord).toHaveAttribute('target', '_blank');
+  expect(discord).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  expect(discord).toHaveTextContent(copy.hub.discord);
+});
+
 test('Noticias abre una ventana con los avisos y los multiplicadores en marcha, y lo visto deja de contar como nuevo', async () => {
   api();
   const { unmount } = renderAt('/', { '/': bar() });

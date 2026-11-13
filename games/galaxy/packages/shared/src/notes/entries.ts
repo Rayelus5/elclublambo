@@ -19,6 +19,14 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-19-comunidad-en-discord',
+    version: '1.19',
+    date: '2026-11-13',
+    title: 'Comunidad en Discord',
+    summary: 'Un botón en el inicio para unirte a la comunidad del juego en Discord',
+    items: [{ kind: 'nuevo', text: 'Junto a Noticias, el botón Discord te lleva a la comunidad del juego en otra pestaña' }],
+  },
+  {
     id: 'v1-18-la-rareza-mitica',
     version: '1.18',
     date: '2026-11-13',
