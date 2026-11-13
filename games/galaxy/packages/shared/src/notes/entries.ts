@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-15-tu-sonda-delante',
+    version: '1.15',
+    date: '2026-11-13',
+    title: 'Tu sonda, delante',
+    summary: 'Tu sonda se ve siempre por encima de sus habilidades, y puedes ponerle un brillo para distinguirla del fondo',
+    items: [
+      { kind: 'arreglo', text: 'Tus disparos, rayos, explosiones y chispas ya no tapan tu sonda: van por debajo. Las balas enemigas siguen encima, para que veas lo que te da' },
+      { kind: 'nuevo', text: 'En Ajustes, en Accesibilidad, Brillo detrás de tu sonda: un halo blanco suave que la separa del fondo' },
+    ],
+  },
+  {
     id: 'v1-12-un-espacio-vivo',
     version: '1.12',
     date: '2026-11-13',
