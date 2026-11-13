@@ -81,6 +81,7 @@ export function ArenaScreen({
   const ended = useRef(false);
   const reduced = useReducedMotion();
   const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, 0));
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
@@ -232,7 +233,7 @@ export function ArenaScreen({
       setSize({ w, h });
     };
     const biome = run.content.sectors.find((s) => s.id === run.sector)?.biome ?? 'nebula';
-    void createStage(canvas, run.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom(), skins: [run.skin] }).then((stage) => {
+    void createStage(canvas, run.content, { reduced, colorVision, probeGlow, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom(), skins: [run.skin] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -259,6 +260,7 @@ export function ArenaScreen({
   // Ajustes → Movimiento can change from the pause: the stage follows without restarting the run.
   useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
   useEffect(() => stageRef.current?.setColorVision(colorVision), [colorVision]);
+  useEffect(() => stageRef.current?.setProbeGlow(probeGlow), [probeGlow]);
 
   // The HUD reads the simulation a few times per second.
   useEffect(() => {

@@ -243,6 +243,7 @@ function ColorPreview({ mode }: { mode: ColorVisionMode }) {
 export function AccessSection({ inRun = false }: { inRun?: boolean }) {
   const motion = usePrefs((p) => p.motion);
   const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
   const os = useSyncExternalStore(subscribeSystem, systemReduced, () => false);
   return (
     <>
@@ -278,6 +279,9 @@ export function AccessSection({ inRun = false }: { inRun?: boolean }) {
             {inRun ? null : <ColorPreview mode={colorVision} />}
           </div>
         )}
+      </SettingRow>
+      <SettingRow label={t.probeGlow} hint={inRun ? undefined : t.probeGlowHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={probeGlow} onChange={(on) => setPrefs({ probeGlow: on })} />}
       </SettingRow>
     </>
   );

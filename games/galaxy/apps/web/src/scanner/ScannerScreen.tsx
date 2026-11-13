@@ -1,22 +1,34 @@
-import { TIERS, type BannerView, type PulledGalaxy, type PullRequest } from '@galaxy/shared';
-import { useEffect, useId, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { useGacha, usePull } from '../api/economy';
-import { errorText } from '../auth/useMe';
-import { copy, fmt } from '../copy/es';
-import { WalletBar } from '../hub/WalletBar';
-import { Icon } from '../ui/Icon';
-import { againPlan } from './again';
-import { preloadProCinema } from './pro/ProShell';
-import { RevealStage } from './RevealStage';
-import { useRevealMode } from './useRevealMode';
-import { BackLink } from '../ui/BackLink';
-import { emitTour } from '../tour/bus';
+import {
+  TIERS,
+  type BannerView,
+  type PulledGalaxy,
+  type PullRequest,
+} from "@galaxy/shared";
+import { useEffect, useId, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { useGacha, usePull } from "../api/economy";
+import { errorText } from "../auth/useMe";
+import { copy, fmt } from "../copy/es";
+import { WalletBar } from "../hub/WalletBar";
+import { Icon } from "../ui/Icon";
+import { againPlan } from "./again";
+import { preloadProCinema } from "./pro/ProShell";
+import { RevealStage } from "./RevealStage";
+import { useRevealMode } from "./useRevealMode";
+import { BackLink } from "../ui/BackLink";
+import { emitTour } from "../tour/bus";
+import { tourActive, useTutorial } from "../api/tutorial";
 
 // The deep scan (GDD §9): everything the player needs to decide is visible BEFORE paying — the odds of each tier on
 // the next scan (rising luck included), how far the guaranteed Legendary is, the welcome luck — then scan with the
 // daily free scan, signals or coins. The server rolls; this screen only asks and plays the reveal.
-const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+const day = new Intl.DateTimeFormat("es-ES", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Madrid",
+});
 const traitNames = copy.traitNames;
 const traitValues = copy.traitValues as Record<string, Record<string, string>>;
 
@@ -48,7 +60,11 @@ function Odds({ banner }: { banner: BannerView }) {
           <span>{copy.scanner.sinceLegendary(banner.sinceLegendary)}</span>
         </div>
         <div className="pity-bar" aria-hidden="true">
-          <i style={{ width: `${total > 0 ? Math.round((banner.sinceLegendary / total) * 100) : 0}%` }} />
+          <i
+            style={{
+              width: `${total > 0 ? Math.round((banner.sinceLegendary / total) * 100) : 0}%`,
+            }}
+          />
         </div>
       </div>
     </div>
@@ -64,8 +80,9 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
   const f = banner.featured!;
   const until = banner.untilFeatured;
   const every = banner.featuredEvery;
-  const sentence = until !== undefined ? copy.scanner.untilFeatured(until) : null;
-  const num = until !== undefined ? fmt(until) : '';
+  const sentence =
+    until !== undefined ? copy.scanner.untilFeatured(until) : null;
+  const num = until !== undefined ? fmt(until) : "";
   const parts = sentence && sentence.includes(num) ? sentence.split(num) : null;
   return (
     <section className="scan-featured" aria-labelledby={id}>
@@ -75,7 +92,9 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
           <Icon name="starOn" />
           <span id={id}>{copy.scanner.featuredTitle}</span>
         </p>
-        <p className="scan-featured-value">{traitValues[f.trait]?.[f.value] ?? f.value}</p>
+        <p className="scan-featured-value">
+          {traitValues[f.trait]?.[f.value] ?? f.value}
+        </p>
         <p className="scan-featured-trait">
           <span>{traitNames[f.trait] ?? f.trait}</span>
           <span>{copy.scanner.featuredHint}</span>
@@ -95,8 +114,19 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
             )}
           </p>
           {every && until !== undefined ? (
-            <div className="scan-featured-bar" role="progressbar" aria-label={copy.scanner.featuredProgress} aria-valuemin={0} aria-valuemax={every} aria-valuenow={Math.max(0, every - until)}>
-              <i style={{ width: `${Math.round((Math.max(0, every - until) / every) * 100)}%` }} />
+            <div
+              className="scan-featured-bar"
+              role="progressbar"
+              aria-label={copy.scanner.featuredProgress}
+              aria-valuemin={0}
+              aria-valuemax={every}
+              aria-valuenow={Math.max(0, every - until)}
+            >
+              <i
+                style={{
+                  width: `${Math.round((Math.max(0, every - until) / every) * 100)}%`,
+                }}
+              />
             </div>
           ) : null}
         </div>
@@ -105,9 +135,31 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
   );
 }
 
-function PullButton({ count, cost, disabled, onClick, solar, event, tour }: { count: 1 | 10; cost: string; disabled: boolean; onClick: () => void; solar?: boolean; event?: boolean; tour?: string }) {
+function PullButton({
+  count,
+  cost,
+  disabled,
+  onClick,
+  solar,
+  event,
+  tour,
+}: {
+  count: 1 | 10;
+  cost: string;
+  disabled: boolean;
+  onClick: () => void;
+  solar?: boolean;
+  event?: boolean;
+  tour?: string;
+}) {
   return (
-    <button type="button" className={`lip pull-btn${solar ? ' solar' : ''}${event ? ' pull-event' : ''}`} disabled={disabled} onClick={onClick} data-tour={tour}>
+    <button
+      type="button"
+      className={`lip pull-btn${solar ? " solar" : ""}${event ? " pull-event" : ""}`}
+      disabled={disabled}
+      onClick={onClick}
+      data-tour={tour}
+    >
       <b>{copy.scanner.pull(count)}</b>
       <span>{cost}</span>
     </button>
@@ -126,36 +178,55 @@ export function ScannerScreen() {
     pulls: PulledGalaxy[] | null;
     last: PulledGalaxy[] | null;
     count: 1 | 10;
-    pay: PullRequest['pay'];
+    pay: PullRequest["pay"];
     banner: string;
     failed?: boolean;
     summaryOnly?: boolean;
   } | null>(null);
   const mode = useRevealMode();
+  // The tutorial's first scan (the owner): its summary leaves only «Cerrar», which moves the tutorial on; «Colección» or
+  // another scan took the player off the step it waits on.
+  const tutorial = useTutorial().data;
+  const guided = tourActive(tutorial) && tutorial?.chapter === "scanner";
   // The cinema's chunk (GSAP, three.js) is fetched while the player reads the odds.
   useEffect(() => {
-    if (mode !== 'pro') return;
+    if (mode !== "pro") return;
     const timer = setTimeout(preloadProCinema, 1200);
     return () => clearTimeout(timer);
   }, [mode]);
   // `?tipo=evento` (from the event's missions tab) opens on the event scanner.
   const [params] = useSearchParams();
   const view = gacha.data;
-  const wanted = params.get('tipo') === 'evento' ? view?.banners.find((b) => b.kind === 'event') : undefined;
-  const banner = view?.banners.find((b) => b.id === bannerId) ?? wanted ?? view?.banners[0];
-  const isEvent = banner?.kind === 'event';
+  const wanted =
+    params.get("tipo") === "evento"
+      ? view?.banners.find((b) => b.kind === "event")
+      : undefined;
+  const banner =
+    view?.banners.find((b) => b.id === bannerId) ?? wanted ?? view?.banners[0];
+  const isEvent = banner?.kind === "event";
   const wallet = view?.wallet;
 
-  function scan(count: 1 | 10, pay: PullRequest['pay'], on: string | undefined = banner?.id): void {
+  function scan(
+    count: 1 | 10,
+    pay: PullRequest["pay"],
+    on: string | undefined = banner?.id,
+  ): void {
     if (!on) return;
-    const pro = mode === 'pro';
-    if (pro) setRevealed((r) => ({ pulls: null, last: r?.pulls ?? r?.last ?? null, count, pay, banner: on }));
+    const pro = mode === "pro";
+    if (pro)
+      setRevealed((r) => ({
+        pulls: null,
+        last: r?.pulls ?? r?.last ?? null,
+        count,
+        pay,
+        banner: on,
+      }));
     pull.mutate(
       { banner: on, count, pay },
       {
         onSuccess: (res) => {
           setRevealed({ pulls: res.pulls, last: null, count, pay, banner: on });
-          emitTour('scanner:pulled');
+          emitTour("scanner:pulled");
         },
         onError: () => {
           if (pro) setRevealed((r) => (r ? { ...r, failed: true } : r));
@@ -167,11 +238,22 @@ export function ScannerScreen() {
   const busy = pull.isPending;
   // The standard signals, or an event scanner's own (M7e-1).
   const signals = banner ? (wallet?.[banner.currency] ?? 0) : 0;
-  const againOn = revealed ? view?.banners.find((b) => b.id === revealed.banner) : undefined;
-  const again = revealed && view && againOn ? againPlan(revealed.count, revealed.pay, view.costs, wallet?.[againOn.currency] ?? 0, wallet?.coins ?? 0) : null;
+  const againOn = revealed
+    ? view?.banners.find((b) => b.id === revealed.banner)
+    : undefined;
+  const again =
+    revealed && view && againOn
+      ? againPlan(
+          revealed.count,
+          revealed.pay,
+          view.costs,
+          wallet?.[againOn.currency] ?? 0,
+          wallet?.coins ?? 0,
+        )
+      : null;
   return (
     <div className="screen-root collection-root scanner-root">
-      <div className={`collection scanner${isEvent ? ' is-event' : ''}`}>
+      <div className={`collection scanner${isEvent ? " is-event" : ""}`}>
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{isEvent ? copy.scanner.eventTab : copy.scanner.title}</h1>
@@ -181,16 +263,30 @@ export function ScannerScreen() {
         </header>
 
         {view && view.banners.length > 1 ? (
-          <div className="scanner-tabs" role="group" aria-label={copy.scanner.title}>
+          <div
+            className="scanner-tabs"
+            role="group"
+            aria-label={copy.scanner.title}
+          >
             {view.banners.map((b) => (
-              <button key={b.id} type="button" className={`lip scanner-tab tab-${b.kind}`} aria-pressed={b.id === banner?.id} onClick={() => setBannerId(b.id)}>
-                <Icon name={b.kind === 'event' ? 'starOn' : 'radar'} />
-                <span className="scanner-tab-name">{b.kind === 'event' ? copy.scanner.eventTab : b.name}</span>
-                {b.kind === 'event' ? (
+              <button
+                key={b.id}
+                type="button"
+                className={`lip scanner-tab tab-${b.kind}`}
+                aria-pressed={b.id === banner?.id}
+                onClick={() => setBannerId(b.id)}
+              >
+                <Icon name={b.kind === "event" ? "starOn" : "radar"} />
+                <span className="scanner-tab-name">
+                  {b.kind === "event" ? copy.scanner.eventTab : b.name}
+                </span>
+                {b.kind === "event" ? (
                   <span className="scanner-tab-badge">
                     <Icon name="ticket" />
                     <b aria-hidden="true">{wallet?.[b.currency] ?? 0}</b>
-                    <span className="sr-only">{copy.hub.resource.eventSignal(wallet?.[b.currency] ?? 0)}</span>
+                    <span className="sr-only">
+                      {copy.hub.resource.eventSignal(wallet?.[b.currency] ?? 0)}
+                    </span>
                   </span>
                 ) : null}
               </button>
@@ -200,7 +296,10 @@ export function ScannerScreen() {
 
         {banner && view ? (
           <main className="scanner-main">
-            <section className="lip panel scanner-terminal" aria-labelledby="banner-name">
+            <section
+              className="lip panel scanner-terminal"
+              aria-labelledby="banner-name"
+            >
               <div className="crt idle" aria-hidden="true">
                 <div className="crt-screen">
                   <span className="idle-braille">⠎⠉⠁⠝</span>
@@ -208,10 +307,20 @@ export function ScannerScreen() {
                 </div>
               </div>
               <div className="banner-head">
-                <h2 id="banner-name">{isEvent ? copy.scanner.eventTab : banner.name}</h2>
-                {isEvent ? <span className="banner-sub">{banner.name}</span> : null}
-                {banner.welcome ? <span className="badge-new">{copy.scanner.welcome}</span> : null}
-                {banner.endsAt ? <span className="banner-ends">{copy.scanner.endsAt(day.format(new Date(banner.endsAt)))}</span> : null}
+                <h2 id="banner-name">
+                  {isEvent ? copy.scanner.eventTab : banner.name}
+                </h2>
+                {isEvent ? (
+                  <span className="banner-sub">{banner.name}</span>
+                ) : null}
+                {banner.welcome ? (
+                  <span className="badge-new">{copy.scanner.welcome}</span>
+                ) : null}
+                {banner.endsAt ? (
+                  <span className="banner-ends">
+                    {copy.scanner.endsAt(day.format(new Date(banner.endsAt)))}
+                  </span>
+                ) : null}
               </div>
               {banner.featured ? <FeaturedCard banner={banner} /> : null}
             </section>
@@ -224,8 +333,13 @@ export function ScannerScreen() {
                   <span>{errorText(pull.error, copy.errors)}</span>
                 </p>
               ) : null}
-              {view.freePullAvailable && banner.kind === 'standard' ? (
-                <button type="button" className="lip pull-free" disabled={busy} onClick={() => scan(1, 'free')}>
+              {view.freePullAvailable && banner.kind === "standard" ? (
+                <button
+                  type="button"
+                  className="lip pull-free"
+                  disabled={busy}
+                  onClick={() => scan(1, "free")}
+                >
                   <Icon name="radar" />
                   <span>
                     <b>{copy.scanner.free}</b>
@@ -233,17 +347,47 @@ export function ScannerScreen() {
                   </span>
                 </button>
               ) : null}
-              {banner.currency === 'signal' || banner.currency.startsWith('signal:') ? (
+              {banner.currency === "signal" ||
+              banner.currency.startsWith("signal:") ? (
                 <div className="pull-row">
-                  <span className="pull-label">{banner.currency === 'signal' ? copy.scanner.withSignals : copy.scanner.withEventSignals(signals)}</span>
-                  <PullButton count={1} cost={copy.scanner.costSignals(view.costs.signals)} disabled={busy || signals < view.costs.signals} onClick={() => scan(1, 'signal')} solar={!isEvent} event={isEvent} />
-                  <PullButton count={10} cost={copy.scanner.costSignals(view.costs.signals * 10)} disabled={busy || signals < view.costs.signals * 10} onClick={() => scan(10, 'signal')} solar={!isEvent} event={isEvent} tour="pull10" />
+                  <span className="pull-label">
+                    {banner.currency === "signal"
+                      ? copy.scanner.withSignals
+                      : copy.scanner.withEventSignals(signals)}
+                  </span>
+                  <PullButton
+                    count={1}
+                    cost={copy.scanner.costSignals(view.costs.signals)}
+                    disabled={busy || signals < view.costs.signals}
+                    onClick={() => scan(1, "signal")}
+                    solar={!isEvent}
+                    event={isEvent}
+                  />
+                  <PullButton
+                    count={10}
+                    cost={copy.scanner.costSignals(view.costs.signals * 10)}
+                    disabled={busy || signals < view.costs.signals * 10}
+                    onClick={() => scan(10, "signal")}
+                    solar={!isEvent}
+                    event={isEvent}
+                    tour="pull10"
+                  />
                 </div>
               ) : null}
               <div className="pull-row">
                 <span className="pull-label">{copy.scanner.withCoins}</span>
-                <PullButton count={1} cost={copy.scanner.costCoins(view.costs.coins)} disabled={busy || (wallet?.coins ?? 0) < view.costs.coins} onClick={() => scan(1, 'coins')} />
-                <PullButton count={10} cost={copy.scanner.costCoins(view.costs.coinsTen)} disabled={busy || (wallet?.coins ?? 0) < view.costs.coinsTen} onClick={() => scan(10, 'coins')} />
+                <PullButton
+                  count={1}
+                  cost={copy.scanner.costCoins(view.costs.coins)}
+                  disabled={busy || (wallet?.coins ?? 0) < view.costs.coins}
+                  onClick={() => scan(1, "coins")}
+                />
+                <PullButton
+                  count={10}
+                  cost={copy.scanner.costCoins(view.costs.coinsTen)}
+                  disabled={busy || (wallet?.coins ?? 0) < view.costs.coinsTen}
+                  onClick={() => scan(10, "coins")}
+                />
               </div>
             </aside>
           </main>
@@ -265,10 +409,22 @@ export function ScannerScreen() {
           failed={revealed.failed}
           summaryOnly={revealed.summaryOnly}
           // The bands have opened again: back to the last summary (its error over the buttons), or to the scanner.
-          onAbort={() => setRevealed((r) => (r?.last ? { ...r, pulls: r.last, last: null, failed: false, summaryOnly: true } : null))}
+          onAbort={() =>
+            setRevealed((r) =>
+              r?.last
+                ? {
+                    ...r,
+                    pulls: r.last,
+                    last: null,
+                    failed: false,
+                    summaryOnly: true,
+                  }
+                : null,
+            )
+          }
           onClose={() => {
             setRevealed(null);
-            emitTour('scanner:revealClosed');
+            emitTour("scanner:revealClosed");
           }}
           status={
             pull.isError ? (
@@ -279,29 +435,57 @@ export function ScannerScreen() {
             ) : revealed && !againOn ? (
               <p className="summary-missing">{copy.scanner.againClosed}</p>
             ) : again && again.missing > 0 ? (
-              <p className="summary-missing">{again.currency === 'signal' ? copy.scanner.missingSignals(again.missing) : copy.scanner.missingCoins(again.missing)}</p>
+              <p className="summary-missing">
+                {again.currency === "signal"
+                  ? copy.scanner.missingSignals(again.missing)
+                  : copy.scanner.missingCoins(again.missing)}
+              </p>
             ) : null
           }
           actions={
-            <>
-              {again ? (
-                <button type="button" className="lip pill pill-solar scan-again" disabled={busy || again.missing > 0} aria-busy={busy || undefined} onClick={() => scan(again.count, again.pay, revealed?.banner)}>
-                  <Icon name="radar" />
-                  <span>{busy ? copy.scanner.scanning : copy.scanner.again(again.count)}</span>
-                  {busy ? null : <small>{again.currency === 'signal' ? copy.scanner.costSignals(again.cost) : copy.scanner.costCoins(again.cost)}</small>}
-                </button>
-              ) : revealed ? (
-                // Its scanner has closed: the button stays, off, with the reason over it.
-                <button type="button" className="lip pill pill-solar scan-again" disabled>
-                  <Icon name="radar" />
-                  <span>{copy.scanner.again(revealed.count)}</span>
-                </button>
-              ) : null}
-              <Link to="/coleccion" className="lip pill pill-uv">
-                <Icon name="cards" />
-                <span>{copy.scanner.toCollection}</span>
-              </Link>
-            </>
+            guided ? null : (
+              <>
+                {again ? (
+                  <button
+                    type="button"
+                    className="lip pill pill-solar scan-again"
+                    disabled={busy || again.missing > 0}
+                    aria-busy={busy || undefined}
+                    onClick={() =>
+                      scan(again.count, again.pay, revealed?.banner)
+                    }
+                  >
+                    <Icon name="radar" />
+                    <span>
+                      {busy
+                        ? copy.scanner.scanning
+                        : copy.scanner.again(again.count)}
+                    </span>
+                    {busy ? null : (
+                      <small>
+                        {again.currency === "signal"
+                          ? copy.scanner.costSignals(again.cost)
+                          : copy.scanner.costCoins(again.cost)}
+                      </small>
+                    )}
+                  </button>
+                ) : revealed ? (
+                  // Its scanner has closed: the button stays, off, with the reason over it.
+                  <button
+                    type="button"
+                    className="lip pill pill-solar scan-again"
+                    disabled
+                  >
+                    <Icon name="radar" />
+                    <span>{copy.scanner.again(revealed.count)}</span>
+                  </button>
+                ) : null}
+                <Link to="/coleccion" className="lip pill pill-uv">
+                  <Icon name="cards" />
+                  <span>{copy.scanner.toCollection}</span>
+                </Link>
+              </>
+            )
           }
         />
       ) : null}

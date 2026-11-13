@@ -1,7 +1,12 @@
-import { atLeast, TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { atLeast, DISINTEGRATE_MAX, TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
-import { useCollectionPages, useFuse, useGacha } from '../api/economy';
+import { previewDisintegrate, useCollectionPages, useDisintegrateMany, useFuse, useGacha } from '../api/economy';
+import { errorText } from '../auth/useMe';
+import { Dialog } from '../ui/Dialog';
+import { useReducedMotion } from '../ui/motion';
+import { DisintegrateFx } from './DisintegrateFx';
+import { DissolveBar } from './DissolveBar';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { useCatalogSummary } from '../api/catalog';
 import { copy } from '../copy/es';
@@ -48,6 +53,15 @@ export function CollectionScreen() {
   const [cinema, setCinema] = useState<{ inputs: GalaxySummary[]; pulls: PulledGalaxy[] | null; failed: boolean } | null>(null);
   const [message, setMessage] = useState('');
   const [auto, setAuto] = useState(false);
+  // Desintegrar varias (the owner): the chosen ones go together, after a confirmation with the dust the server counts.
+  const [dissolving, setDissolving] = useState(false);
+  const dissolve = useDisintegrateMany();
+  const [asking, setAsking] = useState<{ count: number; dust: number } | null>(null);
+  const [previewError, setPreviewError] = useState<unknown>(null);
+  const [previewing, setPreviewing] = useState(false);
+  // The galaxies coming apart on screen (one from the detail, or several), with the dust they gave.
+  const [fx, setFx] = useState<{ galaxies: PulledGalaxy[]; dust: number } | null>(null);
+  const reduced = useReducedMotion();
 
   const first = pages.data?.pages[0];
   const items = pages.data?.pages.flatMap((p) => p.items) ?? [];
@@ -67,12 +81,48 @@ export function CollectionScreen() {
     fuse.reset();
   }
 
+  function stopDissolving(): void {
+    setDissolving(false);
+    setSelected([]);
+    setAsking(null);
+    setPreviewError(null);
+    dissolve.reset();
+  }
+
+  function askDissolve(): void {
+    setPreviewError(null);
+    setPreviewing(true);
+    previewDisintegrate(selected.map((s) => s.id))
+      .then((p) => setAsking(p))
+      .catch((e: unknown) => setPreviewError(e))
+      .finally(() => setPreviewing(false));
+  }
+
+  function confirmDissolve(): void {
+    const going = selected;
+    dissolve.mutate(
+      going.map((s) => s.id),
+      {
+        onSuccess: (res) => {
+          stopDissolving();
+          setFx({ galaxies: going, dust: res.dust });
+          setMessage(copy.collection.dissolved(res.count, res.dust));
+        },
+      },
+    );
+  }
+
   function toggle(g: GalaxySummary): void {
     setSelected((now) => (now.some((s) => s.id === g.id) ? now.filter((s) => s.id !== g.id) : [...now, g]));
   }
 
+  const held = (g: GalaxySummary) => !!(g.equipped || g.exhibited || g.listed || g.traded || g.locked);
   const pickable = (g: GalaxySummary) =>
-    !g.equipped && !g.exhibited && !g.listed && !g.traded && !g.locked && !atLeast(g.tier, 'legendary') && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+    dissolving
+      ? !held(g) && (selected.length < DISINTEGRATE_MAX || selected.some((s) => s.id === g.id))
+      : !held(g) && !atLeast(g.tier, 'legendary') && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+  // The epic-or-better ones about to go, named in the confirmation.
+  const best = selected.filter((g) => atLeast(g.tier, 'epic')).map((g) => g.name);
 
   return (
     <div className="screen-root collection-root">
@@ -89,12 +139,22 @@ export function CollectionScreen() {
 
         <div className="lip panel collection-toolbar">
           <Filters filters={filters} counts={first?.counts} onChange={change} />
+          <div className="collection-tools">
           <div className={`fuse-group${fusing ? ' on' : ''}`} role="group" aria-labelledby="fuse-group">
             <span className="fuse-group-title" id="fuse-group">
               {copy.collection.fusionTitle}
             </span>
             <div className="fuse-group-row">
-              <button type="button" className={`lip pill ${fusing ? 'fusing' : 'pill-solar'}`} aria-pressed={fusing} onClick={() => (fusing ? stopFusing() : setFusing(true))}>
+              <button
+                type="button"
+                className={`lip pill ${fusing ? 'fusing' : 'pill-solar'}`}
+                aria-pressed={fusing}
+                onClick={() => {
+                  if (fusing) return stopFusing();
+                  stopDissolving();
+                  setFusing(true);
+                }}
+              >
                 <Icon name="fuse" />
                 <span>{copy.collection.fuse}</span>
               </button>
@@ -107,6 +167,28 @@ export function CollectionScreen() {
                 </button>
               )}
             </div>
+          </div>
+          <div className={`fuse-group${dissolving ? ' on' : ''}`} role="group" aria-labelledby="dissolve-group">
+            <span className="fuse-group-title" id="dissolve-group">
+              {copy.collection.dissolveGroup}
+            </span>
+            <div className="fuse-group-row">
+              <button
+                type="button"
+                className={`lip pill${dissolving ? ' fusing' : ''}`}
+                aria-pressed={dissolving}
+                onClick={() => {
+                  if (dissolving) return stopDissolving();
+                  stopFusing();
+                  setDissolving(true);
+                }}
+              >
+                <Icon name="dust" />
+                <span>{copy.collection.dissolveMany}</span>
+              </button>
+              {dissolving ? <span className="fuse-group-hint">{copy.collection.dissolvingHint(DISINTEGRATE_MAX)}</span> : null}
+            </div>
+          </div>
           </div>
         </div>
 
@@ -146,7 +228,7 @@ export function CollectionScreen() {
                       ) : g.traded ? (
                         <span className="gcard-badge">{copy.trades.inTrade}</span>
                       ) : null}
-                      {fusing ? (
+                      {fusing || dissolving ? (
                         <button type="button" className="gcard-hit" aria-pressed={on} aria-label={copy.collection.select(g.name)} disabled={!pickable(g)} onClick={() => toggle(g)}>
                           {on ? <Icon name="check" className="ico gcard-check" /> : null}
                         </button>
@@ -208,6 +290,28 @@ export function CollectionScreen() {
           />
         ) : null}
 
+        {dissolving ? <DissolveBar selected={selected} pending={previewing || dissolve.isPending} error={previewError} onCancel={stopDissolving} onDissolve={askDissolve} /> : null}
+        {asking ? (
+          <Dialog role="alertdialog" title={copy.collection.dissolveTitle(asking.count)} onClose={() => setAsking(null)} className="confirm">
+            <p>{copy.collection.disintegrateManyBody(asking.dust)}</p>
+            {best.length > 0 ? <p className="dissolve-best">{copy.collection.dissolveBest(best)}</p> : null}
+            {dissolve.isError ? (
+              <p className="summary error" role="alert">
+                <Icon name="alert" />
+                <span>{errorText(dissolve.error, copy.errors)}</span>
+              </p>
+            ) : null}
+            <div className="confirm-actions">
+              <button type="button" className="lip pill" data-autofocus onClick={() => setAsking(null)}>
+                {copy.collection.cancel}
+              </button>
+              <button type="button" className="lip pill danger" disabled={dissolve.isPending} aria-busy={dissolve.isPending || undefined} onClick={confirmDissolve}>
+                {copy.collection.disintegrate}
+              </button>
+            </div>
+          </Dialog>
+        ) : null}
+
         <p className="toast" role="status">
           {message}
         </p>
@@ -218,8 +322,9 @@ export function CollectionScreen() {
           key={id}
           id={id}
           onClose={() => navigate(`/coleccion${search}`)}
-          onDisintegrated={(name, dust) => {
-            setMessage(copy.collection.disintegrated(name, dust));
+          onDisintegrated={(galaxy, dust) => {
+            setFx({ galaxies: [galaxy], dust });
+            setMessage(copy.collection.disintegrated(galaxy.name, dust));
             navigate(`/coleccion${search}`, { replace: true });
           }}
         />
@@ -234,6 +339,7 @@ export function CollectionScreen() {
           }}
         />
       ) : null}
+      {fx ? <DisintegrateFx galaxies={fx.galaxies} dust={fx.dust} reduced={reduced} onDone={() => setFx(null)} /> : null}
       {revealed ? <ClassicStage pulls={revealed} title={copy.collection.revealTitle} onClose={() => setRevealed(null)} /> : null}
       {cinema ? (
         <RevealStage

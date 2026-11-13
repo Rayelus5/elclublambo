@@ -10,7 +10,7 @@ import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { onTour } from './bus';
-import { CHAPTER_ROUTE, COUNTED, TOUR_STEPS, type TourStep } from './steps';
+import { chapterSteps, CHAPTER_ROUTE, COUNTED, type TourStep } from './steps';
 
 // The guided tour (GDD §12.2; polish phase 3): a veil with a hole around what matters, a ring that beats round it, an
 // arrow that points at it and PERKINS's card with what to do, one step at a time; a docked card when a panel is open;
@@ -184,24 +184,26 @@ export function TourProvider() {
   const onboarding = useQuery({ queryKey: ['onboarding'], queryFn: () => api<OnboardingView>('/onboarding'), enabled: active, staleTime: 10_000 });
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [place, setPlace] = useState<{ chapter: TutorialChapter | null; index: number }>({ chapter: null, index: 0 });
+  // Where the player is, by the step's id (not its position: the list shrinks when a condition is met meanwhile).
+  const [place, setPlace] = useState<{ chapter: TutorialChapter | null; id: string | null }>({ chapter: null, id: null });
   const [asking, setAsking] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chapter = v?.chapter ?? 'done';
-  const index = place.chapter === chapter ? place.index : 0;
-  const steps = useMemo(() => TOUR_STEPS.filter((s) => s.chapter === chapter && !s.skipIf?.(onboarding.data)), [chapter, onboarding.data]);
+  const here = place.chapter === chapter ? place.id : null;
+  const steps = useMemo(() => chapterSteps(chapter, here, onboarding.data), [chapter, here, onboarding.data]);
+  const index = here ? Math.max(0, steps.findIndex((s) => s.id === here)) : 0;
   const step = steps[index];
 
   const advanceChapter = useCallback(() => {
     const next = TUTORIAL_CHAPTERS[TUTORIAL_CHAPTERS.indexOf(chapter) + 1] ?? 'done';
     update.mutate({ action: 'advance', chapter: next });
     setToast(next === 'done' ? t.finished : t.chapterDone(t.chapters[chapter] ?? ''));
-    setPlace({ chapter: next, index: 0 });
+    setPlace({ chapter: next, id: null });
   }, [chapter, update]);
   const next = useCallback(() => {
-    if (index + 1 < steps.length) setPlace({ chapter, index: index + 1 });
+    if (index + 1 < steps.length) setPlace({ chapter, id: steps[index + 1]!.id });
     else advanceChapter();
-  }, [index, steps.length, chapter, advanceChapter]);
+  }, [index, steps, chapter, advanceChapter]);
 
   // A step waiting for an event moves on when it hears it; one waiting for a screen, when the player gets there.
   useEffect(() => (active && step?.advance?.event ? onTour((name) => (name === step.advance!.event ? next() : undefined)) : undefined), [active, step, next]);

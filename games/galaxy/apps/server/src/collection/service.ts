@@ -266,6 +266,43 @@ export async function disintegrate(
   return { dust: dust + refund, wallet: await getWallet(trx, ownerId) };
 }
 
+/**
+ * Desintegrar varias (the owner): every galaxy or none. Paid as if one by one (each rounded on its own), with the
+ * relics' refunds; the rows are taken in id order (as the auto-fusion does) so two requests never deadlock. Without an
+ * operation key it is the preview: the same checks and sum, nothing changed.
+ */
+export async function disintegrateMany(
+  { cfg, lab, relics }: { cfg: GalaxiesConfig; lab: LabConfig; relics: RelicsConfig },
+  trx: Kysely<DB>,
+  ownerId: string,
+  ids: readonly string[],
+  opKey: string | null,
+): Promise<{ count: number; dust: number; wallet?: Wallet }> {
+  const rows = await trx
+    .selectFrom('galaxy.galaxies')
+    .select(['id', 'tier', 'finish', 'level_dust', 'locked'])
+    .where('id', 'in', [...ids])
+    .where('owner_id', '=', ownerId)
+    .where('disintegrated_at', 'is', null)
+    .orderBy('id')
+    .$if(opKey !== null, (q) => q.forUpdate())
+    .execute();
+  if (rows.length !== ids.length) throw new HttpError(404, 'galaxy_not_found');
+  if (rows.some((r) => r.locked)) throw new HttpError(409, 'galaxy_locked');
+  if (await isEquipped(trx, [...ids])) throw new HttpError(409, 'galaxy_equipped');
+  if (await isExhibited(trx, [...ids])) throw new HttpError(409, 'galaxy_exhibited');
+  if (await isListed(trx, [...ids])) throw new HttpError(409, 'galaxy_listed');
+  if (await isTraded(trx, [...ids])) throw new HttpError(409, 'galaxy_in_trade');
+  const push = (await accountLabEffects(trx, ownerId, lab)).disintegrate;
+  const dust = rows.reduce((n, r) => n + disintegrationDust(disintegrateYield(r.tier, r.finish as Finish, cfg), push), 0);
+  const refund = rows.reduce((n, r) => n + relicRefund(r.level_dust, relics), 0);
+  if (opKey === null) return { count: rows.length, dust: dust + refund };
+  await trx.updateTable('galaxy.galaxies').set({ disintegrated_at: new Date() }).where('id', 'in', [...ids]).execute();
+  if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxies: [...ids] }, opKey);
+  if (refund > 0) await credit(trx, ownerId, 'dust', refund, 'relic_refund', { galaxies: [...ids] }, opKey);
+  return { count: rows.length, dust: dust + refund, wallet: await getWallet(trx, ownerId) };
+}
+
 export async function fuse(
   { cfg, gacha, lab, relics }: { cfg: GalaxiesConfig; gacha: GachaConfig; lab: LabConfig; relics: RelicsConfig },
   trx: Kysely<DB>,

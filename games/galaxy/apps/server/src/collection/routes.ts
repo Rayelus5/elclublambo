@@ -1,4 +1,4 @@
-import { atLeast, autoFusionRequestSchema, fuseRequestSchema, galaxyLockSchema, relicLevelUpSchema, type AutoFusionPreview, type AutoFusionResult, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
+import { atLeast, autoFusionRequestSchema, disintegrateManySchema, fuseRequestSchema, galaxyLockSchema, relicLevelUpSchema, type AutoFusionPreview, type AutoFusionResult, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
@@ -6,7 +6,7 @@ import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { countStats, missionConfigs } from '../missions/service';
-import { autoFuse, disintegrate, fuse, galaxyDetail, levelUpGalaxy, listGalaxies, listQuerySchema, setLock, type CollectionDeps } from './service';
+import { autoFuse, disintegrate, disintegrateMany, fuse, galaxyDetail, levelUpGalaxy, listGalaxies, listQuerySchema, setLock, type CollectionDeps } from './service';
 import { HttpError } from '../errors';
 import { withNotices } from '../realtime/notices';
 
@@ -32,6 +32,23 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'galaxy.disintegrate', requestHash({ id }), async (trx) => {
       const r = await disintegrate({ cfg, lab, relics }, trx, s.accountId, id, key);
       await countStats(trx, mcfg, s.accountId, { disintegrations: 1 }, new Date(), out);
+      return r;
+    }));
+  });
+
+  // Desintegrar varias: the preview (no key, nothing changes) or the operation, all or none.
+  api.post('/galaxy/api/galaxies/disintegrate', async (req) => {
+    const s = requireSession(req);
+    const body = disintegrateManySchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
+    const [cfg, lab, relics] = await Promise.all([deps.config.get('galaxies'), deps.config.get('lab'), deps.config.get('relics')]);
+    if (body.preview) return disintegrateMany({ cfg, lab, relics }, deps.db, s.accountId, body.ids, null);
+    const key = idempotencyKey(req);
+    const mcfg = await missionConfigs(deps.config);
+    const ids = [...body.ids].sort();
+    return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'galaxy.disintegrate_many', requestHash({ ids }), async (trx) => {
+      const r = await disintegrateMany({ cfg, lab, relics }, trx, s.accountId, ids, key);
+      await countStats(trx, mcfg, s.accountId, { disintegrations: r.count }, new Date(), out);
       return r;
     }));
   });
