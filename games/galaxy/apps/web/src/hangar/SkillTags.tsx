@@ -1,5 +1,6 @@
 import type { Content, RelicSkill } from '@galaxy/sim';
 import { useState } from 'react';
+import { singularityOf } from '../api/content-read';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 
@@ -32,7 +33,7 @@ export function skillTags(skill: RelicSkill, content: Content): SkillTag[] {
   ];
   if (skill.element) tags.push({ kind: 'element', id: skill.element, name: h.elements[skill.element], text: i.element[skill.element] });
   if (skill.phenomenon) tags.push({ kind: 'phenomenon', id: skill.phenomenon, name: h.phenomena[skill.phenomenon], text: i.phenomenon[skill.phenomenon] });
-  if (skill.mythic) tags.push({ kind: 'mythic', id: 'singularity', name: i.mythicName, text: i.singularity(content.relics.singularity.cooldown) });
+  if (skill.mythic) tags.push({ kind: 'mythic', id: 'singularity', name: i.mythicName, text: i.singularity(singularityOf(content).cooldown) });
   tags.push({ kind: 'power', id: 'power', name: h.power(skill.magnitude), text: i.power });
   return tags;
 }

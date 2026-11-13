@@ -1,5 +1,5 @@
 import type { LiveContentView } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { DEFAULT_CONTENT, SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { get, post, sessionCookie, testApp, uniqueName } from '../helpers';
 
@@ -21,7 +21,8 @@ test('la configuración viva de contenido llega con su versión, y sin cambios n
   expect(body.version).toBeGreaterThanOrEqual(0);
   expect(Object.keys(body.content.relics)).toEqual(Object.keys(DEFAULT_CONTENT.relics));
   const etag = first.headers['etag'] as string;
-  expect(etag).toMatch(/^"content-\d+"$/);
+  // Its version and the simulation's (review of PR #180: a deploy that adds content fields changes it).
+  expect(etag).toBe(`"content-${body.version}-${SIM_VERSION}"`);
   expect(first.headers['cache-control']).toContain('private');
   const again = await get(ctx.app, '/galaxy/api/content', { cookie, headers: { 'if-none-match': etag } });
   expect(again.statusCode).toBe(304);

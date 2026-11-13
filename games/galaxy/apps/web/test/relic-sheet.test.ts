@@ -2,7 +2,9 @@ import type { GalaxySummary, Tier } from '@galaxy/shared';
 import { DEFAULT_CONTENT, type Content } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { copy } from '../src/copy/es';
+import { readContent } from '../src/api/content';
 import { relicSheet } from '../src/hangar/relic-sheet';
+import { skillTags } from '../src/hangar/SkillTags';
 
 // What a galaxy does as a relic (plan «escáner pro», part D; the owner: «que el usuario antes de equiparse reliquias
 // pueda ver lo que hace cada una»): every power with its number from the live content, the sets it would make, the
@@ -90,4 +92,18 @@ test('una mítica explica su Singularidad con el tiempo de la configuración, y 
   const live: Content = { ...DEFAULT_CONTENT, relics: { ...DEFAULT_CONTENT.relics, singularity: { ...S, cooldown: 9 } } };
   expect(relicSheet(g, live).powers.find((p) => p.kind === 'mythic')!.text).toBe(i.singularity(9));
   expect(kinds(relicSheet(galaxy({}, 'legendary'), DEFAULT_CONTENT))).not.toContain('mythic');
+});
+
+// Review of PR #180: content cached from before the Singularity has no `relics.singularity`. Read through the schema
+// it takes its defaults; and the sheet and the chip never break on it, even unread.
+test('un contenido sin la Singularidad toma sus valores por defecto, y la ficha y el chip no se rompen con él', () => {
+  const i = copy.hangar.skillInfo;
+  const { singularity: _gone, ...relics } = DEFAULT_CONTENT.relics;
+  const old = { ...DEFAULT_CONTENT, relics } as unknown as Content;
+  expect(readContent(old).relics.singularity).toEqual(DEFAULT_CONTENT.relics.singularity);
+  const g = galaxy({}, 'mythic');
+  const text = i.singularity(DEFAULT_CONTENT.relics.singularity.cooldown);
+  expect(relicSheet(g, old).powers.find((p) => p.kind === 'mythic')!.text).toBe(text);
+  const skill = relicSheet(g, old).skill;
+  expect(skillTags(skill, old).find((t) => t.kind === 'mythic')!.text).toBe(text);
 });
