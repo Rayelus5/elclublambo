@@ -7,8 +7,8 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
-    id: 'v1-19-singularidad',
-    version: '1.19',
+    id: 'v1-20-singularidad',
+    version: '1.20',
     date: '2026-11-13',
     title: 'Singularidad',
     summary: 'Las Míticas tienen ahora su propio poder en la incursión y un revelado aún más épico en el escáner',
