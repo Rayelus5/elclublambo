@@ -257,6 +257,31 @@ export const copy = {
       review: 'Marcar revisada',
       reviewedBy: (by: string, reason: string) => `${by}: ${reason}`,
     },
+    // «Almacenamiento»: what the server keeps and how much it weighs.
+    storage: {
+      intro: 'Lo que guarda el servidor y cuánto pesa',
+      updated: (time: string) => `Leído a las ${time}`,
+      reload: 'Volver a leer',
+      tiles: {
+        database: 'Base de datos',
+        game: (size: string) => `Del juego: ${size}. El resto es de la web`,
+        disk: 'Espacio libre en el disco',
+        used: (used: string, total: string, share: string) => `${used} usados de ${total} (${share})`,
+        noDisk: 'No se pudo leer el disco',
+        galaxies: 'Galaxias',
+        alive: (live: string, gone: string) => `${live} vivas y ${gone} desintegradas`,
+        galaxiesTable: 'Datos de las galaxias',
+        galaxiesTableDetail: 'Semilla, rasgos y linaje de cada una. Las desintegradas se guardan para el linaje de las fusiones',
+        images: 'Imágenes de galaxias',
+        imagesDetail: 'Ninguna en el servidor: cada navegador las dibuja desde su semilla',
+      },
+      tablesTitle: 'Tablas más grandes del juego',
+      table: 'Tabla',
+      rows: 'Filas (aprox.)',
+      size: 'Tamaño',
+      indexes: 'Índices',
+      noEstimate: 'Sin calcular',
+    },
     stats: {
       periods: { '24h': 'Últimas 24 horas', '7d': 'Últimos 7 días', '30d': 'Últimos 30 días' } as Record<string, string>,
       periodsLabel: 'Periodo',
@@ -541,7 +566,7 @@ export const copy = {
       markedDone: 'Marcada como sospechosa',
       unmarkedDone: 'Marca quitada',
     },
-    sections: { players: 'Jugadores', audit: 'Auditoría', config: 'Configuración', events: 'Eventos', moderation: 'Moderación', communication: 'Comunicación', stats: 'Estadísticas', runs: 'Partidas', shop: 'Tienda', rehearsal: 'Ensayo del escáner', music: 'Ensayo de música', notes: 'Notas de versión' },
+    sections: { players: 'Jugadores', audit: 'Auditoría', config: 'Configuración', events: 'Eventos', moderation: 'Moderación', communication: 'Comunicación', stats: 'Estadísticas', storage: 'Almacenamiento', runs: 'Partidas', shop: 'Tienda', rehearsal: 'Ensayo del escáner', music: 'Ensayo de música', notes: 'Notas de versión' },
     // The music Ensayo (plan «banda sonora», part A2): direct the soundtrack without playing.
     music: {
       title: 'Ensayo de música',

@@ -108,12 +108,14 @@ export async function testApp(
     configTtlMs?: number;
     /** The shop's payment gateway (test/fake-gateway.ts); none by default (a closed shop). */
     shopGateway?: ShopGateway | null;
+    /** The server's disk for «Almacenamiento»; the real one by default. */
+    disk?: () => Promise<{ totalBytes: number; freeBytes: number } | null>;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
   const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
   const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
-  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null });
+  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null, disk: opts.disk });
   opts.beforeReady?.(app);
   await app.ready();
   return {

@@ -32,6 +32,7 @@ import { registerModerationRoutes } from './admin/moderation-routes';
 import { registerAdminMarketRoutes } from './admin/market-routes';
 import { registerCommunicationRoutes } from './admin/communication-routes';
 import { registerStatsRoutes } from './admin/stats-routes';
+import { type Disk, serverDisk } from './admin/storage';
 import { registerAdminRunRoutes } from './admin/runs-routes';
 import { registerAdminProgressRoutes } from './admin/progress-routes';
 import { registerMailRoutes } from './mail/routes';
@@ -67,6 +68,8 @@ export type AppDeps = {
   config?: ConfigService;
   /** The shop's payment gateway: by default Stripe's from the env (none without its keys); tests pass a fake. */
   shopGateway?: ShopGateway | null;
+  /** The server's disk for «Almacenamiento»: by default the root's (statfs); tests pass a fixed one. */
+  disk?: () => Promise<Disk | null>;
 };
 
 /**
@@ -182,7 +185,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerNotesRoutes(api, { db: deps.db, env: deps.env });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
-    registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });
+    registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
     // The resource shop's routes and its admin (shop and lab plan, F4).
