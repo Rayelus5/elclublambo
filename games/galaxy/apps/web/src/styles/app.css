@@ -41,6 +41,14 @@
   --color-tier-rare: #6fb7ff;
   --color-tier-epic: #b39dff;
   --color-tier-legendary: #ffc94a;
+  /* The «Mítica» («Vacío iridiscente»): one solid colour for dots, small text and bars; its card is near black with a
+     frame that turns through the four iridescent tones (see .gcard[data-tier='mythic']). */
+  --color-tier-mythic: #ff4fd8;
+  --color-mythic-void: #0b0a14;
+  --color-iris-1: #ff4fd8;
+  --color-iris-2: #6fe3ff;
+  --color-iris-3: #ffc94a;
+  --color-iris-4: #b39dff;
   --font-display: 'Bungee', sans-serif;
   --font-sans: 'Fredoka', system-ui, sans-serif;
   --font-braille: 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'DejaVu Sans', monospace;
@@ -48,6 +56,9 @@
 }
 
 @property --tint { syntax: '<color>'; inherits: true; initial-value: rgb(60 80 160); }
+/* The turn of the mythic's iridescent frame (an animatable angle; still with reduced motion). */
+@property --iris { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes iris-turn { to { --iris: 360deg; } }
 
 @layer base {
   html, body, #root { height: 100%; }
@@ -274,6 +285,7 @@
   [data-tier='rare'] { --tc: var(--color-tier-rare); }
   [data-tier='epic'] { --tc: var(--color-tier-epic); }
   [data-tier='legendary'] { --tc: var(--color-tier-legendary); }
+  [data-tier='mythic'] { --tc: var(--color-tier-mythic); }
 
   /* ---------- Title screen (DESIGN_SYSTEM §6–7) ---------- */
   /* The player's galaxies drift between the menu and the collection panel. */

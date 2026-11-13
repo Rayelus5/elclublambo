@@ -48,8 +48,20 @@ for (const mode of MODES) {
   });
 }
 
+// The «Mítica» (plan «rareza Mítica»): its solid colour (dots, small text, bars, tables; the card itself is iridescent)
+// stays clearly apart from the other five in every mode, and reads as text on the darkest and the lightest panels.
+test('la mítica se distingue de las otras cinco en todos los modos y se lee sobre los paneles', () => {
+  for (const mode of ['none', ...MODES] as const) {
+    const p = PALETTES[mode];
+    for (const t of TIERS.filter((x) => x !== 'mythic')) {
+      expect(deltaE(simulate(p.tier.mythic, mode), simulate(p.tier[t], mode)), `${mode} ${t}`).toBeGreaterThanOrEqual(12);
+    }
+    for (const panel of [BG, '#181a3d', '#20234f', '#0b0a14']) expect(contrast(simulate(p.tier.mythic, mode), panel), `${mode} ${panel}`).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
 test('la paleta normal es la de siempre (los tokens del diseño)', () => {
-  expect(PALETTES.none.tier).toEqual({ common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' });
+  expect(PALETTES.none.tier).toEqual({ common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a', mythic: '#ff4fd8' });
   expect(PALETTES.none.team).toEqual(['#ffc94a', '#45e3a6', '#bfe3ff', '#ff6b7a']);
   expect(tierHex('rare', 'none')).toBe('#6fb7ff');
   expect(tierHex('rare', 'deutan')).toBe(PALETTES.deutan.tier.rare);

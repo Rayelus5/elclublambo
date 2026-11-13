@@ -6,7 +6,9 @@ import type { Tier } from '@galaxy/shared';
 // a colour-blind player sees them, every pair of a group stays apart (ΔE2000 ≥ 12) and readable on the game's dark
 // background (contrast ≥ 3:1); test/color-vision.test.ts checks it. Red/green blindness (protan, deutan) moves meaning
 // onto the blue–orange axis (Okabe–Ito style); blue/yellow blindness (tritan) onto red–teal. Shapes back the
-// colours wherever colour alone would tell (the elements' glyphs, the rarity pips, dashed arcs).
+// colours wherever colour alone would tell (the elements' glyphs, the rarity pips, dashed arcs). The «Mítica» card is
+// iridescent (styles/app.css); its solid colour here is only for dots, small text, bars and tables, chosen the same
+// way (ΔE2000 ≥ 18 from the other five in every mode, and ≥ 4.5:1 on every panel).
 
 export type ColorVisionMode = 'none' | 'protan' | 'deutan' | 'tritan';
 
@@ -41,7 +43,7 @@ const BASE_ELEMENTS: Record<string, string> = {
 };
 
 const REDGREEN: VisionPalette = {
-  tier: { common: '#d7dbea', uncommon: '#3fb8ff', rare: '#7b6bff', epic: '#ff8a3d', legendary: '#ffe45c' },
+  tier: { common: '#d7dbea', uncommon: '#3fb8ff', rare: '#7b6bff', epic: '#ff8a3d', legendary: '#ffe45c', mythic: '#f080a0' },
   terminal: ['#4fb3ff', '#2f8fe0', '#1d5a9a', '#04203a'],
   nova: ['#ff8a1f', '#e06d00', '#9a4500', '#2b1400'],
   static: '#ff6a00',
@@ -51,7 +53,7 @@ const REDGREEN: VisionPalette = {
 
 export const PALETTES: Record<ColorVisionMode, VisionPalette> = {
   none: {
-    tier: { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' },
+    tier: { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a', mythic: '#ff4fd8' },
     terminal: ['#45e3a6', '#17b07e', '#0b7352', '#04281c'],
     nova: ['#ff6b7a', '#e8435a', '#9c2238', '#2b0712'],
     static: '#ff4d6d',
@@ -61,7 +63,7 @@ export const PALETTES: Record<ColorVisionMode, VisionPalette> = {
   protan: REDGREEN,
   deutan: REDGREEN,
   tritan: {
-    tier: { common: '#d0d4e4', uncommon: '#2ee6b8', rare: '#ff5f8f', epic: '#c48bff', legendary: '#ffb03a' },
+    tier: { common: '#d0d4e4', uncommon: '#2ee6b8', rare: '#ff5f8f', epic: '#c48bff', legendary: '#ffb03a', mythic: '#8888ff' },
     terminal: ['#3fe0b0', '#17b08a', '#0b7360', '#04281c'],
     nova: ['#ff6b7a', '#e8435a', '#9c2238', '#2b0712'],
     static: '#ff4d6d',
@@ -76,7 +78,7 @@ export function tierHex(tier: Tier, mode: ColorVisionMode): string {
 }
 
 /** The design's light tone of each tier, for sparks drawn bright then deep. */
-const SPARK_LIGHT: Record<Tier, string> = { common: '#ffffff', uncommon: '#d8fff0', rare: '#e6f3ff', epic: '#f1ebff', legendary: '#fff8e0' };
+const SPARK_LIGHT: Record<Tier, string> = { common: '#ffffff', uncommon: '#d8fff0', rare: '#e6f3ff', epic: '#f1ebff', legendary: '#fff8e0', mythic: '#ffe6f8' };
 
 /** A tier's sparks (bright, then deep) for this mode: «Normal» keeps the design's pairs, a palette lightens its own tier. */
 export function tierSparks(tier: Tier, mode: ColorVisionMode): [string, string] {
