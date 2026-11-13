@@ -66,7 +66,10 @@ export function useEdges(ref: RefObject<HTMLElement | null>): [Edges, () => void
 type Props = Omit<HTMLAttributes<HTMLElement>, 'children'> & {
   /** The element that scrolls (its list semantics stay): `div`, `ol` or `ul`. */
   as?: 'div' | 'ol' | 'ul';
-  /** `table` keeps the wheel for the page and puts the arrows at the top. */
+  /**
+   * `table` keeps the wheel for the page and puts the arrows at the top. Its class is `hscroll-table`, never `table`:
+   * that one is Tailwind's utility (display: table), which made the frame grow with a wide table instead of scrolling.
+   */
   variant?: 'strip' | 'table';
   /** What scrolls, for the arrows' names («Reliquias: ver más»). */
   label?: string;
@@ -85,7 +88,7 @@ export function HScroll({ as = 'div', variant = 'strip', label, className, child
   };
   const t = copy.scroll;
   return (
-    <div className={`hscroll ${variant}${edges.start ? '' : ' fade-start'}${edges.end ? '' : ' fade-end'}`}>
+    <div className={`hscroll ${variant === 'table' ? 'hscroll-table' : variant}${edges.start ? '' : ' fade-start'}${edges.end ? '' : ' fade-end'}`}>
       <div className="hscroll-view">{createElement(as, { ref, className, ...rest }, children)}</div>
       {edges.start ? null : (
         <button type="button" className="lip iconbtn small hscroll-arrow prev" aria-label={label ? t.prevOf(label) : t.prev} onClick={() => slide(-1)}>

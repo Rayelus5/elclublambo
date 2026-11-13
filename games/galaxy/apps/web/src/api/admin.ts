@@ -35,11 +35,14 @@ export function usePlayerSection(username: string, section: AdminSectionName | n
   });
 }
 
-/** A change from the panel (to a player, a message, a mute or a clan): `url` follows `/galaxy/api`. */
+/**
+ * A change from the panel (to a player, a message, a mute, a clan or a referral code): `url` follows `/galaxy/api`. A
+ * POST unless it says PUT (a code's limits, an owner's rewards).
+ */
 export function useAdminPost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { url: string; body: unknown }) => api<Record<string, unknown>>(v.url, { method: 'POST', body: v.body }),
+    mutationFn: (v: { url: string; body: unknown; method?: 'POST' | 'PUT' }) => api<Record<string, unknown>>(v.url, { method: v.method ?? 'POST', body: v.body }),
     onSettled: () => void qc.invalidateQueries({ queryKey: ADMIN_KEY }),
   });
 }

@@ -183,7 +183,11 @@ function contentOptions(rows: ConfigKeyRow[] | undefined): Options {
   return { sectors: list(content.sectors), anomalies: list(content.anomalies), probes: list(content.probes) };
 }
 
-function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
+/**
+ * One key's editor: the form (or JSON) with live checks, «Qué cambia», publishing, and its history. Its own page uses
+ * it, and «Referidos» embeds it for the key `referrals` (plan «referidos», part R2).
+ */
+export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options?: Options }) {
   const id = useId();
   const jsonOnly = JSON_ONLY.has(row.key);
   const advanced = ADVANCED_KEYS.has(row.key);
@@ -371,7 +375,7 @@ export function ConfigKeyScreen() {
         </p>
       ) : null}
       {keys.error ? <p className="field-error">{errorText(keys.error, copy.errors)}</p> : null}
-      {row ? <Editor key={row.key} row={row} options={contentOptions(keys.data)} /> : null}
+      {row ? <ConfigEditor key={row.key} row={row} options={contentOptions(keys.data)} /> : null}
     </section>
   );
 }
