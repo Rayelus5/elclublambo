@@ -1,0 +1,345 @@
+{
+  "list": [
+    {
+      "id": "primer-torneo",
+      "name": "Primer torneo",
+      "description": "El torneo de la Temporada 1: metas duras, muchas señales de galaxia y dos skins Coral para quien llegue al final",
+      "startsAt": "2026-11-12T23:00:00.000Z",
+      "endsAt": "2026-11-22T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "pt-runs",
+          "name": "Juega 10 incursiones",
+          "stat": "runs",
+          "target": 10,
+          "scope": "personal",
+          "reward": {
+            "coins": 500,
+            "dust": 0,
+            "signal": 4,
+            "xp": 0,
+            "points": 100,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-minutes",
+          "name": "Juega 150 minutos",
+          "stat": "minutes",
+          "target": 150,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 300,
+            "signal": 5,
+            "xp": 0,
+            "points": 100,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-pulls",
+          "name": "Haz 30 escaneos",
+          "stat": "pulls",
+          "target": 30,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 300,
+            "signal": 5,
+            "xp": 0,
+            "points": 100,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-extract",
+          "name": "Extrae 8 veces",
+          "stat": "extractions",
+          "target": 8,
+          "scope": "personal",
+          "reward": {
+            "coins": 800,
+            "dust": 0,
+            "signal": 6,
+            "xp": 0,
+            "points": 150,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-group",
+          "name": "Juega 6 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 6,
+          "scope": "personal",
+          "reward": {
+            "coins": 600,
+            "dust": 0,
+            "signal": 6,
+            "xp": 0,
+            "points": 150,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-revive",
+          "name": "Reanima a 8 compañeros",
+          "stat": "revives",
+          "target": 8,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 400,
+            "signal": 5,
+            "xp": 0,
+            "points": 100,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-boss",
+          "name": "Purga 10 Núcleos",
+          "stat": "bossKills",
+          "target": 10,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 500,
+            "signal": 7,
+            "xp": 0,
+            "points": 200,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-depth",
+          "name": "Llega a la capa 5",
+          "stat": "depth",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 1000,
+            "dust": 0,
+            "signal": 8,
+            "xp": 0,
+            "points": 200,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pt-kills",
+          "name": "Elimina 40.000 enemigos",
+          "stat": "kills",
+          "target": 40000,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 12,
+            "xp": 0,
+            "points": 300,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": "skin-lumen-coral"
+          }
+        },
+        {
+          "id": "pt-boss-30",
+          "name": "Purga 30 Núcleos",
+          "stat": "bossKills",
+          "target": 30,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 12,
+            "xp": 0,
+            "points": 300,
+            "eventSignals": 0,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": "skin-bastion-coral"
+          }
+        }
+      ]
+    },
+    {
+      "id": "primer-contacto",
+      "name": "Beta Abierta",
+      "description": "Arranca la Beta Abierta: juega, purga y explora para ganar señales del escáner de Primer contacto, con supernovas destacadas",
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-13T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "pc-runs",
+          "name": "Juega 5 incursiones",
+          "stat": "runs",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 300,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 3,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-boss",
+          "name": "Purga 5 Núcleos",
+          "stat": "bossKills",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 150,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-extract",
+          "name": "Extrae 5 veces",
+          "stat": "extractions",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 400,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-group",
+          "name": "Juega 3 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 3,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 1,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-depth",
+          "name": "Llega a la capa 4",
+          "stat": "depth",
+          "target": 4,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 300,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 5,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-pulls",
+          "name": "Haz 20 escaneos",
+          "stat": "pulls",
+          "target": 20,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-kills",
+          "name": "Elimina 100.000 enemigos",
+          "stat": "kills",
+          "target": 100000,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 2,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 6,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        }
+      ]
+    }
+  ]
+}

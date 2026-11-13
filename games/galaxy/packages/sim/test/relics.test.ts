@@ -52,8 +52,9 @@ describe('rasgos → habilidad', () => {
 
   test('rareza, tamaño y núcleo multiplican la magnitud; la densidad, la frecuencia', () => {
     expect(skill(relic({ galaxy_type: 'ring' })).magnitude).toBe(1);
-    expect(skill(relic({ galaxy_type: 'ring' }, 4)).magnitude).toBe(2);
-    expect(skill(relic({ galaxy_type: 'ring', size: 'large', core: 'quasar' }, 4)).magnitude).toBeCloseTo(2 * 1.15 * 1.15, 12);
+    // A legendary multiplies by 1.75 (it was 2 until the owner's nerf: «las legendarias están muy rotas»).
+    expect(skill(relic({ galaxy_type: 'ring' }, 4)).magnitude).toBe(1.75);
+    expect(skill(relic({ galaxy_type: 'ring', size: 'large', core: 'quasar' }, 4)).magnitude).toBeCloseTo(1.75 * 1.15 * 1.15, 12);
     expect(skill(relic({ galaxy_type: 'ring', size: 'compact', core: 'faint' })).magnitude).toBeCloseTo(0.85 * 0.85, 12);
     expect(skill(relic({ galaxy_type: 'ring', star_density: 'saturated' })).frequency).toBe(1.3);
   });
@@ -196,15 +197,19 @@ describe('familias en partida', () => {
 describe('fenómenos en partida', () => {
   const quiet = (phenomenon: string) => relic({ galaxy_type: 'elliptical', phenomenon });
 
-  test('supernova: una nova de 40 en 120 cada 8 s', () => {
+  // The owner's nerf («la supernova está muy rota»): 26 of damage in 90 every 10 s (it was 40 in 120 every 8 s).
+  test('supernova: una nova de 26 en 90 cada 10 s', () => {
     const sim = equipped(quiet('supernova'));
-    const e = target(sim, 100, 0);
+    const e = target(sim, 80, 0);
+    const far = target(sim, -100, 0);
     step(sim, [IDLE]);
-    expect(lost(sim, e)).toBe(40);
-    run(sim, 8 * 60 - 1);
-    expect(lost(sim, e)).toBe(40);
+    expect(lost(sim, e)).toBe(26);
+    // Out of its reach now (it reached 120).
+    expect(lost(sim, far)).toBe(0);
+    run(sim, 10 * 60 - 1);
+    expect(lost(sim, e)).toBe(26);
     run(sim, 1);
-    expect(lost(sim, e)).toBe(80);
+    expect(lost(sim, e)).toBe(52);
   });
 
   test('galaxia satélite: un dron que dispara', () => {

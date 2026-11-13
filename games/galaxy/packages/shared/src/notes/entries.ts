@@ -18,6 +18,29 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-14-apunta-con-el-raton',
+    version: '1.14',
+    date: '2026-11-13',
+    title: 'Apunta con el ratón',
+    summary: 'El apuntado con el ratón viene activado para todos y el tutorial estrena la presentación pro del escáner',
+    items: [
+      { kind: 'mejora', text: 'Apuntar con el ratón viene activado. Si prefieres que tu sonda apunte sola, apágalo en Ajustes, en Incursión' },
+      { kind: 'mejora', text: 'En el tutorial, tu primer escaneo se ve con la presentación pro' },
+      { kind: 'arreglo', text: 'En el tutorial, al acabar el revelado solo queda Cerrar: ya no se pierde el paso al salir por otro botón' },
+    ],
+  },
+  {
+    id: 'v1-13-legendarias-mas-justas',
+    version: '1.13',
+    date: '2026-11-13',
+    title: 'Legendarias más justas',
+    summary: 'Las reliquias legendarias y la supernova bajan de fuerza para que ninguna galaxia decida sola una incursión',
+    items: [
+      { kind: 'equilibrio', text: 'La supernova hace menos daño, llega menos lejos y tarda más en volver a estallar' },
+      { kind: 'equilibrio', text: 'Las galaxias legendarias equipadas como reliquia multiplican algo menos sus poderes' },
+    ],
+  },
+  {
     id: 'v1-12-un-espacio-vivo',
     version: '1.12',
     date: '2026-11-13',

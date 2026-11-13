@@ -226,7 +226,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 
 Las galaxias raras dan una **ventaja notable**: ataques más potentes, animaciones excepcionales y más aguante en la partida. Tener una muy rara se tiene que notar.
 
-- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×2,0.
+- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×1,75 (era ×2,0; bajada en la beta abierta, 2026-11-13).
 - Las Legendarias garantizan un fenómeno.
 - Las Comunes sirven para rellenar ranuras al principio, fusionar y desintegrar.
 
