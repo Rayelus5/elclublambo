@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
+import { DISINTEGRATE_MAX, disintegrateManySchema, DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
 
 // GDD §9, §8.5 and §16.3: every starting number of the gacha and the galaxies is live configuration.
 describe('configuración del gachapón', () => {
@@ -76,5 +76,17 @@ describe('peticiones', () => {
     expect(fuseRequestSchema.parse({ ids: [1, 2, 3, 4, 5].map(id) }).ids).toHaveLength(5);
     expect(() => fuseRequestSchema.parse({ ids: [1, 1, 3, 4, 5].map(id) })).toThrow();
     expect(() => fuseRequestSchema.parse({ ids: ['x'] })).toThrow();
+  });
+
+  test('desintegrar varias: de 1 a 50 galaxias distintas, con aviso previo opcional', () => {
+    const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    expect(DISINTEGRATE_MAX).toBe(50);
+    expect(disintegrateManySchema.parse({ ids: [id(1)] }).ids).toHaveLength(1);
+    expect(disintegrateManySchema.parse({ ids: [id(1), id(2)], preview: true }).preview).toBe(true);
+    expect(disintegrateManySchema.parse({ ids: Array.from({ length: 50 }, (_, i) => id(i)) }).ids).toHaveLength(50);
+    expect(() => disintegrateManySchema.parse({ ids: [] })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: Array.from({ length: 51 }, (_, i) => id(i)) })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: [id(1), id(1)] })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: [id(1)], extra: 1 })).toThrow();
   });
 });
