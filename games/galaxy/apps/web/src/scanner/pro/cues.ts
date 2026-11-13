@@ -1,4 +1,4 @@
-import { TIERS, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type Tier } from '@galaxy/shared';
 import type { BankSound } from '../../audio/bank';
 import { type CueId, SURGE_LEAD } from './script';
 
@@ -15,16 +15,21 @@ export interface CueOpts {
   dur?: number;
 }
 
-/** Spanish names for the files of tiered sounds (`revelar-rara`). */
-export const TIER_FILE: Record<Tier, string> = { common: 'comun', uncommon: 'poco-comun', rare: 'rara', epic: 'epica', legendary: 'legendaria' };
+/**
+ * Spanish names for the files of tiered sounds (`revelar-rara`). The mythic (plan «rareza Mítica» M1) has no file of
+ * its own yet: it plays the legendary's when there is one, and its own richer recipe otherwise.
+ */
+export const TIER_FILE: Record<Tier, string> = { common: 'comun', uncommon: 'poco-comun', rare: 'rara', epic: 'epica', legendary: 'legendaria', mythic: 'legendaria' };
 
-// Chord notes (Hz) per tier, brighter the rarer: a fifth, a triad, a seventh, a ninth, a shining arpeggio.
+// Chord notes (Hz) per tier, brighter the rarer: a fifth, a triad, a seventh, a ninth, a shining arpeggio, and the
+// mythic's: the legendary's arpeggio climbing an octave higher.
 const CHORDS: Record<Tier, number[]> = {
   common: [261.63, 392],
   uncommon: [293.66, 369.99, 440],
   rare: [329.63, 415.3, 493.88, 622.25],
   epic: [349.23, 440, 523.25, 659.25, 783.99],
   legendary: [392, 493.88, 587.33, 739.99, 880, 1174.66],
+  mythic: [392, 493.88, 587.33, 739.99, 880, 1174.66, 1479.98, 1760],
 };
 
 const noiseCache = new WeakMap<BaseAudioContext, AudioBuffer>();
@@ -87,7 +92,7 @@ function chord(ctx: BaseAudioContext, out: AudioNode, at: number, tier: Tier, le
   const notes = CHORDS[tier];
   const k = TIERS.indexOf(tier);
   notes.forEach((hz, i) => {
-    const t = at + (tier === 'legendary' ? i * 0.07 : 0);
+    const t = at + (atLeast(tier, 'legendary') ? i * 0.07 : 0);
     const peak = (level * 0.18) / Math.sqrt(notes.length);
     osc(ctx, out, t, k >= 3 ? 'triangle' : 'sine', hz, hz, 1.2 + k * 0.3, peak, 0.025);
     // A soft octave above from rare up: the reveal shines.
@@ -169,7 +174,7 @@ export const PRO_SOUNDS: Record<ProSound, BankSound<CueOpts>> = {
       [2093, 2637, 3136].slice(0, Math.max(0, k - 1)).forEach((hz, i) => osc(ctx, out, at + 0.06 + i * 0.05, 'sine', hz, hz, 0.4, 0.03));
     },
   },
-  // The big impact (epic, legendary): a sub boom that shakes, a long tail and a metallic ring.
+  // The big impact (epic and better): a sub boom that shakes, a long tail and a metallic ring.
   'impacto-grande': {
     file: 'impacto-grande',
     synth(ctx, out, at, o) {
@@ -210,7 +215,7 @@ export const PRO_SOUNDS: Record<ProSound, BankSound<CueOpts>> = {
       hiss(ctx, out, at, 'bandpass', 2600, 2200, 0.05, 0.22, 0.002);
     },
   },
-  // The legendary's fanfare: a rising arpeggio, a bell and a held chord.
+  // The fanfare of a legendary or a mythic: a rising arpeggio, a bell and a held chord.
   fanfarria: {
     file: 'fanfarria',
     synth(ctx, out, at) {

@@ -1,4 +1,4 @@
-import type { PulledGalaxy } from '@galaxy/shared';
+import { atLeast, type PulledGalaxy } from '@galaxy/shared';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
@@ -17,7 +17,7 @@ import { sfx } from './sfx';
 // cinematic (plan «escáner pro», part B) — kept for fusions, the tutorial, «Presentación pro» off and computers without
 // WebGL2. It plays revealSequence(): a CRT terminal sweeps
 // static, the signal bars climb, the scan line in the rarity's colour resolves the real engine image dot by dot,
-// a phenomenon is announced, a Legendary makes the screen fail, and the card lands. A tap (or Space) goes to the
+// a phenomenon is announced, a Legendary (or a Mítica) makes the screen fail, and the card lands. A tap (or Space) goes to the
 // pull's card or the next pull; Saltar goes to the summary. Each revealed galaxy is announced politely.
 const IMAGE_PX = 420;
 const names = copy.traitValues.phenomenon as Record<string, string>;
@@ -138,7 +138,7 @@ export function ClassicStage({
     if (step.kind === 'card' && step.tier && pull) {
       sfx.impact(step.tier);
       sfx.chord(step.tier);
-      if (step.tier === 'legendary') sfx.fanfare();
+      if (atLeast(step.tier, 'legendary')) sfx.fanfare();
       if (pull.featured) sfx.sting();
       // A state change in reply to a step (the timer's), never in render.
       queueMicrotask(() => setFx({ id: `${pull.id}:${at}`, tier: step.tier!, seed: pull.seed }));
@@ -211,8 +211,9 @@ export function ClassicStage({
             {step.kind === 'signal' ? (
               <span className="signal-step" aria-hidden="true">
                 <span className="signal-bars" aria-hidden="true">
-                  {[0, 1, 2, 3, 4].map((b) => (
-                    <i key={b} data-on={b < (step.bars ?? 0) || undefined} style={{ '--b': b } as CSSProperties} />
+                  {/* Five bars; a Mítica lights a sixth, iridescent, past them. */}
+                  {Array.from({ length: Math.max(5, step.bars ?? 0) }, (_, b) => (
+                    <i key={b} data-on={b < (step.bars ?? 0) || undefined} data-extra={b >= 5 || undefined} style={{ '--b': b } as CSSProperties} />
                   ))}
                 </span>
                 <span className="signal-label">{copy.scanner.signal}</span>

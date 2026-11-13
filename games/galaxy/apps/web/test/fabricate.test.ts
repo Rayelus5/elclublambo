@@ -26,10 +26,22 @@ test('los preajustes de diez tienen diez rarezas', () => {
   expect(REHEARSAL_PRESETS.variada).toContain('legendary');
 });
 
+test('«Una mítica» acaba en una mítica, que siempre sale con acabado especial', async () => {
+  expect(REHEARSAL_PRESETS.unaMitica).toHaveLength(10);
+  expect(REHEARSAL_PRESETS.unaMitica.at(-1)).toBe('mythic');
+  const [g] = await fabricatePulls({ tiers: ['mythic'], finish: 'normal' }, 777n);
+  expect(g!.tier).toBe('mythic');
+  expect(g!.finish).not.toBe('normal');
+  const [holo] = await fabricatePulls({ tiers: ['mythic'], finish: 'holo' }, 777n);
+  expect(holo!.finish).toBe('holo');
+});
+
 test('una fusión del Ensayo: entran de 2 a 10 galaxias de la rareza de debajo del resultado', () => {
   expect(fusionInputs('legendary', 5)).toEqual(['epic', 'epic', 'epic', 'epic', 'epic']);
   expect(fusionInputs('uncommon', 3)).toEqual(['common', 'common', 'common']);
   // A common result comes from commons; the count stays between 2 and 10.
   expect(fusionInputs('common', 1)).toEqual(['common', 'common']);
   expect(fusionInputs('rare', 40)).toHaveLength(10);
+  // A fusion never makes a mythic: asked for one, it rehearses the top a fusion makes (legendary, from epics).
+  expect(fusionInputs('mythic', 5)).toEqual(['epic', 'epic', 'epic', 'epic', 'epic']);
 });

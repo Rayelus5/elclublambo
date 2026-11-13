@@ -62,7 +62,7 @@ export interface ProCinemaProps {
   rate?: number;
 }
 
-const TINTS: TrailTint[] = ['ice', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
+const TINTS: TrailTint[] = ['ice', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 const IMAGE_PX = 640;
 /** A fusion's galaxies going in are drawn some 150 px wide. */
 const INPUT_FACE_PX = 240;
@@ -75,11 +75,11 @@ function tokenColors(): Record<TrailTint, string> {
     const v = style.getPropertyValue(name).trim();
     return /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
   };
-  const fallback: Record<TrailTint, string> = { ice: '#bfe3ff', common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' };
+  const fallback: Record<TrailTint, string> = { ice: '#bfe3ff', common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a', mythic: '#ff4fd8' };
   return Object.fromEntries(TINTS.map((k) => [k, read(k === 'ice' ? '--color-ice' : `--color-tier-${k}`, fallback[k])])) as Record<TrailTint, string>;
 }
 
-const PIPS: Record<Tier, number> = { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5 };
+const PIPS: Record<Tier, number> = { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5, mythic: 6 };
 
 export default function ProCinema(props: ProCinemaProps) {
   const host = useRef<HTMLDivElement>(null);

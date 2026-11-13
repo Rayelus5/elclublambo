@@ -1,4 +1,4 @@
-import { FINISHES, TIERS, type Finish, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { FINISHES, FUSION_TOP, TIERS, type Finish, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useEffect, useId, useState } from 'react';
 import { copy } from '../copy/es';
 import { fabricatePulls, fusionInputs, randomSeed, REHEARSAL_PRESETS, type RehearsalPreset } from '../scanner/pro/fabricate';
@@ -15,7 +15,7 @@ import { Switch } from '../ui/Switch';
 // choosing one or ten, the tiers, the finish, «Destacada», the phenomenon, the surge, the motion and the speed, and
 // changing how long each phase lasts. Over the stage, the phase and its time, «Ir a la fase», pause and replay.
 // «Copiar guion» hands the numbers over as JSON. The durations stay in this browser. A fusion (plan «fusión pro»)
-// plays one new galaxy from 2 to 10 going in, of the tier below it.
+// plays one new galaxy from 2 to 10 going in, of the tier below it (never a mythic: a fusion does not make one).
 
 const t = copy.admin.rehearsal;
 const KEY = 'galaxy.rehearsal.durations';
@@ -24,6 +24,8 @@ const TEN: PhaseKind[] = ['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'r
 const FUSION: PhaseKind[] = ['ignicion', 'orbita', 'ascenso', 'colapso', 'impacto', 'carta', 'fenomeno', 'resumen'];
 const INPUT_COUNTS = ['2', '3', '4', '5', '6', '7', '8', '9', '10'] as const;
 const PHENOMENA = Object.keys(copy.traitValues.phenomenon as Record<string, string>);
+/** What a fusion can make: up to the legendary. */
+const FUSED = TIERS.slice(0, FUSION_TOP + 1);
 
 type Durations = Partial<Record<PhaseKind, number>>;
 
@@ -125,12 +127,14 @@ export function RevealRehearsal() {
   const [copied, setCopied] = useState(false);
   const fusion = origin === 'fusion';
   const families = fusion ? FUSION : count === 'one' ? SINGLE : TEN;
+  // A fusion never makes a mythic: with one picked, a fusion rehearses the legendary.
+  const asked: Tier = fusion && !FUSED.includes(tier) ? FUSED[FUSED.length - 1]! : tier;
 
   async function play() {
     setBusy(true);
     try {
-      const tiers = fusion || count === 'one' ? [tier] : [...REHEARSAL_PRESETS[preset]];
-      const inputs = fusion ? await fabricatePulls({ tiers: fusionInputs(tier, Number(going)) }, randomSeed()) : [];
+      const tiers = fusion || count === 'one' ? [asked] : [...REHEARSAL_PRESETS[preset]];
+      const inputs = fusion ? await fabricatePulls({ tiers: fusionInputs(asked, Number(going)) }, randomSeed()) : [];
       const made = await fabricatePulls({
         tiers,
         finish,
@@ -160,7 +164,7 @@ export function RevealRehearsal() {
   const playing: Durations = Object.fromEntries(Object.entries(durations).filter(([k]) => (shot.intro === 'fusion' ? FUSION : (pulls?.length ?? 0) > 1 ? TEN : SINGLE).includes(k as PhaseKind)));
   const script = JSON.stringify(
     fusion
-      ? { origen: 'fusion', entran: Number(going), rareza: tier, duraciones: used }
+      ? { origen: 'fusion', entran: Number(going), rareza: asked, duraciones: used }
       : { tiradas: count === 'one' ? 1 : 10, rarezas: count === 'one' ? [tier] : REHEARSAL_PRESETS[preset], duraciones: used },
     null,
     2,
@@ -190,7 +194,7 @@ export function RevealRehearsal() {
           {fusion || count === 'one' ? (
             <div className="rehearsal-field">
               <span id={`${ids}-tier`}>{t.tier}</span>
-              <Select<Tier> aria-labelledby={`${ids}-tier`} value={tier} options={TIERS.map((x) => ({ value: x, label: copy.tiers[x] }))} onChange={setTier} />
+              <Select<Tier> aria-labelledby={`${ids}-tier`} value={asked} options={(fusion ? FUSED : TIERS).map((x) => ({ value: x, label: copy.tiers[x] }))} onChange={setTier} />
             </div>
           ) : (
             <div className="rehearsal-field">

@@ -1,4 +1,4 @@
-import { TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
 
 /** The surge's swell runs this long before its burst (cues.ts plays it from the cue's time). */
 export const SURGE_LEAD = 0.34;
@@ -102,45 +102,48 @@ export interface Script {
   cues: Cue[];
   flashes: Flash[];
   shakes: Shake[];
-  /** The music's layer from each moment (0 base … 3 legendary): it only climbs. */
+  /** The music's layer from each moment (0 base … 3 legendary or mythic): it only climbs. */
   score: { at: number; level: 0 | 1 | 2 | 3 }[];
   /** When each card shows its face (slot → time): the timeline waits for its image there. */
   faces: Face[];
   duration: number;
 }
 
-type ByTier = readonly [number, number, number, number, number];
+type ByTier = readonly [number, number, number, number, number, number];
 
-/** Every duration (seconds), by phase and by tier (common, uncommon, rare, epic, legendary). */
+/**
+ * Every duration (seconds), by phase and by tier (common, uncommon, rare, epic, legendary, mythic). The mythic (plan
+ * «rareza Mítica» M1) builds up a little longer than the legendary everywhere; its own, more epic cinematic is M2.
+ */
 export const GUION = {
   single: {
-    ignicion: [0.8, 0.8, 0.9, 1.0, 1.2] as ByTier,
-    salto: [1.4, 1.5, 1.8, 2.2, 2.6] as ByTier,
-    ascenso: [0, 0, 0, 0.6, 0.9] as ByTier,
-    caida: [0.9, 0.9, 1.0, 1.1, 1.3] as ByTier,
-    impacto: [0.35, 0.4, 0.45, 0.5, 0.7] as ByTier,
+    ignicion: [0.8, 0.8, 0.9, 1.0, 1.2, 1.3] as ByTier,
+    salto: [1.4, 1.5, 1.8, 2.2, 2.6, 2.9] as ByTier,
+    ascenso: [0, 0, 0, 0.6, 0.9, 1.0] as ByTier,
+    caida: [0.9, 0.9, 1.0, 1.1, 1.3, 1.4] as ByTier,
+    impacto: [0.35, 0.4, 0.45, 0.5, 0.7, 0.8] as ByTier,
     /** The hit-stop: the world holds its breath at the impact. */
-    paron: [0.04, 0.05, 0.06, 0.08, 0.2] as ByTier,
-    carta: [0.9, 0.9, 1.0, 1.3, 1.8] as ByTier,
+    paron: [0.04, 0.05, 0.06, 0.08, 0.2, 0.26] as ByTier,
+    carta: [0.9, 0.9, 1.0, 1.3, 1.8, 2.1] as ByTier,
     fenomeno: 1.2,
     resumen: 0.6,
   },
   ten: {
-    ignicion: [0.7, 0.7, 0.8, 0.85, 0.9] as ByTier,
-    salto: [1.2, 1.3, 1.6, 1.9, 2.2] as ByTier,
-    ascenso: [0, 0, 0, 0.5, 0.8] as ByTier,
+    ignicion: [0.7, 0.7, 0.8, 0.85, 0.9, 0.95] as ByTier,
+    salto: [1.2, 1.3, 1.6, 1.9, 2.2, 2.4] as ByTier,
+    ascenso: [0, 0, 0, 0.5, 0.8, 0.9] as ByTier,
     caida: 1.4,
     /** Between one shooting star and the next. */
     caidaStagger: 0.06,
     impacto: 0.45,
     reparto: 0.9,
     /** From one card of the chain starting to turn to the next (they overlap: a cascade), by tier. */
-    gap: [0.18, 0.24, 0.32, 0.32, 0.32] as ByTier,
+    gap: [0.18, 0.24, 0.32, 0.32, 0.32, 0.32] as ByTier,
     /** How long a card of the chain takes to turn. */
     giro: 0.35,
     /** The card's edge lights with its tier this long before it turns. */
     aviso: 0.12,
-    solo: { volar: 0.45, giro: 0.8, quieto: [0, 0, 0, 1.4, 2.4] as ByTier, volver: 0.4 },
+    solo: { volar: 0.45, giro: 0.8, quieto: [0, 0, 0, 1.4, 2.4, 2.8] as ByTier, volver: 0.4 },
     final: 1.2,
     resumen: 0.6,
   },
@@ -151,18 +154,19 @@ export const GUION = {
   fusion: {
     ignicion: 0.9,
     stagger: 0.05,
-    orbita: [1.6, 1.7, 2.0, 2.3, 2.6] as ByTier,
-    ascenso: [0, 0, 0, 0.6, 0.9] as ByTier,
-    colapso: [0.8, 0.8, 0.9, 1.0, 1.1] as ByTier,
+    orbita: [1.6, 1.7, 2.0, 2.3, 2.6, 2.6] as ByTier,
+    ascenso: [0, 0, 0, 0.6, 0.9, 0.9] as ByTier,
+    colapso: [0.8, 0.8, 0.9, 1.0, 1.1, 1.1] as ByTier,
   },
   /** Reduced motion: no jump, no impact, cards that fade round (a fusion's galaxies fade into the core). */
   calm: { ignicion: 0.5, colapso: 0.6, carta: 0.5, fenomeno: 0.9, reparto: 0.6, giro: 0.3, gap: 0.1, final: 0.6, resumen: 0.4 },
   /** How often the trail lies (and then breaks into the real colour), by the tier it ends on. */
-  surge: { epic: 0.25, legendary: 0.35 },
+  surge: { epic: 0.25, legendary: 0.35, mythic: 0.5 },
   /** The trail takes the shown colour at this share of the jump. */
   trailShift: 0.6,
-  flash: { impact: [0.15, 0.2, 0.3, 0.45, 0.6] as ByTier, surge: 0.5, legendaryFace: 0.5 },
-  shake: { impact: [0.2, 0.3, 0.45, 0.7, 1] as ByTier },
+  /** Never above 0.6 (photosensitivity); `legendaryFace` lights a legendary's or a mythic's face in its colour. */
+  flash: { impact: [0.15, 0.2, 0.3, 0.45, 0.6, 0.6] as ByTier, surge: 0.5, legendaryFace: 0.5 },
+  shake: { impact: [0.2, 0.3, 0.45, 0.7, 1, 1.15] as ByTier },
 } as const;
 
 const tierAt = (t: Tier) => TIERS.indexOf(t);
@@ -200,8 +204,8 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   const order = pulls.map((_, i) => i).sort((a, b) => tierAt(pulls[a]!.tier) - tierAt(pulls[b]!.tier) || a - b);
   const maxTier = pulls[order[order.length - 1]!]!.tier;
   const m = tierAt(maxTier);
-  const canSurge = !reduced && (maxTier === 'epic' || maxTier === 'legendary');
-  const surge = canSurge && (opts.surge ?? surgeRoll(pulls) < GUION.surge[maxTier as 'epic' | 'legendary']);
+  const canSurge = !reduced && atLeast(maxTier, 'epic');
+  const surge = canSurge && (opts.surge ?? surgeRoll(pulls) < GUION.surge[maxTier as 'epic' | 'legendary' | 'mythic']);
   const anticipates = m >= tierAt('rare');
   const trail: Script['trail'] = { shown: anticipates ? (surge ? TIERS[m - 1]! : maxTier) : 'ice', max: anticipates ? maxTier : 'ice' };
 
@@ -222,10 +226,11 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
   const reveal = (g: PulledGalaxy, at: number, big: boolean) => {
     cues.push({ at, id: 'revelar', tier: g.tier, essential: true });
     if (big || !ten) cues.push({ at: at + 0.1, id: 'sello', tier: g.tier });
-    if (g.tier === 'legendary' && (big || !ten)) cues.push({ at: at + 0.1, id: 'fanfarria', essential: true });
+    const top = atLeast(g.tier, 'legendary');
+    if (top && (big || !ten)) cues.push({ at: at + 0.1, id: 'fanfarria', essential: true });
     if (g.featured) cues.push({ at: at + 0.25, id: 'destacada', essential: true });
     if (g.finish !== 'normal') cues.push({ at: at + 0.15, id: 'acabado', tier: g.tier });
-    if (g.tier === 'legendary' && big && !reduced) flashes.push({ at, alpha: GUION.flash.legendaryFace, color: 'legendary' });
+    if (top && big && !reduced) flashes.push({ at, alpha: GUION.flash.legendaryFace, color: g.tier });
   };
 
   if (reduced) {
@@ -290,7 +295,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
       cues.push({ at: card.at + card.dur * 0.3, id: 'giro' });
       faces.push({ slot: 0, index: 0, at: face, featured: g.featured, phenomenon: hasPhenomenon(g) });
       reveal(g, face, true);
-      if (g.tier === 'legendary') shakes.push({ at: face + 0.1, amp: 0.5, dur: 0.35 });
+      if (atLeast(g.tier, 'legendary')) shakes.push({ at: face + 0.1, amp: g.tier === 'mythic' ? 0.6 : 0.5, dur: 0.35 });
       if (hasPhenomenon(g)) {
         const f = add('fenomeno', 'fenomeno', dur('fenomeno', S.fenomeno), { slot: 0, index: 0, tier: g.tier });
         cues.push({ at: f.at, id: 'fenomeno' });
@@ -310,7 +315,7 @@ export function buildScript(pulls: readonly PulledGalaxy[], opts: ScriptOptions)
           cues.push({ at: p.at + T.solo.volar, id: 'giro' });
           faces.push({ slot, index, at: face, featured: g.featured, phenomenon: hasPhenomenon(g) });
           reveal(g, face, true);
-          if (g.tier === 'legendary') shakes.push({ at: face + 0.1, amp: 0.5, dur: 0.35 });
+          if (atLeast(g.tier, 'legendary')) shakes.push({ at: face + 0.1, amp: g.tier === 'mythic' ? 0.6 : 0.5, dur: 0.35 });
           if (hasPhenomenon(g)) cues.push({ at: face + 0.4, id: 'fenomeno' });
         } else {
           // A cascade: each card starts turning `gap` after the last (its edge lit first), before it has finished.

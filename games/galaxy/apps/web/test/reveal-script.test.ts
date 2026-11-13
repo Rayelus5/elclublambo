@@ -60,6 +60,43 @@ test('una legendaria con fenómeno, destacada y holo: ascenso, fenómeno, fanfar
   expect(phase(s, 'espera-carta').at).toBeLessThan(11.5);
 });
 
+// The «Mítica» (plan «rareza Mítica» M1): everything a legendary has (big impact, fanfare, a coloured flash on its
+// face, the shake, the surge, the top music layer), in its own colour, and never shorter.
+test('una mítica: impacto grande, fanfarria, destello iridiscente en su cara, temblor y la música a tope', () => {
+  const s = buildScript([pull('mythic', { finish: 'prismatic', traits: { phenomenon: 'supernova' } })], { motion: 'full', surge: true });
+  expect(labels(s)).toEqual(['ignicion', 'salto', 'ascenso', 'caida', 'impacto', 'carta', 'fenomeno', 'espera-carta', 'resumen']);
+  // The trail lies as a legendary, then breaks into the mythic.
+  expect(s.trail).toEqual({ shown: 'legendary', max: 'mythic' });
+  expect(ids(s)).toEqual(expect.arrayContaining(['ascenso', 'impacto-grande', 'fanfarria', 'acabado', 'fenomeno']));
+  const reveal = s.cues.find((c) => c.id === 'revelar')!;
+  expect(s.flashes.some((f) => f.color === 'mythic' && Math.abs(f.at - reveal.at) < 1e-9)).toBe(true);
+  expect(s.shakes.some((k) => k.at > reveal.at)).toBe(true);
+  expect(s.score.at(-1)).toEqual({ at: reveal.at, level: 3 });
+  const legendary = buildScript([pull('legendary', { traits: { phenomenon: 'supernova' } })], { motion: 'full', surge: true });
+  expect(phase(s, 'espera-carta').at).toBeGreaterThanOrEqual(phase(legendary, 'espera-carta').at);
+  // The surge can happen on a mythic, at least as often as on a legendary.
+  expect(GUION.surge.mythic).toBeGreaterThanOrEqual(GUION.surge.legendary);
+});
+
+test('cada duración por rareza tiene la de la mítica, nunca menor que la de la legendaria', () => {
+  const rows = [GUION.single.ignicion, GUION.single.salto, GUION.single.ascenso, GUION.single.caida, GUION.single.impacto, GUION.single.paron, GUION.single.carta, GUION.ten.ignicion, GUION.ten.salto, GUION.ten.ascenso, GUION.ten.gap, GUION.ten.solo.quieto, GUION.fusion.orbita, GUION.fusion.ascenso, GUION.fusion.colapso, GUION.flash.impact, GUION.shake.impact];
+  for (const row of rows) {
+    expect(row).toHaveLength(TIERS.length);
+    expect(row[5]!).toBeGreaterThanOrEqual(row[4]!);
+  }
+});
+
+test('diez con una mítica: la última en primer plano, con su fanfarria', () => {
+  const pulls = [pull('mythic'), pull('common'), pull('legendary'), pull('rare'), pull('common'), pull('uncommon'), pull('common'), pull('rare'), pull('common'), pull('uncommon')];
+  const s = buildScript(pulls, { motion: 'full', surge: false });
+  expect(s.order.map((i) => pulls[i]!.tier).slice(-2)).toEqual(['legendary', 'mythic']);
+  expect(phase(s, 'solo-9').tier).toBe('mythic');
+  const face = s.faces.find((f) => f.slot === 9)!;
+  expect(s.cues.filter((c) => c.id === 'fanfarria').map((c) => c.at)).toContain(face.at + 0.1);
+  expect(s.flashes.some((f) => f.color === 'mythic')).toBe(true);
+  expect(maxFlashesPerSecond(s.flashes)).toBeLessThanOrEqual(2);
+});
+
 test('sin ascenso, la estela muestra desde el principio la rareza máxima; común y poco común no la anticipan', () => {
   expect(buildScript([pull('epic')], { motion: 'full', surge: false }).trail).toEqual({ shown: 'epic', max: 'epic' });
   expect(buildScript([pull('rare')], { motion: 'full' }).trail).toEqual({ shown: 'rare', max: 'rare' });

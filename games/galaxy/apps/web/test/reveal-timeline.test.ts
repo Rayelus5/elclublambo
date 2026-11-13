@@ -84,6 +84,17 @@ test('el ascenso cambia la estela al color real y destella una vez', () => {
   expect(rig.flash).toBeCloseTo(0, 2);
 });
 
+test('una mítica trae los rayos de luz detrás de su carta, como una legendaria', () => {
+  const { rig, tl, script } = setup([pull('mythic')]);
+  const face = script.faces[0]!;
+  tl.time(face.at + 0.5);
+  expect(rig.rays).toBeGreaterThan(0.5);
+  const ten = setup([pull('common'), pull('mythic'), pull('common'), pull('rare'), pull('common'), pull('common'), pull('uncommon'), pull('common'), pull('epic'), pull('common')]);
+  const solo = ten.script.faces.find((f) => f.slot === 9)!;
+  ten.tl.time(solo.at + 0.5);
+  expect(ten.rig.rays).toBeGreaterThan(0.5);
+});
+
 test('diez: reparto en la rejilla boca abajo, cascada de giros, primeros planos que vuelven a su sitio', () => {
   const pulls = [pull('common'), pull('legendary'), pull('common'), pull('rare'), pull('common'), pull('common'), pull('uncommon'), pull('common'), pull('epic'), pull('common')];
   const { rig, tl, at, script } = setup(pulls);

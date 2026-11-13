@@ -11,6 +11,8 @@ type QuirkOf<K extends Quirk['kind']> = Extract<Quirk, { kind: K }>;
 export const quirkText = (q: Quirk): string => (copy.probeTest.quirks[q.kind] as (x: Quirk) => string)(q);
 
 const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+/** Two decimals for the rates under 1 % that one would round away (a mythic's 0,05 %). */
+const percentFine = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 2 });
 
 /** Every text of the web (DESIGN_SYSTEM §9): short, direct, no trailing period in titles. */
 /** «Te falta 1 componente» / «Te faltan 30 de polvo y 15 componentes»: the verb agrees with what is missing. */
@@ -639,7 +641,7 @@ export const copy = {
       inputs: 'Galaxias que entran',
       tier: 'Rareza',
       preset: 'Rarezas de las diez',
-      presets: { variada: 'Variada (épica y legendaria)', comunes: 'Casi todo común', unaEpica: 'Una épica', unaLegendaria: 'Una legendaria', dosLegendarias: 'Dos legendarias' },
+      presets: { variada: 'Variada (épica y legendaria)', comunes: 'Casi todo común', unaEpica: 'Una épica', unaLegendaria: 'Una legendaria', dosLegendarias: 'Dos legendarias', unaMitica: 'Una mítica' },
       finish: 'Acabado',
       featured: 'Destacada',
       phenomenon: 'Fenómeno',
@@ -735,6 +737,7 @@ export const copy = {
       reserveNameHint: 'Nadie podrá registrarse con él',
     },
     amountHint: 'En negativo para quitar',
+    finishHint: 'Una mítica lleva siempre un acabado especial',
     anyType: 'Cualquiera',
     progress: {
       gachaTitle: 'Suerte del gachapón',
@@ -1082,6 +1085,8 @@ export const copy = {
     pickEmpty: 'No tienes galaxias',
     pickOne: (name: string) => `Vender ${name}`,
     unavailable: 'No disponible',
+    mythicLocked: 'Las míticas no se venden',
+    mythicNotListable: 'Las galaxias míticas no se venden en el mercado. Puedes cambiarlas en un trueque',
     sellHint: 'Las equipadas, expuestas o ya en venta no se pueden vender',
     priceLabel: 'Precio en monedas',
     minHint: (n: number) => `Mínimo ${fmt(n)} monedas para su rareza`,
@@ -2136,7 +2141,7 @@ export const copy = {
     ready: 'Listo para escanear',
     welcome: 'Suerte de bienvenida',
     odds: 'Probabilidades del próximo escaneo',
-    rate: (p: number) => percent.format(p),
+    rate: (p: number) => (p > 0 && p < 0.01 ? percentFine : percent).format(p),
     untilGuarantee: (n: number) => (n <= 1 ? 'La próxima es Legendaria segura' : `Legendaria segura en ${fmt(n)} escaneos`),
     sinceLegendary: (n: number) => (n === 1 ? '1 escaneo sin Legendaria' : `${fmt(n)} escaneos sin Legendaria`),
     featured: (trait: string, value: string) => `Destacada: ${trait} ${value}`,
@@ -2179,7 +2184,7 @@ export const copy = {
     tapToContinue: 'Pulsa para seguir',
     spaceKey: 'Espacio',
     lostLink: 'Se perdió el enlace',
-    pips: (n: number) => `Rareza ${n} de 5`,
+    pips: (n: number) => `Rareza ${n} de 6`,
   },
   inspector: {
     open: 'Inspeccionar en 3D',

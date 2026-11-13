@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { burstFor, type Burst, type Particle, stepParticles } from './fx';
 
 // The reveal's burst on screen (open beta): one canvas over the whole page (outside the dialog, which clips), with
-// the sparks, confetti and rings of `fx.ts`, a flash over everything for epic and legendary, and a short shake of the
-// dialog for legendary. Pixel-sharp (no smoothing). Nothing at all with reduced motion.
+// the sparks, confetti and rings of `fx.ts`, a flash over everything from epic up (iridescent for a mythic), and a
+// short shake of the dialog for a legendary or a mythic. Pixel-sharp (no smoothing). Nothing at all with reduced motion.
 
 export interface FxTrigger {
   /** Changes with every card: the same id never bursts twice. */

@@ -1,17 +1,19 @@
-import { TIERS, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type Tier } from '@galaxy/shared';
 import { getSettings, setSettings, sfxOut } from '../audio/mixer';
 import { noise, tone } from '../audio/synth';
 
 // The scanner's sounds (GDD §9), synthesised with WebAudio: no audio files, so the CSP stays as it is. The clack is a
 // Perkins braille machine's key (a filtered noise burst with a low thud); the chord brightens with the rarity and the
 // Legendary one is a rising arpeggio. Short sounds only, always after the player's own click; muting is remembered.
-// Chord notes (Hz) per tier: a fifth for common, a triad, a seventh, a ninth, and an arpeggio for legendary.
+// Chord notes (Hz) per tier: a fifth for common, a triad, a seventh, a ninth, an arpeggio for legendary, and the
+// mythic's: the legendary's arpeggio climbing an octave higher.
 const CHORDS: Record<Tier, number[]> = {
   common: [261.63, 392],
   uncommon: [293.66, 369.99, 440],
   rare: [329.63, 415.3, 493.88, 622.25],
   epic: [349.23, 440, 523.25, 659.25, 783.99],
   legendary: [392, 493.88, 587.33, 739.99, 880, 1174.66],
+  mythic: [392, 493.88, 587.33, 739.99, 880, 1174.66, 1479.98, 1760],
 };
 
 export interface Sfx {
@@ -97,7 +99,7 @@ export function createSfx(): Sfx {
       const t = bus.ctx.currentTime;
       tone(bus.ctx, bus.out, t, 140, 40, 0.35 + 0.1 * k, 0.08 + 0.04 * k, 'sine');
       noise(bus.ctx, bus.out, t, 0.25 + 0.1 * k, 0.15 + 0.12 * k, 1200 + 400 * k);
-      [2093, 2637, 3136, 4186].slice(0, Math.max(0, k)).forEach((hz, i) => tone(bus.ctx, bus.out, t + 0.05 + i * 0.05, hz, hz, 0.3, 0.02, 'sine'));
+      [2093, 2637, 3136, 4186, 5274].slice(0, Math.max(0, k)).forEach((hz, i) => tone(bus.ctx, bus.out, t + 0.05 + i * 0.05, hz, hz, 0.3, 0.02, 'sine'));
     },
     fanfare() {
       const bus = audio();
@@ -127,7 +129,7 @@ export function createSfx(): Sfx {
       if (!bus) return;
       const a = bus.ctx;
       const t0 = a.currentTime;
-      const arpeggio = tier === 'legendary';
+      const arpeggio = atLeast(tier, 'legendary');
       const notes = CHORDS[tier];
       const bright = TIERS.indexOf(tier);
       notes.forEach((hz, i) => {

@@ -1,9 +1,10 @@
-import { generateGalaxy, TIERS, type Finish, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { FUSION_TOP, generateGalaxy, TIERS, type Finish, type PulledGalaxy, type Tier } from '@galaxy/shared';
 
 // The Ensayo's scans (plan «escáner pro», part B): real galaxies of the tiers asked for, made in the browser with the
 // game's own generator — the same rule the server uses («rareza coherente»: candidate seeds until one's traits fall in
 // the tier) — so the cinematic can be directed without paying or saving anything. One galaxy at a time, letting the
-// page breathe between them (a legendary can take a moment to find).
+// page breathe between them (a legendary can take a moment to find, a mythic a little longer). A mythic always has a
+// special finish, as the server gives it: asked for a plain one, it comes prismatic.
 
 export interface FabricateOptions {
   tiers: readonly Tier[];
@@ -21,6 +22,7 @@ export const REHEARSAL_PRESETS = {
   unaEpica: ['common', 'uncommon', 'common', 'rare', 'common', 'common', 'uncommon', 'common', 'common', 'epic'],
   unaLegendaria: ['common', 'common', 'uncommon', 'common', 'common', 'rare', 'common', 'uncommon', 'common', 'legendary'],
   dosLegendarias: ['common', 'legendary', 'uncommon', 'common', 'rare', 'common', 'epic', 'common', 'uncommon', 'legendary'],
+  unaMitica: ['common', 'common', 'uncommon', 'common', 'rare', 'common', 'uncommon', 'epic', 'legendary', 'mythic'],
 } as const satisfies Record<string, readonly Tier[]>;
 
 export type RehearsalPreset = keyof typeof REHEARSAL_PRESETS;
@@ -43,11 +45,12 @@ export async function fabricatePulls(o: FabricateOptions, base: bigint = randomS
     const g = generateGalaxy(base + BigInt(i) * 7_919n, TIERS.indexOf(tier), undefined, MAX_CANDIDATES);
     const traits: Record<string, string> = { ...(g.traits as unknown as Record<string, string>) };
     if (o.phenomenon !== undefined && o.phenomenon !== null) traits['phenomenon'] = o.phenomenon;
+    const finish = o.finish ?? 'normal';
     out.push({
       id: `ensayo-${base}-${i}`,
       seed: g.seed.toString(),
       tier,
-      finish: o.finish ?? 'normal',
+      finish: tier === 'mythic' && finish === 'normal' ? 'prismatic' : finish,
       traits,
       name: g.name,
       designation: g.designation,
@@ -57,8 +60,11 @@ export async function fabricatePulls(o: FabricateOptions, base: bigint = randomS
   return out;
 }
 
-/** A fusion to rehearse (plan «fusión pro»): `n` galaxies (2–10) of the tier below the result (commons for a common). */
+/**
+ * A fusion to rehearse (plan «fusión pro»): `n` galaxies (2–10) of the tier below the result (commons for a common).
+ * A fusion never makes a mythic: asked for one, it is the top a fusion makes.
+ */
 export function fusionInputs(result: Tier, n: number): Tier[] {
-  const below = TIERS[Math.max(0, TIERS.indexOf(result) - 1)]!;
+  const below = TIERS[Math.max(0, Math.min(TIERS.indexOf(result), FUSION_TOP) - 1)]!;
   return Array.from({ length: Math.min(10, Math.max(2, Math.round(n))) }, () => below);
 }

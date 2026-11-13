@@ -23,6 +23,20 @@ test('solo la épica y la legendaria destellan, y solo la legendaria hace tembla
   expect(legendary!.shake).toBe(true);
 });
 
+// The «Mítica» (plan «rareza Mítica» M1): at least everything a legendary has, in the four iridescent tones.
+test('una mítica estalla al menos como una legendaria: más partículas, destello, temblor y haces, en tonos iridiscentes', () => {
+  const legendary = burstFor('legendary', '7', 1280, 720);
+  const mythic = burstFor('mythic', '7', 1280, 720);
+  expect(mythic.particles.length).toBeGreaterThan(legendary.particles.length);
+  expect(mythic.rings.length).toBeGreaterThanOrEqual(legendary.rings.length);
+  expect(mythic.flash).toBeGreaterThanOrEqual(legendary.flash);
+  expect(mythic.flash).toBeLessThanOrEqual(0.7);
+  expect(mythic.shake).toBe(true);
+  expect(mythic.beams).toBe(true);
+  const colors = new Set(mythic.particles.map((p) => p.color.toLowerCase()));
+  for (const iris of ['#ff4fd8', '#6fe3ff', '#ffc94a', '#b39dff']) expect(colors.has(iris)).toBe(true);
+});
+
 test('la misma tirada da siempre el mismo estallido', () => {
   expect(burstFor('legendary', '12345', 1280, 720)).toEqual(burstFor('legendary', '12345', 1280, 720));
   expect(burstFor('legendary', '12345', 1280, 720)).not.toEqual(burstFor('legendary', '54321', 1280, 720));

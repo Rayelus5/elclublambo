@@ -1,8 +1,9 @@
-import { TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type PulledGalaxy, type Tier } from '@galaxy/shared';
 
 // The deep-field scan (GDD §9, DESIGN_SYSTEM §8 bis) as a pure list of timed steps, so the rhythm is tested and the
 // stage only plays it. Per pull: CRT static → signal bars (one per tier step) → the scan line in the rarity's colour
-// resolving the galaxy → «Fenómeno detectado» if it has one → the screen failing on a Legendary → the card. The
+// resolving the galaxy → «Fenómeno detectado» if it has one → the screen failing on a Legendary (or a Mítica, which
+// also lights a sixth bar past the five) → the card. The
 // sequence always ends in the summary, which Saltar jumps to. Rarer pulls build up longer, so the wait tells too.
 export type StepKind = 'static' | 'signal' | 'scan' | 'phenomenon' | 'glitch' | 'card' | 'summary';
 
@@ -11,7 +12,7 @@ export interface Step {
   /** The pull this step belongs to (the summary: -1). */
   index: number;
   tier?: Tier;
-  /** Signal bars lit (1 common → 5 legendary). */
+  /** Signal bars lit (1 common → 5 legendary, 6 mythic: one past the five). */
   bars?: number;
   phenomenon?: string;
   /** How long the step lasts; Infinity waits for the player. */
@@ -30,7 +31,7 @@ const signalMs = (t: number, inRun: boolean) => (inRun ? 360 + 140 * t : 520 + 1
 const scanMs = (t: number, reduced: boolean, inRun: boolean) => (reduced ? 500 : inRun ? 620 + 300 * t : 1000 + 320 * t);
 const PHENOMENON_MS = 1300;
 /** How long a card stays in a run of ten, by tier: the rare ones are looked at longer. */
-const CARD_IN_RUN_MS = [900, 1100, 1500, 1900, 2400];
+const CARD_IN_RUN_MS = [900, 1100, 1500, 1900, 2400, 2800];
 
 export function revealSequence(pulls: readonly PulledGalaxy[], opts: { reduced: boolean }): Step[] {
   const steps: Step[] = [];
@@ -43,7 +44,7 @@ export function revealSequence(pulls: readonly PulledGalaxy[], opts: { reduced: 
     steps.push({ kind: 'scan', index, tier: p.tier, ms: scanMs(t, opts.reduced, inRun) });
     const phenomenon = p.traits['phenomenon'];
     if (phenomenon && phenomenon !== 'none') steps.push({ kind: 'phenomenon', index, tier: p.tier, phenomenon, ms: PHENOMENON_MS });
-    if (p.tier === 'legendary' && !opts.reduced) steps.push({ kind: 'glitch', index, tier: p.tier, ms: GLITCH_MS });
+    if (atLeast(p.tier, 'legendary') && !opts.reduced) steps.push({ kind: 'glitch', index, tier: p.tier, ms: GLITCH_MS });
     // One pull, or reduced motion: the card waits for the player. In a run of ten, cards follow on their own.
     const waits = pulls.length === 1 || opts.reduced;
     steps.push({ kind: 'card', index, tier: p.tier, ms: waits ? Infinity : (CARD_IN_RUN_MS[t] ?? CARD_IN_RUN_MS[0]!) });

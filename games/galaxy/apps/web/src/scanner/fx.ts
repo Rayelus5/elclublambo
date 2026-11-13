@@ -1,10 +1,11 @@
-import { TIERS, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type Tier } from '@galaxy/shared';
 import { tierHex } from '../a11y/color-vision';
 import { getPrefs } from '../settings/prefs';
 
 // The reveal's burst (open beta), as pure data so it is tested and the stage only draws it: sparks from the card,
 // confetti from rare up (raining from the top on epic and legendary), rings of light, a flash for epic and
-// legendary, and a shake for legendary. The same pull always bursts the same way: a seeded generator, no Math.random.
+// legendary, and a shake for legendary. The «Mítica» (plan «rareza Mítica» M1) has all of the legendary's and more, in
+// the four iridescent tones of its card. The same pull always bursts the same way: a seeded generator, no Math.random.
 
 export interface Particle {
   kind: 'spark' | 'confetti';
@@ -47,6 +48,8 @@ export const TIER_COLORS: Record<Tier, string[]> = {
   rare: ['#6fb7ff', '#bfe3ff', '#ffffff', '#45e3a6'],
   epic: ['#b39dff', '#e3d9ff', '#ff6b7a', '#ffffff'],
   legendary: ['#ffc94a', '#fff1b8', '#ff9d2e', '#ffffff', '#ff6b7a'],
+  // Its solid colour first (it follows the colour-blind palettes), then the iridescent frame's four tones and white.
+  mythic: ['#ff4fd8', '#ff4fd8', '#6fe3ff', '#ffc94a', '#b39dff', '#ffffff'],
 };
 
 const SPEC: { sparks: number; confetti: number; rings: number; flash: number }[] = [
@@ -55,6 +58,8 @@ const SPEC: { sparks: number; confetti: number; rings: number; flash: number }[]
   { sparks: 60, confetti: 40, rings: 1, flash: 0 },
   { sparks: 90, confetti: 90, rings: 2, flash: 0.35 },
   { sparks: 140, confetti: 170, rings: 3, flash: 0.7 },
+  // Mythic: more than a legendary, never a brighter flash (photosensitivity).
+  { sparks: 180, confetti: 220, rings: 4, flash: 0.7 },
 ];
 
 /** mulberry32 seeded from a string (FNV-1a). */
@@ -88,8 +93,8 @@ export function burstFor(tier: Tier, seed: string, w: number, h: number): Burst 
     particles.push({ kind: 'spark', x: cx, y: cy, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 140, life: 0, max: 0.6 + r() * 0.8, size: 2 + Math.floor(r() * 3), color: pick(), rot: 0, vr: 0 });
   }
   for (let i = 0; i < spec.confetti; i++) {
-    // Rare: a fountain from the card. Epic and legendary: half of it rains from above the whole screen.
-    const rain = t >= 3 && i % 2 === 1;
+    // Rare: a fountain from the card. Epic and better: half of it rains from above the whole screen.
+    const rain = atLeast(tier, 'epic') && i % 2 === 1;
     const a = -Math.PI / 2 + (r() - 0.5) * 1.6;
     const speed = 380 + r() * 420;
     particles.push({
@@ -107,7 +112,7 @@ export function burstFor(tier: Tier, seed: string, w: number, h: number): Burst 
     });
   }
   const rings: Ring[] = Array.from({ length: spec.rings }, (_, i) => ({ x: cx, y: cy, delay: i * 0.12, max: 0.8, color: colors[0]! }));
-  return { particles, rings, flash: spec.flash, shake: t === TIERS.length - 1, beams: t >= 3 };
+  return { particles, rings, flash: spec.flash, shake: atLeast(tier, 'legendary'), beams: atLeast(tier, 'epic') };
 }
 
 /** `dt` seconds later: everything moves, sparks fall fast and slow down, confetti drifts and turns; the spent go. */
