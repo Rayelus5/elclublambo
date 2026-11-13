@@ -35,7 +35,7 @@ El contenido de las incursiones es la clave de configuración `content`. Su valo
 
 ### A3. `SIM_VERSION` y las partidas de referencia
 
-**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.8.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
+**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.11.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
 
 | Cambio | `SIM_VERSION` | Partidas de referencia |
 |---|---|---|

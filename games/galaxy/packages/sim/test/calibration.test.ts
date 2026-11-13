@@ -58,16 +58,17 @@ describe('calibración corta (CI)', () => {
   test('ninguna combinación al azar pasa de 8× el daño mediano, las extremas de 40×, y nadie rompe los topes', () => {
     const random: RelicInput[][] = Array.from({ length: 24 }, (_, k) => randomRelics(k, 2 + (k % 5)));
     // The extremes: six Legendary galaxies at level 10 with every multiplier at its best (GDD §8.6: the brakes stop
-    // a build from breaking the game, not a Legendary from shining).
-    const legend = (type: string, extra: Record<string, string>): RelicInput[] =>
+    // a build from breaking the game, not a Legendary from shining), and the same six as Mythics, with their
+    // singularity (plan «rareza Mítica» M2).
+    const legend = (type: string, extra: Record<string, string>, tier = 4): RelicInput[] =>
       Array.from({ length: 6 }, (_, j) => ({
         id: `${type}${j}`,
         seed: '9',
-        tier: 4,
+        tier,
         level: 10,
         traits: { galaxy_type: type, size: 'colossal', core: 'quasar', star_density: 'saturated', palette: 'solar_gold', background: 'cmb', phenomenon: 'supernova', ...extra },
       }));
-    const extremes = [legend('spiral', { arms: '6', inclination: 'face_on' }), legend('barred_spiral', { arms: '6', inclination: 'edge_on' })];
+    const extremes = [4, 5].flatMap((tier) => [legend('spiral', { arms: '6', inclination: 'face_on' }, tier), legend('barred_spiral', { arms: '6', inclination: 'edge_on' }, tier)]);
     const dps = random.map((b) => fieldDps(b, 10));
     const median = [...dps].sort((a, b) => a - b)[Math.floor(dps.length / 2)]!;
     expect(Math.max(...dps)).toBeLessThanOrEqual(8 * median);

@@ -7,11 +7,12 @@ import { dealDamage } from './combat';
 import { elementCode, invertNearby } from './elements';
 import { activeSets } from './sets';
 import { refreshStats, relicHooks, type StatBonus } from './stats';
-import { AREA, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
+import { AREA, enemiesNear, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
 
 // Galaxies as relics (GDD §8.2–8.4 bis, §8.6). The galaxy type picks the family; arms give the count; rarity, size,
 // core and level give the magnitude; density the frequency; inclination the shape; palette the element; background a
-// bonus; phenomenon a unique ability. Everything a relic does in the run lives here.
+// bonus; phenomenon a unique ability. A mythic (plan «rareza Mítica» M2) adds its own power, the singularity. Everything
+// a relic does in the run lives here.
 
 export interface RelicSkill {
   family: FamilyId;
@@ -27,7 +28,12 @@ export interface RelicSkill {
   quasar: boolean;
   double: boolean;
   background: { stat: StatKey | 'vision'; value: number } | null;
+  /** A mythic (the sixth tier): it has the singularity on top of everything else (plan «rareza Mítica» M2). */
+  mythic: boolean;
 }
+
+/** The mythic tier's index (RelicInput.tier). */
+const MYTHIC_TIER = 5;
 
 const TYPE_FAMILY: Record<string, FamilyId> = {
   spiral: 'blades',
@@ -92,6 +98,7 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
     quasar: t['core'] === 'quasar',
     double: t['core'] === 'double_nucleus',
     background: background(R.backgrounds[t['background'] ?? ''] ?? null, setBackground),
+    mythic: relic.tier >= MYTHIC_TIER,
   };
 }
 
@@ -423,6 +430,123 @@ function runQuasar(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
   sim.events.push({ t: 'fire', weapon: 'relic:quasar', x: p.x, y: p.y });
 }
 
+/**
+ * A probe's singularity (plan «rareza Mítica» M2): one power per probe, however many mythics it carries (GDD §8.6: the
+ * same effect never stacks into a permanent one). `mythic` is the relic that powers it, the strongest (ties: the first
+ * in slot order); `cd` the ticks until the next may open; `hole` the open one: its area (with the generation it was
+ * spawned with) and the ticks until it collapses.
+ */
+interface Singularity {
+  mythic: number;
+  cd: number;
+  hole: { area: number; gen: number; left: number } | null;
+}
+
+const singularities = new WeakMap<ProbeState, Singularity>();
+
+function singularityOf(sim: Sim, p: ProbeState): Singularity {
+  let s = singularities.get(p);
+  if (!s) {
+    let mythic = -1;
+    let best = -1;
+    skillsOf(sim, p).forEach((r, ri) => {
+      if (!r.skill.mythic) return;
+      const { m } = effective(r);
+      if (m > best) {
+        best = m;
+        mythic = ri;
+      }
+    });
+    s = { mythic, cd: 0, hole: null };
+    singularities.set(p, s);
+  }
+  return s;
+}
+
+/**
+ * Where the densest group of fauna within `seek` of the probe is: the centre of the fauna within `reach` of the enemy
+ * with the most of it around (ties: the one nearest the probe). Núcleos neither count nor anchor it. Null: no fauna.
+ */
+function densest(sim: Sim, p: ProbeState, seek: number, reach: number): { x: number; y: number } | null {
+  const en = sim.enemies;
+  const fauna = (e: number) => !!en.alive[e] && !en.boss[e] && !(en.fuseT[e]! > 0);
+  let best = 0;
+  let at: { x: number; y: number } | null = null;
+  for (const e of nearestEnemies(sim, p.x, p.y, seek, 48, (o) => !!en.boss[o])) {
+    let n = 0;
+    let sx = 0;
+    let sy = 0;
+    for (const o of enemiesNear(sim, en.x[e]!, en.y[e]!, reach)) {
+      if (!fauna(o)) continue;
+      const dx = en.x[o]! - en.x[e]!;
+      const dy = en.y[o]! - en.y[e]!;
+      if (dx * dx + dy * dy > reach * reach) continue;
+      n++;
+      sx += en.x[o]!;
+      sy += en.y[o]!;
+    }
+    if (n > best) {
+      best = n;
+      at = { x: sx / n, y: sy / n };
+    }
+  }
+  return at;
+}
+
+/** How long the collapse's burst stays on screen. */
+const COLLAPSE_SHOW_TICKS = 24;
+
+/**
+ * The open singularity counts down and, at zero, collapses: damage in its blast (× its mythic's magnitude) throwing the
+ * survivors back out, the burst drawn, the area gone. An area that is no longer there (it ran out while the probe was
+ * down) just closes.
+ */
+function tickHole(sim: Sim, p: ProbeState, s: Singularity, r: Runtime): void {
+  const h = s.hole!;
+  const a = sim.areas;
+  if (!a.alive[h.area] || a.gen[h.area] !== h.gen || a.kind[h.area] !== AREA.singularity) {
+    s.hole = null;
+    return;
+  }
+  h.left--;
+  if (h.left > 0) return;
+  s.hole = null;
+  const x = a.x[h.area]!;
+  const y = a.y[h.area]!;
+  a.kill(h.area);
+  const S = sim.content.relics.singularity;
+  const { m } = effective(r);
+  const blast = S.blast * p.stats.area;
+  hitArea(sim, x, y, blast, S.damage * m * p.stats.damage, { ...source(p, s.mythic, r), x, y }, { knockback: S.push });
+  spawnArea(sim, p, AREA.collapse, x, y, blast, { ttl: COLLAPSE_SHOW_TICKS, srcKind: 1, srcIdx: s.mythic, element: elementCode(r.skill.element) });
+  sim.events.push({ t: 'singularity', probe: p.index, what: 'collapse', x, y, radius: blast });
+}
+
+/**
+ * A mythic's singularity: on its cooldown (its relic's density and the probe's cooldown apply), with fauna near and
+ * none open, a black hole opens on the densest group; for its seconds it pulls the fauna in (the areas' pull: never a
+ * Núcleo, never the loot), then collapses.
+ */
+function runSingularity(sim: Sim, p: ProbeState): void {
+  const s = singularityOf(sim, p);
+  const r = skillsOf(sim, p)[s.mythic];
+  if (!r) return;
+  if (s.hole) tickHole(sim, p, s, r);
+  if (s.cd > 0) s.cd--;
+  if (s.cd > 0 || s.hole) return;
+  const S = sim.content.relics.singularity;
+  const reach = S.radius * p.stats.area;
+  const at = densest(sim, p, S.seek, reach);
+  if (!at) return;
+  const seconds = Math.max(1, ticks(S.seconds));
+  // The area outlives its countdown: tickHole collapses it before the pool would take it.
+  const area = spawnArea(sim, p, AREA.singularity, at.x, at.y, reach, { ttl: seconds + 2, pull: S.pull, srcKind: 1, srcIdx: s.mythic, element: elementCode(r.skill.element) });
+  if (area < 0) return;
+  s.hole = { area, gen: sim.areas.gen[area]!, left: seconds };
+  s.cd = cooldown(p, r, S.cooldown);
+  sim.events.push({ t: 'singularity', probe: p.index, what: 'open', x: at.x, y: at.y, radius: reach });
+}
+
 /** One tick of a probe's relics. */
 export function updateRelics(sim: Sim, p: ProbeState): void {
   if (!p.alive) return;
@@ -437,6 +561,7 @@ export function updateRelics(sim: Sim, p: ProbeState): void {
     if (r.skill.quasar) runQuasar(sim, p, ri, r);
     if (r.skill.element === 'invert') invert = true;
   });
+  runSingularity(sim, p);
   if (invert) invertNearby(sim, p);
 }
 

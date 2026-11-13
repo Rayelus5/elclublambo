@@ -110,6 +110,30 @@ export function sixSlotBuilds(): Build[] {
   return [...single, ...mixes, ...random];
 }
 
+/**
+ * Mythics (plan «rareza Mítica» M2): a mythic is a legendary's traits a step stronger (×1.9) plus its own power, the
+ * singularity, which gathers the fauna for every other weapon. The same extremes with Mythics of level 10: two of one
+ * type, and every slot open with six of one type and mixed. They answer to the same ceilings: a Mythic shines more than
+ * a Legendary, but no build breaks the game. Measured (2026-11-13): two lenticular Mythics 107 707 per second on the
+ * rings and 968 367 in a crowd; six, 136 304 and 1 347 295. Without the collapse's push the fauna stayed in a ball and
+ * they reached 422 705 and 3 635 314.
+ */
+const myth = (type: string, id: string): Build['relics'][number] => ({ ...legend(type, id), tier: 5 });
+
+export function mythicBuilds(): Build[] {
+  return TYPES.map((type, k) => extreme([0, 1].map((j) => myth(type, `y${k}${j}`))));
+}
+
+export function mythicSixSlotBuilds(): Build[] {
+  const single = TYPES.map((type, k) => extreme([0, 1, 2, 3, 4, 5].map((j) => myth(type, `z${k}${j}`))));
+  const mixes = [
+    ['lenticular', 'lenticular', 'ring', 'ring', 'spiral', 'spiral'],
+    ['lenticular', 'lenticular', 'barred_spiral', 'barred_spiral', 'merger', 'merger'],
+    ['lenticular', 'ring', 'spiral', 'barred_spiral', 'merger', 'irregular'],
+  ].map((types, k) => extreme(types.map((t, j) => myth(t, `w${k}${j}`))));
+  return [...single, ...mixes];
+}
+
 function capsHold(build: Build): void {
   const sim = createSim({ seed: '1', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
   const p = sim.probes[0]!;
@@ -153,6 +177,24 @@ describe('todas las ranuras abiertas (CI, M4c-1)', () => {
   test('seis reliquias, de una familia, mezcladas o al azar: bajo su techo en los anillos y en la multitud, y nadie rompe un tope', () => {
     const builds = sixSlotBuilds();
     for (const b of builds) {
+      expect(proving(DEFAULT_CONTENT, b, 60)).toBeLessThanOrEqual(SIX_SLOT_DPS_CEILING);
+      expect(crowd(DEFAULT_CONTENT, b, 30)).toBeLessThanOrEqual(SIX_SLOT_CROWD_CEILING);
+      capsHold(b);
+    }
+  }, 300_000);
+});
+
+describe('míticas (CI, plan «rareza Mítica» M2)', () => {
+  test('dos míticas de nivel 10 de cada tipo, con su singularidad: bajo el techo en los anillos y en la multitud, y nadie rompe un tope', () => {
+    for (const b of mythicBuilds()) {
+      expect(proving(DEFAULT_CONTENT, b, 60)).toBeLessThanOrEqual(BUILD_DPS_CEILING);
+      expect(crowd(DEFAULT_CONTENT, b, 30)).toBeLessThanOrEqual(CROWD_DPS_CEILING);
+      capsHold(b);
+    }
+  }, 300_000);
+
+  test('seis míticas, de un tipo o mezcladas: bajo el techo de seis ranuras', () => {
+    for (const b of mythicSixSlotBuilds()) {
       expect(proving(DEFAULT_CONTENT, b, 60)).toBeLessThanOrEqual(SIX_SLOT_DPS_CEILING);
       expect(crowd(DEFAULT_CONTENT, b, 30)).toBeLessThanOrEqual(SIX_SLOT_CROWD_CEILING);
       capsHold(b);

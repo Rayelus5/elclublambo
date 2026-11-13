@@ -2011,6 +2011,9 @@ export const DEFAULT_CONTENT: Content = {
     },
     quasar: { cooldown: 3, damage: 25, pierce: 10, speed: 560 },
     double: { delay: 0.1 },
+    // The mythic's own power (plan «rareza Mítica» M2): a black hole on the densest group every 12 s, pulling for 2 s;
+    // its collapse throws the survivors back out (with the fauna left in a ball, AoE builds broke the §8.6 ceilings).
+    singularity: { cooldown: 12, seconds: 2, seek: 260, radius: 120, pull: 90, blast: 80, damage: 60, push: 100 },
     backgrounds: {
       deep_void: { stat: 'armor', value: 0.08 },
       starfield: { stat: 'vision', value: 0.08 },

@@ -230,8 +230,13 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 
 Las galaxias raras dan una **ventaja notable**: ataques más potentes, animaciones excepcionales y más aguante en la partida. Tener una muy rara se tiene que notar.
 
-- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×1,75 (era ×2,0; bajada en la beta abierta, 2026-11-13).
+- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×1,75 (era ×2,0; bajada en la beta abierta, 2026-11-13), Mítica ×1,9.
 - Las Legendarias garantizan un fenómeno.
+- **La Mítica tiene un poder propio [U] (2026-11-13), «Singularidad»**, además de sus poderes de reliquia (§8.3).
+  - Cada 12 s *(de partida)* se abre un agujero negro pequeño en el grupo de fauna más denso a 260 de la sonda. Durante 2 s atrae a la fauna a 120 de él (a 90 por segundo) y después colapsa: daña en 80 con 60 × la magnitud de la reliquia y lanza a 100 a lo que sobrevive.
+  - Nunca atrae al Núcleo ni al botín. Una sola por sonda: con varias míticas no se abre más a menudo y usa la más fuerte.
+  - El lanzamiento del colapso **[D]** evita que la fauna se quede en una bola para siempre: con ella quieta, las builds de área pasaban de los techos de §8.6.
+  - Los números viven en `content.relics.singularity` (con valor por defecto para el contenido publicado antes).
 - Las Comunes sirven para rellenar ranuras al principio, fusionar y desintegrar.
 
 ### 8.3 Rasgos → pasiva [D]

@@ -13,6 +13,11 @@ export type SimEvent =
   | { t: 'satellite'; what: 'appear' | 'break' | 'gone'; x: number; y: number }
   /** A breakable prop of the ground broke (systems/props.ts). */
   | { t: 'propBreak'; x: number; y: number; look: number }
+  /**
+   * A mythic relic's singularity (plan «rareza Mítica» M2) opened at (x, y), pulling within `radius`, or collapsed there,
+   * hitting within `radius`.
+   */
+  | { t: 'singularity'; probe: number; what: 'open' | 'collapse'; x: number; y: number; radius: number }
   /** A dash (a quirk's jump, a comet's charge): from (fx, fy) to (tx, ty) over `ticks` (0: instant), for the effects. */
   | { t: 'dash'; probe: number; kind: 'quirk' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
   | { t: 'levelUp'; probe: number; level: number }

@@ -26,7 +26,7 @@ Antes de empezar, lee `games/galaxy/AGENTS.md`, la parte A de `games/galaxy/docs
 
 | Cambio | Tipo | Riesgo |
 |---|---|---|
-| Retocar números (`content.relics`: `tier`, `level`, `stacking`, factores `size`/`core`/`density`, `families.*`, `phenomena.*`, `quasar`, `double`, `weaponProc`, valor de un fondo) | Datos | Bajo |
+| Retocar números (`content.relics`: `tier`, `level`, `stacking`, factores `size`/`core`/`density`, `families.*`, `phenomena.*`, `quasar`, `double`, `singularity` (el poder de las míticas), `weaponProc`, valor de un fondo) | Datos | Bajo |
 | Elemento de una paleta | Datos (`content.elements.palettes`) | Bajo |
 | Conjunto nuevo `same` (paleta, tipo, fondo o núcleo) o `combo` (tipo + fenómeno), con bono de `stats`/`magnitude`/`background` | Datos, más el texto del bono si usa una stat sin texto | Bajo |
 | Tipo de conjunto o de bono nuevo | Código | Medio |
