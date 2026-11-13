@@ -114,9 +114,9 @@ export function sixSlotBuilds(): Build[] {
  * Mythics (plan «rareza Mítica» M2): a mythic is a legendary's traits a step stronger (×1.9) plus its own power, the
  * singularity, which gathers the fauna for every other weapon. The same extremes with Mythics of level 10: two of one
  * type, and every slot open with six of one type and mixed. They answer to the same ceilings: a Mythic shines more than
- * a Legendary, but no build breaks the game. Measured (2026-11-13): two lenticular Mythics 107 707 per second on the
- * rings and 968 367 in a crowd; six, 136 304 and 1 347 295. Without the collapse's push the fauna stayed in a ball and
- * they reached 422 705 and 3 635 314.
+ * a Legendary, but no build breaks the game. Measured (2026-11-13, with the hole kept 70 from the probe): two lenticular
+ * Mythics 115 753 per second on the rings and 968 367 in a crowd; six, 145 252 and 1 347 295. Without the collapse's
+ * push the fauna stayed in a ball and they reached 422 705 and 3 635 314.
  */
 const myth = (type: string, id: string): Build['relics'][number] => ({ ...legend(type, id), tier: 5 });
 

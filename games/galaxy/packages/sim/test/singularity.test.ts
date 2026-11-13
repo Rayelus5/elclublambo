@@ -6,7 +6,9 @@ import {
   contentSchema,
   createSim,
   DEFAULT_CONTENT,
+  DEFAULT_COOP_RULES,
   dropPickup,
+  hurtProbe,
   IDLE,
   PICKUP,
   type RelicInput,
@@ -18,7 +20,7 @@ import {
   step,
   ticks,
 } from '../src/index';
-import { quietSim, run } from './fixtures';
+import { options, quietSim, run, tinyContent } from './fixtures';
 
 // Plan «rareza Mítica» M2 (the owner's ruling): a mythic galaxy equipped as a relic has its own power, «Singularidad».
 // Every so often a small black hole opens on the densest group of fauna near the probe, pulls it in for a moment and
@@ -190,6 +192,104 @@ describe('Singularidad: el poder propio de las míticas (M2)', () => {
     expect(most).toBe(1);
     // At 0 s and at 12 s, as with one.
     expect(n).toBe(2);
+  });
+
+  // Review of PR #180: a hole on a probe's own position pulled the fauna onto it.
+  test('nunca se abre encima de una sonda: con la fauna en corro a su alrededor no se abre, y busca un grupo lejos de ella', () => {
+    const sim = equipped(mythic());
+    const ring = (cx: number, cy: number) => {
+      for (let k = 0; k < 12; k++) target(sim, cx + Math.round(Math.cos((k * Math.PI) / 6) * 45), cy + Math.round(Math.sin((k * Math.PI) / 6) * 45));
+    };
+    ring(0, 0);
+    const p = sim.probes[0]!;
+    run(sim, 150);
+    expect(holes(sim)).toHaveLength(0);
+    expect(p.hp).toBe(100);
+    // A smaller group far enough off: it opens there.
+    for (const [x, y] of [
+      [200, 0],
+      [210, 10],
+      [190, -10],
+    ] as const)
+      target(sim, x, y);
+    step(sim, [IDLE]);
+    const [h] = holes(sim);
+    expect(h).toBeDefined();
+    expect(Math.hypot(sim.areas.x[h!]! - p.x, sim.areas.y[h!]! - p.y)).toBeGreaterThanOrEqual(S.clear);
+  });
+
+  test('en grupo, tampoco se abre encima de un compañero rodeado', () => {
+    const content = tinyContent((c) => {
+      for (const e of c.enemies) e.hp = 1000;
+      c.enemies.find((e) => e.id === 'dummy')!.speed = 0;
+    });
+    const sim = createSim(options(content, { coop: DEFAULT_COOP_RULES, probes: [{ probe: content.probes[0]!.id, relics: [mythic()] }, { probe: content.probes[0]!.id, relics: [] }] }));
+    sim.rng.combat.chance = () => false;
+    const [me, mate] = sim.probes;
+    me!.x = me!.px = 0;
+    me!.y = me!.py = 0;
+    mate!.x = mate!.px = 180;
+    mate!.y = mate!.py = 0;
+    for (let k = 0; k < 12; k++) target(sim, 180 + Math.round(Math.cos((k * Math.PI) / 6) * 45), Math.round(Math.sin((k * Math.PI) / 6) * 45));
+    for (let t = 0; t < 150; t++) {
+      step(sim, [IDLE, IDLE]);
+      for (const h of holes(sim)) {
+        for (const q of sim.probes) expect(Math.hypot(sim.areas.x[h]! - q.x, sim.areas.y[h]! - q.y)).toBeGreaterThanOrEqual(S.clear);
+      }
+    }
+    expect(holes(sim)).toHaveLength(0);
+    expect(mate!.hp).toBe(mate!.stats.maxHp);
+  });
+
+  test('si su sonda cae con una abierta, colapsa en ese momento y no se queda tirando', () => {
+    const content = tinyContent((c) => {
+      for (const e of c.enemies) e.hp = 1000;
+      c.enemies.find((e) => e.id === 'dummy')!.speed = 0;
+    });
+    const sim = createSim(options(content, { coop: DEFAULT_COOP_RULES, probes: [{ probe: content.probes[0]!.id, relics: [mythic()] }, { probe: content.probes[0]!.id, relics: [] }] }));
+    sim.rng.combat.chance = () => false;
+    const [me, mate] = sim.probes;
+    me!.x = me!.px = 0;
+    me!.y = me!.py = 0;
+    mate!.x = mate!.px = -300;
+    mate!.y = mate!.py = 0;
+    const group = [target(sim, 150, 0), target(sim, 160, 10), target(sim, 140, -10)];
+    step(sim, [IDLE, IDLE]);
+    expect(holes(sim)).toHaveLength(1);
+    run(sim, 20);
+    hurtProbe(sim, me!, 1e6);
+    expect(me!.life).toBe('down');
+    let collapsed = false;
+    step(sim, [IDLE, IDLE]);
+    collapsed ||= sim.events.some((e) => e.t === 'singularity' && e.what === 'collapse');
+    expect(collapsed).toBe(true);
+    expect(holes(sim)).toHaveLength(0);
+    for (const e of group) expect(lost(sim, e)).toBeGreaterThan(0);
+  });
+
+  test('con las áreas llenas no se abre y no vuelve a buscar en cada tic: espera medio segundo', () => {
+    const sim = equipped(mythic());
+    target(sim, 100, 0);
+    target(sim, 105, 5);
+    const a = sim.areas;
+    const filler: number[] = [];
+    for (let i = a.spawn(); i >= 0; i = a.spawn()) {
+      a.ttl[i] = 1e9;
+      a.kind[i] = AREA.trail;
+      a.radius[i] = 1;
+      a.damage[i] = 0;
+      a.pull[i] = 0;
+      a.slow[i] = 0;
+      a.x[i] = a.y[i] = 5000;
+      filler.push(i);
+    }
+    step(sim, [IDLE]);
+    expect(holes(sim)).toHaveLength(0);
+    a.kill(filler[0]!);
+    run(sim, 28);
+    expect(holes(sim)).toHaveLength(0);
+    run(sim, 2);
+    expect(holes(sim)).toHaveLength(1);
   });
 
   test('es determinista: la misma partida con míticas da el mismo estado', () => {

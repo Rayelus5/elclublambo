@@ -414,7 +414,8 @@ export interface RelicTuning {
 /**
  * «Singularidad», the power every mythic relic has on top of its others (plan «rareza Mítica» M2, the owner's ruling):
  * every `cooldown` seconds (density and the probe's cooldown apply, like every relic power) a black hole opens on the
- * densest group of fauna within `seek` of the probe (density counted within `radius`). For `seconds` it pulls the fauna
+ * densest group of fauna within `seek` of the probe (density counted within `radius`), never within `clear` of a standing
+ * probe (its own or a teammate's: it would pull the fauna onto it). For `seconds` it pulls the fauna
  * within `radius` towards it at `pull` units per second (never a Núcleo, never the loot), then collapses: `damage` ×
  * the relic's magnitude × the probe's damage to everything within `blast`. The radii follow the probe's area, not the
  * magnitude. At most one open per probe. Its collapse throws what survives `push` units back out (the knockback of the
@@ -429,6 +430,7 @@ export interface SingularityTuning {
   blast: number;
   damage: number;
   push: number;
+  clear: number;
 }
 
 /**

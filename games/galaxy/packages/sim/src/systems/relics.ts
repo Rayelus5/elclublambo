@@ -465,11 +465,14 @@ function singularityOf(sim: Sim, p: ProbeState): Singularity {
 
 /**
  * Where the densest group of fauna within `seek` of the probe is: the centre of the fauna within `reach` of the enemy
- * with the most of it around (ties: the one nearest the probe). Núcleos neither count nor anchor it. Null: no fauna.
+ * with the most of it around (ties: the one nearest the probe). Núcleos neither count nor anchor it, and a centre
+ * within `clear` of a standing probe (any of the team's) does not count: it would pull the fauna onto that probe.
+ * Null: no group anywhere else.
  */
-function densest(sim: Sim, p: ProbeState, seek: number, reach: number): { x: number; y: number } | null {
+function densest(sim: Sim, p: ProbeState, seek: number, reach: number, clear: number): { x: number; y: number } | null {
   const en = sim.enemies;
   const fauna = (e: number) => !!en.alive[e] && !en.boss[e] && !(en.fuseT[e]! > 0);
+  const onProbe = (x: number, y: number) => sim.probes.some((q) => q.alive && (q.x - x) * (q.x - x) + (q.y - y) * (q.y - y) < clear * clear);
   let best = 0;
   let at: { x: number; y: number } | null = null;
   for (const e of nearestEnemies(sim, p.x, p.y, seek, 48, (o) => !!en.boss[o])) {
@@ -485,7 +488,7 @@ function densest(sim: Sim, p: ProbeState, seek: number, reach: number): { x: num
       sx += en.x[o]!;
       sy += en.y[o]!;
     }
-    if (n > best) {
+    if (n > best && !onProbe(sx / n, sy / n)) {
       best = n;
       at = { x: sx / n, y: sy / n };
     }
@@ -495,13 +498,15 @@ function densest(sim: Sim, p: ProbeState, seek: number, reach: number): { x: num
 
 /** How long the collapse's burst stays on screen. */
 const COLLAPSE_SHOW_TICKS = 24;
+/** With the areas' pool full, the next try waits this long instead of searching every tick. */
+const RETRY_TICKS = 30;
 
 /**
- * The open singularity counts down and, at zero, collapses: damage in its blast (× its mythic's magnitude) throwing the
- * survivors back out, the burst drawn, the area gone. An area that is no longer there (it ran out while the probe was
- * down) just closes.
+ * The open singularity counts down and, at zero (or at once with `now`: its probe went down or away), collapses:
+ * damage in its blast (× its mythic's magnitude) throwing the survivors back out, the burst drawn, the area gone. An
+ * area that is no longer there just closes.
  */
-function tickHole(sim: Sim, p: ProbeState, s: Singularity, r: Runtime): void {
+function tickHole(sim: Sim, p: ProbeState, s: Singularity, r: Runtime, now = false): void {
   const h = s.hole!;
   const a = sim.areas;
   if (!a.alive[h.area] || a.gen[h.area] !== h.gen || a.kind[h.area] !== AREA.singularity) {
@@ -509,7 +514,7 @@ function tickHole(sim: Sim, p: ProbeState, s: Singularity, r: Runtime): void {
     return;
   }
   h.left--;
-  if (h.left > 0) return;
+  if (h.left > 0 && !now) return;
   s.hole = null;
   const x = a.x[h.area]!;
   const y = a.y[h.area]!;
@@ -536,20 +541,33 @@ function runSingularity(sim: Sim, p: ProbeState): void {
   if (s.cd > 0 || s.hole) return;
   const S = sim.content.relics.singularity;
   const reach = S.radius * p.stats.area;
-  const at = densest(sim, p, S.seek, reach);
+  const at = densest(sim, p, S.seek, reach, S.clear);
   if (!at) return;
   const seconds = Math.max(1, ticks(S.seconds));
   // The area outlives its countdown: tickHole collapses it before the pool would take it.
   const area = spawnArea(sim, p, AREA.singularity, at.x, at.y, reach, { ttl: seconds + 2, pull: S.pull, srcKind: 1, srcIdx: s.mythic, element: elementCode(r.skill.element) });
-  if (area < 0) return;
+  if (area < 0) {
+    s.cd = RETRY_TICKS;
+    return;
+  }
   s.hole = { area, gen: sim.areas.gen[area]!, left: seconds };
   s.cd = cooldown(p, r, S.cooldown);
   sim.events.push({ t: 'singularity', probe: p.index, what: 'open', x: at.x, y: at.y, radius: reach });
 }
 
+/** A probe that went down or away with a singularity open: it collapses now, never left pulling on its own. */
+function closeHole(sim: Sim, p: ProbeState): void {
+  const s = singularities.get(p);
+  const r = s?.hole ? skillsOf(sim, p)[s.mythic] : undefined;
+  if (s && r) tickHole(sim, p, s, r, true);
+}
+
 /** One tick of a probe's relics. */
 export function updateRelics(sim: Sim, p: ProbeState): void {
-  if (!p.alive) return;
+  if (!p.alive) {
+    closeHole(sim, p);
+    return;
+  }
   if ((p.fx['hasteT'] ?? 0) > 0) {
     p.fx['hasteT'] = p.fx['hasteT']! - 1;
     if (p.fx['hasteT'] === 0) refreshStats(sim, p);
