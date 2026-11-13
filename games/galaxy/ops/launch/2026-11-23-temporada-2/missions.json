@@ -1,0 +1,160 @@
+{
+  "season": [
+    {
+      "id": "s-runs70",
+      "name": "Juega 70 incursiones",
+      "stat": "runs",
+      "target": 70,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-runs200",
+      "name": "Juega 200 incursiones",
+      "stat": "runs",
+      "target": 200,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 6,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-boss55",
+      "name": "Purga 55 Núcleos",
+      "stat": "bossKills",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 4,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-boss160",
+      "name": "Purga 160 Núcleos",
+      "stat": "bossKills",
+      "target": 160,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 700
+      }
+    },
+    {
+      "id": "s-depth5",
+      "name": "Llega a la capa 5",
+      "stat": "depth",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-depth6",
+      "name": "Llega a la capa 6",
+      "stat": "depth",
+      "target": 6,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-extract40",
+      "name": "Extrae 40 veces",
+      "stat": "extractions",
+      "target": 40,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-extract110",
+      "name": "Extrae 110 veces",
+      "stat": "extractions",
+      "target": 110,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 6,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-group55",
+      "name": "Juega 55 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-revive55",
+      "name": "Reanima a 55 compañeros",
+      "stat": "revives",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-legend7",
+      "name": "Consigue 7 legendarias",
+      "stat": "legendaries",
+      "target": 7,
+      "reward": {
+        "coins": 0,
+        "dust": 800,
+        "signal": 0,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-kills135k",
+      "name": "Elimina 135.000 enemigos",
+      "stat": "kills",
+      "target": 135000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    }
+  ]
+}
