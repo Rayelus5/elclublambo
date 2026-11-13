@@ -107,6 +107,16 @@ test('Accesibilidad: la visión del color cambia la paleta al momento y enseña 
 });
 
 // Open beta: the game's cursor is chosen here, and the pause has the same settings as the home menu.
+// The owner: a subtle white glow behind your probe, to tell it apart from the background (off by default).
+test('Accesibilidad: el brillo detrás de tu sonda viene apagado y se enciende al momento', async () => {
+  openSettings('/ajustes?seccion=accesibilidad');
+  const glow = screen.getByRole('switch', { name: t.probeGlow });
+  expect(glow).not.toBeChecked();
+  expect(getPrefs().probeGlow).toBe(false);
+  await userEvent.click(glow);
+  expect(getPrefs().probeGlow).toBe(true);
+});
+
 test('Pantalla: el cursor cambia de color y de tamaño al momento, lo recuerda, y se puede volver al del sistema', async () => {
   openSettings('/ajustes?seccion=pantalla');
   const panel = screen.getByRole('tabpanel', { name: t.display });

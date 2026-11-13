@@ -137,6 +137,7 @@ function LiveArena({ feed, clock, closed, onTick }: { feed: LiveFeed; clock: Clo
   const stageRef = useRef<Stage | null>(null);
   const reduced = useReducedMotion();
   const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
   const sim = feed.sim!;
   const start = feed.hello!.start;
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, 0));
@@ -170,7 +171,7 @@ function LiveArena({ feed, clock, closed, onTick }: { feed: LiveFeed; clock: Clo
       setSize({ w, h });
     };
     const biome = start.content.sectors.find((x) => x.id === start.sector)?.biome ?? 'nebula';
-    void createStage(canvas, start.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: start.seed, biome, skins: [start.skin ?? null] }).then((stage) => {
+    void createStage(canvas, start.content, { reduced, colorVision, probeGlow, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: start.seed, biome, skins: [start.skin ?? null] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -194,6 +195,7 @@ function LiveArena({ feed, clock, closed, onTick }: { feed: LiveFeed; clock: Clo
 
   useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
   useEffect(() => stageRef.current?.setColorVision(colorVision), [colorVision]);
+  useEffect(() => stageRef.current?.setProbeGlow(probeGlow), [probeGlow]);
 
   // The HUD and what the view says, a few times per second.
   useEffect(() => {

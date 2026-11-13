@@ -1,0 +1,8019 @@
+{
+  "probes": [
+    {
+      "id": "lumen",
+      "name": "Lumen",
+      "sprite": "probe-lumen",
+      "description": "Sonda de reconocimiento del ECN. Recoge datos desde lejos y aprende rápido",
+      "hp": 100,
+      "speed": 90,
+      "pickup": 40,
+      "armor": 0,
+      "regen": 0,
+      "weapon": "pulse",
+      "bonus": {
+        "xp": 0.1,
+        "pickup": 0.3
+      },
+      "quirk": {
+        "kind": "magnet",
+        "every": 60,
+        "radius": 160
+      }
+    },
+    {
+      "id": "bastion",
+      "name": "Bastión",
+      "sprite": "probe-bastion",
+      "description": "Sonda blindada de asalto. Lenta, dura y con espinas: quien la toca, lo paga",
+      "hp": 130,
+      "speed": 76,
+      "pickup": 32,
+      "armor": 0.1,
+      "regen": 0,
+      "weapon": "nova",
+      "bonus": {
+        "maxHp": 0.1
+      },
+      "quirk": {
+        "kind": "thorns",
+        "share": 0.5
+      }
+    },
+    {
+      "id": "spark",
+      "name": "Chispa",
+      "sprite": "probe-spark",
+      "description": "Sonda de enlace, la más rápida del ECN. Frágil, pero esquiva golpes con un salto",
+      "hp": 56,
+      "speed": 100,
+      "pickup": 30,
+      "armor": 0,
+      "regen": 0,
+      "weapon": "arc",
+      "bonus": {},
+      "quirk": {
+        "kind": "dash",
+        "every": 30,
+        "distance": 50,
+        "invuln": 0.3
+      }
+    },
+    {
+      "id": "sentinel",
+      "name": "Vigía",
+      "sprite": "probe-sentinel",
+      "description": "Sonda de patrulla con hangar propio: siempre lleva un dron de más",
+      "hp": 95,
+      "speed": 86,
+      "pickup": 36,
+      "armor": 0.04,
+      "regen": 0,
+      "weapon": "drone",
+      "bonus": {},
+      "quirk": {
+        "kind": "overwatch",
+        "drones": 1
+      }
+    },
+    {
+      "id": "anchor",
+      "name": "Áncora",
+      "sprite": "probe-anchor",
+      "description": "Sonda de anclaje gravitatorio. Cuando cae, se levanta una vez más",
+      "hp": 120,
+      "speed": 80,
+      "pickup": 36,
+      "armor": 0.08,
+      "regen": 0,
+      "weapon": "field",
+      "bonus": {
+        "area": 0.15
+      },
+      "quirk": {
+        "kind": "second-wind",
+        "hp": 0.3
+      }
+    },
+    {
+      "id": "prism",
+      "name": "Prisma",
+      "sprite": "probe-prism",
+      "description": "Sonda de cristal que descompone la luz: sus golpes prenden elementos que rotan",
+      "hp": 90,
+      "speed": 90,
+      "pickup": 36,
+      "armor": 0,
+      "regen": 0,
+      "weapon": "beam",
+      "bonus": {
+        "elemental": 0.25
+      },
+      "quirk": {
+        "kind": "prism-touch",
+        "chance": 0.2,
+        "cycle": [
+          "burn",
+          "slow",
+          "corrosion",
+          "shock"
+        ]
+      }
+    },
+    {
+      "id": "comet",
+      "name": "Cometa",
+      "sprite": "probe-comet",
+      "description": "Sonda de persecución. Cada baja la acelera un poco más",
+      "hp": 85,
+      "speed": 112,
+      "pickup": 40,
+      "armor": 0,
+      "regen": 0,
+      "weapon": "boomerang",
+      "bonus": {
+        "speed": 0.1
+      },
+      "quirk": {
+        "kind": "afterburner",
+        "bonus": 0.2,
+        "seconds": 2
+      }
+    },
+    {
+      "id": "echo",
+      "name": "Eco",
+      "sprite": "probe-echo",
+      "description": "Sonda ingeniera: planta torretas y de los restos saca piezas de reparación",
+      "hp": 100,
+      "speed": 84,
+      "pickup": 36,
+      "armor": 0.05,
+      "regen": 0,
+      "weapon": "turret",
+      "bonus": {
+        "duration": 0.2
+      },
+      "quirk": {
+        "kind": "salvage",
+        "kills": 30
+      }
+    }
+  ],
+  "weapons": [
+    {
+      "id": "pulse",
+      "name": "Pulso láser",
+      "kind": "bolt",
+      "icon": "icon-pulse",
+      "description": "Dispara al enemigo más cercano",
+      "levels": [
+        {
+          "damage": 10,
+          "cooldown": 0.55,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12,
+          "cooldown": 0.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12,
+          "cooldown": 0.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 15,
+          "cooldown": 0.45,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 18,
+          "cooldown": 0.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "nova",
+      "name": "Onda de choque",
+      "kind": "nova",
+      "icon": "icon-nova",
+      "description": "Un anillo de energía daña y empuja lo que te rodea",
+      "levels": [
+        {
+          "damage": 14,
+          "cooldown": 2.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 60,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 17,
+          "cooldown": 2.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 66,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 20,
+          "cooldown": 2.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 72,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 24,
+          "cooldown": 2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 78,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 28,
+          "cooldown": 1.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 85,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "lance",
+      "name": "Lanza de plasma",
+      "kind": "lance",
+      "icon": "icon-lance",
+      "description": "Atraviesa a varios enemigos en línea recta",
+      "levels": [
+        {
+          "damage": 18,
+          "cooldown": 1.6,
+          "count": 1,
+          "pierce": 4,
+          "speed": 520,
+          "area": 0,
+          "duration": 0,
+          "range": 400,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 21,
+          "cooldown": 1.5,
+          "count": 1,
+          "pierce": 5,
+          "speed": 520,
+          "area": 0,
+          "duration": 0,
+          "range": 400,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 24,
+          "cooldown": 1.4,
+          "count": 2,
+          "pierce": 6,
+          "speed": 520,
+          "area": 0,
+          "duration": 0,
+          "range": 400,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 27,
+          "cooldown": 1.3,
+          "count": 2,
+          "pierce": 7,
+          "speed": 520,
+          "area": 0,
+          "duration": 0,
+          "range": 400,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 30,
+          "cooldown": 1.2,
+          "count": 3,
+          "pierce": 8,
+          "speed": 520,
+          "area": 0,
+          "duration": 0,
+          "range": 400,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "orbit",
+      "name": "Satélites",
+      "kind": "orbit",
+      "icon": "icon-orbit",
+      "description": "Orbes que giran a tu alrededor y golpean al pasar",
+      "levels": [
+        {
+          "damage": 8,
+          "cooldown": 0,
+          "count": 2,
+          "pierce": 0,
+          "speed": 180,
+          "area": 46,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 10,
+          "cooldown": 0,
+          "count": 2,
+          "pierce": 0,
+          "speed": 190,
+          "area": 48,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 11,
+          "cooldown": 0,
+          "count": 3,
+          "pierce": 0,
+          "speed": 200,
+          "area": 52,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 13,
+          "cooldown": 0,
+          "count": 3,
+          "pierce": 0,
+          "speed": 210,
+          "area": 56,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 16,
+          "cooldown": 0,
+          "count": 4,
+          "pierce": 0,
+          "speed": 230,
+          "area": 60,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        }
+      ]
+    },
+    {
+      "id": "trail",
+      "name": "Estela iónica",
+      "kind": "trail",
+      "icon": "icon-trail",
+      "description": "Deja charcos de iones que queman a quien los pisa",
+      "levels": [
+        {
+          "damage": 6,
+          "cooldown": 0.25,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 14,
+          "duration": 2,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 7,
+          "cooldown": 0.25,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 15,
+          "duration": 2.2,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 8,
+          "cooldown": 0.25,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 16,
+          "duration": 2.4,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 9,
+          "cooldown": 0.25,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 18,
+          "duration": 2.7,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 11,
+          "cooldown": 0.25,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 20,
+          "duration": 3,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ]
+    },
+    {
+      "id": "arc",
+      "name": "Arco voltaico",
+      "kind": "ricochet",
+      "icon": "icon-arc",
+      "description": "Una descarga que salta de enemigo en enemigo",
+      "levels": [
+        {
+          "damage": 12,
+          "cooldown": 1.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 3,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 14,
+          "cooldown": 1.3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 4,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 16,
+          "cooldown": 1.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 5,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 18,
+          "cooldown": 1.1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 6,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 20,
+          "cooldown": 1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 7,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "drone",
+      "name": "Dron centinela",
+      "kind": "drone",
+      "icon": "icon-drone",
+      "description": "Drones que te siguen y disparan por su cuenta",
+      "levels": [
+        {
+          "damage": 7,
+          "cooldown": 0.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 8,
+          "cooldown": 0.75,
+          "count": 1,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 9,
+          "cooldown": 0.7,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10,
+          "cooldown": 0.65,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12,
+          "cooldown": 0.6,
+          "count": 3,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "beam",
+      "name": "Rayo continuo",
+      "kind": "beam",
+      "icon": "icon-beam",
+      "description": "Se fija en el enemigo más cercano y quema toda su línea",
+      "levels": [
+        {
+          "damage": 5,
+          "cooldown": 3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 6,
+          "cooldown": 2.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.4,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 7,
+          "cooldown": 2.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.6,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 8,
+          "cooldown": 2.4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.8,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 10,
+          "cooldown": 2.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        }
+      ]
+    },
+    {
+      "id": "cone",
+      "name": "Lanzallamas",
+      "kind": "cone",
+      "icon": "icon-cone",
+      "description": "Un abanico de fuego hacia donde apuntas",
+      "levels": [
+        {
+          "damage": 6,
+          "cooldown": 2.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 50,
+          "duration": 1,
+          "range": 70,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.2
+        },
+        {
+          "damage": 7,
+          "cooldown": 2.1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 55,
+          "duration": 1.1,
+          "range": 75,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.2
+        },
+        {
+          "damage": 8,
+          "cooldown": 2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 60,
+          "duration": 1.2,
+          "range": 80,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.2
+        },
+        {
+          "damage": 9,
+          "cooldown": 1.9,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 65,
+          "duration": 1.3,
+          "range": 85,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.2
+        },
+        {
+          "damage": 11,
+          "cooldown": 1.7,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 70,
+          "duration": 1.5,
+          "range": 95,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.2
+        }
+      ]
+    },
+    {
+      "id": "shards",
+      "name": "Esquirlas",
+      "kind": "radial",
+      "icon": "icon-shards",
+      "description": "Una lluvia de esquirlas en todas las direcciones",
+      "levels": [
+        {
+          "damage": 8,
+          "cooldown": 1.8,
+          "count": 6,
+          "pierce": 0,
+          "speed": 240,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 9,
+          "cooldown": 1.7,
+          "count": 7,
+          "pierce": 0,
+          "speed": 240,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10,
+          "cooldown": 1.6,
+          "count": 8,
+          "pierce": 1,
+          "speed": 240,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12,
+          "cooldown": 1.5,
+          "count": 10,
+          "pierce": 1,
+          "speed": 240,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 14,
+          "cooldown": 1.4,
+          "count": 12,
+          "pierce": 2,
+          "speed": 240,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "homing",
+      "name": "Misiles buscadores",
+      "kind": "homing",
+      "icon": "icon-homing",
+      "description": "Misiles que persiguen al enemigo más cercano y estallan",
+      "levels": [
+        {
+          "damage": 14,
+          "cooldown": 2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 200,
+          "area": 24,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 16,
+          "cooldown": 1.9,
+          "count": 2,
+          "pierce": 0,
+          "speed": 200,
+          "area": 26,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 18,
+          "cooldown": 1.8,
+          "count": 2,
+          "pierce": 0,
+          "speed": 200,
+          "area": 28,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 21,
+          "cooldown": 1.7,
+          "count": 3,
+          "pierce": 0,
+          "speed": 200,
+          "area": 30,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 24,
+          "cooldown": 1.6,
+          "count": 3,
+          "pierce": 0,
+          "speed": 200,
+          "area": 34,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "mine",
+      "name": "Minas de proximidad",
+      "kind": "mine",
+      "icon": "icon-mine",
+      "description": "Deja minas que estallan cuando alguien se acerca",
+      "levels": [
+        {
+          "damage": 30,
+          "cooldown": 2.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 36,
+          "duration": 8,
+          "range": 18,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 35,
+          "cooldown": 2.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 38,
+          "duration": 8,
+          "range": 18,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 40,
+          "cooldown": 2.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 40,
+          "duration": 9,
+          "range": 18,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 46,
+          "cooldown": 2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 44,
+          "duration": 9,
+          "range": 18,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 54,
+          "cooldown": 1.8,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 48,
+          "duration": 10,
+          "range": 18,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "boomerang",
+      "name": "Disco de retorno",
+      "kind": "boomerang",
+      "icon": "icon-boomerang",
+      "description": "Un disco que va, vuelve y corta todo a su paso",
+      "levels": [
+        {
+          "damage": 12,
+          "cooldown": 1.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 130,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 14,
+          "cooldown": 1.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 16,
+          "cooldown": 1.4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 18,
+          "cooldown": 1.3,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 21,
+          "cooldown": 1.2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ]
+    },
+    {
+      "id": "field",
+      "name": "Pozo gravitatorio",
+      "kind": "field",
+      "icon": "icon-field",
+      "description": "Un pozo que atrae a los enemigos y los aplasta",
+      "levels": [
+        {
+          "damage": 5,
+          "cooldown": 4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 50,
+          "duration": 2.5,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0.25
+        },
+        {
+          "damage": 6,
+          "cooldown": 3.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 54,
+          "duration": 2.7,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 45,
+          "interval": 0.25
+        },
+        {
+          "damage": 7,
+          "cooldown": 3.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 58,
+          "duration": 3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 50,
+          "interval": 0.25
+        },
+        {
+          "damage": 8,
+          "cooldown": 3.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 62,
+          "duration": 3.3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 55,
+          "interval": 0.25
+        },
+        {
+          "damage": 10,
+          "cooldown": 3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 70,
+          "duration": 3.6,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 60,
+          "interval": 0.25
+        }
+      ]
+    },
+    {
+      "id": "strike",
+      "name": "Bombardeo orbital",
+      "kind": "strike",
+      "icon": "icon-strike",
+      "description": "Marca enemigos a la vista y los bombardea tras un aviso",
+      "levels": [
+        {
+          "damage": 26,
+          "cooldown": 2.8,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 28,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.6
+        },
+        {
+          "damage": 30,
+          "cooldown": 2.6,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 30,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.6
+        },
+        {
+          "damage": 34,
+          "cooldown": 2.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 32,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.6
+        },
+        {
+          "damage": 39,
+          "cooldown": 2.2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 34,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.6
+        },
+        {
+          "damage": 45,
+          "cooldown": 2,
+          "count": 4,
+          "pierce": 0,
+          "speed": 0,
+          "area": 38,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.6
+        }
+      ]
+    },
+    {
+      "id": "turret",
+      "name": "Torreta",
+      "kind": "turret",
+      "icon": "icon-turret",
+      "description": "Una torreta fija que dispara al enemigo más cercano",
+      "levels": [
+        {
+          "damage": 7,
+          "cooldown": 5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 8,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 8,
+          "cooldown": 4.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 9,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.45
+        },
+        {
+          "damage": 9,
+          "cooldown": 4.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 10,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.4
+        },
+        {
+          "damage": 10,
+          "cooldown": 4.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 11,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.35
+        },
+        {
+          "damage": 12,
+          "cooldown": 4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 12,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ]
+    },
+    {
+      "id": "harpoon",
+      "name": "Arpón magnético",
+      "kind": "harpoon",
+      "icon": "icon-harpoon",
+      "description": "Ensarta al enemigo más cercano y lo arrastra hacia ti, golpeando a los que encuentra",
+      "levels": [
+        {
+          "damage": 24,
+          "cooldown": 1.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 220,
+          "interval": 0
+        },
+        {
+          "damage": 29,
+          "cooldown": 1.65,
+          "count": 1,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 210,
+          "bounces": 0,
+          "knockback": 230,
+          "interval": 0
+        },
+        {
+          "damage": 34,
+          "cooldown": 1.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 240,
+          "interval": 0
+        },
+        {
+          "damage": 40,
+          "cooldown": 1.4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 235,
+          "bounces": 0,
+          "knockback": 250,
+          "interval": 0
+        },
+        {
+          "damage": 48,
+          "cooldown": 1.25,
+          "count": 3,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 250,
+          "bounces": 0,
+          "knockback": 260,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "sling",
+      "name": "Honda gravitatoria",
+      "kind": "sling",
+      "icon": "icon-sling",
+      "description": "Atrapa a un enemigo corriente y lo lanza contra los demás, donde estalla",
+      "levels": [
+        {
+          "damage": 20,
+          "cooldown": 1.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 360,
+          "area": 30,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 24,
+          "cooldown": 1.7,
+          "count": 1,
+          "pierce": 0,
+          "speed": 360,
+          "area": 32,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 28,
+          "cooldown": 1.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 360,
+          "area": 34,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 33,
+          "cooldown": 1.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 360,
+          "area": 37,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 38,
+          "cooldown": 1.35,
+          "count": 2,
+          "pierce": 0,
+          "speed": 360,
+          "area": 40,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "decoy",
+      "name": "Señuelo holográfico",
+      "kind": "decoy",
+      "icon": "icon-decoy",
+      "description": "Deja un holograma tuyo que atrae a los enemigos cercanos y luego explota",
+      "levels": [
+        {
+          "damage": 30,
+          "cooldown": 5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 45,
+          "duration": 2.5,
+          "range": 90,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 36,
+          "cooldown": 4.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 48,
+          "duration": 2.7,
+          "range": 95,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 42,
+          "cooldown": 4.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 52,
+          "duration": 3,
+          "range": 100,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 50,
+          "cooldown": 4.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 56,
+          "duration": 3.2,
+          "range": 110,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 60,
+          "cooldown": 4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 60,
+          "duration": 3.5,
+          "range": 120,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ]
+    },
+    {
+      "id": "lighthouse",
+      "name": "Faro de fotones",
+      "kind": "lighthouse",
+      "icon": "icon-lighthouse",
+      "description": "Un láser largo que gira a tu alrededor sin parar y barre todo lo que toca",
+      "levels": [
+        {
+          "damage": 8,
+          "cooldown": 0,
+          "count": 1,
+          "pierce": 0,
+          "speed": 100,
+          "area": 4,
+          "duration": 0,
+          "range": 110,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 10,
+          "cooldown": 0,
+          "count": 1,
+          "pierce": 0,
+          "speed": 105,
+          "area": 4,
+          "duration": 0,
+          "range": 120,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 11,
+          "cooldown": 0,
+          "count": 2,
+          "pierce": 0,
+          "speed": 110,
+          "area": 4,
+          "duration": 0,
+          "range": 130,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 13,
+          "cooldown": 0,
+          "count": 2,
+          "pierce": 0,
+          "speed": 120,
+          "area": 4,
+          "duration": 0,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 15,
+          "cooldown": 0,
+          "count": 3,
+          "pierce": 0,
+          "speed": 130,
+          "area": 4,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        }
+      ]
+    },
+    {
+      "id": "mortar",
+      "name": "Mortero de racimo",
+      "kind": "mortar",
+      "icon": "icon-mortar",
+      "description": "Lanza un proyectil en parábola hacia donde vas que al caer se divide en bombitas",
+      "levels": [
+        {
+          "damage": 26,
+          "cooldown": 2.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 220,
+          "area": 30,
+          "duration": 0,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 30,
+          "cooldown": 2.25,
+          "count": 3,
+          "pierce": 0,
+          "speed": 220,
+          "area": 32,
+          "duration": 0,
+          "range": 145,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 35,
+          "cooldown": 2.1,
+          "count": 4,
+          "pierce": 0,
+          "speed": 220,
+          "area": 34,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 40,
+          "cooldown": 1.95,
+          "count": 4,
+          "pierce": 0,
+          "speed": 220,
+          "area": 36,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 48,
+          "cooldown": 1.8,
+          "count": 5,
+          "pierce": 0,
+          "speed": 220,
+          "area": 40,
+          "duration": 0,
+          "range": 170,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pulse-storm",
+      "name": "Tormenta de pulsos",
+      "kind": "bolt",
+      "icon": "icon-pulse-evo",
+      "description": "Ráfagas de pulsos que se parten en tres al golpear",
+      "levels": [
+        {
+          "damage": 26,
+          "cooldown": 0.32,
+          "count": 4,
+          "pierce": 0,
+          "speed": 380,
+          "area": 0,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "split",
+      "evolution": {
+        "from": "pulse",
+        "requires": {
+          "passive": "capacitor"
+        }
+      }
+    },
+    {
+      "id": "stellar-collapse",
+      "name": "Colapso estelar",
+      "kind": "nova",
+      "icon": "icon-nova-evo",
+      "description": "Una onda que atrae y frena todo lo que la rodea",
+      "levels": [
+        {
+          "damage": 40,
+          "cooldown": 1.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 110,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 60,
+          "interval": 0
+        }
+      ],
+      "element": "slow",
+      "special": "vortex",
+      "evolution": {
+        "from": "nova",
+        "requires": {
+          "passive": "lens"
+        }
+      }
+    },
+    {
+      "id": "neutron-lance",
+      "name": "Lanza de neutrones",
+      "kind": "lance",
+      "icon": "icon-lance-evo",
+      "description": "Atraviesa filas enteras y rompe escudos",
+      "levels": [
+        {
+          "damage": 44,
+          "cooldown": 0.95,
+          "count": 3,
+          "pierce": 0,
+          "speed": 620,
+          "area": 0,
+          "duration": 0,
+          "range": 500,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "breach",
+      "special": "pierceAll",
+      "evolution": {
+        "from": "lance",
+        "requires": {
+          "passive": "drill"
+        }
+      }
+    },
+    {
+      "id": "asteroid-belt",
+      "name": "Cinturón de asteroides",
+      "kind": "orbit",
+      "icon": "icon-orbit-evo",
+      "description": "Seis rocas en órbita cuyos golpes saltan a los vecinos",
+      "levels": [
+        {
+          "damage": 22,
+          "cooldown": 0,
+          "count": 6,
+          "pierce": 0,
+          "speed": 260,
+          "area": 72,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.4
+        }
+      ],
+      "element": null,
+      "special": "chain",
+      "evolution": {
+        "from": "orbit",
+        "requires": {
+          "passive": "armor"
+        }
+      }
+    },
+    {
+      "id": "plasma-wake",
+      "name": "Estela de plasma",
+      "kind": "trail",
+      "icon": "icon-trail-evo",
+      "description": "Charcos de plasma que queman a quien los pisa",
+      "levels": [
+        {
+          "damage": 16,
+          "cooldown": 0.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 26,
+          "duration": 4,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.25
+        }
+      ],
+      "element": "burn",
+      "special": null,
+      "evolution": {
+        "from": "trail",
+        "requires": {
+          "element": "burn"
+        }
+      }
+    },
+    {
+      "id": "ion-storm",
+      "name": "Tormenta iónica",
+      "kind": "ricochet",
+      "icon": "icon-arc-evo",
+      "description": "Una descarga que rebota sin fin y salta a los vecinos",
+      "levels": [
+        {
+          "damage": 30,
+          "cooldown": 0.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 480,
+          "area": 0,
+          "duration": 0,
+          "range": 150,
+          "bounces": 10,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "shock",
+      "special": "chain",
+      "evolution": {
+        "from": "arc",
+        "requires": {
+          "element": "shock"
+        }
+      }
+    },
+    {
+      "id": "sentinel-swarm",
+      "name": "Enjambre centinela",
+      "kind": "drone",
+      "icon": "icon-drone-evo",
+      "description": "Cuatro drones que disparan dos veces",
+      "levels": [
+        {
+          "damage": 16,
+          "cooldown": 0.45,
+          "count": 4,
+          "pierce": 0,
+          "speed": 340,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "echo",
+      "evolution": {
+        "from": "drone",
+        "requires": {
+          "passive": "splitter"
+        }
+      }
+    },
+    {
+      "id": "ion-ray",
+      "name": "Rayo de iones",
+      "kind": "beam",
+      "icon": "icon-beam-evo",
+      "description": "Tres rayos que electrocutan y saltan a los vecinos",
+      "levels": [
+        {
+          "damage": 12,
+          "cooldown": 2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 9,
+          "duration": 2.2,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        }
+      ],
+      "element": "shock",
+      "special": "chain",
+      "evolution": {
+        "from": "beam",
+        "requires": {
+          "passive": "amplifier"
+        }
+      }
+    },
+    {
+      "id": "solar-breath",
+      "name": "Aliento solar",
+      "kind": "cone",
+      "icon": "icon-cone-evo",
+      "description": "Un abanico de fuego que arrastra hacia ti",
+      "levels": [
+        {
+          "damage": 17,
+          "cooldown": 1.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 85,
+          "duration": 1.8,
+          "range": 115,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.18
+        }
+      ],
+      "element": "burn",
+      "special": "vortex",
+      "evolution": {
+        "from": "cone",
+        "requires": {
+          "passive": "catalyst"
+        }
+      }
+    },
+    {
+      "id": "crystal-crown",
+      "name": "Corona de cristal",
+      "kind": "radial",
+      "icon": "icon-shards-evo",
+      "description": "Dos coronas de esquirlas de cristal puro",
+      "levels": [
+        {
+          "damage": 20,
+          "cooldown": 1.2,
+          "count": 16,
+          "pierce": 3,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "pure",
+      "special": "echo",
+      "evolution": {
+        "from": "shards",
+        "requires": {
+          "passive": "overcharge"
+        }
+      }
+    },
+    {
+      "id": "missile-swarm",
+      "name": "Enjambre de misiles",
+      "kind": "homing",
+      "icon": "icon-homing-evo",
+      "description": "Cinco misiles que estallan y se parten",
+      "levels": [
+        {
+          "damage": 34,
+          "cooldown": 1.3,
+          "count": 5,
+          "pierce": 0,
+          "speed": 240,
+          "area": 42,
+          "duration": 0,
+          "range": 360,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "split",
+      "evolution": {
+        "from": "homing",
+        "requires": {
+          "passive": "accelerator"
+        }
+      }
+    },
+    {
+      "id": "minefield",
+      "name": "Campo minado",
+      "kind": "mine",
+      "icon": "icon-mine-evo",
+      "description": "Minas grandes que frenan lo que sobrevive al estallido",
+      "levels": [
+        {
+          "damage": 80,
+          "cooldown": 1.4,
+          "count": 4,
+          "pierce": 0,
+          "speed": 0,
+          "area": 60,
+          "duration": 12,
+          "range": 24,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "slow",
+      "special": null,
+      "evolution": {
+        "from": "mine",
+        "requires": {
+          "passive": "plating"
+        }
+      }
+    },
+    {
+      "id": "reaper-disc",
+      "name": "Disco segador",
+      "kind": "boomerang",
+      "icon": "icon-boomerang-evo",
+      "description": "Discos que siegan y te devuelven vida",
+      "levels": [
+        {
+          "damage": 30,
+          "cooldown": 0.9,
+          "count": 4,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 210,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.25
+        }
+      ],
+      "element": "leech",
+      "special": "pierceAll",
+      "evolution": {
+        "from": "boomerang",
+        "requires": {
+          "passive": "siphon"
+        }
+      }
+    },
+    {
+      "id": "event-horizon",
+      "name": "Horizonte de sucesos",
+      "kind": "field",
+      "icon": "icon-field-evo",
+      "description": "Un pozo enorme que corroe lo que atrapa",
+      "levels": [
+        {
+          "damage": 15,
+          "cooldown": 2.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 95,
+          "duration": 4.5,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 85,
+          "interval": 0.2
+        }
+      ],
+      "element": "corrosion",
+      "special": null,
+      "evolution": {
+        "from": "field",
+        "requires": {
+          "passive": "magnet"
+        }
+      }
+    },
+    {
+      "id": "orbital-lance",
+      "name": "Lanza orbital",
+      "kind": "strike",
+      "icon": "icon-strike-evo",
+      "description": "Seis impactos orbitales de precisión",
+      "levels": [
+        {
+          "damage": 70,
+          "cooldown": 1.6,
+          "count": 6,
+          "pierce": 0,
+          "speed": 0,
+          "area": 46,
+          "duration": 0,
+          "range": 300,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        }
+      ],
+      "element": "pure",
+      "special": null,
+      "evolution": {
+        "from": "strike",
+        "requires": {
+          "passive": "scope"
+        }
+      }
+    },
+    {
+      "id": "defense-battery",
+      "name": "Batería defensiva",
+      "kind": "turret",
+      "icon": "icon-turret-evo",
+      "description": "Cuatro torretas cuyas balas se parten y rebotan",
+      "levels": [
+        {
+          "damage": 16,
+          "cooldown": 3.5,
+          "count": 4,
+          "pierce": 0,
+          "speed": 360,
+          "area": 0,
+          "duration": 15,
+          "range": 240,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.22
+        }
+      ],
+      "element": "chain",
+      "special": "split",
+      "evolution": {
+        "from": "turret",
+        "requires": {
+          "passive": "stabilizer"
+        }
+      }
+    },
+    {
+      "id": "tow-harpoon",
+      "name": "Arpón de remolque",
+      "kind": "harpoon",
+      "icon": "icon-harpoon-evo",
+      "description": "Un arpón pesado que ensarta la fila entera y arrastra a varios enemigos a la vez",
+      "levels": [
+        {
+          "damage": 90,
+          "cooldown": 1,
+          "count": 5,
+          "pierce": 0,
+          "speed": 560,
+          "area": 0,
+          "duration": 0,
+          "range": 280,
+          "bounces": 0,
+          "knockback": 300,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "pierceAll",
+      "evolution": {
+        "from": "harpoon",
+        "requires": {
+          "passive": "thrusters"
+        }
+      }
+    },
+    {
+      "id": "singularity-catapult",
+      "name": "Catapulta de singularidad",
+      "kind": "sling",
+      "icon": "icon-sling-evo",
+      "description": "Lanza enemigos que estallan y dejan un pozo breve que atrae a los de alrededor",
+      "levels": [
+        {
+          "damage": 48,
+          "cooldown": 1.1,
+          "count": 3,
+          "pierce": 0,
+          "speed": 420,
+          "area": 48,
+          "duration": 1.2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 90,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "vortex",
+      "evolution": {
+        "from": "sling",
+        "requires": {
+          "passive": "repulsor"
+        }
+      }
+    },
+    {
+      "id": "mirage-legion",
+      "name": "Legión de espejismos",
+      "kind": "decoy",
+      "icon": "icon-decoy-evo",
+      "description": "Dos oleadas de hologramas que atraen a los enemigos y estallan",
+      "levels": [
+        {
+          "damage": 90,
+          "cooldown": 3.2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 70,
+          "duration": 3.5,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": "echo",
+      "evolution": {
+        "from": "decoy",
+        "requires": {
+          "passive": "deflector"
+        }
+      }
+    },
+    {
+      "id": "binary-lighthouse",
+      "name": "Faro binario",
+      "kind": "lighthouse",
+      "icon": "icon-lighthouse-evo",
+      "description": "Dos láseres que giran a tu alrededor y cuyos golpes saltan a los vecinos",
+      "levels": [
+        {
+          "damage": 24,
+          "cooldown": 0,
+          "count": 2,
+          "pierce": 0,
+          "speed": 150,
+          "area": 6,
+          "duration": 0,
+          "range": 190,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.4
+        }
+      ],
+      "element": null,
+      "special": "chain",
+      "evolution": {
+        "from": "lighthouse",
+        "requires": {
+          "passive": "inertia"
+        }
+      }
+    },
+    {
+      "id": "siege-mortar",
+      "name": "Mortero de asedio",
+      "kind": "mortar",
+      "icon": "icon-mortar-evo",
+      "description": "Proyectiles pesados que sueltan más bombitas y cuyos golpes saltan a los vecinos",
+      "levels": [
+        {
+          "damage": 80,
+          "cooldown": 1.4,
+          "count": 8,
+          "pierce": 0,
+          "speed": 260,
+          "area": 50,
+          "duration": 0,
+          "range": 190,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.45
+        }
+      ],
+      "element": null,
+      "special": "chain",
+      "evolution": {
+        "from": "mortar",
+        "requires": {
+          "passive": "core-hunter"
+        }
+      }
+    },
+    {
+      "id": "pulse-twin",
+      "name": "Pulso doble",
+      "kind": "bolt",
+      "icon": "icon-pulse-twin",
+      "description": "Dos rayos a la vez, cada uno más flojo",
+      "levels": [
+        {
+          "damage": 4.75,
+          "cooldown": 0.55,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 5.699999999999999,
+          "cooldown": 0.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 7.6,
+          "cooldown": 0.5,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 9.5,
+          "cooldown": 0.45,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12.825,
+          "cooldown": 0.4,
+          "count": 4,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "pulse",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "pulse-frost",
+      "name": "Pulso gélido",
+      "kind": "bolt",
+      "icon": "icon-pulse-frost",
+      "description": "Cada rayo ralentiza lo que toca",
+      "levels": [
+        {
+          "damage": 8.5,
+          "cooldown": 0.55,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10.2,
+          "cooldown": 0.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10.2,
+          "cooldown": 0.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12.75,
+          "cooldown": 0.45,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 15.299999999999999,
+          "cooldown": 0.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 0,
+          "range": 260,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "slow",
+      "special": null,
+      "variant": {
+        "of": "pulse",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "nova-wide",
+      "name": "Onda amplia",
+      "kind": "nova",
+      "icon": "icon-nova-wide",
+      "description": "Llega más lejos, más flojo y más despacio",
+      "levels": [
+        {
+          "damage": 9.799999999999999,
+          "cooldown": 3.12,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 81,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 11.899999999999999,
+          "cooldown": 2.88,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 89.10000000000001,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 14,
+          "cooldown": 2.64,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 97.2,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 16.799999999999997,
+          "cooldown": 2.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 105.30000000000001,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 19.599999999999998,
+          "cooldown": 2.16,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 114.75000000000001,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "nova",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "nova-ember",
+      "name": "Onda ígnea",
+      "kind": "nova",
+      "icon": "icon-nova-ember",
+      "description": "La onda deja ardiendo a quien alcanza",
+      "levels": [
+        {
+          "damage": 11.9,
+          "cooldown": 2.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 60,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 14.45,
+          "cooldown": 2.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 66,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 30,
+          "interval": 0
+        },
+        {
+          "damage": 17,
+          "cooldown": 2.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 72,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 20.4,
+          "cooldown": 2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 78,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 35,
+          "interval": 0
+        },
+        {
+          "damage": 23.8,
+          "cooldown": 1.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 85,
+          "duration": 0,
+          "range": 0,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0
+        }
+      ],
+      "element": "burn",
+      "special": null,
+      "variant": {
+        "of": "nova",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "arc-chain",
+      "name": "Arco encadenado",
+      "kind": "ricochet",
+      "icon": "icon-arc-chain",
+      "description": "Salta a dos enemigos más, con menos fuerza",
+      "levels": [
+        {
+          "damage": 9,
+          "cooldown": 1.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 5,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10.5,
+          "cooldown": 1.3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 6,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 12,
+          "cooldown": 1.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 7,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 13.5,
+          "cooldown": 1.1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 8,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 15,
+          "cooldown": 1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 9,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "arc",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "arc-shock",
+      "name": "Arco eléctrico",
+      "kind": "ricochet",
+      "icon": "icon-arc-shock",
+      "description": "Cada salto electrocuta",
+      "levels": [
+        {
+          "damage": 10.2,
+          "cooldown": 1.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 3,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 11.9,
+          "cooldown": 1.3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 4,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 13.6,
+          "cooldown": 1.2,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 5,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 15.299999999999999,
+          "cooldown": 1.1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 6,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 17,
+          "cooldown": 1,
+          "count": 1,
+          "pierce": 0,
+          "speed": 420,
+          "area": 0,
+          "duration": 0,
+          "range": 120,
+          "bounces": 7,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "shock",
+      "special": null,
+      "variant": {
+        "of": "arc",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "drone-pair",
+      "name": "Dron doble",
+      "kind": "drone",
+      "icon": "icon-drone-pair",
+      "description": "Dos drones que se reparten el daño",
+      "levels": [
+        {
+          "damage": 3.3249999999999997,
+          "cooldown": 0.8,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 3.8,
+          "cooldown": 0.75,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 5.699999999999999,
+          "cooldown": 0.7,
+          "count": 3,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 6.333333333333333,
+          "cooldown": 0.65,
+          "count": 3,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 8.549999999999999,
+          "cooldown": 0.6,
+          "count": 4,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "drone",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "drone-leech",
+      "name": "Dron vampiro",
+      "kind": "drone",
+      "icon": "icon-drone-leech",
+      "description": "Sus disparos te devuelven vida",
+      "levels": [
+        {
+          "damage": 5.95,
+          "cooldown": 0.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 6.8,
+          "cooldown": 0.75,
+          "count": 1,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 7.6499999999999995,
+          "cooldown": 0.7,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 8.5,
+          "cooldown": 0.65,
+          "count": 2,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        },
+        {
+          "damage": 10.2,
+          "cooldown": 0.6,
+          "count": 3,
+          "pierce": 0,
+          "speed": 300,
+          "area": 0,
+          "duration": 0,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0
+        }
+      ],
+      "element": "leech",
+      "special": null,
+      "variant": {
+        "of": "drone",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "field-wide",
+      "name": "Pozo amplio",
+      "kind": "field",
+      "icon": "icon-field-wide",
+      "description": "Atrapa una zona mayor, con menos fuerza",
+      "levels": [
+        {
+          "damage": 4,
+          "cooldown": 4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 65,
+          "duration": 2.5,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0.25
+        },
+        {
+          "damage": 4.800000000000001,
+          "cooldown": 3.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 70.2,
+          "duration": 2.7,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 45,
+          "interval": 0.25
+        },
+        {
+          "damage": 5.6000000000000005,
+          "cooldown": 3.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 75.4,
+          "duration": 3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 50,
+          "interval": 0.25
+        },
+        {
+          "damage": 6.4,
+          "cooldown": 3.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 80.60000000000001,
+          "duration": 3.3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 55,
+          "interval": 0.25
+        },
+        {
+          "damage": 8,
+          "cooldown": 3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 91,
+          "duration": 3.6,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 60,
+          "interval": 0.25
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "field",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "field-corrosion",
+      "name": "Pozo corrosivo",
+      "kind": "field",
+      "icon": "icon-field-corrosion",
+      "description": "Corroe el blindaje de lo que atrapa",
+      "levels": [
+        {
+          "damage": 4.25,
+          "cooldown": 4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 50,
+          "duration": 2.5,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 40,
+          "interval": 0.25
+        },
+        {
+          "damage": 5.1,
+          "cooldown": 3.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 54,
+          "duration": 2.7,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 45,
+          "interval": 0.25
+        },
+        {
+          "damage": 5.95,
+          "cooldown": 3.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 58,
+          "duration": 3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 50,
+          "interval": 0.25
+        },
+        {
+          "damage": 6.8,
+          "cooldown": 3.4,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 62,
+          "duration": 3.3,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 55,
+          "interval": 0.25
+        },
+        {
+          "damage": 8.5,
+          "cooldown": 3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 70,
+          "duration": 3.6,
+          "range": 220,
+          "bounces": 0,
+          "knockback": 60,
+          "interval": 0.25
+        }
+      ],
+      "element": "corrosion",
+      "special": null,
+      "variant": {
+        "of": "field",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "beam-split",
+      "name": "Rayo partido",
+      "kind": "beam",
+      "icon": "icon-beam-split",
+      "description": "Dos rayos a dos enemigos distintos, cada uno más flojo",
+      "levels": [
+        {
+          "damage": 2.375,
+          "cooldown": 3,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 2.8499999999999996,
+          "cooldown": 2.8,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.4,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 3.3249999999999997,
+          "cooldown": 2.6,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.6,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 5.066666666666666,
+          "cooldown": 2.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.8,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 6.333333333333333,
+          "cooldown": 2.2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "beam",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "beam-prism",
+      "name": "Rayo prismático",
+      "kind": "beam",
+      "icon": "icon-beam-prism",
+      "description": "Cambia de elemento a cada golpe",
+      "levels": [
+        {
+          "damage": 4.25,
+          "cooldown": 3,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 5.1,
+          "cooldown": 2.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.4,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 5.95,
+          "cooldown": 2.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.6,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 6.8,
+          "cooldown": 2.4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 1.8,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        },
+        {
+          "damage": 8.5,
+          "cooldown": 2.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 0,
+          "area": 6,
+          "duration": 2,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.15
+        }
+      ],
+      "element": "prism",
+      "special": null,
+      "variant": {
+        "of": "beam",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "boomerang-twin",
+      "name": "Disco gemelo",
+      "kind": "boomerang",
+      "icon": "icon-boomerang-twin",
+      "description": "Dos discos que se reparten el daño",
+      "levels": [
+        {
+          "damage": 5.699999999999999,
+          "cooldown": 1.6,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 130,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 6.6499999999999995,
+          "cooldown": 1.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 10.133333333333333,
+          "cooldown": 1.4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 11.399999999999999,
+          "cooldown": 1.3,
+          "count": 3,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 14.962499999999999,
+          "cooldown": 1.2,
+          "count": 4,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "boomerang",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "boomerang-breach",
+      "name": "Disco de brecha",
+      "kind": "boomerang",
+      "icon": "icon-boomerang-breach",
+      "description": "Cada corte abre brechas en el blindaje",
+      "levels": [
+        {
+          "damage": 10.2,
+          "cooldown": 1.6,
+          "count": 1,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 130,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 11.9,
+          "cooldown": 1.5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 140,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 13.6,
+          "cooldown": 1.4,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 150,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 15.299999999999999,
+          "cooldown": 1.3,
+          "count": 2,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 160,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        },
+        {
+          "damage": 17.849999999999998,
+          "cooldown": 1.2,
+          "count": 3,
+          "pierce": 0,
+          "speed": 280,
+          "area": 0,
+          "duration": 0,
+          "range": 180,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ],
+      "element": "breach",
+      "special": null,
+      "variant": {
+        "of": "boomerang",
+        "unlockAt": 8
+      }
+    },
+    {
+      "id": "turret-rapid",
+      "name": "Torreta rápida",
+      "kind": "turret",
+      "icon": "icon-turret-rapid",
+      "description": "Dispara más a menudo, más flojo",
+      "levels": [
+        {
+          "damage": 4.55,
+          "cooldown": 5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 8,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.325
+        },
+        {
+          "damage": 5.2,
+          "cooldown": 4.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 9,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.29250000000000004
+        },
+        {
+          "damage": 5.8500000000000005,
+          "cooldown": 4.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 10,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.26
+        },
+        {
+          "damage": 6.5,
+          "cooldown": 4.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 11,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.22749999999999998
+        },
+        {
+          "damage": 7.800000000000001,
+          "cooldown": 4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 12,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.195
+        }
+      ],
+      "element": null,
+      "special": null,
+      "variant": {
+        "of": "turret",
+        "unlockAt": 4
+      }
+    },
+    {
+      "id": "turret-hack",
+      "name": "Torreta pirata",
+      "kind": "turret",
+      "icon": "icon-turret-hack",
+      "description": "Sus disparos hackean a los enemigos",
+      "levels": [
+        {
+          "damage": 5.95,
+          "cooldown": 5,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 8,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.5
+        },
+        {
+          "damage": 6.8,
+          "cooldown": 4.8,
+          "count": 1,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 9,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.45
+        },
+        {
+          "damage": 7.6499999999999995,
+          "cooldown": 4.5,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 10,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.4
+        },
+        {
+          "damage": 8.5,
+          "cooldown": 4.2,
+          "count": 2,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 11,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.35
+        },
+        {
+          "damage": 10.2,
+          "cooldown": 4,
+          "count": 3,
+          "pierce": 0,
+          "speed": 320,
+          "area": 0,
+          "duration": 12,
+          "range": 200,
+          "bounces": 0,
+          "knockback": 0,
+          "interval": 0.3
+        }
+      ],
+      "element": "hack",
+      "special": null,
+      "variant": {
+        "of": "turret",
+        "unlockAt": 8
+      }
+    }
+  ],
+  "passives": [
+    {
+      "id": "armor",
+      "name": "Blindaje",
+      "icon": "icon-armor",
+      "description": "Más vida máxima",
+      "stat": "maxHp",
+      "levels": [
+        0.15,
+        0.3,
+        0.45,
+        0.6,
+        0.75
+      ]
+    },
+    {
+      "id": "thrusters",
+      "name": "Propulsores",
+      "icon": "icon-thrusters",
+      "description": "Te mueves más rápido",
+      "stat": "speed",
+      "levels": [
+        0.08,
+        0.16,
+        0.24,
+        0.32,
+        0.4
+      ]
+    },
+    {
+      "id": "capacitor",
+      "name": "Condensador",
+      "icon": "icon-capacitor",
+      "description": "Las armas se recargan antes",
+      "stat": "cooldown",
+      "levels": [
+        0.06,
+        0.12,
+        0.18,
+        0.24,
+        0.3
+      ]
+    },
+    {
+      "id": "amplifier",
+      "name": "Amplificador",
+      "icon": "icon-amplifier",
+      "description": "Todo hace más daño",
+      "stat": "damage",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "lens",
+      "name": "Lente gravitatoria",
+      "icon": "icon-lens",
+      "description": "Áreas y orbes más grandes",
+      "stat": "area",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "magnet",
+      "name": "Imán de datos",
+      "icon": "icon-magnet",
+      "description": "Recoges los fragmentos desde más lejos",
+      "stat": "pickup",
+      "levels": [
+        0.25,
+        0.5,
+        0.75,
+        1,
+        1.25
+      ]
+    },
+    {
+      "id": "splitter",
+      "name": "Divisor de haz",
+      "icon": "icon-splitter",
+      "description": "Un proyectil más en cada disparo",
+      "stat": "projectiles",
+      "levels": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "regen",
+      "name": "Nanorreparación",
+      "icon": "icon-regen",
+      "description": "Recuperas vida poco a poco",
+      "stat": "regen",
+      "levels": [
+        0.3,
+        0.6,
+        0.9,
+        1.2,
+        1.5
+      ]
+    },
+    {
+      "id": "plating",
+      "name": "Placas reactivas",
+      "icon": "icon-plating",
+      "description": "Ignoras parte del daño que recibes",
+      "stat": "armor",
+      "levels": [
+        0.03,
+        0.06,
+        0.09,
+        0.12,
+        0.15
+      ]
+    },
+    {
+      "id": "scope",
+      "name": "Mira de precisión",
+      "icon": "icon-scope",
+      "description": "Más golpes críticos",
+      "stat": "crit",
+      "levels": [
+        0.03,
+        0.06,
+        0.09,
+        0.12,
+        0.15
+      ]
+    },
+    {
+      "id": "overcharge",
+      "name": "Núcleo sobrecargado",
+      "icon": "icon-overcharge",
+      "description": "Los críticos hacen más daño",
+      "stat": "critDamage",
+      "levels": [
+        0.15,
+        0.3,
+        0.45,
+        0.6,
+        0.75
+      ]
+    },
+    {
+      "id": "memory",
+      "name": "Banco de memoria",
+      "icon": "icon-memory",
+      "description": "Aprendes más de cada fragmento",
+      "stat": "xp",
+      "levels": [
+        0.08,
+        0.16,
+        0.24,
+        0.32,
+        0.4
+      ]
+    },
+    {
+      "id": "clover",
+      "name": "Trébol cuántico",
+      "icon": "icon-clover",
+      "description": "Caen más monedas, polvo y kits",
+      "stat": "luck",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "siphon",
+      "name": "Sifón",
+      "icon": "icon-siphon",
+      "description": "Recuperas vida con el daño que haces",
+      "stat": "lifesteal",
+      "levels": [
+        0.01,
+        0.02,
+        0.03,
+        0.04,
+        0.05
+      ]
+    },
+    {
+      "id": "accelerator",
+      "name": "Acelerador de partículas",
+      "icon": "icon-accelerator",
+      "description": "Proyectiles más rápidos y de más alcance",
+      "stat": "velocity",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "stabilizer",
+      "name": "Estabilizador",
+      "icon": "icon-stabilizer",
+      "description": "Áreas, minas y torretas duran más",
+      "stat": "duration",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "catalyst",
+      "name": "Catalizador",
+      "icon": "icon-catalyst",
+      "description": "Los elementos prenden más y las reacciones pegan más fuerte",
+      "stat": "elemental",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "deflector",
+      "name": "Deflector",
+      "icon": "icon-deflector",
+      "description": "Un escudo que se recarga si no te golpean",
+      "stat": "barrier",
+      "levels": [
+        0.06,
+        0.12,
+        0.18,
+        0.24,
+        0.3
+      ]
+    },
+    {
+      "id": "static-signal",
+      "name": "Señal de la Estática",
+      "icon": "icon-static-signal",
+      "description": "Llegan más enemigos y sueltan más botín",
+      "stat": "curse",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "drill",
+      "name": "Punta de taladro",
+      "icon": "icon-drill",
+      "description": "Los proyectiles atraviesan un enemigo más",
+      "stat": "pierce",
+      "levels": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "quantum-phase",
+      "name": "Fase cuántica",
+      "icon": "icon-quantum-phase",
+      "description": "A veces un golpe te atraviesa sin hacerte daño",
+      "stat": "evasion",
+      "levels": [
+        0.04,
+        0.08,
+        0.12,
+        0.16,
+        0.2
+      ]
+    },
+    {
+      "id": "core-hunter",
+      "name": "Cazanúcleos",
+      "icon": "icon-core-hunter",
+      "description": "Más daño contra Núcleos y élites",
+      "stat": "bossDamage",
+      "levels": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5
+      ]
+    },
+    {
+      "id": "purge-protocol",
+      "name": "Protocolo de purga",
+      "icon": "icon-purge-protocol",
+      "description": "Los enemigos corrientes con muy poca vida caen al instante",
+      "stat": "execute",
+      "levels": [
+        0.03,
+        0.05,
+        0.07,
+        0.09,
+        0.11
+      ]
+    },
+    {
+      "id": "repulsor",
+      "name": "Repulsor",
+      "icon": "icon-repulsor",
+      "description": "Tus golpes empujan lejos a los enemigos",
+      "stat": "knockback",
+      "levels": [
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        1
+      ]
+    },
+    {
+      "id": "inertia",
+      "name": "Inercia",
+      "icon": "icon-inertia",
+      "description": "Más daño mientras te mueves",
+      "stat": "movingDamage",
+      "levels": [
+        0.06,
+        0.12,
+        0.18,
+        0.24,
+        0.3
+      ]
+    }
+  ],
+  "enemies": [
+    {
+      "id": "mite",
+      "name": "Ácaro de estática",
+      "family": "swarm",
+      "sprite": "mite",
+      "hp": 8,
+      "speed": 62,
+      "damage": 6,
+      "radius": 6,
+      "xp": 1,
+      "behavior": {
+        "kind": "chase"
+      }
+    },
+    {
+      "id": "cell",
+      "name": "Célula partida",
+      "family": "splitter",
+      "sprite": "cell",
+      "hp": 36,
+      "speed": 46,
+      "damage": 10,
+      "radius": 11,
+      "xp": 3,
+      "behavior": {
+        "kind": "chase"
+      },
+      "split": {
+        "into": "cellet",
+        "count": 2
+      }
+    },
+    {
+      "id": "cellet",
+      "name": "Celulita",
+      "family": "swarm",
+      "sprite": "cellet",
+      "hp": 10,
+      "speed": 70,
+      "damage": 5,
+      "radius": 6,
+      "xp": 1,
+      "behavior": {
+        "kind": "chase"
+      }
+    },
+    {
+      "id": "ray",
+      "name": "Manta de vacío",
+      "family": "charger",
+      "sprite": "ray",
+      "hp": 30,
+      "speed": 40,
+      "damage": 14,
+      "radius": 10,
+      "xp": 3,
+      "behavior": {
+        "kind": "charge",
+        "range": 160,
+        "windup": 0.7,
+        "dashSpeed": 260,
+        "dashTime": 0.45,
+        "cooldown": 3
+      }
+    },
+    {
+      "id": "spitter",
+      "name": "Coral artillero",
+      "family": "shooter",
+      "sprite": "spitter",
+      "hp": 22,
+      "speed": 34,
+      "damage": 8,
+      "radius": 9,
+      "xp": 3,
+      "behavior": {
+        "kind": "shooter",
+        "range": 150,
+        "cooldown": 2.2,
+        "count": 3,
+        "spread": 20,
+        "bulletSpeed": 120,
+        "bulletDamage": 9
+      }
+    },
+    {
+      "id": "shell",
+      "name": "Caparazón",
+      "family": "armored",
+      "sprite": "shell",
+      "hp": 70,
+      "speed": 32,
+      "damage": 16,
+      "radius": 13,
+      "xp": 6,
+      "behavior": {
+        "kind": "armored",
+        "arc": 120,
+        "reduction": 0.75,
+        "turnRate": 90
+      }
+    },
+    {
+      "id": "splinter",
+      "name": "Esquirla",
+      "family": "swarm",
+      "sprite": "splinter",
+      "hp": 7,
+      "speed": 74,
+      "damage": 8,
+      "radius": 5,
+      "xp": 1,
+      "behavior": {
+        "kind": "chase"
+      }
+    },
+    {
+      "id": "narwhal",
+      "name": "Narval de escarcha",
+      "family": "charger",
+      "sprite": "narwhal",
+      "hp": 34,
+      "speed": 40,
+      "damage": 15,
+      "radius": 11,
+      "xp": 3,
+      "behavior": {
+        "kind": "charge",
+        "range": 200,
+        "windup": 0.8,
+        "dashSpeed": 300,
+        "dashTime": 0.5,
+        "cooldown": 3.5
+      }
+    },
+    {
+      "id": "beacon",
+      "name": "Faro gélido",
+      "family": "shooter",
+      "sprite": "beacon",
+      "hp": 26,
+      "speed": 28,
+      "damage": 8,
+      "radius": 9,
+      "xp": 3,
+      "behavior": {
+        "kind": "shooter",
+        "range": 160,
+        "cooldown": 2.6,
+        "count": 8,
+        "spread": 45,
+        "bulletSpeed": 125,
+        "bulletDamage": 10
+      }
+    },
+    {
+      "id": "geode",
+      "name": "Geoda",
+      "family": "splitter",
+      "sprite": "geode",
+      "hp": 40,
+      "speed": 40,
+      "damage": 11,
+      "radius": 10,
+      "xp": 3,
+      "behavior": {
+        "kind": "chase"
+      },
+      "split": {
+        "into": "splinter",
+        "count": 3
+      }
+    },
+    {
+      "id": "floe",
+      "name": "Témpano",
+      "family": "armored",
+      "sprite": "floe",
+      "hp": 80,
+      "speed": 28,
+      "damage": 17,
+      "radius": 13,
+      "xp": 6,
+      "behavior": {
+        "kind": "armored",
+        "arc": 120,
+        "reduction": 0.75,
+        "turnRate": 80,
+        "weakTo": "burn"
+      }
+    },
+    {
+      "id": "polyp",
+      "name": "Pólipo",
+      "family": "swarm",
+      "sprite": "polyp",
+      "hp": 9,
+      "speed": 66,
+      "damage": 6,
+      "radius": 5,
+      "xp": 1,
+      "behavior": {
+        "kind": "orbit",
+        "radius": 70,
+        "turn": 70,
+        "every": 4,
+        "diveSpeed": 200,
+        "diveTime": 0.5
+      }
+    },
+    {
+      "id": "jelly",
+      "name": "Medusa de bruma",
+      "family": "healer",
+      "sprite": "jelly",
+      "hp": 26,
+      "speed": 36,
+      "damage": 6,
+      "radius": 9,
+      "xp": 4,
+      "behavior": {
+        "kind": "support",
+        "effect": "heal",
+        "amount": 0.15,
+        "range": 110,
+        "cooldown": 2.5,
+        "keep": 170
+      }
+    },
+    {
+      "id": "urchin",
+      "name": "Erizo",
+      "family": "armored",
+      "sprite": "urchin",
+      "hp": 60,
+      "speed": 30,
+      "damage": 14,
+      "radius": 10,
+      "xp": 5,
+      "behavior": {
+        "kind": "armored",
+        "arc": 160,
+        "reduction": 0.6,
+        "turnRate": 100,
+        "weakTo": "corrosion"
+      }
+    },
+    {
+      "id": "eel",
+      "name": "Anguila voltaica",
+      "family": "shooter",
+      "sprite": "eel",
+      "hp": 22,
+      "speed": 44,
+      "damage": 9,
+      "radius": 9,
+      "xp": 3,
+      "behavior": {
+        "kind": "lancer",
+        "range": 210,
+        "windup": 0.9,
+        "cooldown": 3.5,
+        "bulletSpeed": 320,
+        "bulletDamage": 14
+      }
+    },
+    {
+      "id": "colony",
+      "name": "Colonia",
+      "family": "summoner",
+      "sprite": "colony",
+      "hp": 60,
+      "speed": 22,
+      "damage": 12,
+      "radius": 13,
+      "xp": 6,
+      "behavior": {
+        "kind": "summoner",
+        "cooldown": 4,
+        "minion": "polyp",
+        "count": 3
+      }
+    },
+    {
+      "id": "ember",
+      "name": "Ascua",
+      "family": "swarm",
+      "sprite": "ember",
+      "hp": 8,
+      "speed": 70,
+      "damage": 7,
+      "radius": 5,
+      "xp": 1,
+      "behavior": {
+        "kind": "chase"
+      }
+    },
+    {
+      "id": "ram",
+      "name": "Ariete",
+      "family": "charger",
+      "sprite": "ram",
+      "hp": 40,
+      "speed": 38,
+      "damage": 16,
+      "radius": 11,
+      "xp": 4,
+      "behavior": {
+        "kind": "charge",
+        "range": 180,
+        "windup": 0.75,
+        "dashSpeed": 320,
+        "dashTime": 0.45,
+        "cooldown": 3
+      }
+    },
+    {
+      "id": "sentry",
+      "name": "Torreta corrupta",
+      "family": "shooter",
+      "sprite": "sentry",
+      "hp": 30,
+      "speed": 24,
+      "damage": 8,
+      "radius": 9,
+      "xp": 3,
+      "behavior": {
+        "kind": "lancer",
+        "range": 230,
+        "windup": 1,
+        "cooldown": 3.2,
+        "bulletSpeed": 340,
+        "bulletDamage": 15
+      }
+    },
+    {
+      "id": "golem",
+      "name": "Gólem de escoria",
+      "family": "armored",
+      "sprite": "golem",
+      "hp": 90,
+      "speed": 26,
+      "damage": 18,
+      "radius": 14,
+      "xp": 7,
+      "behavior": {
+        "kind": "armored",
+        "arc": 140,
+        "reduction": 0.75,
+        "turnRate": 70,
+        "weakTo": "slow"
+      }
+    },
+    {
+      "id": "welder",
+      "name": "Soldadora",
+      "family": "healer",
+      "sprite": "welder",
+      "hp": 28,
+      "speed": 36,
+      "damage": 6,
+      "radius": 9,
+      "xp": 4,
+      "behavior": {
+        "kind": "support",
+        "effect": "shield",
+        "amount": 0.3,
+        "range": 110,
+        "cooldown": 3,
+        "keep": 170
+      }
+    },
+    {
+      "id": "crucible",
+      "name": "Crisol",
+      "family": "splitter",
+      "sprite": "crucible",
+      "hp": 44,
+      "speed": 36,
+      "damage": 12,
+      "radius": 10,
+      "xp": 4,
+      "behavior": {
+        "kind": "chase"
+      },
+      "split": {
+        "into": "ember",
+        "count": 4
+      }
+    },
+    {
+      "id": "glitch",
+      "name": "Glitch",
+      "family": "charger",
+      "sprite": "glitch",
+      "hp": 14,
+      "speed": 58,
+      "damage": 12,
+      "radius": 6,
+      "xp": 2,
+      "behavior": {
+        "kind": "blink",
+        "range": 180,
+        "offset": 30,
+        "windup": 0.55,
+        "cooldown": 2.5
+      }
+    },
+    {
+      "id": "wraith",
+      "name": "Eco errante",
+      "family": "summoner",
+      "sprite": "wraith",
+      "hp": 54,
+      "speed": 26,
+      "damage": 10,
+      "radius": 12,
+      "xp": 6,
+      "behavior": {
+        "kind": "summoner",
+        "cooldown": 4.5,
+        "minion": "glitch",
+        "count": 2
+      }
+    },
+    {
+      "id": "cantor",
+      "name": "Cantor de estática",
+      "family": "healer",
+      "sprite": "cantor",
+      "hp": 26,
+      "speed": 34,
+      "damage": 6,
+      "radius": 8,
+      "xp": 4,
+      "behavior": {
+        "kind": "support",
+        "effect": "shield",
+        "amount": 0.3,
+        "range": 110,
+        "cooldown": 3,
+        "keep": 170
+      }
+    }
+  ],
+  "elites": [
+    {
+      "id": "shielded",
+      "name": "Blindada",
+      "shield": 0.6,
+      "speed": 1,
+      "explode": null
+    },
+    {
+      "id": "swift",
+      "name": "Veloz",
+      "shield": 0,
+      "speed": 1.45,
+      "explode": null
+    },
+    {
+      "id": "volatile",
+      "name": "Inestable",
+      "shield": 0,
+      "speed": 1,
+      "explode": {
+        "radius": 50,
+        "damage": 18,
+        "delay": 0.6
+      }
+    }
+  ],
+  "bosses": [
+    {
+      "id": "hive",
+      "name": "La Colmena Rota",
+      "title": "Núcleo de la Estática",
+      "sprite": "hive",
+      "hp": 3200,
+      "radius": 30,
+      "speed": 28,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "radial",
+              "count": 16,
+              "speed": 110,
+              "damage": 8
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 6
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "radial",
+              "count": 20,
+              "speed": 120,
+              "damage": 11
+            },
+            {
+              "kind": "charge",
+              "windup": 0.9,
+              "dashSpeed": 300,
+              "dashTime": 0.6,
+              "damage": 24
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 12
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            },
+            {
+              "kind": "radial",
+              "count": 24,
+              "speed": 130,
+              "damage": 12
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 8
+            },
+            {
+              "kind": "charge",
+              "windup": 0.7,
+              "dashSpeed": 340,
+              "dashTime": 0.6,
+              "damage": 26
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "hive-swarm",
+      "name": "El Nido Voraz",
+      "title": "Núcleo de la Estática",
+      "sprite": "hive-swarm",
+      "hp": 3200,
+      "radius": 30,
+      "speed": 32,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 24,
+              "radius": 130,
+              "gap": 70,
+              "delay": 1,
+              "speed": 70,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 8
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 28,
+              "radius": 125,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 75,
+              "damage": 10
+            },
+            {
+              "kind": "radial",
+              "count": 20,
+              "speed": 120,
+              "damage": 11
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 8
+            },
+            {
+              "kind": "charge",
+              "windup": 0.9,
+              "dashSpeed": 300,
+              "dashTime": 0.6,
+              "damage": 24
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 80,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 10
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 12
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "hive-queen",
+      "name": "La Reina Falsa",
+      "title": "Núcleo de la Estática",
+      "sprite": "hive-queen",
+      "hp": 3200,
+      "radius": 30,
+      "speed": 26,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 6,
+              "spacing": 42,
+              "radius": 26,
+              "delay": 1,
+              "step": 0.18,
+              "damage": 15
+            },
+            {
+              "kind": "radial",
+              "count": 18,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 8
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 12
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 80,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 8
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "glacier",
+      "name": "La Madre Glaciar",
+      "title": "Núcleo de la Estática",
+      "sprite": "glacier",
+      "hp": 5200,
+      "radius": 30,
+      "speed": 26,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 110,
+              "damage": 8
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2.1,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "wall",
+              "count": 28,
+              "gap": 50,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.2,
+              "every": 0.09,
+              "step": 25,
+              "speed": 125,
+              "damage": 9
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 11
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.7,
+          "telegraph": 0.5,
+          "speed": 1.25,
+          "patterns": [
+            {
+              "kind": "wall",
+              "count": 32,
+              "gap": 45,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 8
+            },
+            {
+              "kind": "aimed",
+              "count": 9,
+              "spread": 60,
+              "speed": 170,
+              "damage": 12
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "glacier-egg",
+      "name": "El Huevo de Escarcha",
+      "title": "Núcleo de la Estática",
+      "sprite": "glacier-egg",
+      "hp": 5200,
+      "radius": 30,
+      "speed": 20,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 1,
+              "duration": 1.4,
+              "sweep": 60,
+              "length": 320,
+              "width": 12,
+              "damage": 14
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 110,
+              "damage": 8
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 80,
+              "length": 340,
+              "width": 12,
+              "damage": 15
+            },
+            {
+              "kind": "wall",
+              "count": 28,
+              "gap": 50,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 11
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 100,
+              "length": 360,
+              "width": 14,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 32,
+              "gap": 45,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 8
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "glacier-daughter",
+      "name": "La Hija del Glaciar",
+      "title": "Núcleo de la Estática",
+      "sprite": "glacier-daughter",
+      "hp": 5200,
+      "radius": 30,
+      "speed": 30,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 24,
+              "radius": 130,
+              "gap": 70,
+              "delay": 1,
+              "speed": 70,
+              "damage": 9
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 110,
+              "damage": 8
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 28,
+              "radius": 125,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 75,
+              "damage": 10
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.8,
+              "count": 14,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 80,
+              "length": 340,
+              "width": 12,
+              "damage": 15
+            },
+            {
+              "kind": "summon",
+              "enemy": "splinter",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 80,
+              "damage": 11
+            },
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.6,
+              "count": 18,
+              "speed": 125,
+              "damage": 10
+            },
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 100,
+              "length": 360,
+              "width": 14,
+              "damage": 16
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.5,
+              "every": 0.08,
+              "step": 23,
+              "speed": 130,
+              "damage": 10
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anemone",
+      "name": "La Anémona Rey",
+      "title": "Núcleo de la Estática",
+      "sprite": "anemone",
+      "hp": 6200,
+      "radius": 30,
+      "speed": 24,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 5
+            },
+            {
+              "kind": "radial",
+              "count": 14,
+              "speed": 105,
+              "damage": 8
+            },
+            {
+              "kind": "mines",
+              "count": 3,
+              "spread": 80,
+              "radius": 30,
+              "delay": 1.2,
+              "damage": 14
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2.1,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 90,
+              "radius": 32,
+              "delay": 1.1,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 6
+            },
+            {
+              "kind": "radial",
+              "count": 18,
+              "speed": 115,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.7,
+          "telegraph": 0.5,
+          "speed": 1.25,
+          "patterns": [
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 125,
+              "damage": 9
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 100,
+              "radius": 34,
+              "delay": 1,
+              "damage": 18
+            },
+            {
+              "kind": "wall",
+              "count": 28,
+              "gap": 50,
+              "speed": 125,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 8
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anemone-spore",
+      "name": "La Flor de Esporas",
+      "title": "Núcleo de la Estática",
+      "sprite": "anemone-spore",
+      "hp": 6200,
+      "radius": 30,
+      "speed": 22,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 6,
+              "spacing": 42,
+              "radius": 26,
+              "delay": 1,
+              "step": 0.18,
+              "damage": 15
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 5
+            },
+            {
+              "kind": "radial",
+              "count": 14,
+              "speed": 105,
+              "damage": 8
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 90,
+              "radius": 32,
+              "delay": 1.1,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 125,
+              "damage": 9
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 100,
+              "radius": 34,
+              "delay": 1,
+              "damage": 18
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 8
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anemone-maw",
+      "name": "La Boca del Arrecife",
+      "title": "Núcleo de la Estática",
+      "sprite": "anemone-maw",
+      "hp": 6200,
+      "radius": 30,
+      "speed": 24,
+      "damage": 20,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 1,
+              "duration": 1.4,
+              "sweep": 60,
+              "length": 320,
+              "width": 12,
+              "damage": 14
+            },
+            {
+              "kind": "radial",
+              "count": 16,
+              "speed": 110,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 80,
+              "length": 340,
+              "width": 12,
+              "damage": 15
+            },
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "radial",
+              "count": 18,
+              "speed": 115,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 100,
+              "length": 360,
+              "width": 14,
+              "damage": 16
+            },
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 125,
+              "damage": 9
+            },
+            {
+              "kind": "summon",
+              "enemy": "polyp",
+              "count": 8
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anvil",
+      "name": "El Yunque",
+      "title": "Núcleo de la Estática",
+      "sprite": "anvil",
+      "hp": 7300,
+      "radius": 30,
+      "speed": 24,
+      "damage": 22,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "charge",
+              "windup": 0.9,
+              "dashSpeed": 300,
+              "dashTime": 0.6,
+              "damage": 24
+            },
+            {
+              "kind": "mines",
+              "count": 3,
+              "spread": 90,
+              "radius": 32,
+              "delay": 1.2,
+              "damage": 16
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 100,
+              "radius": 34,
+              "delay": 1.1,
+              "damage": 18
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "charge",
+              "windup": 0.8,
+              "dashSpeed": 320,
+              "dashTime": 0.6,
+              "damage": 26
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 160,
+              "damage": 11
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 110,
+              "radius": 36,
+              "delay": 1,
+              "damage": 20
+            },
+            {
+              "kind": "wall",
+              "count": 30,
+              "gap": 45,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "charge",
+              "windup": 0.7,
+              "dashSpeed": 340,
+              "dashTime": 0.6,
+              "damage": 28
+            },
+            {
+              "kind": "summon",
+              "enemy": "ember",
+              "count": 6
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anvil-hammer",
+      "name": "El Martinete",
+      "title": "Núcleo de la Estática",
+      "sprite": "anvil-hammer",
+      "hp": 7300,
+      "radius": 30,
+      "speed": 22,
+      "damage": 22,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 6,
+              "spacing": 42,
+              "radius": 26,
+              "delay": 1,
+              "step": 0.18,
+              "damage": 15
+            },
+            {
+              "kind": "charge",
+              "windup": 0.9,
+              "dashSpeed": 300,
+              "dashTime": 0.6,
+              "damage": 24
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "charge",
+              "windup": 0.8,
+              "dashSpeed": 320,
+              "dashTime": 0.6,
+              "damage": 26
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 100,
+              "radius": 34,
+              "delay": 1.1,
+              "damage": 18
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "charge",
+              "windup": 0.7,
+              "dashSpeed": 340,
+              "dashTime": 0.6,
+              "damage": 28
+            },
+            {
+              "kind": "wall",
+              "count": 30,
+              "gap": 45,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "summon",
+              "enemy": "ember",
+              "count": 6
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "anvil-furnace",
+      "name": "La Fragua Ciega",
+      "title": "Núcleo de la Estática",
+      "sprite": "anvil-furnace",
+      "hp": 7300,
+      "radius": 30,
+      "speed": 24,
+      "damage": 22,
+      "xp": 60,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.6,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 1,
+              "duration": 1.4,
+              "sweep": 60,
+              "length": 320,
+              "width": 12,
+              "damage": 14
+            },
+            {
+              "kind": "mines",
+              "count": 3,
+              "spread": 90,
+              "radius": 32,
+              "delay": 1.2,
+              "damage": 16
+            },
+            {
+              "kind": "aimed",
+              "count": 5,
+              "spread": 40,
+              "speed": 150,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 80,
+              "length": 340,
+              "width": 12,
+              "damage": 15
+            },
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "charge",
+              "windup": 0.8,
+              "dashSpeed": 320,
+              "dashTime": 0.6,
+              "damage": 26
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 120,
+              "length": 360,
+              "width": 14,
+              "damage": 17
+            },
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 110,
+              "radius": 36,
+              "delay": 1,
+              "damage": 20
+            },
+            {
+              "kind": "summon",
+              "enemy": "ember",
+              "count": 6
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "echo-core",
+      "name": "El Eco Profundo",
+      "title": "Núcleo abisal",
+      "sprite": "echo-core",
+      "hp": 8800,
+      "radius": 32,
+      "speed": 26,
+      "damage": 22,
+      "xp": 90,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.4,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "radial",
+              "count": 18,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 9
+            },
+            {
+              "kind": "mines",
+              "count": 3,
+              "spread": 90,
+              "radius": 30,
+              "delay": 1.2,
+              "damage": 15
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 165,
+              "damage": 11
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.7,
+              "count": 16,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "mite",
+              "count": 6
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 130,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 110,
+              "radius": 34,
+              "delay": 1,
+              "damage": 18
+            },
+            {
+              "kind": "charge",
+              "windup": 0.7,
+              "dashSpeed": 340,
+              "dashTime": 0.6,
+              "damage": 28
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.6,
+              "every": 0.07,
+              "step": 22,
+              "speed": 135,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "echo-choir",
+      "name": "El Coro Abisal",
+      "title": "Núcleo abisal",
+      "sprite": "echo-choir",
+      "hp": 8800,
+      "radius": 32,
+      "speed": 26,
+      "damage": 22,
+      "xp": 90,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.4,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 28,
+              "radius": 130,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 80,
+              "damage": 10
+            },
+            {
+              "kind": "radial",
+              "count": 18,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "mines",
+              "count": 3,
+              "spread": 90,
+              "radius": 30,
+              "delay": 1.2,
+              "damage": 15
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 30,
+              "radius": 125,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 80,
+              "damage": 10
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.7,
+              "count": 16,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "aimed",
+              "count": 7,
+              "spread": 50,
+              "speed": 165,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 130,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 85,
+              "damage": 11
+            },
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 110,
+              "radius": 34,
+              "delay": 1,
+              "damage": 18
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.6,
+              "every": 0.07,
+              "step": 22,
+              "speed": 135,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "echo-mirror",
+      "name": "El Reflejo Profundo",
+      "title": "Núcleo abisal",
+      "sprite": "echo-mirror",
+      "hp": 8800,
+      "radius": 32,
+      "speed": 26,
+      "damage": 22,
+      "xp": 90,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.4,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 90,
+              "length": 360,
+              "width": 14,
+              "damage": 16
+            },
+            {
+              "kind": "wall",
+              "count": 26,
+              "gap": 55,
+              "speed": 120,
+              "damage": 9
+            },
+            {
+              "kind": "barrage",
+              "count": 6,
+              "spacing": 42,
+              "radius": 26,
+              "delay": 1,
+              "step": 0.18,
+              "damage": 15
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 100,
+              "length": 360,
+              "width": 14,
+              "damage": 16
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.7,
+              "count": 16,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "closing",
+              "count": 28,
+              "radius": 125,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 75,
+              "damage": 10
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.4,
+              "every": 0.08,
+              "step": 24,
+              "speed": 130,
+              "damage": 10
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 120,
+              "length": 380,
+              "width": 14,
+              "damage": 17
+            },
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 80,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "signal",
+      "name": "La Señal",
+      "title": "Núcleo de temporada",
+      "sprite": "signal",
+      "hp": 10300,
+      "radius": 30,
+      "speed": 26,
+      "damage": 20,
+      "xp": 70,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.5,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.8,
+              "count": 12,
+              "speed": 110,
+              "damage": 9
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.2,
+              "every": 0.09,
+              "step": 26,
+              "speed": 120,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 100,
+              "radius": 32,
+              "delay": 1.1,
+              "damage": 16
+            },
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.7,
+              "count": 16,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "wall",
+              "count": 28,
+              "gap": 50,
+              "speed": 125,
+              "damage": 10
+            },
+            {
+              "kind": "summon",
+              "enemy": "glitch",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "spiral",
+              "duration": 2.6,
+              "every": 0.07,
+              "step": 22,
+              "speed": 135,
+              "damage": 11
+            },
+            {
+              "kind": "blink",
+              "offset": 100,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "mines",
+              "count": 5,
+              "spread": 110,
+              "radius": 34,
+              "delay": 1,
+              "damage": 18
+            },
+            {
+              "kind": "wall",
+              "count": 32,
+              "gap": 45,
+              "speed": 135,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "signal-carrier",
+      "name": "La Onda Portadora",
+      "title": "Núcleo de temporada",
+      "sprite": "signal-carrier",
+      "hp": 10300,
+      "radius": 30,
+      "speed": 26,
+      "damage": 20,
+      "xp": 70,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.5,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 1,
+              "duration": 1.5,
+              "sweep": 80,
+              "length": 340,
+              "width": 12,
+              "damage": 15
+            },
+            {
+              "kind": "wall",
+              "count": 24,
+              "gap": 60,
+              "speed": 115,
+              "damage": 9
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.2,
+              "every": 0.09,
+              "step": 26,
+              "speed": 120,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 100,
+              "length": 350,
+              "width": 12,
+              "damage": 16
+            },
+            {
+              "kind": "blink",
+              "offset": 110,
+              "windup": 0.7,
+              "count": 16,
+              "speed": 120,
+              "damage": 10
+            },
+            {
+              "kind": "mines",
+              "count": 4,
+              "spread": 100,
+              "radius": 32,
+              "delay": 1.1,
+              "damage": 16
+            },
+            {
+              "kind": "summon",
+              "enemy": "glitch",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 120,
+              "length": 360,
+              "width": 14,
+              "damage": 17
+            },
+            {
+              "kind": "blink",
+              "offset": 100,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            },
+            {
+              "kind": "wall",
+              "count": 32,
+              "gap": 45,
+              "speed": 135,
+              "damage": 11
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.6,
+              "every": 0.07,
+              "step": 22,
+              "speed": 135,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    },
+    {
+      "id": "signal-answer",
+      "name": "La Respuesta",
+      "title": "Núcleo de temporada",
+      "sprite": "signal-answer",
+      "hp": 10300,
+      "radius": 30,
+      "speed": 28,
+      "damage": 20,
+      "xp": 70,
+      "phases": [
+        {
+          "below": 1,
+          "interval": 2.5,
+          "telegraph": 0.6,
+          "speed": 1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 24,
+              "radius": 130,
+              "gap": 70,
+              "delay": 1,
+              "speed": 70,
+              "damage": 9
+            },
+            {
+              "kind": "barrage",
+              "count": 6,
+              "spacing": 42,
+              "radius": 26,
+              "delay": 1,
+              "step": 0.18,
+              "damage": 15
+            },
+            {
+              "kind": "blink",
+              "offset": 120,
+              "windup": 0.8,
+              "count": 12,
+              "speed": 110,
+              "damage": 9
+            }
+          ]
+        },
+        {
+          "below": 0.6,
+          "interval": 2,
+          "telegraph": 0.6,
+          "speed": 1.1,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 28,
+              "radius": 125,
+              "gap": 60,
+              "delay": 0.9,
+              "speed": 75,
+              "damage": 10
+            },
+            {
+              "kind": "barrage",
+              "count": 7,
+              "spacing": 42,
+              "radius": 28,
+              "delay": 0.9,
+              "step": 0.16,
+              "damage": 16
+            },
+            {
+              "kind": "laser",
+              "windup": 0.9,
+              "duration": 1.5,
+              "sweep": 90,
+              "length": 340,
+              "width": 12,
+              "damage": 16
+            },
+            {
+              "kind": "summon",
+              "enemy": "glitch",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "below": 0.25,
+          "interval": 1.6,
+          "telegraph": 0.5,
+          "speed": 1.3,
+          "patterns": [
+            {
+              "kind": "closing",
+              "count": 32,
+              "radius": 120,
+              "gap": 55,
+              "delay": 0.8,
+              "speed": 80,
+              "damage": 11
+            },
+            {
+              "kind": "barrage",
+              "count": 8,
+              "spacing": 42,
+              "radius": 30,
+              "delay": 0.8,
+              "step": 0.15,
+              "damage": 18
+            },
+            {
+              "kind": "laser",
+              "windup": 0.8,
+              "duration": 1.6,
+              "sweep": 110,
+              "length": 360,
+              "width": 14,
+              "damage": 17
+            },
+            {
+              "kind": "spiral",
+              "duration": 2.6,
+              "every": 0.07,
+              "step": 22,
+              "speed": 135,
+              "damage": 11
+            },
+            {
+              "kind": "blink",
+              "offset": 100,
+              "windup": 0.6,
+              "count": 20,
+              "speed": 130,
+              "damage": 11
+            }
+          ]
+        }
+      ],
+      "scaling": {
+        "hpPerLayer": 0.5,
+        "damagePerLayer": 0.2
+      }
+    }
+  ],
+  "sectors": [
+    {
+      "id": "outer-nebula",
+      "name": "Nebulosa Exterior",
+      "description": "El borde de la Nebulosa ElClub, el primero que devoró la Estática. Fauna rápida y en enjambre",
+      "biome": "nebula",
+      "boss": "hive",
+      "bossCycle": [
+        "hive",
+        "hive-swarm",
+        "hive-queen"
+      ],
+      "deepBoss": {
+        "boss": "echo-core",
+        "every": 4,
+        "cycle": [
+          "echo-core",
+          "echo-choir",
+          "echo-mirror"
+        ]
+      },
+      "season": false,
+      "enemyHp": 1.05,
+      "enemyDamage": 1.65,
+      "coreDamage": 1.6,
+      "layerSeconds": 300,
+      "beacon": {
+        "seconds": 60,
+        "hold": 8,
+        "radius": 70,
+        "distance": 520
+      },
+      "spawns": [
+        {
+          "enemy": "mite",
+          "from": 0,
+          "weight": 10,
+          "group": [
+            3,
+            5
+          ]
+        },
+        {
+          "enemy": "cell",
+          "from": 60,
+          "weight": 4,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "ray",
+          "from": 120,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "spitter",
+          "from": 180,
+          "weight": 3,
+          "group": [
+            1,
+            3
+          ]
+        },
+        {
+          "enemy": "shell",
+          "from": 240,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        }
+      ],
+      "waves": [
+        {
+          "at": 150,
+          "kind": "ring",
+          "enemy": "mite",
+          "count": 24
+        },
+        {
+          "at": 270,
+          "kind": "burst",
+          "enemy": "cell",
+          "count": 12
+        }
+      ],
+      "density": {
+        "base": 0.5,
+        "perMinute": 0.24,
+        "max": 4.5,
+        "cap": 240,
+        "bossFactor": 0.5
+      },
+      "scaling": {
+        "hpPerMinute": 0.09,
+        "damagePerMinute": 0.1,
+        "hpPerLayer": 0.35,
+        "damagePerLayer": 0.15,
+        "speedPerLayer": 0.05,
+        "eliteBase": 0,
+        "elitePerMinute": 0.006,
+        "eliteMax": 0.08
+      },
+      "elite": {
+        "hp": 4,
+        "radius": 1.25,
+        "xp": 5,
+        "coins": 3,
+        "dust": 1
+      },
+      "drops": {
+        "coin": 0.04,
+        "dust": 0.02,
+        "repair": 0.0025,
+        "repairHeal": 0.2,
+        "bossCoins": 10,
+        "bossDust": 3,
+        "magnet": 0.0012,
+        "eliteMagnet": 0.08
+      }
+    },
+    {
+      "id": "frost-rings",
+      "name": "Anillos de Escarcha",
+      "description": "Hielo que canta cuando se rompe. La Estática lo ha vuelto cortante",
+      "biome": "ice",
+      "boss": "glacier",
+      "bossCycle": [
+        "glacier",
+        "glacier-egg",
+        "glacier-daughter"
+      ],
+      "deepBoss": {
+        "boss": "echo-core",
+        "every": 4,
+        "cycle": [
+          "echo-core",
+          "echo-choir",
+          "echo-mirror"
+        ]
+      },
+      "season": false,
+      "enemyHp": 1.1,
+      "enemyDamage": 2.4,
+      "coreDamage": 1.7,
+      "layerSeconds": 300,
+      "beacon": {
+        "seconds": 60,
+        "hold": 8,
+        "radius": 70,
+        "distance": 520
+      },
+      "spawns": [
+        {
+          "enemy": "splinter",
+          "from": 0,
+          "weight": 10,
+          "group": [
+            3,
+            5
+          ]
+        },
+        {
+          "enemy": "geode",
+          "from": 60,
+          "weight": 4,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "narwhal",
+          "from": 120,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "beacon",
+          "from": 180,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "floe",
+          "from": 240,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        }
+      ],
+      "waves": [
+        {
+          "at": 150,
+          "kind": "ring",
+          "enemy": "splinter",
+          "count": 24
+        },
+        {
+          "at": 270,
+          "kind": "burst",
+          "enemy": "geode",
+          "count": 10
+        }
+      ],
+      "density": {
+        "base": 0.5,
+        "perMinute": 0.24,
+        "max": 4.5,
+        "cap": 240,
+        "bossFactor": 0.5
+      },
+      "scaling": {
+        "hpPerMinute": 0.075,
+        "damagePerMinute": 0.1,
+        "hpPerLayer": 0.35,
+        "damagePerLayer": 0.15,
+        "speedPerLayer": 0.05,
+        "eliteBase": 0,
+        "elitePerMinute": 0.006,
+        "eliteMax": 0.08
+      },
+      "elite": {
+        "hp": 4,
+        "radius": 1.25,
+        "xp": 5,
+        "coins": 3,
+        "dust": 1
+      },
+      "drops": {
+        "coin": 0.027,
+        "dust": 0.014,
+        "repair": 0.004,
+        "repairHeal": 0.25,
+        "bossCoins": 10,
+        "bossDust": 3,
+        "magnet": 0.0015,
+        "eliteMagnet": 0.08
+      }
+    },
+    {
+      "id": "hollow-reef",
+      "name": "Arrecife Hueco",
+      "description": "Un arrecife que brilla en el vacío. Lo que parece vivo cura a lo que no debería",
+      "biome": "reef",
+      "boss": "anemone",
+      "bossCycle": [
+        "anemone",
+        "anemone-spore",
+        "anemone-maw"
+      ],
+      "deepBoss": {
+        "boss": "echo-core",
+        "every": 4,
+        "cycle": [
+          "echo-core",
+          "echo-choir",
+          "echo-mirror"
+        ]
+      },
+      "season": false,
+      "enemyHp": 1.15,
+      "enemyDamage": 1.15,
+      "coreDamage": 1.8,
+      "layerSeconds": 300,
+      "beacon": {
+        "seconds": 60,
+        "hold": 8,
+        "radius": 70,
+        "distance": 520
+      },
+      "spawns": [
+        {
+          "enemy": "polyp",
+          "from": 0,
+          "weight": 10,
+          "group": [
+            3,
+            5
+          ]
+        },
+        {
+          "enemy": "eel",
+          "from": 60,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "jelly",
+          "from": 120,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        },
+        {
+          "enemy": "urchin",
+          "from": 180,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "colony",
+          "from": 240,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        }
+      ],
+      "waves": [
+        {
+          "at": 150,
+          "kind": "ring",
+          "enemy": "polyp",
+          "count": 24
+        },
+        {
+          "at": 270,
+          "kind": "burst",
+          "enemy": "urchin",
+          "count": 6
+        }
+      ],
+      "density": {
+        "base": 0.5,
+        "perMinute": 0.24,
+        "max": 4.5,
+        "cap": 240,
+        "bossFactor": 0.5
+      },
+      "scaling": {
+        "hpPerMinute": 0.14,
+        "damagePerMinute": 0.18,
+        "hpPerLayer": 0.35,
+        "damagePerLayer": 0.15,
+        "speedPerLayer": 0.05,
+        "eliteBase": 0,
+        "elitePerMinute": 0.006,
+        "eliteMax": 0.08
+      },
+      "elite": {
+        "hp": 4,
+        "radius": 1.25,
+        "xp": 5,
+        "coins": 3,
+        "dust": 1
+      },
+      "drops": {
+        "coin": 0.047,
+        "dust": 0.022,
+        "repair": 0.004,
+        "repairHeal": 0.25,
+        "bossCoins": 10,
+        "bossDust": 3,
+        "magnet": 0.0015,
+        "eliteMagnet": 0.08
+      }
+    },
+    {
+      "id": "broken-forge",
+      "name": "Forja Rota",
+      "description": "Los talleres de una estación que nadie apagó. Todo aquí embiste o dispara",
+      "biome": "forge",
+      "boss": "anvil",
+      "bossCycle": [
+        "anvil",
+        "anvil-hammer",
+        "anvil-furnace"
+      ],
+      "deepBoss": {
+        "boss": "echo-core",
+        "every": 4,
+        "cycle": [
+          "echo-core",
+          "echo-choir",
+          "echo-mirror"
+        ]
+      },
+      "season": false,
+      "enemyHp": 1.2,
+      "enemyDamage": 1.6,
+      "coreDamage": 1.9,
+      "layerSeconds": 300,
+      "beacon": {
+        "seconds": 60,
+        "hold": 8,
+        "radius": 70,
+        "distance": 520
+      },
+      "spawns": [
+        {
+          "enemy": "ember",
+          "from": 0,
+          "weight": 10,
+          "group": [
+            3,
+            5
+          ]
+        },
+        {
+          "enemy": "crucible",
+          "from": 60,
+          "weight": 4,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "ram",
+          "from": 120,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "sentry",
+          "from": 180,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "golem",
+          "from": 210,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        },
+        {
+          "enemy": "welder",
+          "from": 240,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        }
+      ],
+      "waves": [
+        {
+          "at": 150,
+          "kind": "ring",
+          "enemy": "ember",
+          "count": 24
+        },
+        {
+          "at": 270,
+          "kind": "burst",
+          "enemy": "ram",
+          "count": 6
+        }
+      ],
+      "density": {
+        "base": 0.5,
+        "perMinute": 0.24,
+        "max": 4.5,
+        "cap": 240,
+        "bossFactor": 0.5
+      },
+      "scaling": {
+        "hpPerMinute": 0.1,
+        "damagePerMinute": 0.14,
+        "hpPerLayer": 0.35,
+        "damagePerLayer": 0.15,
+        "speedPerLayer": 0.05,
+        "eliteBase": 0,
+        "elitePerMinute": 0.006,
+        "eliteMax": 0.08
+      },
+      "elite": {
+        "hp": 4,
+        "radius": 1.25,
+        "xp": 5,
+        "coins": 3,
+        "dust": 1
+      },
+      "drops": {
+        "coin": 0.041,
+        "dust": 0.0195,
+        "repair": 0.004,
+        "repairHeal": 0.25,
+        "bossCoins": 10,
+        "bossDust": 3,
+        "magnet": 0.0015,
+        "eliteMagnet": 0.08
+      }
+    },
+    {
+      "id": "signal-rift",
+      "name": "Fisura de la Señal",
+      "description": "Una grieta por la que la Estática habla. Solo se abre esta temporada",
+      "biome": "rift",
+      "boss": "signal",
+      "bossCycle": [
+        "signal",
+        "signal-carrier",
+        "signal-answer"
+      ],
+      "deepBoss": null,
+      "season": true,
+      "enemyHp": 1.3,
+      "enemyDamage": 2.4,
+      "coreDamage": 2.1,
+      "layerSeconds": 300,
+      "beacon": {
+        "seconds": 60,
+        "hold": 8,
+        "radius": 70,
+        "distance": 520
+      },
+      "spawns": [
+        {
+          "enemy": "splinter",
+          "from": 0,
+          "weight": 8,
+          "group": [
+            3,
+            5
+          ]
+        },
+        {
+          "enemy": "glitch",
+          "from": 30,
+          "weight": 6,
+          "group": [
+            2,
+            3
+          ]
+        },
+        {
+          "enemy": "ram",
+          "from": 120,
+          "weight": 3,
+          "group": [
+            1,
+            2
+          ]
+        },
+        {
+          "enemy": "cantor",
+          "from": 150,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        },
+        {
+          "enemy": "wraith",
+          "from": 210,
+          "weight": 2,
+          "group": [
+            1,
+            1
+          ]
+        }
+      ],
+      "waves": [
+        {
+          "at": 150,
+          "kind": "ring",
+          "enemy": "glitch",
+          "count": 18
+        },
+        {
+          "at": 270,
+          "kind": "burst",
+          "enemy": "ram",
+          "count": 6
+        }
+      ],
+      "density": {
+        "base": 0.5,
+        "perMinute": 0.3,
+        "max": 4.5,
+        "cap": 240,
+        "bossFactor": 0.5
+      },
+      "scaling": {
+        "hpPerMinute": 0.12,
+        "damagePerMinute": 0.14,
+        "hpPerLayer": 0.45,
+        "damagePerLayer": 0.3,
+        "speedPerLayer": 0.05,
+        "eliteBase": 0,
+        "elitePerMinute": 0.006,
+        "eliteMax": 0.08
+      },
+      "elite": {
+        "hp": 4,
+        "radius": 1.25,
+        "xp": 5,
+        "coins": 2,
+        "dust": 0.7
+      },
+      "drops": {
+        "coin": 0.024,
+        "dust": 0.01,
+        "repair": 0.004,
+        "repairHeal": 0.25,
+        "bossCoins": 10,
+        "bossDust": 3,
+        "magnet": 0.0015,
+        "eliteMagnet": 0.08
+      }
+    }
+  ],
+  "elements": {
+    "palettes": {
+      "amber_crt": "hack",
+      "prismatic": "prism",
+      "antimatter": "invert",
+      "monochrome": "pure",
+      "solar_gold": "burn",
+      "ultraviolet": "shock",
+      "emerald_void": "breach",
+      "neon_synapse": "chain",
+      "andromeda_blue": "slow",
+      "crimson_nebula": "leech",
+      "terminal_green": "corrosion"
+    },
+    "burn": {
+      "share": 0.25,
+      "seconds": 3,
+      "stacks": 3
+    },
+    "slow": {
+      "factor": 0.35,
+      "seconds": 2
+    },
+    "corrosion": {
+      "bonus": 0.2,
+      "seconds": 4
+    },
+    "shock": {
+      "chance": 0.25,
+      "targets": 2,
+      "share": 0.5,
+      "range": 90
+    },
+    "hack": {
+      "chance": 0.08,
+      "seconds": 5
+    },
+    "leech": {
+      "share": 0.04
+    },
+    "breach": {
+      "shield": 2.5,
+      "armor": 0.5
+    },
+    "chain": {
+      "bounces": 1,
+      "share": 0.7,
+      "range": 100
+    },
+    "pure": {
+      "crit": 0.15,
+      "critDamage": 0.5
+    },
+    "prism": {
+      "cycle": [
+        "burn",
+        "slow",
+        "corrosion",
+        "shock"
+      ]
+    },
+    "invert": {
+      "radius": 50,
+      "chance": 0.4,
+      "power": 2
+    },
+    "marks": {
+      "seconds": 3,
+      "cooldown": 1,
+      "bossStun": 0.25,
+      "bossStunEvery": 6
+    },
+    "reactions": [
+      {
+        "id": "short-circuit",
+        "name": "Cortocircuito",
+        "pair": [
+          "corrosion",
+          "shock"
+        ],
+        "effect": {
+          "kind": "chain",
+          "targets": 5,
+          "range": 120,
+          "share": 0.8
+        }
+      },
+      {
+        "id": "storm",
+        "name": "Tormenta",
+        "pair": [
+          "chain",
+          "shock"
+        ],
+        "effect": {
+          "kind": "chain",
+          "targets": 8,
+          "range": 140,
+          "share": 0.5
+        }
+      },
+      {
+        "id": "overload",
+        "name": "Sobrecarga",
+        "pair": [
+          "burn",
+          "shock"
+        ],
+        "effect": {
+          "kind": "explode",
+          "radius": 56,
+          "share": 1
+        }
+      },
+      {
+        "id": "implosion",
+        "name": "Implosión",
+        "pair": [
+          "breach",
+          "burn"
+        ],
+        "effect": {
+          "kind": "explode",
+          "radius": 40,
+          "share": 1.6
+        }
+      },
+      {
+        "id": "thermal-shock",
+        "name": "Choque térmico",
+        "pair": [
+          "burn",
+          "slow"
+        ],
+        "effect": {
+          "kind": "shatter",
+          "bonus": 0.4,
+          "seconds": 4,
+          "share": 0.5
+        }
+      },
+      {
+        "id": "fracture",
+        "name": "Fractura",
+        "pair": [
+          "breach",
+          "slow"
+        ],
+        "effect": {
+          "kind": "shatter",
+          "bonus": 0.5,
+          "seconds": 3,
+          "share": 0.3
+        }
+      },
+      {
+        "id": "superconductor",
+        "name": "Superconductor",
+        "pair": [
+          "shock",
+          "slow"
+        ],
+        "effect": {
+          "kind": "stun",
+          "seconds": 1.2
+        }
+      },
+      {
+        "id": "logic-loop",
+        "name": "Bucle lógico",
+        "pair": [
+          "hack",
+          "slow"
+        ],
+        "effect": {
+          "kind": "stun",
+          "seconds": 2
+        }
+      },
+      {
+        "id": "boiling-acid",
+        "name": "Ácido hirviente",
+        "pair": [
+          "burn",
+          "corrosion"
+        ],
+        "effect": {
+          "kind": "spread",
+          "range": 70,
+          "targets": 5,
+          "statuses": [
+            "burn",
+            "corrosion"
+          ]
+        }
+      },
+      {
+        "id": "virus",
+        "name": "Virus",
+        "pair": [
+          "hack",
+          "corrosion"
+        ],
+        "effect": {
+          "kind": "spread",
+          "range": 80,
+          "targets": 3,
+          "statuses": [
+            "hack"
+          ]
+        }
+      },
+      {
+        "id": "bloodletting",
+        "name": "Sangría",
+        "pair": [
+          "leech",
+          "burn"
+        ],
+        "effect": {
+          "kind": "drain",
+          "share": 1,
+          "heal": 0.25
+        }
+      }
+    ]
+  },
+  "relics": {
+    "tier": [
+      1,
+      1.15,
+      1.35,
+      1.6,
+      2
+    ],
+    "level": {
+      "step": 0.04,
+      "cap": 0.5
+    },
+    "stacking": {
+      "from": 3,
+      "decay": 0.5
+    },
+    "size": {
+      "large": 1.15,
+      "medium": 1,
+      "compact": 0.85,
+      "colossal": 1.3
+    },
+    "core": {
+      "faint": 0.85,
+      "bright": 1,
+      "quasar": 1.15,
+      "double_nucleus": 1
+    },
+    "density": {
+      "dense": 1.15,
+      "normal": 1,
+      "sparse": 0.85,
+      "saturated": 1.3
+    },
+    "weaponProc": 0.15,
+    "families": {
+      "blades": {
+        "damage": 9,
+        "radius": 40,
+        "interval": 0.5,
+        "speed": 200
+      },
+      "ray": {
+        "damage": 16,
+        "cooldown": 1.8,
+        "pierce": 6,
+        "speed": 480,
+        "cone": 50,
+        "range": 420
+      },
+      "shield": {
+        "shield": 24,
+        "recharge": 5
+      },
+      "lens": {
+        "crit": 0.1,
+        "critDamage": 0.3
+      },
+      "chaos": {
+        "cooldown": 4,
+        "nova": {
+          "damage": 18,
+          "radius": 70
+        },
+        "bolts": {
+          "count": 6,
+          "damage": 9,
+          "speed": 320
+        },
+        "slowField": {
+          "radius": 90,
+          "seconds": 2
+        },
+        "haste": {
+          "bonus": 0.3,
+          "seconds": 3
+        }
+      },
+      "aura": {
+        "damage": 5,
+        "interval": 0.5,
+        "radius": 52,
+        "cone": 120,
+        "coneRadius": 1.4
+      },
+      "scout": {
+        "pickup": 0.3,
+        "speed": 0.08
+      },
+      "echo": {
+        "share": 0.8
+      }
+    },
+    "phenomena": {
+      "supernova": {
+        "cooldown": 8,
+        "damage": 40,
+        "radius": 120
+      },
+      "satellite_galaxy": {
+        "cooldown": 0.8,
+        "damage": 8,
+        "range": 220,
+        "speed": 300
+      },
+      "globular_cluster": {
+        "count": 4,
+        "damage": 6,
+        "radius": 64,
+        "speed": 140,
+        "interval": 0.5
+      },
+      "comet": {
+        "cooldown": 6,
+        "distance": 90,
+        "seconds": 0.2,
+        "damage": 30
+      },
+      "relativistic_jets": {
+        "cooldown": 2.5,
+        "damage": 20,
+        "pierce": 8,
+        "speed": 520
+      },
+      "pulsar": {
+        "cooldown": 1.2,
+        "radius": 70,
+        "damage": 8
+      },
+      "einstein_ring": {
+        "projectiles": 1
+      },
+      "anomaly": {
+        "cooldown": 5,
+        "blink": 70,
+        "freezeRadius": 110,
+        "freezeSeconds": 1.5,
+        "strikeDamage": 60,
+        "strikeCount": 3
+      }
+    },
+    "quasar": {
+      "cooldown": 3,
+      "damage": 25,
+      "pierce": 10,
+      "speed": 560
+    },
+    "double": {
+      "delay": 0.1
+    },
+    "backgrounds": {
+      "cmb": {
+        "stat": "luck",
+        "value": 0.15
+      },
+      "deep_void": {
+        "stat": "armor",
+        "value": 0.08
+      },
+      "starfield": {
+        "stat": "vision",
+        "value": 0.08
+      },
+      "cosmic_web": {
+        "stat": "xp",
+        "value": 0.1
+      },
+      "nebular_dust": {
+        "stat": "pickup",
+        "value": 0.25
+      }
+    },
+    "sets": [
+      {
+        "id": "resonance",
+        "name": "Resonancia cromática",
+        "description": "Dos o tres galaxias de la misma paleta",
+        "kind": "same",
+        "trait": "palette",
+        "tiers": [
+          {
+            "count": 2,
+            "bonus": {
+              "stats": [
+                {
+                  "stat": "elemental",
+                  "value": 0.25
+                }
+              ]
+            }
+          },
+          {
+            "count": 3,
+            "bonus": {
+              "stats": [
+                {
+                  "stat": "elemental",
+                  "value": 0.5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "lineage",
+        "name": "Linaje",
+        "description": "Dos o tres galaxias del mismo tipo",
+        "kind": "same",
+        "trait": "galaxy_type",
+        "tiers": [
+          {
+            "count": 2,
+            "bonus": {
+              "magnitude": 1.15
+            }
+          },
+          {
+            "count": 3,
+            "bonus": {
+              "magnitude": 1.3
+            }
+          }
+        ]
+      },
+      {
+        "id": "same-sky",
+        "name": "Mismo cielo",
+        "description": "Dos o tres galaxias del mismo fondo",
+        "kind": "same",
+        "trait": "background",
+        "tiers": [
+          {
+            "count": 2,
+            "bonus": {
+              "background": 1.5
+            }
+          },
+          {
+            "count": 3,
+            "bonus": {
+              "background": 2
+            }
+          }
+        ]
+      },
+      {
+        "id": "twin-cores",
+        "name": "Núcleos gemelos",
+        "description": "Dos o tres galaxias del mismo núcleo",
+        "kind": "same",
+        "trait": "core",
+        "tiers": [
+          {
+            "count": 2,
+            "bonus": {
+              "stats": [
+                {
+                  "stat": "crit",
+                  "value": 0.04
+                }
+              ]
+            }
+          },
+          {
+            "count": 3,
+            "bonus": {
+              "stats": [
+                {
+                  "stat": "crit",
+                  "value": 0.08
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "satellite-arm",
+        "name": "Brazo satélite",
+        "description": "Una espiral y una galaxia satélite",
+        "kind": "combo",
+        "type": "spiral",
+        "phenomenon": "satellite_galaxy",
+        "bonus": {
+          "stats": [
+            {
+              "stat": "projectiles",
+              "value": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "lighthouse",
+        "name": "Faro",
+        "description": "Una espiral barrada y un púlsar",
+        "kind": "combo",
+        "type": "barred_spiral",
+        "phenomenon": "pulsar",
+        "bonus": {
+          "stats": [
+            {
+              "stat": "cooldown",
+              "value": 0.08
+            }
+          ]
+        }
+      },
+      {
+        "id": "einstein-lens",
+        "name": "Lente de Einstein",
+        "description": "Una lenticular y un anillo de Einstein",
+        "kind": "combo",
+        "type": "lenticular",
+        "phenomenon": "einstein_ring",
+        "bonus": {
+          "stats": [
+            {
+              "stat": "critDamage",
+              "value": 0.3
+            }
+          ]
+        }
+      },
+      {
+        "id": "stellar-heart",
+        "name": "Corazón estelar",
+        "description": "Una elíptica y una supernova",
+        "kind": "combo",
+        "type": "elliptical",
+        "phenomenon": "supernova",
+        "bonus": {
+          "stats": [
+            {
+              "stat": "maxHp",
+              "value": 0.2
+            }
+          ]
+        }
+      },
+      {
+        "id": "chaos-engine",
+        "name": "Motor del caos",
+        "description": "Una irregular y una anomalía",
+        "kind": "combo",
+        "type": "irregular",
+        "phenomenon": "anomaly",
+        "bonus": {
+          "stats": [
+            {
+              "stat": "luck",
+              "value": 0.25
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "xp": {
+    "base": 5,
+    "linear": 6,
+    "quad": 0.5
+  },
+  "caps": {
+    "maxHp": 3,
+    "speed": 0.8,
+    "cooldown": 0.6,
+    "damage": 4,
+    "area": 1.5,
+    "pickup": 3,
+    "projectiles": 6,
+    "regen": 5,
+    "armor": 0.7,
+    "crit": 0.6,
+    "critDamage": 2,
+    "xp": 1,
+    "luck": 1,
+    "lifesteal": 0.15,
+    "velocity": 1,
+    "duration": 1,
+    "pierce": 5,
+    "elemental": 1,
+    "barrier": 0.3,
+    "curse": 0.5,
+    "evasion": 0.25,
+    "bossDamage": 0.6,
+    "execute": 0.12,
+    "knockback": 1.2,
+    "movingDamage": 0.35
+  },
+  "crit": {
+    "chance": 0.05,
+    "damage": 1.5
+  },
+  "arena": {
+    "viewW": 860,
+    "viewH": 400,
+    "margin": 48,
+    "despawn": 1100
+  },
+  "anomalies": [
+    {
+      "id": "contagion",
+      "name": "Corrosión contagiosa",
+      "description": "Un enemigo corroído que cae corroe a los que tiene cerca",
+      "enemyHp": 1,
+      "enemyDamage": 1,
+      "enemySpeed": 1,
+      "spawn": 1,
+      "elite": 1,
+      "xp": 1,
+      "contagion": {
+        "radius": 70,
+        "seconds": 3
+      }
+    },
+    {
+      "id": "swarm",
+      "name": "Enjambre",
+      "description": "Llegan más enemigos, pero aguantan menos",
+      "enemyHp": 0.8,
+      "enemyDamage": 1,
+      "enemySpeed": 1,
+      "spawn": 1.35,
+      "elite": 1,
+      "xp": 1,
+      "contagion": null
+    },
+    {
+      "id": "iron-static",
+      "name": "Estática férrea",
+      "description": "Los enemigos aguantan más y sueltan más datos",
+      "enemyHp": 1.25,
+      "enemyDamage": 1,
+      "enemySpeed": 1,
+      "spawn": 1,
+      "elite": 1,
+      "xp": 1.2,
+      "contagion": null
+    },
+    {
+      "id": "rush",
+      "name": "Marea veloz",
+      "description": "Los enemigos corren más y salen más élites, pero pegan menos",
+      "enemyHp": 1,
+      "enemyDamage": 0.85,
+      "enemySpeed": 1.2,
+      "spawn": 1,
+      "elite": 1.5,
+      "xp": 1,
+      "contagion": null
+    }
+  ],
+  "limits": {
+    "weapons": 6,
+    "passives": 6,
+    "enemies": 400,
+    "shots": 1200,
+    "foeShots": 600,
+    "pickups": 1500,
+    "areas": 300,
+    "props": 160
+  },
+  "props": {
+    "perChunk": 2,
+    "hp": 28,
+    "hpPerLayer": 0.5,
+    "radius": 9,
+    "componentChance": 0.3,
+    "components": 1,
+    "dustMin": 0,
+    "dustMax": 1
+  },
+  "satellites": {
+    "chances": [
+      0.33,
+      0.12,
+      0.04
+    ],
+    "earliest": 40,
+    "latest": 240,
+    "drift": 45,
+    "distance": 300,
+    "speed": 26,
+    "hp": 60,
+    "hpPerLayer": 0.6,
+    "radius": 10
+  }
+}

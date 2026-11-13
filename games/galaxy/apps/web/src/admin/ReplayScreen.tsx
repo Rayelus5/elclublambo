@@ -178,6 +178,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
   const playback = useMemo<Playback>(() => createPlayback(replayable.opts, replayable.log, replayable.until), [replayable]);
   const reduced = useReducedMotion();
   const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const playing = useRef(false);
@@ -284,7 +285,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
     };
     const biome = data.start.content.sectors.find((s) => s.id === data.start.sector)?.biome ?? 'nebula';
     const first = followRef.current;
-    void createStage(canvas, data.start.content, { reduced, colorVision, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome, skins: data.coop ? data.coop.players.map((p) => p.skin ?? null) : [data.start.skin ?? null] }).then((stage) => {
+    void createStage(canvas, data.start.content, { reduced, colorVision, probeGlow, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome, skins: data.coop ? data.coop.players.map((p) => p.skin ?? null) : [data.start.skin ?? null] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -305,6 +306,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
     // The run is fixed for the life of the player.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playback]);
+  useEffect(() => stageRef.current?.setProbeGlow(probeGlow), [probeGlow]);
 
   // The HUD, the timeline and the end read the playback a few times per second while it plays.
   useEffect(() => {

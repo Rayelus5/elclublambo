@@ -19,6 +19,23 @@ export const fuseRequestSchema = z
   .refine((r) => new Set(r.ids).size === r.ids.length, 'duplicate_ids');
 export type FuseRequest = z.infer<typeof fuseRequestSchema>;
 
+/** How many galaxies one «Desintegrar varias» takes at most. */
+export const DISINTEGRATE_MAX = 50;
+/**
+ * Desintegrar varias (the owner: by selection, as when fusing): 1 to 50 different galaxies, all or none. With `preview`
+ * the server only says how many and how much dust, and changes nothing (no idempotency key needed).
+ */
+export const disintegrateManySchema = z
+  .object({ ids: z.array(z.uuid()).min(1).max(DISINTEGRATE_MAX), preview: z.boolean().optional() })
+  .strict()
+  .refine((r) => new Set(r.ids).size === r.ids.length, 'duplicate_ids');
+export type DisintegrateManyRequest = z.infer<typeof disintegrateManySchema>;
+export interface DisintegrateManyPreview {
+  count: number;
+  /** Dust for all of them, as if one by one (the lab's Reciclaje and the relic refunds included). */
+  dust: number;
+}
+
 /** Engine traits as stored (keys in draw order; arms/inclination only where they apply). */
 export type GalaxyTraits = Record<string, string>;
 
