@@ -2586,6 +2586,8 @@ export const copy = {
     colorVision: 'Visión del color',
     colorVisionHint: 'Cambia los colores que avisan de algo (rarezas, jugadores, peligro, elementos) por otros que se distinguen mejor. El arte de las galaxias no cambia',
     colorVisions: { none: 'Normal', protan: 'Protanopía (rojo)', deutan: 'Deuteranopía (verde)', tritan: 'Tritanopía (azul)' },
+    probeGlow: 'Brillo detrás de tu sonda',
+    probeGlowHint: 'Un halo blanco suave detrás de tu sonda en las incursiones, para distinguirla mejor del fondo',
     preview: 'Vista previa',
     previewTiers: 'Rarezas',
     previewTeam: 'Jugadores',

@@ -25,9 +25,11 @@ export interface Prefs {
   notesSeen: string | null;
   /** The soundtrack's style (plan «banda sonora»): Ambiente espacial by default. */
   musicStyle: MusicStyleChoice;
+  /** A soft white glow behind my probe in the runs, to tell it from the background (the owner; off by default). */
+  probeGlow: boolean;
 }
 
-export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient' });
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false });
 const NOTE_VERSION = /^\d{1,3}\.\d{1,3}$/;
 
 const KEY = 'galaxy.prefs';
@@ -44,6 +46,7 @@ function sanitize(raw: unknown): Prefs {
     colorVision: oneOf(COLOR_VISIONS, r['colorVision'], DEFAULT_PREFS.colorVision),
     notesSeen: typeof r['notesSeen'] === 'string' && NOTE_VERSION.test(r['notesSeen']) ? r['notesSeen'] : null,
     musicStyle: oneOf(SETTINGS_MUSIC_STYLES, r['musicStyle'], DEFAULT_PREFS.musicStyle),
+    probeGlow: typeof r['probeGlow'] === 'boolean' ? r['probeGlow'] : DEFAULT_PREFS.probeGlow,
   };
 }
 

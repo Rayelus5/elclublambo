@@ -1,14 +1,16 @@
 // Per-player arena settings kept in localStorage (a convenience: missing storage just means the defaults).
-const AIM_KEY = 'galaxy.aim.manual';
+// The mouse aim is on by default (the owner, 2026-11-13). Its key changed with it: what was kept under the old one
+// (`galaxy.aim.manual`, where many had it off) no longer counts, so everyone starts with it on.
+const AIM_KEY = 'galaxy.aim';
 const RADIO_KEY = 'galaxy.radio.seen';
 const ZOOM_KEY = 'galaxy.arena.zoom';
 
 export function manualAim(): boolean {
   try {
-    return localStorage.getItem(AIM_KEY) === '1';
+    return localStorage.getItem(AIM_KEY) !== '0';
   } catch {
     // Private windows: what was chosen on this page.
-    return aimNow ?? false;
+    return aimNow ?? true;
   }
 }
 

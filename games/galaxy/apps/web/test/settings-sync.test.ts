@@ -40,18 +40,18 @@ test('la cuenta sin ajustes recibe los de este navegador', async () => {
   await settle();
   await vi.advanceTimersByTimeAsync(800);
   expect(deps.save).toHaveBeenCalledTimes(1);
-  expect(deps.save.mock.calls[0]![0]).toMatchObject({ v: 1, colorVision: 'protan', scannerPro: false, music: 0.3, sfx: DEFAULT_AUDIO.sfx, cursor: true, cursorSize: 'medium', manualAim: false });
+  expect(deps.save.mock.calls[0]![0]).toMatchObject({ v: 1, colorVision: 'protan', scannerPro: false, music: 0.3, sfx: DEFAULT_AUDIO.sfx, cursor: true, cursorSize: 'medium', manualAim: true, probeGlow: false });
   expect(getSyncStatus()).toBe('saved');
 });
 
 test('la cuenta con ajustes manda: se aplican al momento y no se vuelven a subir', async () => {
   const deps = fake({
-    settings: { v: 1, colorVision: 'tritan', motion: 'reduced', music: 0.2, muted: true, cursor: false, cursorSize: 'large', cursorColor: '#6fe3ff', manualAim: true, notesSeen: '1.2' },
+    settings: { v: 1, colorVision: 'tritan', motion: 'reduced', music: 0.2, muted: true, cursor: false, cursorSize: 'large', cursorColor: '#6fe3ff', manualAim: true, notesSeen: '1.2', probeGlow: true },
     updatedAt: '2026-11-12T10:00:00.000Z',
   });
   stop = startSync(deps);
   await settle();
-  expect(getPrefs()).toMatchObject({ colorVision: 'tritan', motion: 'reduced', notesSeen: '1.2' });
+  expect(getPrefs()).toMatchObject({ colorVision: 'tritan', motion: 'reduced', notesSeen: '1.2', probeGlow: true });
   expect(getSettings()).toMatchObject({ music: 0.2, muted: true });
   expect(getCursor()).toEqual({ on: false, size: 'large', color: '#6fe3ff' });
   expect(manualAim()).toBe(true);
