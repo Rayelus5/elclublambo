@@ -86,7 +86,7 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   cosmetics: { title: 'Cosméticos del perfil', description: 'Avatares, marcos y títulos: nombre, rareza, de dónde salen y el texto de cómo conseguirlos' },
 };
 
-const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria'] as const;
+const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria', 'Mítica'] as const;
 const FINISH_NAMES = ['Normal', 'Holo', 'Prismático', 'Relieve braille', 'Corrupto'] as const;
 const SEASON_TIER_NAMES = ['Bronce', 'Plata', 'Oro', 'Platino', 'Estelar'] as const;
 const level = (from: number) => (i: number) => `Nivel ${i + from}`;
@@ -130,7 +130,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   gacha: {
     tiers: { label: 'Rarezas' },
-    'tiers.base': { label: 'Probabilidad de cada rareza', unit: 'percent', items: TIER_NAMES, hint: 'Deben sumar 100 %' },
+    'tiers.base': { label: 'Probabilidad de cada rareza', unit: 'percent', items: TIER_NAMES.slice(0, 5), hint: 'Deben sumar 100 %. La mítica va aparte' },
+    mythic: { label: 'Probabilidad de mítica', unit: 'percent', hint: 'Se tira antes que las demás en cada escaneo. La garantía nunca da una mítica' },
     ...pity('standard'),
     ...pity('welcome'),
     'welcome.signals': { label: 'Señales de regalo al empezar' },
@@ -152,7 +153,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   galaxies: {
     disintegrate: { label: 'Desintegrar' },
-    'disintegrate.tier': { label: 'Polvo por rareza', items: TIER_NAMES },
+    'disintegrate.tier': { label: 'Polvo por rareza', items: TIER_NAMES, hint: 'Sin valor de mítica, da lo mismo que una legendaria' },
     'disintegrate.finish': { label: 'Multiplicador por acabado', unit: 'factor', items: FINISH_NAMES },
     fusion: { label: 'Fusión' },
     'fusion.count': { label: 'Galaxias por fusión' },
@@ -278,6 +279,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'minPrice.rare': { label: 'Rara' },
     'minPrice.epic': { label: 'Épica' },
     'minPrice.legendary': { label: 'Legendaria' },
+    'minPrice.mythic': { label: 'Mítica', hint: 'Sin valor, el de la legendaria' },
+    mythicListing: { label: 'Se pueden vender míticas', hint: 'Los trueques de míticas siempre están permitidos' },
     maxPrice: { label: 'Precio máximo' },
     commission: { label: 'Comisión de cada venta', unit: 'percent' },
     days: { label: 'Un anuncio dura', unit: 'days' },
@@ -315,7 +318,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   planetarium: {
     slots: { label: 'Pedestales' },
     points: { label: 'Prestigio por galaxia expuesta' },
-    'points.tiers': { label: 'Por rareza', items: TIER_NAMES },
+    'points.tiers': { label: 'Por rareza', items: TIER_NAMES, hint: 'Sin valor de mítica, cuenta como una legendaria' },
     'points.finish': { label: 'Extra por acabado especial' },
     xpPerPoint: { label: 'Experiencia extra por punto', unit: 'percent' },
     cap: { label: 'Experiencia extra como máximo', unit: 'percent' },

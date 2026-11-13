@@ -27,7 +27,7 @@ const g = (id: string, tier: Tier = 'common', over: Partial<GalaxySummary> = {})
   createdAt: '2026-11-06T20:00:00Z',
   ...over,
 });
-const page = (items: GalaxySummary[]): CollectionPage => ({ items, counts: { common: 25, uncommon: 0, rare: 0, epic: 0, legendary: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } });
+const page = (items: GalaxySummary[]): CollectionPage => ({ items, counts: { common: 25, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } });
 const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 400, signal: 0 } };
 const detail = (over: Partial<GalaxyDetail> = {}): GalaxyDetail => ({ ...g('g9', 'rare'), origin: 'pull', lineage: [], dna: 'ab'.repeat(32), dust: 30, levelUp: { dust: 20 }, refund: 0, ...over });
 const screens = { '/coleccion': <CollectionScreen />, '/coleccion/:id': <CollectionScreen /> };

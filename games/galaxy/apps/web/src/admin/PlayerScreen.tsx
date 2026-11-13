@@ -50,7 +50,7 @@ function actionsFor(p: AdminPlayer): Action[] {
       path: 'galaxies',
       fields: [
         { name: 'tier', label: t.fields.tier, kind: 'select', options: TIERS.map((x) => [x, copy.tiers[x]]) },
-        { name: 'finish', label: t.fields.finish, kind: 'select', options: FINISHES.map((x) => [x, copy.finishes[x]]) },
+        { name: 'finish', label: t.fields.finish, kind: 'select', options: FINISHES.map((x) => [x, copy.finishes[x]]), hint: t.finishHint },
         { name: 'type', label: t.fields.type, kind: 'select', options: [['', t.anyType], ...GALAXY_TYPES.map((x): [string, string] => [x, copy.traitValues.galaxy_type[x as keyof typeof copy.traitValues.galaxy_type] ?? x])] },
         { name: 'seed', label: t.fields.seed, kind: 'text', optional: true },
       ],

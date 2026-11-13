@@ -1,4 +1,4 @@
-import { TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 import { useCollectionPages, useFuse, useGacha } from '../api/economy';
@@ -72,7 +72,7 @@ export function CollectionScreen() {
   }
 
   const pickable = (g: GalaxySummary) =>
-    !g.equipped && !g.exhibited && !g.listed && !g.traded && !g.locked && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+    !g.equipped && !g.exhibited && !g.listed && !g.traded && !g.locked && !atLeast(g.tier, 'legendary') && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
 
   return (
     <div className="screen-root collection-root">

@@ -142,7 +142,7 @@ test('desde el perfil de otro: doy una mía libre, pido una suya y lleva a los t
     level: 14,
     season: null,
     records: { maxDepth: 3, purges: 1, runs: 9 },
-    collection: { total: 2, counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 0 } },
+    collection: { total: 2, counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 0, mythic: 0 } },
     planetarium: { prestige: 0, exhibits: 0, cover: null },
     clan: null,
   };
@@ -175,7 +175,7 @@ test('en mi propio perfil no hay «Proponer trueque»', async () => {
   mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
     'GET /galaxy/api/profiles/sonda_rayo': () =>
-      jsonResponse(200, { username: 'sonda_rayo', since: '2026-10-01T00:00:00.000Z', level: 12, season: null, records: { maxDepth: 0, purges: 0, runs: 0 }, collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 } }, planetarium: { prestige: 0, exhibits: 0, cover: null }, clan: null }),
+      jsonResponse(200, { username: 'sonda_rayo', since: '2026-10-01T00:00:00.000Z', level: 12, season: null, records: { maxDepth: 0, purges: 0, runs: 0 }, collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 } }, planetarium: { prestige: 0, exhibits: 0, cover: null }, clan: null }),
   });
   renderAt('/perfil/sonda_rayo', { '/perfil/:username': <ProfileScreen /> });
   expect(await screen.findByRole('heading', { level: 1, name: 'sonda_rayo' })).toBeInTheDocument();

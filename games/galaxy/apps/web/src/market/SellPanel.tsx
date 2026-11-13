@@ -32,7 +32,9 @@ export function SellPanel({ rules, preselected, gateId }: { rules: MarketRules; 
   const value = raw ?? (g ? String(min) : '');
   const price = /^\d+$/.test(value) ? Number(value) : NaN;
   const problem = !Number.isSafeInteger(price) ? t.tooLow(min) : price < min ? t.tooLow(min) : price > rules.maxPrice ? t.tooHigh(rules.maxPrice) : null;
-  const canList = rules.canTrade && rules.listingsLeft > 0 && g !== null && problem === null && !list.isPending;
+  // A mythic stays out of the market unless the admin allows it (plan «rareza Mítica»); swaps always may.
+  const mythicBlocked = g?.tier === 'mythic' && !rules.mythicListing;
+  const canList = rules.canTrade && rules.listingsLeft > 0 && g !== null && !mythicBlocked && problem === null && !list.isPending;
 
   function pick(next: GalaxySummary): void {
     setChosen(next);
@@ -110,7 +112,13 @@ export function SellPanel({ rules, preselected, gateId }: { rules: MarketRules; 
                 </p>
               )}
             </div>
-            {problem === null ? <p className="market-net">{t.net(price - commissionOf(price, rules.commission))}</p> : null}
+            {mythicBlocked ? (
+              <p className="field-error" role="note">
+                {t.mythicNotListable}
+              </p>
+            ) : problem === null ? (
+              <p className="market-net">{t.net(price - commissionOf(price, rules.commission))}</p>
+            ) : null}
             <button type="submit" className="lip pill pill-solar" disabled={!canList} aria-describedby={!rules.canTrade ? gateId : undefined}>
               {t.list}
             </button>
@@ -128,6 +136,7 @@ export function SellPanel({ rules, preselected, gateId }: { rules: MarketRules; 
           text={{ title: t.pickTitle, empty: t.pickEmpty, pick: t.pickOne, taken: t.unavailable }}
           taken={new Set()}
           isTaken={held}
+          blockedFor={(x) => (x.tier === 'mythic' && !rules.mythicListing ? t.mythicLocked : null)}
           onPick={pick}
           onClose={() => setPicking(false)}
           className="relic-picker"

@@ -31,7 +31,8 @@ const galaxy = (id: string, over: Partial<GalaxySummary> = {}): GalaxySummary =>
 });
 const rules = (over: Partial<MarketRules> = {}): MarketRules => ({
   commission: 0.07,
-  minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 },
+  minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 },
+  mythicListing: false,
   maxPrice: 10_000_000,
   canTrade: true,
   reason: null,

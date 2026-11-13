@@ -72,7 +72,7 @@ test('el prestigio, su bonus de experiencia y las visitas', async () => {
 test('elegir una galaxia en el diálogo envía los seis pedestales en su orden', async () => {
   const page: CollectionPage = {
     items: [mine(), mine({ id: 'g3', name: 'Nimbus', tier: 'epic', exhibited: undefined })],
-    counts: { common: 0, uncommon: 0, rare: 0, epic: 1, legendary: 1 },
+    counts: { common: 0, uncommon: 0, rare: 0, epic: 1, legendary: 1, mythic: 0 },
     fusion: { count: 5, dust: [20, 50, 120, 300] },
   };
   const fetch = mockApi({
@@ -99,7 +99,7 @@ test('elegir una galaxia en el diálogo envía los seis pedestales en su orden',
 test('si exponer falla, el diálogo se cierra, el error se ve y la colección se vuelve a leer', async () => {
   const page: CollectionPage = {
     items: [mine({ id: 'g3', name: 'Nimbus', tier: 'epic', exhibited: undefined })],
-    counts: { common: 0, uncommon: 0, rare: 0, epic: 1, legendary: 0 },
+    counts: { common: 0, uncommon: 0, rare: 0, epic: 1, legendary: 0, mythic: 0 },
     fusion: { count: 5, dust: [20, 50, 120, 300] },
   };
   const fetch = mockApi({

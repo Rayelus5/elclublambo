@@ -10,7 +10,10 @@ import { copy } from '../copy/es';
 const t = copy.admin.stats;
 const whole = new Intl.NumberFormat('es-ES');
 const compact = new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 });
-const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+const percentOne = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+const percentTwo = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 2 });
+/** A share with one decimal, or two under 1 % (a mythic's 0,05 % would round away). */
+const percent = { format: (x: number) => (x > 0 && x < 0.01 ? percentTwo : percentOne).format(x) };
 const big = (n: number) => (Math.abs(n) >= 100_000 ? compact.format(n) : whole.format(n));
 const hour = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
 const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });

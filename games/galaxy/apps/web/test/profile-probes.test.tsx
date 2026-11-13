@@ -26,7 +26,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   level: 7,
   season: null,
   records: { maxDepth: 9, purges: 12, runs: 40 },
-  collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 } },
+  collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 } },
   planetarium: { prestige: 0, exhibits: 0, cover: null },
   clan: null,
   probes,

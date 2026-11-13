@@ -42,7 +42,7 @@ const galaxy = (id: string, tier: 'legendary' | 'rare') => ({
 });
 const page: CollectionPage = {
   items: [galaxy('g1', 'legendary'), galaxy('g2', 'rare')],
-  counts: { common: 3, uncommon: 1, rare: 1, epic: 0, legendary: 1 },
+  counts: { common: 3, uncommon: 1, rare: 1, epic: 0, legendary: 1, mythic: 0 },
   fusion: { count: 5, dust: [20, 50, 120, 300] },
 };
 

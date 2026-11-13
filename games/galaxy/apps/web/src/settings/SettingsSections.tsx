@@ -1,4 +1,4 @@
-import { NOTICE_MODES, type NoticeMode } from '@galaxy/shared';
+import { NOTICE_MODES, type NoticeMode, TIERS } from '@galaxy/shared';
 import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { useFriends, useSocialPrefs } from '../api/friends';
@@ -199,7 +199,7 @@ function ColorPreview({ mode }: { mode: ColorVisionMode }) {
     <div className="cvd-preview" role="group" aria-label={t.preview}>
       <div className="cvd-row">
         <span className="cvd-label">{t.previewTiers}</span>
-        {(['common', 'uncommon', 'rare', 'epic', 'legendary'] as const).map((tier, i) => (
+        {TIERS.map((tier, i) => (
           <span key={tier} className="cvd-chip" data-tier={tier}>
             <span className="cvd-pips" aria-hidden="true">
               {'◆'.repeat(i + 1)}
