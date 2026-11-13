@@ -14,7 +14,7 @@ export type FieldSpec =
   | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean; initial?: string }
   /** A day and time in the admin's own time, with the game's calendar (plan «referidos»: when a code ends): its value is «2026-12-31T23:59» or ''. */
   | { name: string; label: string; kind: 'datetime'; hint?: string; optional?: boolean; initial?: string }
-  | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string }
+  | { name: string; label: string; kind: 'select'; options: [string, string][]; hint?: string; initial?: string }
   /** On or off (plan «escáner pro», part F: «Reservar el nombre»): its value is '1' or ''. */
   | { name: string; label: string; kind: 'switch'; hint?: string; initial?: string };
 

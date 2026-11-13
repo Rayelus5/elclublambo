@@ -250,7 +250,7 @@ test('la pestaña Clanes de la clasificación enseña los clanes con su emblema,
     level: 6,
     season: null,
     records: { maxDepth: 1, purges: 0, runs: 1 },
-    collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 } },
+    collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 } },
     planetarium: { prestige: 0, exhibits: 0, cover: null },
     clan: { tag: 'GX', name: 'Galácticos', emblem: 'comet', color: 'uv' },
   };

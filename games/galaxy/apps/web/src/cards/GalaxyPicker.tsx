@@ -25,11 +25,14 @@ export function GalaxyPicker({
   onClose,
   className,
   filters = false,
+  blockedFor,
 }: {
   text: GalaxyPickerCopy;
   taken: ReadonlySet<string>;
   /** Galaxies that cannot be picked for their own state (equipped, exhibited, for sale). */
   isTaken?: (g: GalaxySummary) => boolean;
+  /** A galaxy that cannot be picked here for a reason of its own (a mythic in the market): the badge says it. */
+  blockedFor?: (g: GalaxySummary) => string | null;
   onPick: (g: GalaxySummary) => void;
   onClose: () => void;
   className: string;
@@ -58,12 +61,14 @@ export function GalaxyPicker({
         <ul className="relic-grid">
           {items.map((g) => {
             const busy = taken.has(g.id) || isTaken?.(g) === true;
+            const blocked = busy ? null : (blockedFor?.(g) ?? null);
             return (
               <li key={g.id}>
                 <GalaxyCard galaxy={g} size={150}>
-                  <button type="button" className="gcard-hit" aria-label={text.pick(g.name)} disabled={busy} onClick={() => onPick(g)} />
+                  <button type="button" className="gcard-hit" aria-label={text.pick(g.name)} disabled={busy || blocked !== null} onClick={() => onPick(g)} />
                 </GalaxyCard>
                 {busy && <span className="relic-taken">{text.taken}</span>}
+                {blocked !== null && <span className="relic-taken">{blocked}</span>}
               </li>
             );
           })}

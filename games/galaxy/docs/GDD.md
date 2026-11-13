@@ -207,6 +207,10 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
   2. Se generan rasgos hasta caer en la **banda de puntuación** de ese nivel. Las bandas se calibran con simulación offline, porque el ranking del NFT no sirve con suministro infinito.
 
   Lo raro se ve raro.
+- **Mítica [U] (2026-11-13):** sexta rareza, por encima de la Legendaria, con su carta «Vacío iridiscente» (casi negra, con un marco que gira por cuatro tonos).
+  - Se tira antes que el nivel normal, en su propio flujo y con su propia probabilidad (`gacha.mythic`, 0,05 % previsto; 0 hasta que se publique). Con 0, cada tirada da lo mismo que antes.
+  - Es una galaxia de la banda más alta del motor (cuantil 0,9995, con fenómeno). La garantía nunca la da; al salir, reinicia la suerte de Legendaria.
+  - Siempre con acabado especial. No se fusiona ni sale de una fusión. No se vende en el mercado salvo `market.mythicListing`; los trueques sí.
 - **Acabado [U]:** se sortea aparte entre Normal, Holo, Prismático, Relieve braille y Corrupto (ultra-raro).
   - Probabilidades *de partida*: 85 / 10 / 3,5 / 1,3 / 0,2 %.
   - **Es solo estético [D]:** cuenta para el catálogo y el valor de mercado, no da poder.

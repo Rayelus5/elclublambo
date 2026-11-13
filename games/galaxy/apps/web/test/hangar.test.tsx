@@ -62,7 +62,7 @@ test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente co
 });
 
 test('elegir una reliquia abre su ficha con lo que hace; «Equipar» la equipa y también se puede quitar', async () => {
-  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   const fetch = mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
@@ -303,7 +303,7 @@ describe('conjuntos de reliquias', () => {
 });
 
 test('desde la ficha, «Volver a la lista» vuelve al selector sin equipar nada', async () => {
-  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   const fetch = mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
@@ -319,7 +319,7 @@ test('desde la ficha, «Volver a la lista» vuelve al selector sin equipar nada'
 });
 
 test('el selector de reliquias filtra por fenómeno', async () => {
-  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   const fetch = mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
@@ -334,7 +334,7 @@ test('el selector de reliquias filtra por fenómeno', async () => {
 });
 
 test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
-  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),

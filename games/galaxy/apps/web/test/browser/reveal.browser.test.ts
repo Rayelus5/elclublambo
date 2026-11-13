@@ -46,6 +46,11 @@ for (const [tier, width, height] of [
   ['epic', 1366, 768],
   ['legendary', 1280, 720],
   ['legendary', 1920, 1080],
+  // The «Mítica» (plan «rareza Mítica» M1): its iridescent beams and burst stay inside the popup too.
+  ['mythic', 1280, 720],
+  ['mythic', 1600, 900],
+  ['mythic', 1920, 1080],
+  ['mythic', 2560, 1440],
 ] as const) {
   test(`una destacada ${tier} a ${width}×${height}: el popup no saca barras de desplazamiento`, async () => {
     await page.viewport(width, height);
@@ -73,6 +78,48 @@ for (const [tier, width, height] of [
     }
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/reveal-${tier}-${width}.png` });
     expect(overflowed).toEqual([]);
+  }, 60_000);
+}
+
+// A Mítica lights a sixth, iridescent bar past the five, inside the screen, and makes the screen fail like a legendary.
+for (const [width, height] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`la señal de una mítica a ${width}×${height}: seis barras dentro de la pantalla y el fallo de pantalla`, async () => {
+    await page.viewport(width, height);
+    document.body.style.margin = '0';
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    root.render(createElement(RevealStage, { pulls: [{ ...pulled('mythic'), featured: false }], onClose: () => {} }));
+    // Every step the stage goes through (a screenshot can take longer than the glitch lasts).
+    const steps: string[] = [];
+    const watch = new MutationObserver(() => {
+      const st = document.querySelector('.crt')?.getAttribute('data-step');
+      if (st && steps.at(-1) !== st) steps.push(st);
+    });
+    watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-step'], childList: true });
+    await until(() => document.querySelector('.signal-bars i[data-extra][data-on]') !== null);
+    // The bars rise one after another (120 ms apart).
+    await new Promise((r) => setTimeout(r, 1100));
+    const bars = [...document.querySelectorAll<HTMLElement>('.signal-bars i')];
+    expect(bars).toHaveLength(6);
+    expect(bars.every((b) => b.hasAttribute('data-on'))).toBe(true);
+    const screen = document.querySelector('.crt-screen')!.getBoundingClientRect();
+    for (const b of bars) {
+      const r = b.getBoundingClientRect();
+      expect(r.top).toBeGreaterThanOrEqual(screen.top);
+      expect(r.right).toBeLessThanOrEqual(screen.right);
+    }
+    expect(getComputedStyle(bars[5]!).backgroundImage).toContain('gradient');
+    if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/reveal-mythic-signal-${width}.png` });
+    // Then the screen fails before the card, as a legendary's does.
+    await until(() => document.querySelector('.crt[data-step="card"]') !== null);
+    watch.disconnect();
+    expect(steps.indexOf('glitch')).toBeGreaterThan(steps.indexOf('scan'));
+    expect(steps.indexOf('card')).toBeGreaterThan(steps.indexOf('glitch'));
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
   }, 60_000);
 }
 

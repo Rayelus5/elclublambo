@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-18-la-rareza-mitica',
+    version: '1.18',
+    date: '2026-11-13',
+    title: 'La rareza Mítica',
+    summary: 'Llega la sexta rareza de las galaxias, por encima de la Legendaria, con una carta de vacío iridiscente',
+    items: [
+      { kind: 'nuevo', text: 'Galaxias míticas: una carta casi negra con un marco que gira en cuatro colores y siempre un acabado especial' },
+      { kind: 'nuevo', text: 'Salen en el Escáner profundo con su propia probabilidad, que ves en la tabla del escáner cuando está activa. La garantía sigue dando una Legendaria' },
+      { kind: 'equilibrio', text: 'Una Mítica cuenta como Legendaria para la suerte: al salir, la cuenta hacia la Legendaria segura vuelve a empezar' },
+      { kind: 'mejora', text: 'Las Míticas tienen su filtro en la colección y no se fusionan. Puedes cambiarlas en un trueque' },
+    ],
+  },
+  {
     id: 'v1-17-codigos-de-invitacion',
     version: '1.17',
     date: '2026-11-13',

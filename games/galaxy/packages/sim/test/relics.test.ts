@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_CONTENT, hurtProbe, IDLE, refreshStats, type RelicInput, relicSkill, shieldCapacity, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { contentSchema, DEFAULT_CONTENT, hurtProbe, IDLE, refreshStats, type RelicInput, relicSkill, shieldCapacity, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // Galaxies as relics (GDD §8.2–8.4 bis): the galaxy type picks the family, the other traits shape it (arms → count,
@@ -57,6 +57,13 @@ describe('rasgos → habilidad', () => {
     expect(skill(relic({ galaxy_type: 'ring', size: 'large', core: 'quasar' }, 4)).magnitude).toBeCloseTo(1.75 * 1.15 * 1.15, 12);
     expect(skill(relic({ galaxy_type: 'ring', size: 'compact', core: 'faint' })).magnitude).toBeCloseTo(0.85 * 0.85, 12);
     expect(skill(relic({ galaxy_type: 'ring', star_density: 'saturated' })).frequency).toBe(1.3);
+  });
+
+  test('una mítica (sexta rareza) multiplica por 1,9; con un contenido que se quedó en la legendaria, como ella', () => {
+    expect(skill(relic({ galaxy_type: 'ring' }, 5)).magnitude).toBe(1.9);
+    const old = contentSchema.parse({ ...C, relics: { ...C.relics, tier: [1, 1.15, 1.35, 1.6, 1.75] } });
+    expect(relicSkill(relic({ galaxy_type: 'ring' }, 5), [relic({ galaxy_type: 'ring' }, 5)], old).magnitude).toBe(1.75);
+    expect(() => contentSchema.parse({ ...C, relics: { ...C.relics, tier: [1, 1.15, 1.35, 1.6] } })).toThrow();
   });
 
   test('el nivel suma con rendimiento decreciente', () => {

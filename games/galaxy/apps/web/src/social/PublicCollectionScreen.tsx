@@ -45,7 +45,7 @@ export function PublicCollectionScreen() {
             <button key={k} type="button" className="chip" data-tier={k} aria-pressed={tier === k} onClick={() => setTier(k)}>
               <i aria-hidden="true" />
               {copy.tiers[k]}
-              {counts ? <small>{fmt(counts[k])}</small> : null}
+              {counts ? <small>{fmt(counts[k] ?? 0)}</small> : null}
             </button>
           ))}
         </div>

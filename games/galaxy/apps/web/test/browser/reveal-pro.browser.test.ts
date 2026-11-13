@@ -146,3 +146,45 @@ for (const [label, pulls, extra] of [
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-${label}-99-resumen.png` });
   }, 150_000);
 }
+
+// The «Mítica» (plan «rareza Mítica» M1): everything a legendary shows (the big impact, the god rays, the coloured
+// flash on its face, the shake), with the iridescent tones, inside the screen at every width.
+for (const [width, height] of [
+  [1280, 720],
+  [1600, 900],
+  [1920, 1080],
+  [2560, 1440],
+] as const) {
+  test(`la cinemática pro de una mítica a ${width}×${height}: impacto, rayos y su destello, dentro de la pantalla`, async () => {
+    await page.viewport(width, height);
+    const hooks: { control?: CinemaControl | null; phase?: Phase | null } = {};
+    const render = mount(null, hooks);
+    render([pull('mythic', { finish: 'prismatic', traits: { phenomenon: 'supernova', palette: 'nebula' } })]);
+    await until(() => !!hooks.control && !!document.querySelector('.pro-canvas'));
+    const control = hooks.control!;
+    const s = control.script;
+    expect(s.maxTier).toBe('mythic');
+    expect(s.cues.map((c) => c.id)).toEqual(expect.arrayContaining(['impacto-grande', 'fanfarria']));
+    const face = s.faces[0]!.at;
+    const strike = s.phases.find((p) => p.kind === 'impacto')!;
+    const shots: [string, number][] = [
+      ['impacto', strike.at + (strike.lead ?? 0) + 0.12],
+      ['cara', face + 0.04],
+      ['rayos', face + 0.9],
+    ];
+    for (const [name, at] of shots) {
+      control.seek(at);
+      control.pause();
+      await wait(260);
+      expect(document.querySelector<HTMLCanvasElement>('.pro-canvas')!.clientWidth).toBe(width);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+      if (name === 'cara') expect(document.querySelector<HTMLElement>('.pro-root')!.dataset['flash']).toBe('mythic');
+      if (name === 'rayos') {
+        expect(document.querySelector<HTMLElement>('.pro-caption')!.dataset['pips']).toBe('6');
+        expect(document.querySelectorAll('.pro-pips i')).toHaveLength(6);
+      }
+      if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-mitica-${width}-${name}.png` });
+      control.resume();
+    }
+  }, 120_000);
+}

@@ -31,7 +31,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   level: 7,
   season: { score: 2400, rank: 4, tier: 'silver', maxDepth: 6, purges: 3, extractions: 5 },
   records: { maxDepth: 9, purges: 12, runs: 40 },
-  collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1 } },
+  collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1, mythic: 0 } },
   planetarium: { prestige: 31, exhibits: 4, cover: pub() },
   clan: null,
   ...over,
@@ -76,7 +76,7 @@ test('sin puntos esta temporada lo dice, y un nombre sin jugador también', asyn
 });
 
 test('la colección pública: sus cartas sin acciones, por rareza y paginada', async () => {
-  const page = (items: PublicGalaxy[], next?: string): PublicCollectionPage => ({ items, ...(next ? { next } : {}), counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1 } });
+  const page = (items: PublicGalaxy[], next?: string): PublicCollectionPage => ({ items, ...(next ? { next } : {}), counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1, mythic: 0 } });
   const fetch = mockApi({
     'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([pub(), pub({ id: 'g2', name: 'Orvel', tier: 'rare', finish: 'normal' })], 'c1')),
     'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30&cursor=c1': () => jsonResponse(200, page([pub({ id: 'g3', name: 'Nimbus', tier: 'rare', finish: 'normal' })])),

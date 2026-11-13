@@ -87,6 +87,7 @@ export const API_ERROR_CODES = [
   'trade_age',
   'trade_daily_cap',
   'price_too_low',
+  'mythic_not_listable',
   'price_too_high',
   'listing_gone',
   'own_listing',

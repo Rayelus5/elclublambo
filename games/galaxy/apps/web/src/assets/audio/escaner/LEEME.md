@@ -19,12 +19,12 @@ Esta carpeta guarda los archivos de audio de la cinemática del escáner (plan �
 | `ascenso` | La estela cambia al color real: 0,34 s de aspiración y después el golpe | 1 s |
 | `meteoro` | Cae la estrella fugaz | 1 s |
 | `impacto` | Impacto de común, poco común o rara | 0,6–0,9 s |
-| `impacto-grande` | Impacto de épica o legendaria: subgrave y cola larga | 1,5–2 s |
+| `impacto-grande` | Impacto de épica, legendaria o mítica: subgrave y cola larga | 1,5–2 s |
 | `reparto` | Las diez cartas caen en la rejilla | 0,7 s |
 | `giro` | Una carta se da la vuelta | 0,25 s |
-| `revelar-comun`, `revelar-poco-comun`, `revelar-rara`, `revelar-epica`, `revelar-legendaria` | La cara de la carta, uno por rareza | 1–2,5 s |
+| `revelar-comun`, `revelar-poco-comun`, `revelar-rara`, `revelar-epica`, `revelar-legendaria` | La cara de la carta, uno por rareza. La mítica usa el de la legendaria | 1–2,5 s |
 | `sello` | La rareza se estampa bajo el nombre | 0,3 s |
-| `fanfarria` | Solo las legendarias | 2–2,5 s |
+| `fanfarria` | Las legendarias y las míticas | 2–2,5 s |
 | `fenomeno` | «Fenómeno detectado» | 1 s |
 | `destacada` | «¡Destacada!» | 0,8 s |
 | `acabado` | El brillo de un acabado (holo, prismático, braille, corrupto, fisura) | 0,5 s |
@@ -37,7 +37,7 @@ Esta carpeta guarda los archivos de audio de la cinemática del escáner (plan �
 | `musica-base` | Siempre, desde la ignición |
 | `musica-rara` | Entra con la primera carta rara |
 | `musica-epica` | Entra con la primera épica |
-| `musica-legendaria` | Entra con la primera legendaria |
+| `musica-legendaria` | Entra con la primera legendaria o mítica |
 
 - **Las cuatro van juntas:** el mismo tempo, la misma duración y un bucle sin costura. Arrancan a la vez y solo cambia el volumen de cada capa.
 - **Si falta alguna** de las cuatro, suena la música sintetizada entera (72 bpm, 8 compases, unos 27 s).

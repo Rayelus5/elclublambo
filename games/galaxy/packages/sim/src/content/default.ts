@@ -1975,7 +1975,8 @@ export const DEFAULT_CONTENT: Content = {
   },
   relics: {
     // Legendary at ×1.75 (it was ×2) and the supernova toned down: the owner found them «muy rotas» in the open beta.
-    tier: [1, 1.15, 1.35, 1.6, 1.75],
+    // The mythic (sixth tier, plan «rareza Mítica») a step above it.
+    tier: [1, 1.15, 1.35, 1.6, 1.75, 1.9],
     level: { step: 0.04, cap: 0.5 },
     stacking: { from: 3, decay: 0.5 },
     size: { compact: 0.85, medium: 1, large: 1.15, colossal: 1.3 },

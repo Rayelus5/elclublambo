@@ -41,6 +41,14 @@
   --color-tier-rare: #6fb7ff;
   --color-tier-epic: #b39dff;
   --color-tier-legendary: #ffc94a;
+  /* The «Mítica» («Vacío iridiscente»): one solid colour for dots, small text and bars; its card is near black with a
+     frame that turns through the four iridescent tones (see .gcard[data-tier='mythic']). */
+  --color-tier-mythic: #ff4fd8;
+  --color-mythic-void: #0b0a14;
+  --color-iris-1: #ff4fd8;
+  --color-iris-2: #6fe3ff;
+  --color-iris-3: #ffc94a;
+  --color-iris-4: #b39dff;
   --font-display: 'Bungee', sans-serif;
   --font-sans: 'Fredoka', system-ui, sans-serif;
   --font-braille: 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'DejaVu Sans', monospace;
@@ -48,6 +56,9 @@
 }
 
 @property --tint { syntax: '<color>'; inherits: true; initial-value: rgb(60 80 160); }
+/* The turn of the mythic's iridescent frame (an animatable angle; still with reduced motion). */
+@property --iris { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes iris-turn { to { --iris: 360deg; } }
 
 @layer base {
   html, body, #root { height: 100%; }
@@ -274,6 +285,7 @@
   [data-tier='rare'] { --tc: var(--color-tier-rare); }
   [data-tier='epic'] { --tc: var(--color-tier-epic); }
   [data-tier='legendary'] { --tc: var(--color-tier-legendary); }
+  [data-tier='mythic'] { --tc: var(--color-tier-mythic); }
 
   /* ---------- Title screen (DESIGN_SYSTEM §6–7) ---------- */
   /* The player's galaxies drift between the menu and the collection panel. */
@@ -449,7 +461,7 @@
   .season-summary .hd > .ico { font-size: 32px; }
   .season-summary h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 23px; line-height: 1.05; }
   .season-summary .hd span { font-size: 14px; font-weight: 600; opacity: .85; }
-  .tier-counts { list-style: none; margin: 14px 16px 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; }
+  .tier-counts { list-style: none; margin: 14px 16px 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-align: center; }
   .tier-counts li { display: flex; flex-direction: column; align-items: center; gap: 3px; }
   .tier-counts i { display: block; width: 22px; height: 22px; margin: 2px 0 4px; border-radius: 6px; transform: rotate(45deg) scale(.82); background: var(--tc); box-shadow: 0 0 12px color-mix(in oklab, var(--tc) 55%, transparent); }
   .tier-counts b { font-size: 18px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -496,6 +508,31 @@
   .gcard-glare { z-index: 3; }
   .gcard-glare { background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / .42), transparent 58%); mix-blend-mode: overlay; opacity: 0; transition: opacity .3s ease; }
   .gcard-tilt[data-active] .gcard-glare { opacity: 1; }
+
+  /* The «Mítica» (plan «rareza Mítica»), «Vacío iridiscente»: a near black card in a frame that turns through four
+     tones (still with reduced motion), its rarity written in those tones and a glow of its own, above the legendary's. */
+  .gcard[data-tier='mythic'] .gcard-face {
+    background: conic-gradient(from var(--iris), var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1));
+    animation: iris-turn 6s linear infinite;
+    box-shadow: inset 0 1.2cqw 0 rgb(255 255 255 / .45), inset 0 -2cqw 0 rgb(0 0 0 / .28), 0 3cqw 0 #4a1d5c, 0 0 8cqw rgb(255 79 216 / .6), 0 0 20cqw rgb(111 227 255 / .32), 0 7cqw 13cqw rgb(0 0 0 / .5); }
+  .gcard[data-tier='mythic'] .gcard-face::before { content: ''; position: absolute; inset: 3.6cqw; border-radius: 4.6cqw;
+    background: radial-gradient(110% 70% at 50% 0%, #241a3e 0%, var(--color-mythic-void) 62%),
+      conic-gradient(from 200deg at 50% 40%, rgb(255 79 216 / .14), rgb(111 227 255 / .1), rgb(255 201 74 / .1), rgb(179 157 255 / .14), rgb(255 79 216 / .14));
+    background-blend-mode: screen;
+    box-shadow: inset 0 0 0 .4cqw rgb(0 0 0 / .55), inset 0 0 5cqw rgb(0 0 0 / .6); }
+  .gcard[data-tier='mythic'][data-finish='braille'] .gcard-face {
+    background: radial-gradient(circle at 38% 38%, rgb(255 255 255 / .55) 0 .5cqw, rgb(0 0 0 / .32) .75cqw, transparent 1cqw) 0 0 / 3.4cqw 3.4cqw,
+      conic-gradient(from var(--iris), var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1)); }
+  .gcard[data-tier='mythic'] .gcard-plate { background: linear-gradient(180deg, #17142a, #0f0d1c); box-shadow: inset 0 .6cqw 0 rgb(255 255 255 / .08), inset 0 -1cqw 0 rgb(0 0 0 / .4), 0 0 0 .4cqw rgb(255 255 255 / .06); }
+  .gcard[data-tier='mythic'][data-finish='braille'] .gcard-plate {
+    background: radial-gradient(circle at 38% 38%, rgb(255 255 255 / .16) 0 .45cqw, rgb(0 0 0 / .4) .7cqw, transparent .95cqw) 0 0 / 3.4cqw 3.4cqw, linear-gradient(180deg, #17142a, #0f0d1c); }
+  .gcard[data-tier='mythic'] .gcard-tier { background: linear-gradient(90deg, var(--color-iris-1), var(--color-iris-2) 40%, var(--color-iris-3) 70%, var(--color-iris-4)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .gcard[data-tier='mythic'] .gcard-level { box-shadow: inset 0 0 0 .5cqw rgb(255 79 216 / .75); }
+  :where(:root[data-motion='reduced']) { .gcard[data-tier='mythic'] .gcard-face { animation: none; } }
+  /* Its diamond, wherever a rarity shows its mark, turns through the same four tones (a solid --tc everywhere else). */
+  .gcard[data-tier='mythic'] .gcard-tier i, .chip[data-tier='mythic'] i, .odds tr[data-tier='mythic'] th i, .tier-counts li[data-tier='mythic'] i,
+  .lineage li[data-tier='mythic'] i, .relic-sheet-head[data-tier='mythic'] .relic-sheet-tier i, .stats-pulls tr[data-tier='mythic'] .stats-tier {
+    background: conic-gradient(from 45deg, var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1)); }
 
   /* Holo: a thin rainbow foil that slides with the pointer, over fine diagonal lines (screen: it lights, never burns). */
   .gcard[data-finish='holo'] .gcard-fx { mix-blend-mode: screen; opacity: .5; transition: opacity .3s ease;
@@ -733,6 +770,11 @@
   .signal-bars i { width: 26px; height: calc(24px + var(--b) * 22px); border-radius: 6px; background: rgb(255 255 255 / .08); }
   .signal-bars i[data-on] { background: var(--tc); box-shadow: 0 0 18px color-mix(in oklab, var(--tc) 70%, transparent); animation: bar-rise .35s var(--ease-bounce) both; animation-delay: calc(var(--b) * 120ms); }
   @keyframes bar-rise { from { transform: scaleY(.1); transform-origin: bottom; opacity: .3; } }
+  /* A Mítica (plan «rareza Mítica» M1) lights a sixth bar past the five, in the iridescent tones of its card. */
+  .signal-bars:has(> i[data-extra]) { height: 134px; }
+  .signal-bars i[data-extra][data-on] { background: linear-gradient(var(--iris), var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4));
+    box-shadow: 0 0 18px color-mix(in oklab, var(--color-iris-1) 70%, transparent), 0 0 30px color-mix(in oklab, var(--color-iris-2) 45%, transparent);
+    animation: bar-rise .35s var(--ease-bounce) both, iris-turn 2.4s linear infinite; animation-delay: calc(var(--b) * 120ms), 0s; }
   .signal-label { font-size: 15px; font-weight: 700; letter-spacing: .08em; color: var(--tc); }
   /* The scan: the engine image resolves top to bottom behind a line in the rarity's colour (once the image exists). */
   .crt-image { position: absolute; inset: 5%; }
@@ -742,6 +784,8 @@
   .crt-scanline { position: absolute; left: -4%; right: -4%; top: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--tc) 20%, var(--tc) 80%, transparent); box-shadow: 0 0 18px 4px var(--tc); }
   .crt-image[data-ready='true'] .crt-scanline { animation: crt-line var(--scan-ms) linear both; }
   .crt-image[data-ready='false'] .crt-scanline { opacity: .6; }
+  .crt[data-tier='mythic'] .crt-scanline { background: linear-gradient(90deg, transparent, var(--color-iris-1) 18%, var(--color-iris-2) 40%, var(--color-iris-3) 60%, var(--color-iris-4) 82%, transparent);
+    box-shadow: 0 0 18px 4px color-mix(in oklab, var(--color-iris-1) 80%, transparent), 0 0 30px 6px color-mix(in oklab, var(--color-iris-2) 45%, transparent); }
   @keyframes crt-line { to { top: 100%; } }
   .phenomenon { position: absolute; left: 0; right: 0; bottom: 8%; display: grid; justify-items: center; gap: 2px; animation: rise-in .4s var(--ease-bounce) both; }
   .phenomenon b { padding: 4px 12px; border-radius: 8px; background: rgb(2 3 10 / .7); color: var(--tc); font-size: 18px; letter-spacing: .04em; }
@@ -767,7 +811,7 @@
      the whole page (RevealFx) with a flash and, for a legendary, a short shake of the dialog. */
   .stage-card { isolation: isolate; }
   .stage-beams { position: absolute; inset: -20%; z-index: -1; display: none; pointer-events: none; }
-  .stage-card[data-tier='epic'] .stage-beams, .stage-card[data-tier='legendary'] .stage-beams {
+  .stage-card[data-tier='epic'] .stage-beams, .stage-card[data-tier='legendary'] .stage-beams, .stage-card[data-tier='mythic'] .stage-beams {
     display: block;
     background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--tc) 55%, transparent) 0deg 9deg, transparent 9deg 30deg);
     -webkit-mask-image: radial-gradient(circle, #000 18%, transparent 62%);
@@ -775,6 +819,12 @@
     animation: beams-turn 9s linear infinite, beams-in .5s ease-out both;
   }
   .stage-card[data-tier='legendary'] .stage-beams { animation-duration: 6s, .5s; }
+  /* A Mítica's beams take the four iridescent tones in turn, and turn a little faster than a legendary's. */
+  .stage-card[data-tier='mythic'] .stage-beams { animation-duration: 5s, .5s;
+    background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--color-iris-1) 60%, transparent) 0deg 9deg, transparent 9deg 30deg,
+      color-mix(in oklab, var(--color-iris-2) 55%, transparent) 30deg 39deg, transparent 39deg 60deg,
+      color-mix(in oklab, var(--color-iris-3) 55%, transparent) 60deg 69deg, transparent 69deg 90deg,
+      color-mix(in oklab, var(--color-iris-4) 60%, transparent) 90deg 99deg, transparent 99deg 120deg); }
   @keyframes beams-turn { to { transform: rotate(360deg); } }
   @keyframes beams-in { from { opacity: 0; transform: scale(.6); } }
   .stage-featured { position: absolute; top: 8%; padding: 6px 14px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font: 400 18px var(--font-display); box-shadow: 0 4px 0 var(--color-solar-lip), 0 0 30px color-mix(in srgb, var(--color-solar) 70%, transparent); animation: featured-in .55s var(--ease-bounce) .35s both; }
@@ -785,6 +835,7 @@
   .reveal-fx { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
   .reveal-fx canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; image-rendering: pixelated; }
   .reveal-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--tc) 70%, #fff) 26%, transparent 70%); animation: reveal-flash .7s ease-out both; }
+  .reveal-flash[data-tier='mythic'] { background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--color-iris-1) 65%, #fff) 18%, color-mix(in oklab, var(--color-iris-2) 45%, transparent) 36%, color-mix(in oklab, var(--color-iris-4) 30%, transparent) 52%, transparent 72%); }
   @keyframes reveal-flash { 12% { opacity: var(--flash); } 100% { opacity: 0; } }
   .modal.reveal-stage.shake { animation: reveal-shake .45s steps(9) both; }
 
@@ -797,6 +848,7 @@
   .pro-canvas-host, .pro-canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; display: block; }
   .pro-veil { position: absolute; inset: 0; background: #02030a; opacity: var(--black); }
   .pro-flash { position: absolute; inset: 0; pointer-events: none; opacity: var(--flash); background: radial-gradient(circle at 50% 50%, #fff 0%, rgb(255 255 255 / .85) 40%, rgb(255 255 255 / .5) 100%); mix-blend-mode: screen; }
+  .pro-root[data-flash='mythic'] .pro-flash { background: radial-gradient(circle at 50% 50%, #fff 0%, color-mix(in oklab, var(--color-iris-1) 70%, #fff) 22%, var(--color-iris-2) 48%, var(--color-iris-4) 72%, var(--color-iris-1) 100%); }
   .pro-root[data-flash='legendary'] .pro-flash { background: radial-gradient(circle at 50% 50%, #fff7d6 0%, var(--color-tier-legendary) 45%, var(--color-solar-2) 100%); }
   .pro-root[data-flash='epic'] .pro-flash { background: radial-gradient(circle at 50% 50%, #f1ecff 0%, var(--color-tier-epic) 50%, var(--color-uv) 100%); }
   .pro-root[data-flash='rare'] .pro-flash { background: radial-gradient(circle at 50% 50%, #eef7ff 0%, var(--color-tier-rare) 55%, var(--color-sky) 100%); }
@@ -830,14 +882,20 @@
   .pro-tools .lip:hover { background: rgb(255 255 255 / .14); color: var(--color-ink); }
   .pro-skip { opacity: 0; animation: fade-in .3s ease .4s both; letter-spacing: .08em; }
 
-  /* The bottom band: the card's name typing in and its tier stamped on, with pips (1–5) so colour is never alone. */
+  /* The bottom band: the card's name typing in and its tier stamped on, with pips (1–6) so colour is never alone. */
   .pro-caption { position: absolute; inset-block-end: 0; inset-inline: 0; block-size: var(--band); z-index: 5; display: grid; place-content: center; justify-items: center; gap: 6px; padding-inline: 18%; text-align: center; pointer-events: none; }
   .pro-name { min-block-size: 1.15em; font: 400 clamp(22px, 2.5vw, 42px)/1.1 var(--font-display); letter-spacing: .03em; color: var(--color-ink); text-shadow: 0 0 22px rgb(255 255 255 / .22), 0 2px 0 rgb(0 0 0 / .6); white-space: nowrap; }
   .pro-tier { display: inline-flex; align-items: center; gap: 12px; color: var(--tc, var(--color-ink-soft)); font: 700 clamp(12px, 1vw, 16px) var(--font-sans); letter-spacing: .36em; text-transform: uppercase; opacity: var(--stamp); transform: scale(calc(1.8 - .8 * var(--stamp))); text-shadow: 0 0 18px color-mix(in srgb, var(--tc, #fff) 60%, transparent); }
   .pro-pips { display: inline-flex; gap: 5px; }
   .pro-pips i { inline-size: 9px; block-size: 9px; rotate: 45deg; border: 1.5px solid currentColor; opacity: .35; }
   .pro-caption[data-pips='1'] .pro-pips i:nth-child(-n + 1), .pro-caption[data-pips='2'] .pro-pips i:nth-child(-n + 2), .pro-caption[data-pips='3'] .pro-pips i:nth-child(-n + 3),
-  .pro-caption[data-pips='4'] .pro-pips i:nth-child(-n + 4), .pro-caption[data-pips='5'] .pro-pips i:nth-child(-n + 5) { background: currentColor; opacity: 1; }
+  .pro-caption[data-pips='4'] .pro-pips i:nth-child(-n + 4), .pro-caption[data-pips='5'] .pro-pips i:nth-child(-n + 5),
+  .pro-caption[data-pips='6'] .pro-pips i { background: currentColor; opacity: 1; }
+  /* A Mítica's six pips take the iridescent tones, one each. */
+  .pro-caption[data-pips='6'] .pro-pips i:nth-child(4n + 1) { color: var(--color-iris-1); }
+  .pro-caption[data-pips='6'] .pro-pips i:nth-child(4n + 2) { color: var(--color-iris-2); }
+  .pro-caption[data-pips='6'] .pro-pips i:nth-child(4n + 3) { color: var(--color-iris-3); }
+  .pro-caption[data-pips='6'] .pro-pips i:nth-child(4n + 4) { color: var(--color-iris-4); }
 
   /* «¡Destacada!» just under the top band; «Fenómeno detectado» just over the bottom one. */
   .pro-featured { position: absolute; inset-block-start: calc(var(--band) + 18px); inset-inline-start: 50%; z-index: 5; padding: 8px 22px; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); color: var(--color-on-solar); font: 400 clamp(16px, 1.4vw, 22px) var(--font-display); letter-spacing: .06em; box-shadow: 0 0 30px rgb(255 201 74 / .55), 0 4px 0 var(--color-solar-lip); opacity: var(--featured); transform: translateX(-50%) scale(calc(.6 + .4 * var(--featured))); pointer-events: none; }
@@ -987,7 +1045,7 @@
     .gcard-tilt { transform: none !important; transition: none; }
     .overlay { animation: none; }
     .idle-braille, .signal-bars i[data-on], .phenomenon, .stage-card .gcard, .summary-cards .gcard { animation: none; }
-    .stage-beams, .stage-featured, .modal.reveal-stage.shake { animation: none !important; }
+    .stage-beams, .stage-featured, .modal.reveal-stage.shake, .signal-bars i[data-extra][data-on] { animation: none !important; }
     .crt-scanline { display: none; }
     .crt[data-reduced] .crt-image canvas { animation: crt-fade var(--scan-ms) ease both; }
     .gcard[data-finish='corrupt'] .gcard-art { animation: none !important; }
@@ -1911,6 +1969,7 @@
   .market-card-body { display: grid; justify-items: center; gap: 6px; text-align: center; inline-size: 100%; }
   .market-tier { margin: 0; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }
   .market-card[data-tier="legendary"] .market-tier { color: var(--color-solar); }
+  .market-card[data-tier="mythic"] .market-tier { color: var(--color-tier-mythic); }
   .market-price { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: 400 18px/1 var(--font-display); color: var(--color-solar); white-space: nowrap; }
   .market-price svg { inline-size: 18px; block-size: 18px; flex: none; }
   .market-seller { margin: 0; font-size: 14px; }
@@ -2123,6 +2182,7 @@
   .admin-sim th.tier-rare { color: var(--color-tier-rare); }
   .admin-sim th.tier-epic { color: var(--color-tier-epic); }
   .admin-sim th.tier-legendary { color: var(--color-tier-legendary); }
+  .admin-sim th.tier-mythic { color: var(--color-tier-mythic); }
   @media (max-width: 1100px) { .admin-editor { grid-template-columns: minmax(0, 1fr); } }
   :where(:root[data-motion='reduced']) { .admin-switch, .admin-switch > span { transition: none; } }
   /* Moderation (M6c-1): the sub-nav, messages as cards (hidden ones dimmed, with a Nova bar and the reason in words),
@@ -2171,6 +2231,7 @@
   .deal-galaxy.tier-rare { color: var(--color-tier-rare); }
   .deal-galaxy.tier-epic { color: var(--color-tier-epic); }
   .deal-galaxy.tier-legendary { color: var(--color-tier-legendary); }
+  .deal-galaxy.tier-mythic { color: var(--color-tier-mythic); }
   .deal-lineage { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: rgb(255 255 255 / .04); }
   .deal-lineage-title { margin: 0; font-weight: 700; color: var(--color-ink-soft); font-size: 14px; }
   .deal-lineage ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -3060,6 +3121,7 @@
   .stats-pulls tr[data-tier='rare'] { --tc: var(--color-tier-rare); }
   .stats-pulls tr[data-tier='epic'] { --tc: var(--color-tier-epic); }
   .stats-pulls tr[data-tier='legendary'] { --tc: var(--color-tier-legendary); }
+  .stats-pulls tr[data-tier='mythic'] { --tc: var(--color-tier-mythic); }
   /* A player's «Progreso» tab (DESIGN_SYSTEM §8 tervicies). */
   .progress-tab { display: grid; gap: 16px; }
   .progress-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }

@@ -1,4 +1,4 @@
-import { FINISHES, type PulledGalaxy } from '@galaxy/shared';
+import { atLeast, FINISHES, type PulledGalaxy, TIERS } from '@galaxy/shared';
 import {
   AdditiveBlending,
   BufferAttribute,
@@ -27,6 +27,9 @@ import { FOIL_FRAGMENT, FOIL_VERTEX } from '../../inspector/foil';
 import { drawMask } from '../../inspector/textures';
 import { GUION, type Script, type TrailTint } from './script';
 import { GRID, RING, type Rig, ringSpot, SINGLE } from './timeline';
+
+/** The four tones the mythic's iridescent frame turns through (styles/app.css --color-iris-1…4). */
+const IRIS = ['#ff4fd8', '#6fe3ff', '#ffc94a', '#b39dff'] as const;
 
 // The pro scanner's 3D stage (plan «escáner pro», part B), in its own chunk with three.js. It draws what the rig says,
 // frame by frame, and decides nothing: a warp tunnel of stars that stretch into streaks (one instanced draw), a nebula
@@ -405,7 +408,7 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
   const burst = new Mesh(plane(1, 1), burstMat);
   burst.renderOrder = 4;
   scene.add(burst);
-  const sparkCount = opts.reduced ? 0 : Math.round((ten ? 1400 : 900) * (0.5 + 0.125 * ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(s.maxTier)));
+  const sparkCount = opts.reduced ? 0 : Math.round((ten ? 1400 : 900) * (0.5 + 0.125 * TIERS.indexOf(s.maxTier)));
   const sparkDir = new Float32Array(sparkCount * 3);
   const sparkSpeed = new Float32Array(sparkCount);
   const sparkSize = new Float32Array(sparkCount);
@@ -438,6 +441,9 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
   ring.renderOrder = ring2.renderOrder = 4;
   scene.add(ring, ring2);
   const raysUniforms = { uColor: { value: color('legendary') }, uAmount: { value: 0 }, uTime: { value: 0 } };
+  // A mythic's rays turn through the four iridescent tones of its card (still with reduced motion).
+  const legendaryRays = color('legendary');
+  const iris = IRIS.map((c) => new Color(c));
   const rays = new Mesh(plane(22, 22), shader(RAYS_FRAGMENT, raysUniforms));
   rays.renderOrder = 5;
   scene.add(rays);
@@ -658,7 +664,7 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
       ring2.position.copy(ring.position);
       ring2.scale.setScalar(1 + k * (ten ? 34 : 24));
       ring2Uniforms.uProgress.value = Math.min(1, k * 1.25);
-      ring2.visible = ring.visible && (s.maxTier === 'epic' || s.maxTier === 'legendary');
+      ring2.visible = ring.visible && atLeast(s.maxTier, 'epic');
       const glow = k > 0.001 && k < 0.999 ? (1 - k) * (1 - k) : 0;
       burst.visible = glow > 0.002;
       burst.position.set(centre.x, centre.y, 0.3);
@@ -676,6 +682,11 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
       if (rays.visible) {
         const fc = rig.cards[lastFocus] ?? rig.cards[0]!;
         rays.position.set(fc.x, fc.y, fc.z - 0.4);
+        if (opts.cards[lastFocus]?.galaxy.tier === 'mythic') {
+          const turn = opts.reduced ? 0 : (clock * 0.45) % iris.length;
+          const k = Math.floor(turn);
+          raysUniforms.uColor.value.copy(iris[k]!).lerp(iris[(k + 1) % iris.length]!, turn - k);
+        } else raysUniforms.uColor.value.copy(legendaryRays);
         raysUniforms.uAmount.value = rig.rays * 0.55;
         raysUniforms.uTime.value = opts.reduced ? 0 : clock;
       }

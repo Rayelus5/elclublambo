@@ -1,4 +1,4 @@
-import type { PulledGalaxy } from '@galaxy/shared';
+import { type PulledGalaxy, TIERS } from '@galaxy/shared';
 import { lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { onSettings } from '../../audio/mixer';
 import { holdMusic } from '../../audio/music';
@@ -190,8 +190,8 @@ export function ProShell({
           <b ref={name} className="pro-name" />
           <span className="pro-tier">
             <span className="pro-pips" aria-hidden="true">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <i key={i} />
+              {TIERS.map((t) => (
+                <i key={t} />
               ))}
             </span>
             <span ref={tier} />

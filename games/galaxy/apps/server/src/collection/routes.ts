@@ -1,4 +1,4 @@
-import { autoFusionRequestSchema, disintegrateManySchema, fuseRequestSchema, galaxyLockSchema, relicLevelUpSchema, type AutoFusionPreview, type AutoFusionResult, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
+import { atLeast, autoFusionRequestSchema, disintegrateManySchema, fuseRequestSchema, galaxyLockSchema, relicLevelUpSchema, type AutoFusionPreview, type AutoFusionResult, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
@@ -61,7 +61,7 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const [cfg, gacha, lab, relics, mcfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha'), deps.config.get('lab'), deps.config.get('relics'), missionConfigs(deps.config)]);
     return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), async (trx) => {
       const r = await fuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.ids, key);
-      await countStats(trx, mcfg, s.accountId, { fusions: 1, legendaries: r.galaxy.tier === 'legendary' ? 1 : 0 }, new Date(), out);
+      await countStats(trx, mcfg, s.accountId, { fusions: 1, legendaries: atLeast(r.galaxy.tier, 'legendary') ? 1 : 0 }, new Date(), out);
       return r;
     }));
   });
@@ -87,7 +87,7 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const key = idempotencyKey(req);
     return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'galaxy.fuse_auto', requestHash(body.criteria), async (trx) => {
       const r = (await autoFuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.criteria, false, key)) as AutoFusionResult;
-      if (r.fusions > 0) await countStats(trx, mcfg, s.accountId, { fusions: r.fusions, legendaries: r.galaxies.filter((g) => g.tier === 'legendary').length }, new Date(), out);
+      if (r.fusions > 0) await countStats(trx, mcfg, s.accountId, { fusions: r.fusions, legendaries: r.galaxies.filter((g) => atLeast(g.tier, 'legendary')).length }, new Date(), out);
       return r;
     }));
   });

@@ -27,7 +27,8 @@ test('cuanto más rara, más barras de señal y un escaneo más lento', () => {
   const by = (kind: string) => TIERS.map((t) => revealSequence([pull(t)], { reduced: false }).find((s) => s.kind === kind)!);
   const signal = by('signal');
   const scan = by('scan');
-  expect(signal.map((s) => s.bars)).toEqual([1, 2, 3, 4, 5]);
+  // The mythic lights a sixth bar past the five (plan «rareza Mítica»).
+  expect(signal.map((s) => s.bars)).toEqual([1, 2, 3, 4, 5, 6]);
   for (let i = 1; i < TIERS.length; i++) {
     expect(signal[i]!.ms).toBeGreaterThan(signal[i - 1]!.ms);
     expect(scan[i]!.ms).toBeGreaterThan(scan[i - 1]!.ms);
@@ -40,6 +41,14 @@ test('un fenómeno se anuncia y una Legendaria hace fallar la pantalla antes de 
   const legendary = revealSequence([pull('legendary', 'supernova')], { reduced: false });
   expect(kinds(legendary)).toEqual(['static', 'signal', 'scan', 'phenomenon', 'glitch', 'card', 'summary']);
   expect(legendary.find((s) => s.kind === 'phenomenon')).toMatchObject({ phenomenon: 'supernova' });
+});
+
+test('una Mítica también hace fallar la pantalla, y en una tirada de diez su carta dura al menos lo que la de una legendaria', () => {
+  expect(kinds(revealSequence([pull('mythic', 'supernova')], { reduced: false }))).toEqual(['static', 'signal', 'scan', 'phenomenon', 'glitch', 'card', 'summary']);
+  expect(kinds(revealSequence([pull('mythic')], { reduced: true }))).not.toContain('glitch');
+  const steps = revealSequence([pull('legendary', 'none', 'a'), pull('mythic', 'none', 'b')], { reduced: false });
+  const card = (i: number) => steps.find((s) => s.kind === 'card' && s.index === i)!.ms;
+  expect(card(1)).toBeGreaterThanOrEqual(card(0));
 });
 
 test('el fallo de pantalla nunca destella más de tres veces por segundo', () => {

@@ -116,7 +116,7 @@ function Body({ p, mine }: { p: Profile; mine: boolean }) {
           {[...TIERS].reverse().map((tier) => (
             <li key={tier} data-tier={tier} className={p.collection.counts[tier] ? undefined : 'none'}>
               <i aria-hidden="true" />
-              <b>{fmt(p.collection.counts[tier])}</b>
+              <b>{fmt(p.collection.counts[tier] ?? 0)}</b>
               <span>{copy.tiers[tier]}</span>
             </li>
           ))}

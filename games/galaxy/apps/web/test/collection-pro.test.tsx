@@ -65,7 +65,7 @@ const g = (id: string, tier: Tier = 'common', name = `Gal ${id}`): GalaxySummary
 });
 const page = (): CollectionPage => ({
   items: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6'].map((id) => g(id)),
-  counts: { common: 6, uncommon: 0, rare: 0, epic: 0, legendary: 0 },
+  counts: { common: 6, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 },
   fusion: { count: 5, dust: [20, 50, 120, 300] },
 });
 const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 40, signal: 0 } };

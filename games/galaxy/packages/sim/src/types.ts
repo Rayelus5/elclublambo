@@ -68,7 +68,7 @@ export const IDLE: ProbeInput = Object.freeze({ mx: 0, my: 0, aim: -1, pick: -1 
 export interface RelicInput {
   id: string;
   seed: string;
-  /** 0 common … 4 legendary. */
+  /** 0 common … 4 legendary, 5 mythic. */
   tier: number;
   level: number;
   traits: Record<string, string>;

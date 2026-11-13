@@ -99,7 +99,7 @@ export function Filters({
           <button key={t} type="button" className="chip" data-tier={t} aria-pressed={filters.tier === t} onClick={() => set({ tier: filters.tier === t ? undefined : t })}>
             <i aria-hidden="true" />
             {copy.tiers[t]}
-            {counts ? <small>{fmt(counts[t])}</small> : null}
+            {counts ? <small>{fmt(counts[t] ?? 0)}</small> : null}
           </button>
         ))}
       </div>

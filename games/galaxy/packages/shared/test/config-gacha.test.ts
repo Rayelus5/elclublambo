@@ -24,10 +24,11 @@ describe('configuración del gachapón', () => {
       { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
     ]);
     const galaxies = parseConfig('galaxies', {});
-    expect(galaxies.disintegrate).toEqual({ tier: [5, 12, 30, 75, 200], finish: [1, 1.5, 2, 2.5, 5] });
+    expect(galaxies.disintegrate).toEqual({ tier: [5, 12, 30, 75, 200, 500], finish: [1, 1.5, 2, 2.5, 5] });
     expect(galaxies.fusion).toEqual({ count: 5, dust: [20, 50, 120, 300] });
     expect(parseConfig('features', {}).gacha).toBe(true);
-    expect(TIERS).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary']);
+    expect(TIERS).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic']);
+    expect(g.mythic).toBe(0);
     expect(FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt', 'rift']);
     // The odds draw five; Fisura is season 1's exclusive finish (M8c).
     expect(DRAWN_FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt']);

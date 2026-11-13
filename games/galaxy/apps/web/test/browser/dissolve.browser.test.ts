@@ -28,7 +28,7 @@ const galaxy = (i: number): GalaxySummary => ({
   createdAt: '2026-11-06T20:00:00Z',
 });
 const items = Array.from({ length: 12 }, (_, i) => galaxy(i));
-const collection: CollectionPage = { items, counts: { common: 5, uncommon: 2, rare: 3, epic: 1, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+const collection: CollectionPage = { items, counts: { common: 5, uncommon: 2, rare: 3, epic: 1, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
 const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 1200, dust: 340, signal: 4 } };
 
 let root: Root | null = null;

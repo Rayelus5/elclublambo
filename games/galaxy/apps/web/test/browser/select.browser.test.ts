@@ -229,7 +229,7 @@ test.each(SIZES)('en los filtros de la colección el desplegable encaja con las 
   mount(
     createElement(Filters, {
       filters: { sort: 'new' },
-      counts: { common: 12, uncommon: 5, rare: 3, epic: 1, legendary: 0 },
+      counts: { common: 12, uncommon: 5, rare: 3, epic: 1, legendary: 0, mythic: 0 },
       onChange: () => {},
     }),
     'position: absolute; left: 60px; top: 40px; width: min(1100px, calc(100vw - 120px)); padding: 20px; background: #11132e;',

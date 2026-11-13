@@ -39,17 +39,19 @@ function Odds({ banner }: { banner: BannerView }) {
       <table aria-label={copy.scanner.odds}>
         <caption>{copy.scanner.odds}</caption>
         <tbody>
-          {[...TIERS].reverse().map((t) => (
-            <tr key={t} data-tier={t}>
-              <th scope="row">
-                <i aria-hidden="true" />
-                {copy.tiers[t]}
-              </th>
-              <td>
-                {copy.scanner.rate(banner.nextRates[TIERS.indexOf(t)] ?? 0)}
-              </td>
-            </tr>
-          ))}
+          {/* The mythic has its own chance (0 until the owner publishes it): its row shows only once it can come out. */}
+          {[...TIERS]
+            .reverse()
+            .filter((t) => t !== 'mythic' || (banner.nextRates[TIERS.indexOf(t)] ?? 0) > 0)
+            .map((t) => (
+              <tr key={t} data-tier={t}>
+                <th scope="row">
+                  <i aria-hidden="true" />
+                  {copy.tiers[t]}
+                </th>
+                <td>{copy.scanner.rate(banner.nextRates[TIERS.indexOf(t)] ?? 0)}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
       <div className="pity" data-tour="pity">

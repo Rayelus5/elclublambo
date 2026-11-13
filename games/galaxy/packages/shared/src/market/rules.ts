@@ -8,9 +8,17 @@ export type MarketConfig = ConfigValue<'market'>;
 
 const DAY_MS = 86_400_000;
 
-/** The lowest price a galaxy of this rarity can be listed for (a trigger enforces it too). */
+/**
+ * The lowest price a galaxy of this rarity can be listed for (a trigger enforces it too). A market config published
+ * before the mythic has no floor for it: the legendary's.
+ */
 export function minPriceFor(tier: Tier, cfg: MarketConfig): number {
-  return cfg.minPrice[tier];
+  return tier === 'mythic' ? (cfg.minPrice.mythic ?? cfg.minPrice.legendary) : cfg.minPrice[tier];
+}
+
+/** Whether a galaxy of this rarity may be put up for sale: a mythic only when the market allows it (`mythicListing`). */
+export function listable(tier: Tier, cfg: MarketConfig): boolean {
+  return tier !== 'mythic' || cfg.mythicListing;
 }
 
 /** What the market keeps of a sale: the rate rounded down, at least one coin (none when the rate is 0). */

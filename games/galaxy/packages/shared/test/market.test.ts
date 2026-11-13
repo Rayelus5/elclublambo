@@ -10,7 +10,8 @@ const DAY = 86_400_000;
 describe('la configuración', () => {
   test('los valores de partida son los del GDD', () => {
     expect(market).toEqual({
-      minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 },
+      minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15_000 },
+      mythicListing: false,
       maxPrice: 10_000_000,
       commission: 0.07,
       days: 7,

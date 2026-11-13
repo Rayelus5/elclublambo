@@ -22,7 +22,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   level: 7,
   season: null,
   records: { maxDepth: 9, purges: 12, runs: 40 },
-  collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 } },
+  collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 } },
   planetarium: { prestige: 0, exhibits: 0, cover: null },
   clan: null,
   ...over,
@@ -38,7 +38,7 @@ const base = {
   'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
   'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ title: 'Cadete' })),
   'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
-  'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 }, fusion: { count: 3, dust: [] } }),
+  'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 }, fusion: { count: 3, dust: [] } }),
 };
 
 test('en mi perfil, «Personalizar» abre el inventario por pestañas; en el de otro no aparece', async () => {
@@ -98,7 +98,7 @@ test('quitar el título y volver a «Tu firma» se manda como null', async () =>
 test('la pestaña «Banner» lista mis galaxias y guardar manda la elegida', async () => {
   const fetch = mockApi({
     ...base,
-    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g1', name: 'Kathra' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 3, dust: [] } }),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g1', name: 'Kathra' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 3, dust: [] } }),
     'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
   });
   const user = userEvent.setup();
@@ -118,7 +118,7 @@ test('la pestaña «Fondo» elige hasta 12 galaxias para el cielo del menú; las
   const fetch = mockApi({
     ...base,
     'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: ['g2'] } })),
-    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 3 }, fusion: { count: 3, dust: [] } }),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 3, mythic: 0 }, fusion: { count: 3, dust: [] } }),
     'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
   });
   const user = userEvent.setup();
@@ -142,7 +142,7 @@ test('«Usar las más raras» vacía la elección del fondo', async () => {
   const fetch = mockApi({
     ...base,
     'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: ['g2'] } })),
-    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g2', name: 'Orvel' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 3, dust: [] } }),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g2', name: 'Orvel' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 3, dust: [] } }),
     'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
   });
   const user = userEvent.setup();

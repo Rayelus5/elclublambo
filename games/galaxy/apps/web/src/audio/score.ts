@@ -1,6 +1,6 @@
 // The scanner's music while a pro reveal plays (plan «escáner pro», part B): four layers of one loop started at the
 // same instant, so they stay locked sample for sample, and faded in and out by the rarest card seen so far. The base
-// plays from the ignition; a rare adds the arpeggio, an epic the choir, a legendary the bells and drums. Only the
+// plays from the ignition; a rare adds the arpeggio, an epic the choir, a legendary (or a mythic) the bells and drums. Only the
 // gains move (smooth ramps), never the sources, so changing layer never clicks.
 
 export interface Score {

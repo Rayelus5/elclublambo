@@ -46,6 +46,18 @@ test('el clac y el acorde suenan, y el acorde de una Legendaria tiene más notas
   expect(started).toBeGreaterThan(common);
 });
 
+test('una Mítica suena al menos como una Legendaria: su acorde y su impacto', () => {
+  const sfx = createSfx();
+  started = 0;
+  sfx.chord('legendary');
+  const legendary = started;
+  started = 0;
+  sfx.chord('mythic');
+  expect(started).toBeGreaterThanOrEqual(legendary);
+  expect(nodes(() => sfx.impact('mythic'))).toBeGreaterThanOrEqual(nodes(() => sfx.impact('legendary')));
+  expect(nodes(() => sfx.riser('mythic', 1.6))).toBeGreaterThan(0);
+});
+
 test('silenciado no suena nada y el silencio se recuerda', () => {
   const sfx = createSfx();
   sfx.setMuted(true);

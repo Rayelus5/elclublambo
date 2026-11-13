@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
+import { atLeast, leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
@@ -54,7 +54,7 @@ export function registerGachaRoutes(
     return withNotices(deps.live, (out) =>
       runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
         const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
-        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now(), out);
+        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => atLeast(p.tier, 'legendary')).length }, deps.now(), out);
         return r;
       }),
     );

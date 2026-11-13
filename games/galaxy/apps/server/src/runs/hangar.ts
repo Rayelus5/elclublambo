@@ -20,6 +20,7 @@ import {
   type CosmeticsConfig,
   SCRAP_SKIN_RUNS,
   skinParts,
+  TIERS,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -69,7 +70,7 @@ export async function relicSnapshot(db: Kysely<DB>, accountId: string, slots: nu
   const live = await loadoutOf(db, accountId, slots);
   return live
     .filter((g): g is GalaxySummary => g !== null)
-    .map((g) => ({ id: g.id, seed: g.seed, tier: ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(g.tier), level: g.level, traits: g.traits }));
+    .map((g) => ({ id: g.id, seed: g.seed, tier: TIERS.indexOf(g.tier), level: g.level, traits: g.traits }));
 }
 
 /** The account's stats in each sector from finished, non-suspicious runs (what opens the next sectors). */

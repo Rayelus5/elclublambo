@@ -70,8 +70,10 @@ test('cada sonido del guion tiene receta y nombre de archivo, y nunca suena ante
       expect(ctx.started.every((s) => s.at >= 5)).toBe(true);
     }
   }
-  const file = PRO_SOUNDS.revelar.file as (o: { tier: 'legendary' }) => string;
+  const file = PRO_SOUNDS.revelar.file as (o: { tier: 'legendary' | 'mythic' }) => string;
   expect(file({ tier: 'legendary' })).toBe(`revelar-${TIER_FILE.legendary}`);
+  // No file of its own: a mythic plays the legendary's file when there is one (its own recipe otherwise).
+  expect(file({ tier: 'mythic' })).toBe(`revelar-${TIER_FILE.legendary}`);
 });
 
 test('la música: las cuatro capas arrancan a la vez y entran según la rareza más alta vista', () => {

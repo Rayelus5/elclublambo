@@ -1,4 +1,4 @@
-import { type AutoFusionCriteria, FINISHES, SPECIAL_FINISHES, type Tier, TIERS } from '@galaxy/shared';
+import { atLeast, type AutoFusionCriteria, FINISHES, FUSION_TOP, SPECIAL_FINISHES, type Tier, TIERS } from '@galaxy/shared';
 import { type CSSProperties, useId, useState } from 'react';
 import { useAutoFuse, useAutoFusionPreview } from '../api/economy';
 import { errorText } from '../auth/useMe';
@@ -19,10 +19,11 @@ const t = copy.collection.auto;
 type From = AutoFusionCriteria['from'];
 type UpTo = AutoFusionCriteria['upTo'];
 const FROM: From[] = ['common', 'uncommon', 'rare', 'epic'];
-const next = (tier: Tier) => TIERS[Math.min(TIERS.length - 1, TIERS.indexOf(tier) + 1)] as UpTo;
+// Fusion stops at the legendary (FUSION_TOP): a legendary or a mythic is never fused, and nothing fuses into a mythic.
+const next = (tier: Tier) => TIERS[Math.min(FUSION_TOP, TIERS.indexOf(tier) + 1)] as UpTo;
 
 export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters: CollectionFilters; count: number; onClose: () => void; onDone: (message: string) => void }) {
-  const start: From = filters.tier && filters.tier !== 'legendary' ? filters.tier : 'common';
+  const start: From = filters.tier && !atLeast(filters.tier, 'legendary') ? (filters.tier as From) : 'common';
   const ids = useId();
   const [from, setFrom] = useState<From>(start);
   const [upTo, setUpTo] = useState<UpTo>(next(start));
@@ -105,7 +106,7 @@ export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters:
             id={`${ids}-up`}
             block
             value={upTo}
-            options={TIERS.filter((tier) => TIERS.indexOf(tier) > TIERS.indexOf(from)).map((tier) => ({ value: tier as UpTo, label: copy.tiers[tier] }))}
+            options={TIERS.filter((tier) => TIERS.indexOf(tier) > TIERS.indexOf(from) && TIERS.indexOf(tier) <= FUSION_TOP).map((tier) => ({ value: tier as UpTo, label: copy.tiers[tier] }))}
             onChange={setUpTo}
           />
         </div>

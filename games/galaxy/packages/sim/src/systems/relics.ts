@@ -64,7 +64,8 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
   const rank = all.slice(0, at + 1).filter((r) => baseFamily(r.traits) === family).length;
   let stacking = 1;
   for (let k = R.stacking.from; k <= rank; k++) stacking *= R.stacking.decay;
-  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude * stacking;
+  // A tier past the end of the list (a mythic with content published before it) counts as the last one.
+  const magnitude = (R.tier[Math.min(relic.tier, R.tier.length - 1)] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude * stacking;
   let copies: FamilyId | null = null;
   if (family === 'echo') {
     const me = Math.max(0, at);

@@ -1,4 +1,4 @@
-import { DISINTEGRATE_MAX, TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
+import { atLeast, DISINTEGRATE_MAX, TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 import { previewDisintegrate, useCollectionPages, useDisintegrateMany, useFuse, useGacha } from '../api/economy';
@@ -120,9 +120,9 @@ export function CollectionScreen() {
   const pickable = (g: GalaxySummary) =>
     dissolving
       ? !held(g) && (selected.length < DISINTEGRATE_MAX || selected.some((s) => s.id === g.id))
-      : !held(g) && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+      : !held(g) && !atLeast(g.tier, 'legendary') && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
   // The epic-or-better ones about to go, named in the confirmation.
-  const best = selected.filter((g) => TIERS.indexOf(g.tier) >= TIERS.indexOf('epic')).map((g) => g.name);
+  const best = selected.filter((g) => atLeast(g.tier, 'epic')).map((g) => g.name);
 
   return (
     <div className="screen-root collection-root">
@@ -130,7 +130,7 @@ export function CollectionScreen() {
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{copy.collection.title}</h1>
-          {first ? <span className="collection-count">{copy.collection.galaxies(TIERS.reduce((n, t) => n + first.counts[t], 0))}</span> : null}
+          {first ? <span className="collection-count">{copy.collection.galaxies(TIERS.reduce((n, t) => n + (first.counts[t] ?? 0), 0))}</span> : null}
           <CatalogButton />
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />

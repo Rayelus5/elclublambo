@@ -1,3 +1,4 @@
+import { atLeast } from '@galaxy/shared';
 import type { gsap as Gsap } from 'gsap';
 import { GUION, type Phase, type Script, type TrailTint } from './script';
 
@@ -89,7 +90,7 @@ export interface Rig {
   flash: number;
   flashColor: 'white' | TrailTint;
   shake: number;
-  /** The legendary's god rays. */
+  /** The god rays of a legendary or a mythic. */
   rays: number;
   /** The grid dimmed behind a close-up. */
   dim: number;
@@ -190,7 +191,8 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
   // Where the ring stands when the orbit ends (a surge turns it further): the collapse goes on from there.
   let spun = RING.spin;
   const card = (slot: number) => rig.cards[slot]!;
-  const tierOf = (p: Phase) => p.tier;
+  /** A legendary or a mythic: the god rays come behind its card. */
+  const topTier = (p: Phase) => !!p.tier && atLeast(p.tier, 'legendary');
   const faceOf = (slot: number) => s.faces.find((f) => f.slot === slot)!;
 
   for (const p of s.phases) {
@@ -290,7 +292,7 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
           tl.to(c, { rotY: Math.PI, duration: dur * 0.6, ease: 'power3.inOut' }, at + dur * 0.3);
           tl.to(c, { glow: 1, duration: 0.15, ease: 'power2.out' }, face);
           tl.to(c, { glow: 0.35, duration: 0.8, ease: 'power2.out' }, face + 0.15);
-          if (tierOf(p) === 'legendary') tl.to(rig, { rays: 1, duration: 0.6, ease: 'power2.out' }, face - 0.3);
+          if (topTier(p)) tl.to(rig, { rays: 1, duration: 0.6, ease: 'power2.out' }, face - 0.3);
         }
         texts(tl, rig, s, 0, face, faceOf(0).featured, at + dur);
         break;
@@ -335,7 +337,7 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         tl.to(rig, { dim: 0.78, duration: T.solo.volar, ease: 'power2.out' }, at);
         tl.to(c, { x: SOLO.x, y: SOLO.y, z: SOLO.z, scale: SOLO.scale, glow: 1, duration: T.solo.volar, ease: 'power3.inOut' }, at);
         tl.to(c, { rotY: Math.PI, duration: T.solo.giro, ease: 'power3.inOut' }, at + T.solo.volar);
-        if (tierOf(p) === 'legendary') {
+        if (topTier(p)) {
           tl.to(rig, { rays: 1, duration: 0.6, ease: 'power2.out' }, face - 0.3);
           tl.to(rig, { rays: 0, duration: T.solo.volver, ease: 'power2.in' }, back);
         }
