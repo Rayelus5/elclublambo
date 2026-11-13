@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
-import { createFx, reactionLabel } from '../src/arena/stage/fx';
+import { createFx, reactionLabel, SWIRL_MAX } from '../src/arena/stage/fx';
 
 // Combat juice that is pure state (DESIGN_SYSTEM §8 quater): the shake decays to rest, damage numbers rise and fade
 // with a cap, particles age out, and reduced motion removes the shake and halves the particles.
@@ -179,4 +179,19 @@ test('la singularidad atrae motas que giran en espiral hacia su centro, y con mo
   const calm = createFx(true);
   calm.swirl(1, 100, 50, 60, 0.5, IRIS);
   expect(calm.particles).toHaveLength(0);
+});
+
+// Review of PR #180: each hole kept ~77 motes alive, so four in co-op took half the particle budget. A cap per hole.
+test('cada singularidad tiene un tope de motas vivas, aunque pase mucho tiempo entre fotogramas', () => {
+  const IRIS = [0xff4fd8, 0x6fe3ff, 0xffc94a, 0xb39dff];
+  const fx = createFx(false);
+  for (let k = 0; k < 20; k++) {
+    fx.swirl(1, 0, 0, 60, 0.1, IRIS);
+    fx.swirl(2, 300, 0, 60, 0.1, IRIS);
+    fx.update(0.02);
+  }
+  const of = (cx: number) => fx.particles.filter((p) => p.orbit?.cx === cx).length;
+  expect(of(0)).toBeGreaterThan(10);
+  expect(of(0)).toBeLessThanOrEqual(SWIRL_MAX);
+  expect(of(300)).toBeLessThanOrEqual(SWIRL_MAX);
 });

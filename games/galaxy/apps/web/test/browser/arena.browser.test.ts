@@ -688,13 +688,15 @@ for (const reduced of [false, true]) {
       const canvas = await mount(1280, 720);
       stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '20261113', preserve: true });
       stage.resize(1280, 720);
-      const frames = (n: number) => {
+      /** `n` frames of 1/60 s; with `play`, the run advances a tick in each (the motes only fall while it does). */
+      const frames = (n: number, play = false) => {
         for (let k = 0; k < n; k++) {
+          if (play) step(sim, [IDLE]);
           now += 1000 / 60;
           stage!.render(sim, 1);
         }
       };
-      frames(30);
+      frames(30, !reduced);
       const world = stage.app.stage.getChildByLabel('world')!;
       // Drawn on the abilities' layers, which lie under the probes (only the foes' bullets go over them).
       const areas = world.getChildByLabel('areas')!.getLocalBounds();
@@ -724,6 +726,11 @@ for (const reduced of [false, true]) {
         expect(visibleParticles(stage)).toBeGreaterThan(10);
       }
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad${reduced ? '-reducida' : ''}.png`, element: canvas });
+      // Paused (a card to choose): no new motes, and the ones falling are gone within a second (review of PR #180).
+      sim.status = 'choosing';
+      frames(60);
+      expect(visibleParticles(stage)).toBe(0);
+      sim.status = 'running';
       // The collapse: a burst in its tones (with reduced motion, only a short fade where it was).
       const before = visibleParticles(stage);
       for (let t = 0; t < 200 && !sim.events.some((e) => e.t === 'singularity' && e.what === 'collapse'); t++) step(sim, [IDLE]);

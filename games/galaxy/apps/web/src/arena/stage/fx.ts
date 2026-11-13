@@ -26,7 +26,7 @@ export interface FxParticle {
    * A mote spiralling into a singularity (plan «rareza Mítica» M2): it turns around (cx, cy) at `spin` radians per
    * second while its distance `rad` shrinks by `sink` per second; its velocity is unused.
    */
-  orbit?: { cx: number; cy: number; ang: number; rad: number; spin: number; sink: number };
+  orbit?: { key: number; cx: number; cy: number; ang: number; rad: number; spin: number; sink: number };
 }
 
 export interface FxLabel {
@@ -73,8 +73,8 @@ export interface Fx {
   trail(key: number, x: number, y: number, color: number, dt: number): void;
   /**
    * A mythic's singularity (plan «rareza Mítica» M2): motes in `colors` born within `radius` of (x, y) that spiral into
-   * it, at a steady rate over `dt` seconds, reaching the centre as they fade. `key` keeps each singularity's own rate.
-   * None with reduced motion.
+   * it, at a steady rate over `dt` seconds, reaching the centre as they fade. `key` keeps each singularity's own rate
+   * and its motes under SWIRL_MAX. None with reduced motion.
    */
   swirl(key: number, x: number, y: number, radius: number, dt: number, colors: readonly number[]): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
@@ -106,6 +106,8 @@ const TRAIL_RATE = 40;
 const SWIRL_RATE = 140;
 const SWIRL_SPIN = 4;
 const SWIRL_LIFE = 0.55;
+/** The most motes one singularity keeps alive (four in co-op stay well inside MAX_PARTICLES). */
+export const SWIRL_MAX = 40;
 
 /** Reaction colours by what they do (the name is always shown too: never colour alone). */
 const REACTION_COLOR: Record<string, number> = {
@@ -216,7 +218,10 @@ export function createFx(startReduced: boolean): Fx {
     swirl(key, x, y, radius, dt, colors) {
       if (reduced || colors.length === 0) return;
       let due = (swirls.get(key) ?? 0) + dt * SWIRL_RATE;
-      while (due >= 1 && particles.length < MAX_PARTICLES) {
+      let alive = 0;
+      for (const p of particles) if (p.orbit?.key === key) alive++;
+      while (due >= 1 && particles.length < MAX_PARTICLES && alive < SWIRL_MAX) {
+        alive++;
         due -= 1;
         const ang = rand() * Math.PI * 2;
         const rad = radius * (0.55 + rand() * 0.45);
@@ -230,7 +235,7 @@ export function createFx(startReduced: boolean): Fx {
           age: 0,
           life,
           size: rand() < 0.5 ? 2 : 1,
-          orbit: { cx: x, cy: y, ang, rad, spin: SWIRL_SPIN * (0.8 + rand() * 0.5), sink: rad / life },
+          orbit: { key, cx: x, cy: y, ang, rad, spin: SWIRL_SPIN * (0.8 + rand() * 0.5), sink: rad / life },
         });
       }
       swirls.set(key, Math.min(due, 1));

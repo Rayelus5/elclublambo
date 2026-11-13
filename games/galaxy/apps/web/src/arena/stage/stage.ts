@@ -1,6 +1,7 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent, ticks } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { singularityOf } from '../../api/content-read';
 import { copy } from '../../copy/es';
 import { probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
@@ -442,6 +443,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
 
   function drawAreas(sim: Sim): void {
     const a = sim.areas;
+    // While the run advances (not paused on a card or a menu): the singularities' motes only fall then.
+    const live = sim.status === 'running' && clock - tickAt < 0.1;
     areas.clear();
     beams.clear();
     for (let i = 0; i < a.top; i++) {
@@ -511,7 +514,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         areas.circle(x, y, Math.max(1, r * k)).stroke({ width: 1, color: 0xffc94a, alpha: 0.85 });
         areas.rect(x - 1, y - 1, 2, 2).fill({ color: 0xffc94a, alpha: blink });
       } else if (kind === AREA.singularity) {
-        drawSingularity(x, y, r, t, i * 65536 + a.gen[i]!);
+        drawSingularity(x, y, r, t, i * 65536 + a.gen[i]!, live);
       } else if (kind === AREA.collapse) {
         drawCollapse(x, y, r, t);
       } else if (kind === AREA.slowField) {
@@ -548,10 +551,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
    * A mythic's singularity while it pulls (plan «rareza Mítica» M2): over its reach a faint violet well with arcs in its
    * four tones winding in towards it; a core darker than the field (under the fauna it swallows) in a dark halo, that
    * opens fast and shrinks just before it collapses; its rings of light turning round it over the fauna, and motes
-   * spiralling in. With reduced motion: no motes, the rings and arcs still and soft, the core at its size.
+   * spiralling in while the run advances. With reduced motion: no motes, the rings and arcs still and soft, the core at
+   * its size.
    */
-  function drawSingularity(x: number, y: number, reach: number, ttl: number, key: number): void {
-    const total = Math.max(1, ticks(content.relics.singularity.seconds));
+  function drawSingularity(x: number, y: number, reach: number, ttl: number, key: number, live: boolean): void {
+    const total = Math.max(1, ticks(singularityOf(content).seconds));
     const k = Math.max(0, Math.min(1, 1 - (ttl - 2) / total));
     const calm = opts.reduced;
     const grow = calm ? 1 : Math.min(1, k / 0.1);
@@ -578,7 +582,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       const b0 = -spin * 0.6 + (q * Math.PI) / 2 + Math.PI / 4;
       arcFrom(beams, x, y, core * 1.6 + 2, b0, b0 + Math.PI / 2 - 0.5).stroke({ width: 1.5, color: IRIS[(q + 1) % 4]!, alpha: calm ? 0.35 : 0.65 });
     }
-    if (!calm) fx.swirl(key, x, y, reach, frameDt, IRIS);
+    if (!calm && live) fx.swirl(key, x, y, reach, frameDt, IRIS);
   }
 
   /**
