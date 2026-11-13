@@ -80,7 +80,7 @@ export function CollectionScreen() {
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{copy.collection.title}</h1>
-          {first ? <span className="collection-count">{copy.collection.galaxies(TIERS.reduce((n, t) => n + first.counts[t], 0))}</span> : null}
+          {first ? <span className="collection-count">{copy.collection.galaxies(TIERS.reduce((n, t) => n + (first.counts[t] ?? 0), 0))}</span> : null}
           <CatalogButton />
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />

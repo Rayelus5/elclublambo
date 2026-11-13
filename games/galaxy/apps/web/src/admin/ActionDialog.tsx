@@ -11,7 +11,7 @@ const t = copy.admin;
 /** A field of a change; `initial` puts the value it has now (M6d-4: a level, a counter). */
 export type FieldSpec =
   | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean; initial?: string }
-  | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string }
+  | { name: string; label: string; kind: 'select'; options: [string, string][]; hint?: string; initial?: string }
   /** On or off (plan «escáner pro», part F: «Reservar el nombre»): its value is '1' or ''. */
   | { name: string; label: string; kind: 'switch'; hint?: string; initial?: string };
 

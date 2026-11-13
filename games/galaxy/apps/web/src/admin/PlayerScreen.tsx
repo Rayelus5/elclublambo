@@ -27,7 +27,16 @@ const COLUMNS: Record<AdminSectionName, string[]> = {
   shop: ['at', 'product', 'status', 'amount', 'refunded', 'paid'],
 };
 
-type Action = { key: string; title: string; path: string; fields?: FieldSpec[]; password: (v: Record<string, string>) => boolean; build?: (v: Record<string, string>) => Record<string, unknown>; code?: boolean };
+type Action = {
+  key: string;
+  title: string;
+  path: string;
+  fields?: FieldSpec[];
+  password: (v: Record<string, string>) => boolean;
+  build?: (v: Record<string, string>) => Record<string, unknown>;
+  valid?: (v: Record<string, string>) => boolean;
+  code?: boolean;
+};
 
 function actionsFor(p: AdminPlayer): Action[] {
   const always = () => true;
@@ -55,6 +64,8 @@ function actionsFor(p: AdminPlayer): Action[] {
         { name: 'seed', label: t.fields.seed, kind: 'text', optional: true },
       ],
       password: never,
+      // A mythic always has a special finish (the server refuses it otherwise).
+      valid: (v) => !(v['tier'] === 'mythic' && v['finish'] === 'normal'),
       build: (v) => ({ tier: v['tier'], finish: v['finish'], ...(v['type'] ? { type: v['type'] } : {}), ...(v['seed']?.trim() ? { seed: v['seed'].trim() } : {}) }),
     },
     { key: 'xp', title: t.actions.xp, path: 'xp', fields: [{ name: 'xp', label: t.fields.xp, kind: 'number' }], password: always, build: (v) => ({ xp: Number(v['xp']) }) },
@@ -269,6 +280,7 @@ export function PlayerScreen() {
           fields={open.fields}
           password={open.password}
           build={open.build}
+          {...(open.valid ? { valid: open.valid } : {})}
           result={
             open.code
               ? (r) => (
