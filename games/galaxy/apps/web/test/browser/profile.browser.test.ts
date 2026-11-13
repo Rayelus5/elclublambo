@@ -36,7 +36,7 @@ const profile = (finish: string) => ({
   xp: { into: 1240, next: 2000 },
   season: { score: 2400, rank: 4, tier: 'silver', maxDepth: 6, purges: 3, extractions: 5 },
   records: { maxDepth: 9, purges: 12, runs: 40 },
-  collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1 } },
+  collection: { total: 24, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1, mythic: 1 } },
   planetarium: { prestige: 31, exhibits: 4, cover: null },
   clan: { tag: 'NEB', name: 'Nebulosa Roja', emblem: 'star', color: 'nova' },
   title: 'Mecenas estelar',

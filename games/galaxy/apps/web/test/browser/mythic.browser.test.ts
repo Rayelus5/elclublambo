@@ -10,6 +10,7 @@ import { page } from 'vitest/browser';
 import { GalaxyCard } from '../../src/cards/GalaxyCard';
 import { CollectionScreen } from '../../src/collection/CollectionScreen';
 import { ScannerScreen } from '../../src/scanner/ScannerScreen';
+import { ProfileScreen } from '../../src/social/ProfileScreen';
 import '../../src/styles/app.css';
 
 // The «Mítica» (plan «rareza Mítica» M1) in a real Chromium: its card is near black in a turning iridescent frame,
@@ -103,6 +104,36 @@ const noOverflow = () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   for (const el of document.querySelectorAll<HTMLElement>('.screen-root, .screen-root > *')) expect(el.scrollWidth, el.className).toBeLessThanOrEqual(el.clientWidth + 1);
 };
+
+test('en el perfil, el recuento por rareza cabe con su sexta columna', { timeout: 60_000 }, async () => {
+  await page.viewport(1280, 720);
+  const profile = {
+    username: 'vega',
+    since: '2026-11-03T10:00:00.000Z',
+    level: 17,
+    xp: { into: 1240, next: 2000 },
+    season: null,
+    records: { maxDepth: 9, purges: 12, runs: 40 },
+    collection: { total: 55, counts: collection.counts },
+    planetarium: { prestige: 31, exhibits: 4, cover: null },
+    clan: null,
+    title: null,
+    avatar: null,
+    frame: null,
+    banner: null,
+    probes: { showcase: [], all: [] },
+  };
+  mount('/perfil/vega', '/perfil/:username', createElement(ProfileScreen), (url) => (url.endsWith('/profiles/vega') ? json(profile) : notFound()));
+  await vi.waitFor(() => expect(document.querySelectorAll('.tier-counts li')).toHaveLength(6), { timeout: 30_000, interval: 200 });
+  const list = document.querySelector<HTMLElement>('.tier-counts')!;
+  expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth + 1);
+  expect(list.querySelector('li[data-tier="mythic"]')!.textContent).toBe('1Mítica');
+  if (shots) {
+    list.closest<HTMLElement>('.profile-collection')!.scrollIntoView();
+    await new Promise((r) => setTimeout(r, 300));
+    await page.screenshot({ path: '__shots__/mythic-profile-counts.png', element: list.closest<HTMLElement>('.profile-collection')! });
+  }
+});
 
 for (const [width, height] of [
   [1280, 720],
