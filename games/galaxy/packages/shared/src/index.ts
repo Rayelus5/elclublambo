@@ -59,6 +59,7 @@ export * from './progress/redshift';
 export * from './progress/tutorial';
 export * from './progress/events-admin';
 export * from './api/mail';
+export * from './api/referrals';
 export * from './api/stats';
 export * from './api/storage';
 export * from './shop/schema';

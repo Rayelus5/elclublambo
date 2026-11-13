@@ -9,6 +9,7 @@ import { seasonRouteSchema } from '../progress/season-route';
 import { redshiftSchema } from '../progress/redshift';
 import { shopSchema } from '../shop/schema';
 import { cosmeticsConfigSchema } from '../cosmetics/catalog';
+import { mailGiftsSchema } from '../api/mail';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -738,6 +739,22 @@ export const configSchemas = {
    * how to get it. The art is in the web app, found by id.
    */
   cosmetics: cosmeticsConfigSchema,
+  /**
+   * Referrals (plan «referidos»): whether a code is needed to sign up, the gifts (the newcomer's at once, the owner's
+   * when the newcomer reaches the level), and the caps and the shared-address window that hold a sign-up for review.
+   */
+  referrals: z
+    .object({
+      required: z.boolean().default(false),
+      ownerGifts: mailGiftsSchema.prefault({ coins: 100, dust: 50, signal: 2 }),
+      newcomerGifts: mailGiftsSchema.prefault({ coins: 100, dust: 50, signal: 2 }),
+      activationLevel: z.number().int().min(1).max(100).default(5),
+      perCodePerDay: z.number().int().min(1).max(10_000).default(20),
+      ownerPerWeek: z.number().int().min(1).max(10_000).default(30),
+      ipSignupsPerDay: z.number().int().min(1).max(1000).default(3),
+      sharedIpDays: z.number().int().min(1).max(365).default(30),
+    })
+    .strict(),
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;

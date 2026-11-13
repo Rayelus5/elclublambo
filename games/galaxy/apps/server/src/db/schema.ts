@@ -386,6 +386,46 @@ export interface ShopBlocksTable {
 }
 
 /** Plan «skins», part D: the probes a player shows on their profile, by slot (0–2). */
+/** Plan «referidos»: a referral code and its owner. */
+export interface ReferralCodesTable {
+  id: Generated<string>;
+  code: string;
+  owner_id: string;
+  enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  max_uses: number | null;
+  expires_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  note: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+}
+
+/** Plan «referidos»: an owner's own gifts and level (null: the global ones). */
+export interface ReferralRewardsTable {
+  owner_id: string;
+  owner_gifts: ColumnType<Record<string, number> | null, string | null, string | null>;
+  newcomer_gifts: ColumnType<Record<string, number> | null, string | null, string | null>;
+  activation_level: number | null;
+  updated_by: string | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** Plan «referidos»: one row per newcomer that signed up with a code. */
+export interface ReferralsTable {
+  account_id: string;
+  code_id: string;
+  owner_id: string;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  signup_ip: string | null;
+  user_agent: string | null;
+  state: ColumnType<'pending' | 'held' | 'rewarded' | 'rejected', 'pending' | 'held' | undefined, 'pending' | 'held' | 'rewarded' | 'rejected'>;
+  flags: ColumnType<string[], string[] | undefined, string[]>;
+  newcomer_paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  owner_paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  activated_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  reviewed_by: string | null;
+  reviewed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 export interface ProbeShowcaseTable {
   account_id: string;
   slot: number;
@@ -829,6 +869,9 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.probe_showcase': ProbeShowcaseTable;
+  'galaxy.referral_codes': ReferralCodesTable;
+  'galaxy.referral_rewards': ReferralRewardsTable;
+  'galaxy.referrals': ReferralsTable;
   'galaxy.lab_nodes': LabNodesTable;
   'galaxy.lab_season_nodes': LabSeasonNodesTable;
   'galaxy.shop_purchases': ShopPurchasesTable;

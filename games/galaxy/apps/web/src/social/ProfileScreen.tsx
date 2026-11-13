@@ -18,13 +18,15 @@ import { SeasonHistoryList } from '../season/TrophiesScreen';
 import { useCosmeticsView } from '../api/cosmetics';
 import { CustomizeDialog } from '../profile/CustomizeDialog';
 import { ProbesPanel } from './ProbesPanel';
+import { InvitePanel } from './InvitePanel';
 import { ProfileBanner } from '../profile/ProfileBanner';
 import { NoticeModeField } from '../live/NoticeMode';
 import { TitleText } from '../profile/TitleText';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
-// to visit it. Nothing private.
+// to visit it. Nothing private, except on their own profile: their invitation codes, when the team gave them one
+// (plan «referidos», part R2).
 
 const t = copy.social;
 
@@ -74,6 +76,7 @@ function Body({ p, mine }: { p: Profile; mine: boolean }) {
   return (
     <div className="profile-grid">
       {p.probes ? <ProbesPanel probes={p.probes} mine={mine} /> : null}
+      {mine ? <InvitePanel /> : null}
       <Panel title={t.seasonTitle} className="profile-season">
         {p.season ? (
           <>

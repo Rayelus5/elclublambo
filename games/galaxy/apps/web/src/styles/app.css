@@ -3957,7 +3957,7 @@
   .hscroll-arrow.prev { inset-inline-start: 4px; }
   .hscroll-arrow.next { inset-inline-end: 4px; }
   .hscroll-arrow.next .ico { transform: scaleX(-1); }
-  .hscroll.table > .hscroll-arrow { top: 8px; translate: none; }
+  .hscroll.hscroll-table > .hscroll-arrow { top: 8px; translate: none; }
 }
 
 @layer components {
@@ -4046,4 +4046,106 @@
   :where(:root[data-motion='reduced']) {
     .profile-banner-fx, .profile-root[data-finish]::before { animation: none !important; }
   }
+}
+
+@layer components {
+  /* «Referidos» in the panel (plan «referidos», part R2): the panel's own tiles, toolbars, chips and tables; codes in the
+     monospace of the admin's JSON and in solar, the held rows faintly warm, the marks with a floating explanation (fixed,
+     so the table's own scroll never clips it), and the rewards as label and value rows. */
+  /* Its tables are wide (a code has eleven columns): the page takes up to 1760 px, so from 1920 nothing has to scroll. */
+  .admin-page.referrals-admin { max-width: 1760px; }
+  .referrals-admin > .stats-sub { margin-block-start: -8px; }
+  .ref-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-inline-size: 0; }
+  .ref-toolbar { align-items: start; }
+  .ref-toolbar .admin-search { flex: 1 1 300px; }
+  .ref-toolbar .ref-state { flex: 0 1 240px; min-inline-size: 200px; margin: 0; }
+  .ref-flagged { display: flex; align-items: center; gap: 10px; align-self: center; margin-block-start: 8px; font-weight: 600; color: var(--color-ink-soft); }
+  .ref-total { align-self: center; margin: 8px 0 0; }
+  .ref-new { margin-inline-start: auto; align-self: center; margin-block-start: 8px; }
+  .ref-table tbody th { position: static; padding: 9px 12px; border-top: 1px solid rgb(255 255 255 / .05); background: none; font-size: 14px; font-weight: 600; color: var(--color-ink); vertical-align: middle; }
+  .ref-table td { vertical-align: middle; }
+  /* «Regalo del invitado» and «Premio del dueño» head a Sí or No: their names take two lines rather than the width. */
+  .admin-table th.ref-th-wrap { min-inline-size: 72px; max-inline-size: 118px; white-space: normal; line-height: 1.25; }
+  .ref-code { font: 700 13.5px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .04em; color: var(--color-solar); white-space: nowrap; }
+  .ref-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ref-when { white-space: nowrap; color: var(--color-ink-soft); }
+  .ref-note { min-inline-size: 180px; max-inline-size: 260px; color: var(--color-ink-soft); }
+  .admin-table .ref-who { white-space: nowrap; overflow-wrap: normal; }
+  .ref-two { display: grid; gap: 2px; }
+  .ref-two small { font-size: 12px; color: var(--color-ink-mute); }
+  /* An IPv4 stays on one line; an IPv6 breaks inside its column instead of widening the table. */
+  .admin-table .ref-ip { min-inline-size: 120px; max-inline-size: 170px; font: 500 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; overflow-wrap: anywhere; color: var(--color-ink-soft); }
+  .ref-browser { white-space: nowrap; }
+  .ref-chip { margin-left: 0; white-space: nowrap; }
+  .ref-flags { display: flex; flex-wrap: wrap; gap: 4px; min-inline-size: 230px; }
+  .ref-flag { cursor: help; }
+  .ref-flag:focus-visible { outline: 2px solid var(--color-ice); outline-offset: 2px; }
+  .ref-tip { position: fixed; z-index: 80; max-inline-size: 280px; padding: 8px 12px; border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink); font-size: 13px; line-height: 1.4; box-shadow: 0 8px 22px rgb(0 0 0 / .45), inset 0 0 0 1px rgb(255 255 255 / .08); pointer-events: none; }
+  .ref-state-cell { display: grid; gap: 3px; justify-items: start; }
+  .ref-state-cell small { font-size: 12px; color: var(--color-ink-mute); white-space: nowrap; }
+  .ref-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .ref-table .ref-actions { flex-wrap: nowrap; }
+  .ref-actions > * { flex: none; white-space: nowrap; }
+  .ref-table tbody tr:hover > * { background: rgb(255 255 255 / .03); }
+  .ref-actions .lip.pill.small { gap: 6px; }
+  .ref-actions .lip.pill.small .ico { font-size: 15px; }
+  .ref-off { color: var(--color-nova); }
+  .admin-table.ref-table tr.is-held > * { background: color-mix(in srgb, var(--color-solar) 5%, transparent); }
+  .ref-legend { padding: 10px 14px; border-radius: 12px; background: var(--color-panel); }
+  .ref-legend summary { cursor: pointer; color: var(--color-ice); font-weight: 600; font-size: 14px; border-radius: 6px; }
+  .ref-legend summary:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .ref-legend dl { margin: 10px 0 2px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 8px; }
+  .ref-legend dl div { padding: 8px 12px; border-radius: 10px; background: var(--color-panel-2); }
+  .ref-legend dt { font-size: 13px; font-weight: 700; color: var(--color-solar); }
+  .ref-legend dd { margin: 2px 0 0; font-size: 13px; color: var(--color-ink-soft); }
+  .ref-tile-link { justify-self: start; margin-block-start: 4px; color: var(--color-ice); font-size: 13.5px; font-weight: 600; border-radius: 4px; }
+  .ref-tile-link:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .ref-how p { margin: 0; max-inline-size: 86ch; color: var(--color-ink-soft); line-height: 1.5; }
+  .ref-how b { color: var(--color-ink); }
+  .ref-created { display: grid; gap: 12px; justify-items: start; margin-block-end: 14px; }
+  .ref-created-code { margin: 0; font: 400 28px var(--font-display); letter-spacing: .06em; color: var(--color-solar); }
+  /* Copying a code or a link: «Copiado» in terminal green; refused, the text selected in a field. */
+  .copy-button[data-copied] { color: var(--color-terminal); }
+  .copy-manual { display: inline-grid; gap: 2px; }
+  .copy-manual input { box-sizing: border-box; block-size: 32px; padding: 0 10px; border-radius: 10px; border: 2px solid var(--color-ice); background: var(--color-panel-2); color: var(--color-ink); font: 600 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; max-inline-size: 100%; }
+  .copy-manual input:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .copy-manual small { font-size: 12px; color: var(--color-ink-mute); }
+  /* Premios: the global rules beside an owner's own; the global editor takes the whole width. */
+  .ref-rewards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 16px; align-items: start; }
+  .ref-rewards.editing { grid-template-columns: minmax(0, 1fr); }
+  .ref-head { justify-content: space-between; align-items: center; }
+  .ref-required { padding: 12px 14px; border-radius: 12px; background: var(--color-panel-2); }
+  .ref-required-state { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--color-ink-mute); }
+  .ref-rules { margin: 0; display: grid; gap: 6px; }
+  .ref-rules > div { display: grid; grid-template-columns: minmax(130px, 210px) minmax(0, 1fr); gap: 4px 14px; align-items: baseline; padding: 8px 12px; border-radius: 10px; background: rgb(0 0 0 / .18); }
+  .ref-rules dt { font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .ref-rules dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-weight: 600; color: var(--color-ink); }
+  :is(.ref-holds, .ref-effective) h3 { margin: 0 0 8px; font: 400 16px var(--font-display); color: var(--color-ink); }
+  .ref-holds ul { margin: 0; padding-inline-start: 20px; list-style: disc; display: grid; gap: 4px; color: var(--color-ink-soft); font-size: 14px; }
+  .ref-find { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 12px; }
+  .ref-find .field { flex: 1 1 220px; margin: 0; }
+  .ref-find .pill { block-size: 50px; }
+  .ref-replace { margin: 0; }
+  .ref-owner-form { display: grid; gap: 12px; }
+  .ref-owner-form > .field { margin: 0; }
+  .ref-owner-form > .pill { justify-self: start; }
+  .ref-rule { margin: 0; padding: 10px 14px 4px; border: 2px solid rgb(255 255 255 / .06); border-radius: 14px; display: grid; gap: 8px; min-inline-size: 0; }
+  .ref-rule legend { padding: 0 6px; font-weight: 700; color: var(--color-ink); }
+  .ref-use-global { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--color-ink-soft); }
+  .ref-global-is { margin: 0 0 8px; }
+  .ref-rule .field-error { margin: 0 0 8px; }
+  .ref-level { max-inline-size: 220px; }
+  /* «Tu código de invitación» on the player's own profile: each code glowing solar like a gift, copied with one press. */
+  .profile-invite { justify-items: stretch; }
+  .profile-invite-intro { margin: 0; color: var(--color-ink-soft); }
+  .invite-codes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .invite-codes > li { display: grid; gap: 8px; padding: 12px 16px 14px; border-radius: 16px; background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-solar) 14%, transparent), transparent 60%), var(--color-panel-2); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 30%, transparent); }
+  .invite-codes > li.is-off { background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
+  .invite-code-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .invite-code { font: 400 28px var(--font-display); letter-spacing: .08em; color: var(--color-solar); overflow-wrap: anywhere; }
+  .is-off .invite-code { color: var(--color-ink-mute); }
+  .invite-state { padding: 2px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 700; background: color-mix(in srgb, var(--color-nova) 20%, transparent); color: var(--color-nova); }
+  .invite-limits { margin: 0; font-size: 13.5px; color: var(--color-ink-soft); }
+  .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .invite-gifts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--color-ink-soft); }
 }

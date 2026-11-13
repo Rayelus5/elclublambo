@@ -163,6 +163,14 @@ export const API_ERROR_CODES = [
   'shop_purchase_not_found',
   'payment_unavailable',
   'invalid_signature',
+  // Referrals (plan «referidos»).
+  'referral_required',
+  'referral_invalid',
+  'referral_unavailable',
+  'referral_code_taken',
+  'referral_code_not_found',
+  'referral_not_found',
+  'referral_not_held',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
