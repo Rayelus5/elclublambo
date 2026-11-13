@@ -58,3 +58,9 @@ test('una muesca del ratón es un paso; los toques pequeños del trackpad se sum
   }
   expect(steps).toBe(1);
 });
+
+test('con SHIFT pulsado (el dash) la rueda va de lado y sigue acercando', () => {
+  expect(wheelSteps(0, { deltaY: 0, deltaX: -100, shiftKey: true, deltaMode: 0 }).steps).toBe(1);
+  expect(wheelSteps(0, { deltaY: 0, deltaX: -100, shiftKey: false, deltaMode: 0 }).steps).toBe(0);
+  expect(wheelSteps(0, { deltaY: 100, deltaMode: 0 }).steps).toBe(-1);
+});

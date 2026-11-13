@@ -81,6 +81,8 @@ export const COOP_SUM_EVERY = 300;
 export const coopClientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('in'), mx: int(-127, 127), my: int(-127, 127), aim: int(-1, 4095) }).strict(),
   z.object({ t: z.literal('pick'), i: int(0, 15), seq: int(0, 255) }).strict(),
+  // The player's dash (SIM 1.12.0), with the pointer's angle at the press (−1: none) for a probe standing still.
+  z.object({ t: z.literal('dash'), a: int(-1, 4095) }).strict(),
   z.object({ t: z.literal('leave') }).strict(),
   z.object({ t: z.literal('ping'), at: z.number().finite() }).strict(),
   z.object({ t: z.literal('mark'), kind: z.enum(COOP_MARKS), x: int(-1_000_000, 1_000_000), y: int(-1_000_000, 1_000_000) }).strict(),

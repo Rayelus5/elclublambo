@@ -4,7 +4,8 @@ import type { Offer, ProbeInput, Sim } from './types';
 
 // A simple, deterministic player for calibration (GDD §5.6) and replay tests. It plays like a keyboard player:
 // 16 directions, a new decision every 0.1 s. It steps away from what is close, collects data fragments, heads for the
-// extraction beacon when it opens, and otherwise circles the area so the fight stays around it.
+// extraction beacon when it opens, and otherwise circles the area so the fight stays around it. Like a player, it
+// dashes (SIM 1.12.0) when a hit is about to land and it has a charge.
 
 const REACH = 110;
 const BULLET_REACH = 60;
@@ -12,6 +13,31 @@ const DECIDE_EVERY = 6;
 const CIRCLE = 160;
 
 const memory = new WeakMap<Sim, { at: number; input: ProbeInput }[]>();
+/** How close (beyond touching) a foe or a bullet must be for the bot to dash away. */
+const DASH_MARGIN = 6;
+const DASH_BULLET = 14;
+
+/** Whether a hit is about to land on probe `p` (and it could dash: a charge, no pause, not dashing, not invulnerable). */
+function hitComing(sim: Sim, probe: number): boolean {
+  const p = sim.probes[probe]!;
+  if (p.dash.charges <= 0 || p.dash.pause > 0 || p.dash.t > 0 || p.invulnT > 0) return false;
+  const en = sim.enemies;
+  for (let e = 0; e < en.top; e++) {
+    if (!en.alive[e] || en.hackT[e]! > 0) continue;
+    const reach = 7 + en.radius[e]! + DASH_MARGIN;
+    const dx = en.x[e]! - p.x;
+    const dy = en.y[e]! - p.y;
+    if (dx * dx + dy * dy < reach * reach) return true;
+  }
+  const fs = sim.foeShots;
+  for (let i = 0; i < fs.top; i++) {
+    if (!fs.alive[i]) continue;
+    const dx = fs.x[i]! - p.x;
+    const dy = fs.y[i]! - p.y;
+    if (dx * dx + dy * dy < DASH_BULLET * DASH_BULLET) return true;
+  }
+  return false;
+}
 
 function decide(sim: Sim, probe: number, extractFrom: number): ProbeInput {
   const p = sim.probes[probe]!;
@@ -107,10 +133,13 @@ export function botInput(sim: Sim, probe: number, extractFrom = 1): ProbeInput {
     memory.set(sim, mem);
   }
   const last = mem[probe];
-  if (last && sim.tick - last.at < DECIDE_EVERY) return last.input;
-  const input = decide(sim, probe, extractFrom);
-  mem[probe] = { at: sim.tick, input };
-  return input;
+  let input: ProbeInput;
+  if (last && sim.tick - last.at < DECIDE_EVERY) input = last.input;
+  else {
+    input = decide(sim, probe, extractFrom);
+    mem[probe] = { at: sim.tick, input };
+  }
+  return hitComing(sim, probe) ? { ...input, dash: -1 } : input;
 }
 
 // The November arsenal (Nov plan B3) goes last: the calibration's bot keeps the builds it was tuned with.

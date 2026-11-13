@@ -2590,7 +2590,7 @@ export const copy = {
       supernova: 'Supernova',
       satellite_galaxy: 'Dron satélite',
       globular_cluster: 'Orbes del cúmulo',
-      comet: 'Embestida del cometa',
+      comet: 'Dash cometa',
       relativistic_jets: 'Chorros gemelos',
       pulsar: 'Ondas de púlsar',
       einstein_ring: 'Un proyectil más',
@@ -2638,7 +2638,7 @@ export const copy = {
         supernova: 'Cada poco estalla una nova a tu alrededor que daña a todos los cercanos',
         satellite_galaxy: 'Un dron te acompaña y dispara por su cuenta',
         globular_cluster: 'Orbes que giran a tu alrededor y golpean al pasar',
-        comet: 'Mientras te mueves, cada poco embistes como un cometa y dañas lo que atraviesas',
+        comet: 'Tu dash daña lo que atraviesa y te da más cargas',
         relativistic_jets: 'Dispara dos láseres gemelos, hacia delante y hacia atrás',
         pulsar: 'Ondas rítmicas a tu alrededor que dañan a los cercanos',
         einstein_ring: 'Tus disparos llevan un proyectil más',
@@ -2748,6 +2748,19 @@ export const copy = {
     arena: 'Incursión',
     manualAim: 'Apuntar con el ratón',
     manualAimHint: 'Si está apagado, la sonda apunta sola al enemigo más cercano',
+    // The run's controls (SIM 1.12.0 brought the dash): keyboard and mouse, and the pad.
+    controls: 'Controles',
+    controlsKeyboard: 'Teclado y ratón',
+    controlsPad: 'Mando',
+    controlRows: [
+      { what: 'Moverte', keys: ['WASD', 'Flechas'], pad: ['Stick izquierdo'] },
+      { what: 'Dash', keys: ['SHIFT', 'Espacio'], pad: ['A', 'RB'] },
+      { what: 'Apuntar a mano', keys: ['Ratón'], pad: ['Stick derecho'] },
+      { what: 'Elegir una mejora', keys: ['1', '2', '3', 'Enter'], pad: ['A'] },
+      { what: 'Acercar o alejar la vista', keys: ['Rueda del ratón'], pad: [] },
+      { what: 'Pausa', keys: ['Esc', 'P'], pad: ['Start'] },
+      { what: 'Aviso rápido en grupo', keys: ['Q'], pad: [] },
+    ],
     help: 'Ayuda',
     radio: 'Volver a oír a PERKINS',
     radioDone: 'PERKINS volverá a hablarte en la próxima incursión',
@@ -2866,11 +2879,14 @@ export const copy = {
       autoHint: 'Tú solo esquiva y recoge',
       gems: 'Recoge los datos',
       gemsHint: 'Los cristales verdes te suben de nivel',
+      dash: 'Haz un dash',
+      dashHint: 'SHIFT o Espacio: nada te toca mientras dura',
       launch: 'Despegar',
     },
     coach: {
       move: 'Muévete con WASD o las flechas. La sonda dispara sola: tú esquiva.',
       gems: 'Los cristales verdes son datos. Recógelos y subirás de nivel.',
+      dash: 'Si te rodean, pulsa SHIFT o Espacio: tu sonda hace un dash y nada la toca mientras dura. Mira sus cargas junto a tu vida.',
       loot: 'Las monedas y el polvo que caen se cobran al terminar. Aguanta todo lo que puedas.',
       boss: 'En un minuto llega el Núcleo de la Estática. Prepárate.',
       lowHp: 'Te queda poca vida. Los botiquines verdes curan: búscalos.',
@@ -2921,7 +2937,7 @@ export const copy = {
     open: 'Guía',
     chaptersLabel: 'Capítulos',
     chapters: {
-      run: { title: 'La incursión', points: ['Te mueves con WASD o las flechas; la sonda dispara sola.', 'Con la rueda del ratón acercas o alejas la vista; nunca ves menos de lo que ves al empezar.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
+      run: { title: 'La incursión', points: ['Te mueves con WASD o las flechas; la sonda dispara sola.', 'Con SHIFT o Espacio haces un dash hacia donde te mueves, o hacia el ratón si estás quieto. Nada te toca mientras dura, y sus cargas, junto a tu vida, se recargan solas.', 'Con la rueda del ratón acercas o alejas la vista; nunca ves menos de lo que ves al empezar.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
       upgrades: { title: 'Las mejoras', points: ['Al subir de nivel eliges una mejora entre varias; el sector espera.', 'Las armas y las pasivas suben de nivel. Algunas parejas evolucionan.', 'Tus reliquias, las galaxias equipadas, dan bonos desde el principio.'] },
       layers: { title: 'Capas, Núcleos y baliza', points: ['Cada capa acaba con un Núcleo de la Estática.', 'Al purgarlo se abre una baliza: llega y aguanta dentro para extraer.', 'Si no extraes, bajas a la capa siguiente: más difícil y mejor botín.'] },
       galaxies: { title: 'Las galaxias', points: ['El Escáner transcribe galaxias nuevas con señales o monedas.', 'Cada una tiene su rareza, su acabado y sus rasgos.', 'En la colección las fusionas para subir de rareza o las desintegras por polvo.'] },
@@ -3080,7 +3096,8 @@ export const copy = {
     quirks: {
       magnet: (q: QuirkOf<'magnet'>) => `Cada ${q.every === 60 ? 'minuto' : `${fmt(q.every)} s`} atrae los fragmentos cercanos`,
       thorns: (q: QuirkOf<'thorns'>) => `Devuelve ${q.share === 0.5 ? 'la mitad' : `el ${fmt(Math.round(q.share * 1000) / 10)} %`} del daño a quien la toca`,
-      dash: (q: QuirkOf<'dash'>) => `Esquiva un golpe con un salto, cada ${fmt(q.every)} s`,
+      // Spark's agile dash (SIM 1.12.0): its extra charges and its own recharge, from the live content.
+      dash: (q: QuirkOf<'dash'>) => `Dash ágil: ${q.charges === 1 ? 'una carga más' : `${fmt(q.charges)} cargas más`}, que vuelven cada ${fmt(q.recharge)} s`,
       overwatch: (q: QuirkOf<'overwatch'>) => `Siempre lleva ${q.drones === 1 ? 'un dron' : `${fmt(q.drones)} drones`} de más`,
       'second-wind': (_q: QuirkOf<'second-wind'>) => 'Cuando cae, se levanta una vez más',
       'prism-touch': (_q: QuirkOf<'prism-touch'>) => 'Sus golpes prenden elementos que rotan',
@@ -3129,6 +3146,12 @@ export const copy = {
     extracting: 'Extrayendo',
     // Fase cuántica (Nov plan B2): a hit that went through the probe.
     evaded: '¡Fase!',
+    // The dash (SIM 1.12.0): the key on its meter and what the meter says.
+    dash: {
+      key: 'SHIFT',
+      label: (charges: number, max: number, next: number) =>
+        `Dash con SHIFT o Espacio: ${fmt(charges)} de ${fmt(max)} ${max === 1 ? 'carga' : 'cargas'}${next > 0 ? `, la siguiente en ${fmt(next)} s` : ''}`,
+    },
     // A relic's anomaly went off on my probe (a glitch: thrown aside, a freeze or a strike).
     anomaly: '¡Anomalía!',
     beaconLeft: (s: number) => `Cierra en ${s} s`,

@@ -290,9 +290,45 @@ export function AccessSection({ inRun = false }: { inRun?: boolean }) {
 /** The run's own settings: aiming with the mouse (the pause passes the run's live switch). */
 export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean) => void }) {
   return (
-    <SettingRow label={t.manualAim} hint={t.manualAimHint}>
-      {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
-    </SettingRow>
+    <>
+      <SettingRow label={t.manualAim} hint={t.manualAimHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
+      </SettingRow>
+      <Controls />
+    </>
+  );
+}
+
+/** The run's controls (SIM 1.12.0 brought the dash): what each does, with the keyboard and with a pad. */
+function Controls() {
+  const keys = (list: readonly string[]) =>
+    list.length === 0 ? <span className="controls-none">—</span> : list.map((k) => <kbd key={k}>{k}</kbd>);
+  return (
+    <section className="controls" aria-labelledby="controls-title">
+      <h3 className="setting-label" id="controls-title">
+        {t.controls}
+      </h3>
+      <table className="controls-table">
+        <thead>
+          <tr>
+            <th scope="col">
+              <span className="sr-only">{t.controls}</span>
+            </th>
+            <th scope="col">{t.controlsKeyboard}</th>
+            <th scope="col">{t.controlsPad}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {t.controlRows.map((row) => (
+            <tr key={row.what}>
+              <th scope="row">{row.what}</th>
+              <td>{keys(row.keys)}</td>
+              <td>{keys(row.pad)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 

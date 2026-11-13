@@ -1,5 +1,5 @@
 import { COOP_SUM_EVERY, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
-import { CoopFeed, createSim, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
+import { CoopFeed, createSim, DASH, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_RESYNCS, TICK_MS } from '../../src/coop/relay';
 
@@ -210,4 +210,22 @@ test('una partida corta nunca marca a nadie como inactivo', () => {
   r.attach(0, socket());
   pumpRange(r, T0, T0 + 5000);
   expect(r.idle(0)).toBe(false);
+});
+
+// The player's dash (SIM 1.12.0): sealed like a pick, one per tick, with the pointer's angle; the referee plays it.
+test('un dash se sella en el siguiente tick (uno por tick) y la sonda del árbitro lo hace', () => {
+  const r = run(1);
+  r.attach(0, socket());
+  let t = pumpRange(r, T0, T0 + 500);
+  r.input(0, 127, 0, -1);
+  r.dash(0, -1);
+  r.dash(0, 1024);
+  t = pumpRange(r, t, t + 100);
+  const dashes = kinds(r, DASH);
+  expect(dashes).toHaveLength(1);
+  expect(dashes[0]![3]).toBe(1024);
+  pumpRange(r, t, t + 500);
+  // It went its move's way (moving wins over the pointer), much farther than walking.
+  expect(r.referee.probes[0]!.x).toBeGreaterThan(DEFAULT_CONTENT.dash.distance);
+  expect(r.referee.probes[0]!.dash.charges).toBe(0);
 });

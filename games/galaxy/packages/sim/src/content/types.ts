@@ -156,7 +156,12 @@ export interface ProbeDef {
 export type Quirk =
   | { kind: 'magnet'; every: number; radius: number }
   | { kind: 'thorns'; share: number }
-  | { kind: 'dash'; every: number; distance: number; invuln: number }
+  /**
+   * Spark's agile dash (owner's plan 2026-11-13; systems/dash.ts): `charges` more than every probe's, each back after
+   * `recharge` seconds, `pause` seconds between two, `invuln` seconds of invulnerability after it. `every` and
+   * `distance` were its old automatic jump (a hit dodged every so often): still read, no longer used.
+   */
+  | { kind: 'dash'; invuln: number; charges: number; recharge: number; pause: number; every?: number; distance?: number }
   | { kind: 'overwatch'; drones: number }
   | { kind: 'second-wind'; hp: number }
   | { kind: 'prism-touch'; chance: number; cycle: ElementId[] }
@@ -360,7 +365,11 @@ export interface PhenomenonTuning {
   supernova: { cooldown: number; damage: number; radius: number };
   satellite_galaxy: { cooldown: number; damage: number; range: number; speed: number };
   globular_cluster: { count: number; damage: number; radius: number; speed: number; interval: number };
-  comet: { cooldown: number; distance: number; seconds: number; damage: number };
+  /**
+   * A comet relic makes the player's dash hit what it crosses for `damage` (× magnitude, × damage) and adds charges
+   * (content.dash). `cooldown`, `distance` and `seconds` were its old automatic charge: still read, no longer used.
+   */
+  comet: { damage: number; cooldown?: number; distance?: number; seconds?: number };
   relativistic_jets: { cooldown: number; damage: number; pierce: number; speed: number };
   pulsar: { cooldown: number; radius: number; damage: number };
   einstein_ring: { projectiles: number };
@@ -469,6 +478,24 @@ export interface Content {
   anomalies: AnomalyDef[];
   props: PropsTuning;
   satellites: SatellitesTuning;
+  dash: DashTuning;
+}
+
+/**
+ * The player's dash (owner's plan 2026-11-13; systems/dash.ts): every probe has `charges` of it, each one back after
+ * `recharge` seconds (× the cooldown stat) and at least `pause` seconds between two. It goes `distance` units in
+ * `seconds`, invulnerable while it lasts and `invuln` seconds more. Each comet relic adds `cometCharges`, at most
+ * `cometMax` in all, and makes it hit what it crosses (relics.phenomena.comet.damage).
+ */
+export interface DashTuning {
+  charges: number;
+  recharge: number;
+  pause: number;
+  distance: number;
+  seconds: number;
+  invuln: number;
+  cometCharges: number;
+  cometMax: number;
 }
 
 /**

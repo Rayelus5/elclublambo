@@ -94,7 +94,7 @@ test('los ajustes de la pausa caben sin barra en 1280×720', async () => {
     expect(r.top).toBeGreaterThanOrEqual(0);
     expect(r.bottom).toBeLessThanOrEqual(720);
     expect(modal.scrollHeight).toBeLessThanOrEqual(modal.clientHeight + 1);
-    if (import.meta.env['VITE_SETTINGS_SHOTS'] && (tab === 'sonido' || tab === 'ayuda')) await page.screenshot({ path: `__shots__/settings-pause-${tab}.png`, element: modal });
+    if (import.meta.env['VITE_SETTINGS_SHOTS'] && (tab === 'sonido' || tab === 'ayuda' || tab === 'incursion')) await page.screenshot({ path: `__shots__/settings-pause-${tab}.png`, element: modal });
   }
 }, 60_000);
 

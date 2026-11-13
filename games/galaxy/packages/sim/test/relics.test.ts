@@ -233,16 +233,16 @@ describe('fenómenos en partida', () => {
     expect(shotsOf(sim, SHOT.orb)).toHaveLength(4);
   });
 
-  test('cometa: una embestida de 90 u si te mueves, invulnerable y dañando lo que toca', () => {
+  // SIM 1.12.0: the dash is the player's (dash.test.ts); a comet relic adds a charge and makes it hit what it crosses.
+  test('cometa: ya no embiste solo al moverte; tu dash daña lo que atraviesa', () => {
     const sim = equipped(quiet('comet'));
     const e = target(sim, 50, 0);
     const p = sim.probes[0]!;
-    run(sim, 30);
-    expect(p.x).toBe(0);
     run(sim, 13, move(127, 0));
-    expect(p.x).toBeGreaterThan(90);
+    expect(lost(sim, e)).toBe(0);
+    run(sim, 20, { ...move(127, 0), dash: -1 });
     expect(lost(sim, e)).toBe(30);
-    expect(p.hp).toBe(100);
+    expect(p.dash.charges).toBe(1);
   });
 
   test('chorros relativistas: dos lanzas opuestas', () => {

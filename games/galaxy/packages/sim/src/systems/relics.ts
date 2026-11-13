@@ -125,7 +125,6 @@ interface Runtime {
 }
 
 const runtimes = new WeakMap<ProbeState, Runtime[]>();
-const dashHits = new WeakMap<ProbeState, Set<number>>();
 
 function skillsOf(sim: Sim, p: ProbeState): Runtime[] {
   let list = runtimes.get(p);
@@ -295,22 +294,31 @@ function runFamily(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
   }
 }
 
-function dashStep(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {
-  const C = sim.content.relics.phenomena.comet;
-  const steps = Math.max(1, ticks(C.seconds));
-  const per = C.distance / steps;
-  p.x += cosA(p.facing) * per;
-  p.y += sinA(p.facing) * per;
-  const hit = dashHits.get(p) ?? new Set<number>();
-  dashHits.set(p, hit);
-  const en = sim.enemies;
-  for (const e of nearestEnemies(sim, p.x, p.y, 12, 64)) {
-    const key = e * 65536 + en.gen[e]!;
-    if (hit.has(key)) continue;
-    hit.add(key);
-    dealDamage(sim, e, C.damage * m * p.stats.damage, source(p, ri, r));
-  }
-  p.fx['dashT'] = (p.fx['dashT'] ?? 0) - 1;
+/**
+ * The comet relics a probe carries (owner's plan 2026-11-13): they no longer charge on their own, they improve the
+ * player's dash (systems/dash.ts). How many, and the strongest one (slot and magnitude), whose hit the dash deals.
+ */
+export function cometRelics(sim: Sim, p: ProbeState): { count: number; best: number; m: number } {
+  let count = 0;
+  let best = -1;
+  let top = 0;
+  skillsOf(sim, p).forEach((r, ri) => {
+    if (r.skill.phenomenon !== 'comet') return;
+    count++;
+    const { m } = effective(r);
+    if (m > top) {
+      top = m;
+      best = ri;
+    }
+  });
+  return { count, best, m: top };
+}
+
+/** A dash with comet relics went through enemy `e`: the strongest comet's hit, with its element. */
+export function cometHit(sim: Sim, p: ProbeState, e: number): void {
+  const { best, m } = cometRelics(sim, p);
+  if (best < 0) return;
+  dealDamage(sim, e, sim.content.relics.phenomena.comet.damage * m * p.stats.damage, source(p, best, skillsOf(sim, p)[best]!));
 }
 
 function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
@@ -328,13 +336,9 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
       keepShots(sim, p, ri, SHOT.orb, P.globular_cluster.count);
       return;
     case 'einstein_ring':
-      return;
     case 'comet':
-      if ((p.fx['dashT'] ?? 0) > 0 && p.fx['dashRelic'] === ri) {
-        dashStep(sim, p, ri, r, m);
-        return;
-      }
-      break;
+      // The comet improves the player's dash (systems/dash.ts): nothing of its own on a clock.
+      return;
     default:
       break;
   }
@@ -346,25 +350,6 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
       hitArea(sim, p.x, p.y, P.supernova.radius * rs, P.supernova.damage * m * p.stats.damage, src);
       spawnArea(sim, p, AREA.supernova, p.x, p.y, P.supernova.radius * rs, { ttl: 24, follow: true, srcKind: 1, srcIdx: ri, element });
       r.phenT = cooldown(p, r, P.supernova.cooldown);
-      break;
-    case 'comet':
-      if (!p.moving) return;
-      p.fx['dashT'] = Math.max(1, ticks(P.comet.seconds));
-      p.fx['dashRelic'] = ri;
-      p.invulnT = Math.max(p.invulnT, p.fx['dashT']! + 1);
-      sim.events.push({
-        t: 'dash',
-        probe: p.index,
-        kind: 'comet',
-        fx: p.x,
-        fy: p.y,
-        tx: p.x + cosA(p.facing) * P.comet.distance,
-        ty: p.y + sinA(p.facing) * P.comet.distance,
-        ticks: p.fx['dashT']!,
-      });
-      dashHits.set(p, new Set());
-      dashStep(sim, p, ri, r, m);
-      r.phenT = cooldown(p, r, P.comet.cooldown);
       break;
     case 'relativistic_jets': {
       const J = P.relativistic_jets;

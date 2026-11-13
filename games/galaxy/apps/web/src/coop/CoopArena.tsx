@@ -10,7 +10,7 @@ import { deepLayer, runScene } from '../audio/music/state';
 import { BeaconMarker, BossBar, SatelliteMarker } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
-import { emptyInput, readInput } from '../arena/input';
+import { DASH_BUTTONS, DASH_KEYS, dashWaits, emptyInput, pointerAngle, readInput } from '../arena/input';
 import { createLockstep, type Lockstep } from '../arena/lockstep';
 import { arenaZoom, manualAim as storedAim, setManualAim } from '../arena/settings';
 import { useWheelZoom } from '../arena/zoom';
@@ -267,6 +267,11 @@ function CoopWorld({
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
   const [menu, setMenu] = useState(false);
+  // The menu open (over the running world): the dash keys belong to it then.
+  const menuRef = useRef(false);
+  useEffect(() => {
+    menuRef.current = menu;
+  }, [menu]);
   const [behind, setBehind] = useState(0);
   const [announce, setAnnounce] = useState('');
   const [ending, setEnding] = useState<'extracted' | 'died' | null>(null);
@@ -457,6 +462,22 @@ function CoopWorld({
     [send, sim, slot],
   );
 
+  /** A dash (SHIFT, Space, the pad's A or RB; SIM 1.12.0), with where the pointer is for a probe standing still. */
+  const sendDash = useCallback(() => {
+    const go = () => {
+      if (sim.probes[slot]?.life !== 'up') return;
+      const cam = stageRef.current?.camera();
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const from = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
+      send({ t: 'dash', a: pointerAngle(input.current, from) });
+    };
+    const me = sim.probes[slot];
+    if (me?.life !== 'up') return;
+    // A press a moment early (the pause between two dashes) goes out when the pause ends, not lost.
+    if (dashWaits(me.dash)) window.setTimeout(go, ((me.dash.pause - 1) * 1000) / 60);
+    else go();
+  }, [send, sim, slot]);
+
   // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world. Q: the quick marks.
   useEffect(() => {
     if (viewer) return;
@@ -475,8 +496,13 @@ function CoopWorld({
         setMenu((m) => !m);
         return;
       }
+      if (DASH_KEYS.includes(e.code)) {
+        if (!e.repeat && !menuRef.current) sendDash();
+        e.preventDefault();
+        return;
+      }
       input.current.keys.add(e.code);
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+      if (e.code.startsWith('Arrow')) e.preventDefault();
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === 'KeyQ' && wheelRef.current) {
@@ -521,19 +547,26 @@ function CoopWorld({
       window.removeEventListener('blur', idle);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [sendInput, sendMark, sim, slot, viewer]);
+  }, [sendDash, sendInput, sendMark, sim, slot, viewer]);
 
-  // Gamepad: the left stick moves, the right one aims.
+  // Gamepad: the left stick moves, the right one aims, A or RB dash (not while my cards are up: A picks there).
   useEffect(() => {
+    if (viewer) return;
     let raf = 0;
+    let dashWas = false;
     const poll = () => {
       const pad = typeof navigator.getGamepads === 'function' ? navigator.getGamepads()[0] : null;
-      if (pad) input.current.pad = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0, rx: pad.axes[2] ?? 0, ry: pad.axes[3] ?? 0 };
+      if (pad) {
+        input.current.pad = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0, rx: pad.axes[2] ?? 0, ry: pad.axes[3] ?? 0 };
+        const dash = DASH_BUTTONS.some((b) => pad.buttons[b]?.pressed);
+        if (dash && !dashWas && !menuRef.current && !sim.probes[slot]?.offer) sendDash();
+        dashWas = dash;
+      }
       raf = requestAnimationFrame(poll);
     };
     if (typeof requestAnimationFrame === 'function' && typeof navigator.getGamepads === 'function') raf = requestAnimationFrame(poll);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [sendDash, sim, slot, viewer]);
 
   const pick = useCallback(
     (i: number, seq: number) => {

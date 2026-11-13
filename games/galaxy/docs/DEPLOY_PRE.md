@@ -1119,6 +1119,24 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - las señales en el HUD;
   - «N de satélites» en Resultados.
 
+## El dash lo decide el jugador (SIM 1.12.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.12.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Dash con SHIFT o Espacio** (A o RB en mando) para todas las sondas, con cargas, recarga y una pausa corta entre dos. Chispa ya no esquiva sola: tiene un dash con una carga más. El Cometa ya no embiste solo: suma una carga por reliquia (hasta dos) y hace que el dash dañe lo que atraviesa.
+- **Dónde está su ajuste.** Va en `content.dash` y vale por defecto aunque el `content` publicado no lo traiga. La forma vieja de Chispa (`every`, `distance`) y del Cometa (`cooldown`, `distance`, `seconds`) sigue validando, pero ya no se usa: no hace falta volver a publicar `content`.
+  - Si se quiere que Chispa diga «con el dash más ágil» en su descripción, hay que publicar `probes` (sale de `draft-config`).
+  - Sus números nuevos (`charges`, `recharge`, `pause`) toman su valor por defecto si no están publicados.
+- **Registro de entradas.** El dash es un evento más (tipo 4, con el ángulo del puntero), también en solitario: un registro con dashes sigue siendo de versión 1. En grupo, el árbitro sella `{t:'dash'}` como una carta, uno por tick.
+- **Las partidas de referencia cambian:** el robot de calibración hace un dash cuando un golpe es inminente.
+- **Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, `recover()` y `settleFromLog` las vuelven a jugar con la simulación nueva. Sus registros no tienen dashes y el Cometa y Chispa ya no actúan solos, así que pueden acabar distinto. Antes de desplegar, comprueba que no hay salas en curso o acéptalo.
+- **Lo que ve el jugador:**
+  - el medidor junto a la vida (tecla, un rombo por carga, la siguiente llenándose);
+  - una cuarta pista en el briefing de la primera incursión y una línea de PERKINS la primera vez;
+  - la tabla «Controles» en Ajustes › Incursión;
+  - los textos de Chispa y del Cometa.
+
 ## Singularidad, el poder de las míticas (SIM 1.11.0)
 
 **Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.11.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.

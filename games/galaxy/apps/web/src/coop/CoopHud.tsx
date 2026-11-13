@@ -6,7 +6,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { teamTint } from '../arena/stage/palette';
 import { usePrefs } from '../settings/prefs';
 import { copy } from '../copy/es';
-import { typing } from '../ui/keys';
+import { cardKey, typing } from '../ui/keys';
 
 // The co-op HUD (multiplayer plan, phase 6): the cards without pause (a strip at the bottom: 1, 2 or 3 picks at once,
 // a click too, and the time left before one is taken at random; the arrows keep moving the probe), the team (life
@@ -23,7 +23,7 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
     if (!offer) return;
     function onKey(e: KeyboardEvent): void {
       if (typing(e)) return;
-      const n = Number.parseInt(e.key, 10);
+      const n = cardKey(e.code);
       if (n >= 1 && n <= offer!.length) {
         onPick(n - 1, seq);
         e.preventDefault();

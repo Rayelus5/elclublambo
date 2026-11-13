@@ -1,10 +1,10 @@
-import { MOVE, PICK_SEQ, PRESENCE } from './log';
+import { DASH, MOVE, PICK_SEQ, PRESENCE } from './log';
 import { IDLE, type ProbeInput } from './types';
 
 // The co-op input feed (multiplayer plan, phase 6). The server seals every input as a log event (the format of
 // log.ts: [tick, probe, kind, a, b, c]) and hands the events out in batches; the referee, each client and the
 // replayer turn them into the inputs of each tick the same way. Moves and presence stay in effect from their tick on
-// (sticky); a pick counts on its tick only, with the offer it names.
+// (sticky); a pick counts on its tick only, with the offer it names, and so does a dash (SIM 1.12.0), with its angle.
 
 const COMPACT_AT = 6 * 4096;
 
@@ -24,7 +24,7 @@ export class CoopFeed {
 
   /** The inputs of the step that simulates `tick`: every event up to it taken in order. Ticks are asked in order. */
   inputsFor(tick: number): ProbeInput[] {
-    const inputs = this.current.map((c) => ({ ...c, pick: -1 }));
+    const inputs: ProbeInput[] = this.current.map((c) => ({ ...c, pick: -1 }));
     const ev = this.ev;
     while (this.at + 5 < ev.length && ev[this.at]! <= tick) {
       const i = this.at;
@@ -39,6 +39,8 @@ export class CoopFeed {
           inputs[p] = { ...inputs[p]!, presence: ev[i + 3]! };
         } else if (kind === PICK_SEQ && ev[i]! === tick) {
           inputs[p] = { ...inputs[p]!, pick: ev[i + 3]!, offer: ev[i + 4]! };
+        } else if (kind === DASH && ev[i]! === tick) {
+          inputs[p] = { ...inputs[p]!, dash: ev[i + 3]! };
         }
       }
       this.at += 6;

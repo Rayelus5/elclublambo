@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 
-// The tutorial's briefing (polish phase 3): before the first run moves, three things to know, shown rather than told
-// (keys that light up in turn, the probe firing on its own, the data crystals), and «Despegar». The run waits behind it.
+// The tutorial's briefing (polish phase 3): before the first run moves, four things to know, shown rather than told
+// (keys that light up in turn, the probe firing on its own, the data crystals, the dash's key and its jump), and
+// «Despegar». The run waits behind it.
 
 const t = copy.tour.run;
 
@@ -45,6 +46,18 @@ export function Briefing({ onLaunch, onSkip }: { onLaunch: () => void; onSkip: (
             </span>
             <b>{t.gems}</b>
             <small>{t.gemsHint}</small>
+          </li>
+          <li>
+            <span className="briefing-dash" aria-hidden="true">
+              <i className="k-shift">SHIFT</i>
+              <span className="dash-probe">
+                <i className="ghost g1" />
+                <i className="ghost g2" />
+                <i className="core" />
+              </span>
+            </span>
+            <b>{t.dash}</b>
+            <small>{t.dashHint}</small>
           </li>
         </ul>
         <div className="briefing-actions">

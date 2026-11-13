@@ -113,6 +113,12 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 ### 5.2 Controles [D]
 
 - Movimiento con WASD o flechas; ataque automático.
+- **Dash [U] (2026-11-13, SIM 1.12.0):** lo decide el jugador con **SHIFT o Espacio** (en mando, A o RB). Va hacia donde te mueves; quieto, hacia el ratón (o el stick derecho) o hacia donde apuntas. Es invulnerable mientras dura y un instante más. Todas las sondas lo tienen:
+  - **cargas** que vuelven una a una (la recarga sigue la stat de enfriamiento);
+  - una **pausa** corta entre dos dashes; una pulsación durante la pausa espera a que acabe;
+  - el HUD muestra junto a la vida su tecla, un rombo por carga y la siguiente llenándose.
+
+  Los números están en `content.dash` *(de partida: 1 carga, 6 s de recarga, 0,4 s de pausa, 90 u en 0,15 s y 0,1 s más de invulnerabilidad)*. Chispa y las reliquias Cometa lo mejoran (§6, §8.3).
 - Apuntado manual con el ratón **opcional** (conmutador en ajustes).
 - Soporte de mando.
 - Pausa en cualquier momento (en solitario).
@@ -171,6 +177,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 
 - **Sondas [U]:** son los personajes. Cada una tiene su sprite pixel art, un arma inicial, una estadística fuerte y una peculiaridad. Por ejemplo, una exploradora rápida y frágil, una blindada y lenta, o una que empieza con un dron.
 - **Contenido de la beta *(de partida)*:** 8 sondas **[D]**.
+- **Chispa, «Dash ágil» (SIM 1.12.0):** su peculiaridad es un dash mejor: una carga más, que vuelve antes (4 s), una pausa más corta y más invulnerabilidad. Antes esquivaba sola un golpe cada 30 s.
 - **Sonda inicial por test [U]:**
   - Al crear la cuenta respondes un test de personalidad de **5 preguntas con 3 respuestas** cada una.
   - Cada respuesta suma puntos a una de las **3 sondas iniciales**, que están **equilibradas**: distinta táctica, ninguna mejor.
@@ -253,7 +260,7 @@ Tabla de partida, ajustable:
 | **Star Density** | Frecuencia |
 | **Palette** → elemento | Solar Gold: quemadura · Andromeda Blue: ralentización · Terminal Green: corrosión · Ultraviolet: descarga · Amber CRT: hackeo (el enemigo lucha un rato a tu favor) · Crimson Nebula: robo de vida · Emerald Void: daño a escudos · Neon Synapse: rebotes encadenados · Monochrome: daño puro con más crítico · Prismatic: rota elementos · Antimatter: invierte proyectiles enemigos |
 | **Background** | Bonus de entorno (recogida, visión, experiencia, suerte de botín, resistencia a la Estática) |
-| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: embestida · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: un fallo de la realidad, al azar entre lanzarte lejos del enemigo más cercano, congelar lo cercano o descargar sobre varios enemigos; se ve como un glitch rojo y cian con su chasquido de estática |
+| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: tu dash (§5.2) daña lo que atraviesa y suma una carga por reliquia, hasta dos (antes embestía solo al moverte) · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: un fallo de la realidad, al azar entre lanzarte lejos del enemigo más cercano, congelar lo cercano o descargar sobre varios enemigos; se ve como un glitch rojo y cian con su chasquido de estática |
 | **Conjunto** | Bonus por combinaciones de rasgos entre reliquias equipadas, por ejemplo 3 de la misma paleta o tipo + fenómeno |
 
 ### 8.4 Ranuras [U]

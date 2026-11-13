@@ -85,7 +85,7 @@ export const DEFAULT_CONTENT: Content = {
       id: 'spark',
       name: 'Chispa',
       sprite: 'probe-spark',
-      description: 'Sonda de enlace, la más rápida del ECN. Frágil, pero esquiva golpes con un salto',
+      description: 'Sonda de enlace, la más rápida del ECN. Frágil, pero con el dash más ágil',
       hp: 56,
       speed: 100,
       pickup: 30,
@@ -93,7 +93,8 @@ export const DEFAULT_CONTENT: Content = {
       regen: 0,
       weapon: 'arc',
       bonus: {},
-      quirk: { kind: 'dash', every: 30, distance: 50, invuln: 0.3 },
+      // Its agile dash (owner's plan 2026-11-13): one charge more, back sooner, and a longer invulnerability.
+      quirk: { kind: 'dash', invuln: 0.3, charges: 1, recharge: 4, pause: 0.3 },
     },
     {
       id: 'sentinel',
@@ -2003,7 +2004,8 @@ export const DEFAULT_CONTENT: Content = {
       supernova: { cooldown: 10, damage: 26, radius: 90 },
       satellite_galaxy: { cooldown: 0.8, damage: 8, range: 220, speed: 300 },
       globular_cluster: { count: 4, damage: 6, radius: 64, speed: 140, interval: 0.5 },
-      comet: { cooldown: 6, distance: 90, seconds: 0.2, damage: 30 },
+      // The player's dash hits what it crosses with a comet relic, which also adds a charge (content.dash).
+      comet: { damage: 30 },
       relativistic_jets: { cooldown: 2.5, damage: 20, pierce: 8, speed: 520 },
       pulsar: { cooldown: 1.2, radius: 70, damage: 8 },
       einstein_ring: { projectiles: 1 },
@@ -2110,6 +2112,8 @@ export const DEFAULT_CONTENT: Content = {
   props: { perChunk: 2, hp: 28, hpPerLayer: 0.5, radius: 9, componentChance: 0.3, components: 1, dustMin: 0, dustMax: 1 },
   // Abandoned satellites (SIM 1.10.0): about one run in three has one, a few two, rarely three; each gives a signal.
   satellites: { chances: [0.33, 0.12, 0.04], earliest: 40, latest: 240, drift: 45, distance: 300, speed: 26, hp: 60, hpPerLayer: 0.6, radius: 10 },
+  // The player's dash (owner's plan 2026-11-13; SIM 1.12.0): SHIFT, Space or the pad's A, for every probe.
+  dash: { charges: 1, recharge: 6, pause: 0.4, distance: 90, seconds: 0.15, invuln: 0.1, cometCharges: 1, cometMax: 2 },
   // Season anomalies (GDD §13.1; M7d-3): the season chooses one (or none) in the live config `season`.
   anomalies: [
     { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca', enemyHp: 1, enemyDamage: 1, enemySpeed: 1, spawn: 1, elite: 1, xp: 1, contagion: { radius: 70, seconds: 3 } },

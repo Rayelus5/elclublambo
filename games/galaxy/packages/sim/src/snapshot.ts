@@ -1,3 +1,4 @@
+import { dashRules } from './systems/dash';
 import { layerSeconds } from './systems/director';
 import type { Offer, Phase, ProbeState, Sim, SimStatus } from './types';
 
@@ -25,6 +26,11 @@ export interface HudSnapshot {
   satellite: { dx: number; dy: number } | null;
   offer: Offer[] | null;
   status: SimStatus;
+  /**
+   * The player's dash (SIM 1.12.0): charges ready of `max`, seconds until the next comes back (0 while full) of its
+   * `rechargeTotal`, and seconds before another is allowed of its `pauseTotal`.
+   */
+  dash: { charges: number; max: number; recharge: number; rechargeTotal: number; pause: number; pauseTotal: number };
   /** Co-op (multiplayer plan): seconds left to pick, where this probe stands, its countdown and revive (0–1), and
    * every probe of the team. Absent in solo. */
   coop?: {
@@ -62,6 +68,7 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     if (def) boss = { name: def.name, title: def.title, hp: Math.max(0, sim.enemies.hp[i]!), maxHp: sim.enemies.maxHp[i]!, phase: sim.boss.phase };
   }
   const b = sim.beacon;
+  const dash = dashRules(sim, p);
   return {
     hp: p.hp,
     maxHp: p.stats.maxHp,
@@ -82,6 +89,14 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     satellite: nearestSatellite(sim, p.x, p.y),
     offer: p.offer,
     status: sim.status,
+    dash: {
+      charges: p.dash.charges,
+      max: dash.max,
+      recharge: p.dash.recharge / 60,
+      rechargeTotal: dash.recharge / 60,
+      pause: p.dash.pause / 60,
+      pauseTotal: dash.pause / 60,
+    },
     ...(sim.coop
       ? {
           coop: {

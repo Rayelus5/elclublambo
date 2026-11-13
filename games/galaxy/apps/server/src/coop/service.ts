@@ -187,6 +187,7 @@ export class CoopService {
   message(run: CoopRun, slot: number, msg: CoopClientMessage, socket: PlaySocket): void {
     if (msg.t === 'in') run.input(slot, msg.mx, msg.my, msg.aim);
     else if (msg.t === 'pick') run.pick(slot, msg.i, msg.seq);
+    else if (msg.t === 'dash') run.dash(slot, msg.a);
     else if (msg.t === 'leave') this.leaveOnPurpose(run, slot);
     else if (msg.t === 'ping') socket.send(JSON.stringify({ t: 'pong', at: msg.at }));
     else if (msg.t === 'mark') run.mark(slot, msg.kind, msg.x, msg.y, Date.now());

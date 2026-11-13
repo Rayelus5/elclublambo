@@ -52,7 +52,10 @@ const SWEEP_MS = 30_000;
 const WATCHER_BUFFER_MAX = 4_000_000;
 /** Ticks a run may claim beyond the time it has been running (clock skew, a slow start). */
 const TICK_SLACK = 600;
-/** Bytes a run may log per tick it claims (a move is 9 at most, one per tick), and some slack for the picks. */
+/**
+ * Bytes a run may log per tick it claims (a move is 9 at most, one per tick; a dash 6 at most, and never two within a
+ * few ticks), and some slack for the picks.
+ */
 const BYTES_PER_TICK = 12;
 const BYTES_SLACK = 4096;
 /** encodeLog's header for one probe: version 1, one probe. */
