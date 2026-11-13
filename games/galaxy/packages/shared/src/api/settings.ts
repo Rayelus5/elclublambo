@@ -27,6 +27,8 @@ export const accountSettingsSchema = z.object({
   cursorSize: z.enum(SETTINGS_CURSOR_SIZES).optional(),
   cursorColor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
   manualAim: z.boolean().optional(),
+  /** Accesibilidad: a soft white glow behind the player's probe in the runs. */
+  probeGlow: z.boolean().optional(),
   musicStyle: z.enum(SETTINGS_MUSIC_STYLES).optional(),
   /** The highest release note («Notas de versión») the player has opened, e.g. `1.4`. */
   notesSeen: z.string().regex(/^\d{1,3}\.\d{1,3}$/).nullable().optional(),
