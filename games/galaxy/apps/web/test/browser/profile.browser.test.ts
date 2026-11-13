@@ -81,3 +81,58 @@ for (const [finish, width, height] of [
     if (import.meta.env['VITE_PROFILE_SHOTS']) await page.screenshot({ path: `__shots__/profile-${finish}-${width}.png` });
   }, 60_000);
 }
+
+// Plan «referidos», part R2: on my own profile, «Tus códigos de invitación» (one on, one off) sits in the grid with the
+// other panels and the page still never grows sideways.
+const mine = {
+  codes: [
+    { code: 'VEGA-7K2P', enabled: true, uses: 4, maxUses: 20, expiresAt: '2026-12-31T22:59:00.000Z' },
+    { code: 'VEGA-OTONO', enabled: false, uses: 12, maxUses: null, expiresAt: null },
+  ],
+  joined: 16,
+  waiting: 3,
+  rewarded: 11,
+  activationLevel: 5,
+  ownerGifts: { coins: 100, dust: 50, signal: 2 },
+  newcomerGifts: { coins: 100, dust: 50, signal: 2 },
+};
+for (const [width, height] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`mi perfil con mis códigos de invitación a ${width}×${height}`, async () => {
+    await page.viewport(width, height);
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.endsWith('/auth/me')
+          ? json({ id: 'a1', username: 'vega', roles: [], mfa: false })
+          : url.endsWith('/profiles/vega')
+            ? json({ ...profile('normal'), banner: null })
+            : url.endsWith('/referrals/mine')
+              ? json(mine)
+              : new Response('{"error":"not_found"}', { status: 404, headers: { 'content-type': 'application/json' } }),
+      ),
+    );
+    document.body.style.margin = '0';
+    const host = document.createElement('div');
+    host.style.height = '100vh';
+    document.body.appendChild(host);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    root = createRoot(host);
+    root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/perfil/vega'] }, createElement(Routes, null, createElement(Route, { path: '/perfil/:username', element: createElement(ProfileScreen) })))));
+    await vi.waitFor(() => expect(document.querySelectorAll('.profile-invite .invite-codes > li')).toHaveLength(2), { timeout: 10_000, interval: 100 });
+    const scroller = document.querySelector('.profile-root')!;
+    expect(scroller.scrollWidth).toBeLessThanOrEqual(scroller.clientWidth + 1);
+    const panel = document.querySelector<HTMLElement>('.profile-invite')!.getBoundingClientRect();
+    expect(panel.right).toBeLessThanOrEqual(width);
+    await new Promise((r) => setTimeout(r, 300));
+    // The whole grid of panels: a taller window for the picture only (the checks above ran at the real size).
+    if (import.meta.env['VITE_PROFILE_SHOTS']) {
+      await page.viewport(width, 1700);
+      await new Promise((r) => setTimeout(r, 200));
+      await page.screenshot({ path: `__shots__/profile-invite-${width}.png` });
+    }
+  }, 60_000);
+}

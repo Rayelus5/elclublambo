@@ -373,6 +373,17 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'list[].currency': { label: 'Qué multiplica' },
     'list[].factor': { label: 'Por cuánto', unit: 'factor' },
   },
+  // Referrals (plan «referidos», part R2): the gifts' coins, dust and signals read as everywhere else (COMMON).
+  referrals: {
+    required: { label: 'Código obligatorio para registrarse', hint: 'Sin el código de un jugador no se puede crear una cuenta' },
+    newcomerGifts: { label: 'Regalo del invitado', hint: 'Le llega al buzón al registrarse con un código' },
+    ownerGifts: { label: 'Premio del dueño', hint: 'Le llega al buzón cuando su invitado alcanza el nivel de activación' },
+    activationLevel: { label: 'Nivel de activación', hint: 'El nivel que tiene que alcanzar el invitado para que el dueño cobre' },
+    perCodePerDay: { label: 'Registros al día por código', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    ownerPerWeek: { label: 'Invitados a la semana por dueño', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    ipSignupsPerDay: { label: 'Registros al día desde una misma red', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    sharedIpDays: { label: 'Red compartida con el dueño u otro invitado en los últimos', unit: 'days', hint: 'Si el invitado usa la misma red en este plazo, espera a que un admin lo revise' },
+  },
 };
 
 /** Labels by last segment, shared by every key. */
