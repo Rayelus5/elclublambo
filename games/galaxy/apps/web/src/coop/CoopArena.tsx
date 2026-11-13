@@ -463,9 +463,19 @@ function CoopWorld({
   );
 
   /** A dash (SHIFT, Space, the pad's A or RB; SIM 1.12.0), with where the pointer is for a probe standing still. */
+  const dashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropDash = useCallback(() => {
+    if (dashTimer.current) clearTimeout(dashTimer.current);
+    dashTimer.current = null;
+  }, []);
+  useEffect(() => dropDash, [dropDash]);
+  useEffect(() => {
+    if (menu) dropDash();
+  }, [menu, dropDash]);
   const sendDash = useCallback(() => {
     const go = () => {
-      if (sim.probes[slot]?.life !== 'up') return;
+      dashTimer.current = null;
+      if (sim.probes[slot]?.life !== 'up' || menuRef.current) return;
       const cam = stageRef.current?.camera();
       const rect = canvasRef.current?.getBoundingClientRect();
       const from = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
@@ -474,9 +484,10 @@ function CoopWorld({
     const me = sim.probes[slot];
     if (me?.life !== 'up') return;
     // A press a moment early (the pause between two dashes) goes out when the pause ends, not lost.
-    if (dashWaits(me.dash)) window.setTimeout(go, ((me.dash.pause - 1) * 1000) / 60);
+    dropDash();
+    if (dashWaits(me.dash)) dashTimer.current = setTimeout(go, ((me.dash.pause - 1) * 1000) / 60);
     else go();
-  }, [send, sim, slot]);
+  }, [dropDash, send, sim, slot]);
 
   // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world. Q: the quick marks.
   useEffect(() => {
@@ -530,6 +541,7 @@ function CoopWorld({
     const idle = () => {
       input.current.keys.clear();
       input.current.pad = null;
+      dropDash();
       sendInput();
     };
     const hidden = () => {
@@ -547,7 +559,7 @@ function CoopWorld({
       window.removeEventListener('blur', idle);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [sendDash, sendInput, sendMark, sim, slot, viewer]);
+  }, [dropDash, sendDash, sendInput, sendMark, sim, slot, viewer]);
 
   // Gamepad: the left stick moves, the right one aims, A or RB dash (not while my cards are up: A picks there).
   useEffect(() => {

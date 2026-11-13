@@ -33,8 +33,9 @@ export function dashRules(sim: Sim, p: ProbeState): DashRules {
   const steps = Math.max(1, ticks(D.seconds));
   return {
     max: D.charges + (q?.charges ?? 0) + Math.min(D.cometMax, comets * D.cometCharges),
-    recharge: Math.max(1, Math.round((q?.recharge ?? D.recharge) * 60 * p.stats.cooldown)),
-    pause: ticks(q?.pause ?? D.pause),
+    // Spark's agile dash is never slower than every probe's, whatever the content says.
+    recharge: Math.max(1, Math.round(Math.min(q?.recharge ?? D.recharge, D.recharge) * 60 * p.stats.cooldown)),
+    pause: ticks(Math.min(q?.pause ?? D.pause, D.pause)),
     steps,
     per: D.distance / steps,
     invuln: ticks(q?.invuln ?? D.invuln),

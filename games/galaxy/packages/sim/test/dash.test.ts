@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   type Content,
+  contentSchema,
   createSim,
   decodeEvents,
   decodeLog,
@@ -207,6 +208,28 @@ describe('el dash lo decides tú', () => {
     expect(h.charges).toBe(0);
     expect(h.recharge).toBeCloseTo(D.recharge, 1);
     expect(h.pause).toBeCloseTo(D.pause, 1);
+  });
+});
+
+describe('el contenido del dash', () => {
+  test('nunca más rápido de lo que el Cometa comprueba, y Chispa nunca más lenta que las demás', () => {
+    expect(() => tinyContent((c) => (c.dash = { ...c.dash, distance: 400, seconds: 0.05 }))).toThrow();
+    const slowBase = spark((c) => (c.dash = { ...c.dash, recharge: 2, pause: 0.1 }));
+    const p = slowBase.probes[0]!;
+    step(slowBase, [dash(move(127, 0))]);
+    // The base recharge (2 s) and pause (0.1 s) win over Spark's 4 s and 0.3 s.
+    expect(p.dash.recharge).toBe(120);
+    expect(p.dash.pause).toBe(6);
+  });
+
+  test('el contenido publicado antes del dash sigue valiendo (Chispa y Cometa con su forma vieja)', () => {
+    const old = structuredClone(DEFAULT_CONTENT) as unknown as Record<string, unknown> & typeof DEFAULT_CONTENT;
+    delete (old as Partial<typeof old>).dash;
+    old.probes = old.probes.map((p) => (p.id === 'spark' ? { ...p, quirk: { kind: 'dash', every: 30, distance: 50, invuln: 0.3 } as never } : p));
+    old.relics = { ...old.relics, phenomena: { ...old.relics.phenomena, comet: { cooldown: 6, distance: 90, seconds: 0.2, damage: 30 } } };
+    const parsed = contentSchema.parse(old);
+    expect(parsed.dash).toEqual(DEFAULT_CONTENT.dash);
+    expect(parsed.probes.find((p) => p.id === 'spark')!.quirk).toMatchObject({ kind: 'dash', charges: 1, recharge: 4, pause: 0.3 });
   });
 });
 

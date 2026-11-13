@@ -172,6 +172,7 @@ export function ArenaScreen({
 
   const pause = useCallback(() => {
     if (ended.current || sim.status === 'choosing') return;
+    dashAsked.current = false;
     loopRef.current?.pause();
     setPaused(true);
   }, [sim]);
@@ -209,7 +210,9 @@ export function ArenaScreen({
         const rect = canvasRef.current?.getBoundingClientRect();
         const aimFrom = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
         const i = readInput(input.current, { manualAim: aimRef.current }, aimFrom);
-        // A press a moment early (the pause between two dashes) waits for it; otherwise it goes now.
+        // A press a moment early (the pause between two dashes) waits for it; otherwise it goes now. One left from
+        // before the cards opened is dropped (the pause menu drops it too).
+        if (sim.status !== 'running') dashAsked.current = false;
         if (dashAsked.current && !dashWaits(sim.probes[0]?.dash)) {
           dashAsked.current = false;
           if (sim.status === 'running') i.dash = pointerAngle(input.current, aimFrom);

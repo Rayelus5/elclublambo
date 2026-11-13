@@ -78,7 +78,7 @@ const quirk = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('dash'),
-      invuln: z.number().min(0).max(5),
+      invuln: n,
       charges: z.number().int().min(0).max(4).default(1),
       recharge: z.number().min(0.5).max(60).default(4),
       pause: z.number().min(0).max(5).default(0.3),
@@ -483,6 +483,8 @@ const shape = z
         cometMax: z.number().int().min(0).max(5),
       })
       .strict()
+      // At most 24 units a tick: a comet's dash checks 12 units round each step, so it never jumps over an enemy.
+      .refine((d) => d.distance / Math.max(1, Math.round(d.seconds * 60)) <= 24, 'dash_too_fast')
       .default(D.dash),
   })
   .strict();
