@@ -1,0 +1,26 @@
+{
+  "minPrice": {
+    "common": 50,
+    "uncommon": 120,
+    "rare": 400,
+    "epic": 1500,
+    "legendary": 6000,
+    "mythic": 15000
+  },
+  "mythicListing": false,
+  "maxPrice": 10000000,
+  "commission": 0.07,
+  "days": 7,
+  "perDay": {
+    "listings": 10,
+    "purchases": 10,
+    "trades": 10
+  },
+  "minLevel": 5,
+  "minAccountDays": 0,
+  "alertMultiple": 20,
+  "sharedIpDays": 30,
+  "tradeDays": 3,
+  "openTrades": 5,
+  "tradeAlertTierGap": 3
+}
