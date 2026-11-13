@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-19-singularidad',
+    version: '1.19',
+    date: '2026-11-13',
+    title: 'Singularidad',
+    summary: 'Las Míticas tienen ahora su propio poder en la incursión y un revelado aún más épico en el escáner',
+    items: [
+      { kind: 'nuevo', text: 'Singularidad: una Mítica equipada abre cada poco un agujero negro en el grupo de enemigos más denso, los atrae y después estalla. Nunca atrae al Núcleo ni al botín' },
+      { kind: 'nuevo', text: 'Lo ves en el chip de poderes de la reliquia y en su ficha, en el Hangar' },
+      { kind: 'mejora', text: 'Revelar una Mítica, en el escáner clásico y en el pro, ahora contiene el aliento antes del impacto y estalla con un destello iridiscente, más rayos, su propio acorde y una capa más de música' },
+    ],
+  },
+  {
     id: 'v1-18-la-rareza-mitica',
     version: '1.18',
     date: '2026-11-13',
