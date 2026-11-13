@@ -73,13 +73,15 @@ for (const [finish, width, height] of [
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     root = createRoot(host);
     root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/perfil/vega'] }, createElement(Routes, null, createElement(Route, { path: '/perfil/:username', element: createElement(ProfileScreen) })))));
-    await vi.waitFor(() => expect(document.querySelector('.profile-banner-art canvas')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+    // The first one starts cold (fonts, the galaxy worker, software WebGL) on a CI runner shared with the other suites:
+    // 15 s on a quiet run, past 30 s on a busy one. The next ones take their usual time, so a real hang still fails.
+    await vi.waitFor(() => expect(document.querySelector('.profile-banner-art canvas')).not.toBeNull(), { timeout: 60_000, interval: 200 });
     expect(document.querySelector('.profile-root')).toHaveAttribute('data-finish', finish);
     const scroller = document.querySelector('.profile-root')!;
     expect(scroller.scrollWidth).toBeLessThanOrEqual(scroller.clientWidth + 1);
     await new Promise((r) => setTimeout(r, 400));
     if (import.meta.env['VITE_PROFILE_SHOTS']) await page.screenshot({ path: `__shots__/profile-${finish}-${width}.png` });
-  }, 60_000);
+  }, 100_000);
 }
 
 // Plan «referidos», part R2: on my own profile, «Tus códigos de invitación» (one on, one off) sits in the grid with the
