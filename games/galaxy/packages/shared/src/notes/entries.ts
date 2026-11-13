@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-13-legendarias-mas-justas',
+    version: '1.13',
+    date: '2026-11-13',
+    title: 'Legendarias más justas',
+    summary: 'Las reliquias legendarias y la supernova bajan de fuerza para que ninguna galaxia decida sola una incursión',
+    items: [
+      { kind: 'equilibrio', text: 'La supernova hace menos daño, llega menos lejos y tarda más en volver a estallar' },
+      { kind: 'equilibrio', text: 'Las galaxias legendarias equipadas como reliquia multiplican algo menos sus poderes' },
+    ],
+  },
+  {
     id: 'v1-12-un-espacio-vivo',
     version: '1.12',
     date: '2026-11-13',
