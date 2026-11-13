@@ -1,0 +1,64 @@
+{
+  "rewards": [
+    {
+      "percent": 10,
+      "reward": {
+        "coins": 0,
+        "dust": 300,
+        "signal": 0,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "percent": 25,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "title": null,
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "percent": 50,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "title": "Cartógrafo",
+        "frame": null,
+        "avatar": "cartographer",
+        "skin": null
+      }
+    },
+    {
+      "percent": 75,
+      "reward": {
+        "coins": 0,
+        "dust": 1500,
+        "signal": 0,
+        "title": "Archivista",
+        "frame": "aurora",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "percent": 100,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 10,
+        "title": "Guardián del cielo",
+        "frame": "gold",
+        "avatar": null,
+        "skin": null
+      }
+    }
+  ]
+}
