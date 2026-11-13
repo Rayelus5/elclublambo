@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-16-desintegrar-varias',
+    version: '1.16',
+    date: '2026-11-13',
+    title: 'Desintegrar varias',
+    summary: 'Elige varias galaxias y desintégralas de una vez, con una animación que lleva su polvo a tu cartera',
+    items: [
+      { kind: 'nuevo', text: 'En la Colección, Desintegrar varias: elige hasta 50 galaxias y desintégralas juntas. Antes de confirmar ves el polvo que dan y cuáles son épicas o mejores' },
+      { kind: 'mejora', text: 'Al desintegrar, las cartas se deshacen en el color de su rareza y su polvo vuela a tu cartera' },
+    ],
+  },
+  {
     id: 'v1-12-un-espacio-vivo',
     version: '1.12',
     date: '2026-11-13',

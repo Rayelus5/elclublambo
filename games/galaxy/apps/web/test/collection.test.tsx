@@ -377,3 +377,35 @@ test('el filtro de favoritas va en la dirección, y la de antes (?candado=1) sig
     view.unmount();
   }
 });
+
+// Desintegrar varias (the owner: by selection, as when fusing): pick up to 50 that can go, see the dust and which
+// epic-or-better ones you are about to lose, confirm once and they go together.
+test('desintegrar varias: eliges, ves el polvo y las épicas o mejores, y se van juntas', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1'), g('c2'), g('e1', 'epic', 'Kathra'), { ...g('k1'), locked: true }])),
+    'POST /galaxy/api/galaxies/disintegrate': (body) =>
+      (body as { preview?: boolean }).preview ? jsonResponse(200, { count: 3, dust: 85 }) : jsonResponse(200, { count: 3, dust: 85, wallet: { coins: 0, dust: 125, signal: 0 } }),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion', screens);
+  await user.click(await screen.findByRole('button', { name: copy.collection.dissolveMany }));
+  for (const name of ['Gal c1', 'Gal c2', 'Kathra']) await user.click(screen.getByRole('button', { name: copy.collection.select(name) }));
+  // A favourite (locked) one cannot be picked.
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal k1') })).toBeDisabled();
+  const bar = screen.getByRole('region', { name: copy.collection.dissolveMany });
+  expect(bar).toHaveTextContent(copy.collection.fuseProgress(3, 50));
+  expect(calls(fetch)).not.toContain('POST /galaxy/api/galaxies/disintegrate');
+  await user.click(within(bar).getByRole('button', { name: copy.collection.disintegrate }));
+  const confirm = await screen.findByRole('alertdialog', { name: copy.collection.dissolveTitle(3) });
+  expect(confirm).toHaveTextContent(copy.collection.disintegrateManyBody(85));
+  expect(confirm).toHaveTextContent(copy.collection.dissolveBest(['Kathra']));
+  await user.click(within(confirm).getByRole('button', { name: copy.collection.disintegrate }));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(copy.collection.dissolved(3, 85)));
+  expect(await screen.findByLabelText(copy.hub.resource.dust(125))).toBeInTheDocument();
+  const posts = fetch.mock.calls.filter(([url, init]) => url === '/galaxy/api/galaxies/disintegrate' && !JSON.parse(String(init?.body)).preview);
+  expect(posts).toHaveLength(1);
+  expect(JSON.parse(String(posts[0]![1]!.body))).toEqual({ ids: ['c1', 'c2', 'e1'] });
+  expect((posts[0]![1]?.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+});
+

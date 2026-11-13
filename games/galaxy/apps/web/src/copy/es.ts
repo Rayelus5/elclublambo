@@ -2085,6 +2085,15 @@ export const copy = {
     // The fusion tools, side by side, and the fusion itself.
     fusionTitle: 'Fusión',
     fusingHint: (count: number) => `Elige ${count} de la misma rareza`,
+    // Desintegrar varias (the owner: by selection, as when fusing).
+    dissolveGroup: 'Desintegrar',
+    dissolveMany: 'Desintegrar varias',
+    dissolvingHint: (max: number) => `Elige hasta ${max} galaxias`,
+    dissolveTitle: (n: number) => (n === 1 ? '¿Desintegrar 1 galaxia?' : `¿Desintegrar ${n} galaxias?`),
+    disintegrateManyBody: (n: number) => `Se convierten en ${fmt(n)} de polvo estelar. No se puede deshacer`,
+    dissolveBest: (names: readonly string[]) => `Entre ellas hay épicas o mejores: ${names.join(', ')}`,
+    dissolved: (n: number, dust: number) => (n === 1 ? `1 galaxia convertida en ${fmt(dust)} de polvo estelar` : `${n} galaxias convertidas en ${fmt(dust)} de polvo estelar`),
+    dissolveNone: 'Elige las galaxias que quieres desintegrar',
     fusionLabel: 'Las galaxias se funden',
     skipFusion: 'Saltar',
     // The detail: the card turns over; levelling up is celebrated.

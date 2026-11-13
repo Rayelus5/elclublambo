@@ -98,7 +98,7 @@ function RelicLevel({ g, onLeveled }: { g: GalaxyDetail; onLeveled: (level: numb
   );
 }
 
-export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (name: string, dust: number) => void }) {
+export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (galaxy: GalaxyDetail, dust: number) => void }) {
   const detail = useGalaxyDetail(id);
   const disintegrate = useDisintegrate();
   const lock = useLock();
@@ -257,7 +257,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 disintegrate.mutate(g.id, {
                   onSuccess: (res) => {
                     setConfirming(false);
-                    onDisintegrated(g.name, res.dust);
+                    onDisintegrated(g, res.dust);
                   },
                 })
               }
