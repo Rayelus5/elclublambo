@@ -64,10 +64,15 @@ describe('lo que se envía', () => {
     for (const price of [0, 1.5, '50', -3]) expect(() => marketListSchema.parse({ galaxyId, price })).toThrow();
   });
 
-  test('la búsqueda tiene orden, rareza y página', () => {
-    expect(marketQuerySchema.parse({})).toEqual({ sort: 'new', page: 1 });
-    expect(marketQuerySchema.parse({ tier: 'rare', sort: 'cheap', q: 'Vega', page: '2' })).toEqual({ tier: 'rare', sort: 'cheap', q: 'Vega', page: 2 });
+  // The market at scale (the owner, 2026-11-14): filters, six orders and a cursor instead of pages.
+  test('la búsqueda tiene orden, filtros y cursor', () => {
+    expect(marketQuerySchema.parse({})).toEqual({ sort: 'new' });
+    expect(marketQuerySchema.parse({ tier: 'rare', sort: 'cheap', q: 'Vega', cursor: 'eyJzIjoiY2hlYXAifQ' })).toEqual({ tier: 'rare', sort: 'cheap', q: 'Vega', cursor: 'eyJzIjoiY2hlYXAifQ' });
+    expect(marketQuerySchema.parse({ finish: 'holo', phenomenon: 'any', minLevel: '2', maxPrice: '5000', sort: 'rare' })).toEqual({ finish: 'holo', phenomenon: 'any', minLevel: 2, maxPrice: 5000, sort: 'rare' });
     expect(() => marketQuerySchema.parse({ sort: 'random' })).toThrow();
+    expect(() => marketQuerySchema.parse({ page: '2' })).toThrow();
+    expect(() => marketQuerySchema.parse({ cursor: 'no válido' })).toThrow();
+    expect(() => marketQuerySchema.parse({ minLevel: '0' })).toThrow();
   });
 
   test('los errores del comercio existen', () => {
