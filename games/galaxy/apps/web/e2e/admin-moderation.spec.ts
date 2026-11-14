@@ -113,11 +113,11 @@ test('un moderador revisa una denuncia, oculta y restaura en vivo, y silencia y 
   await confirm(page, 'Dejar visible', 'No incumple las normas');
   await expect(card).toHaveCount(0);
 
-  // The live chat: hide the other message and restore it.
+  // The messages (every chat at once): hide the other message and restore it.
   const sub = page.getByRole('navigation', { name: 'Apartados de moderación' });
-  await sub.getByRole('link', { name: 'Chat en vivo' }).click();
+  await sub.getByRole('link', { name: 'Mensajes' }).click();
   const live = page.getByRole('article').filter({ hasText: watched });
-  await live.getByRole('button', { name: 'Ocultar' }).click();
+  await live.getByRole('button', { name: 'Ocultar', exact: true }).click();
   await confirm(page, 'Ocultar', 'Prueba de ocultar');
   await expect(live.getByText('Oculto por e2e_mod_', { exact: false })).toBeVisible();
   await live.getByRole('button', { name: 'Restaurar' }).click();
