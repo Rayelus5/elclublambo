@@ -1,7 +1,7 @@
 import { friendParamSchema, friendRequestSchema, type FriendRelation, type FriendsView, type LiveEvent, liveMessageSchema, socialPrefsSchema } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import { requireSession } from '../auth/guards';
+import { isStaff, requireSession } from '../auth/guards';
 import type { ConfigReader } from '../config/reader';
 import { requireFeature } from '../config/features';
 import type { DB } from '../db/schema';
@@ -48,6 +48,8 @@ export function registerFriendRoutes(api: FastifyInstance, deps: FriendDeps): vo
       if (!msg.success) return;
       if (msg.data.type === 'activity') deps.live.setActivity(s.accountId, { activity: msg.data.activity, ...(msg.data.layer ? { layer: msg.data.layer } : {}) });
       else if (msg.data.type === 'chat') deps.live.setChatOpen(s.accountId, msg.data.open);
+      // Only staff hear moderation's news.
+      else if (msg.data.type === 'mod' && isStaff(s)) deps.live.setModOpen(s.accountId, msg.data.open);
     });
     void view(s.accountId)
       .then((friends) => {

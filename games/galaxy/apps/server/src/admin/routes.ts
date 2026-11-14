@@ -22,7 +22,6 @@ import type { Env } from '../env';
 import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
-import type { ChatHub } from '../chat/hub';
 import { auditCsv, auditPage } from './audit-log';
 import {
   type AdminDeps,
@@ -50,7 +49,7 @@ const sectionParams = adminUsernameParamSchema.extend({ section: z.enum(ADMIN_SE
 const galaxyParams = adminUsernameParamSchema.extend({ id: z.string().uuid() });
 const pageQuery = z.object({ page: z.coerce.number().int().min(1).max(10_000).default(1) }).strict();
 
-export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { env: Env; hub: Pick<ChatHub, 'dropAccount'> & { online: () => Iterable<string> } }): void {
+export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { env: Env; hub: { dropAccount: (accountId: string) => void; online: () => Iterable<string> } }): void {
   /** The acting admin, with a rate limit on changes (60 a minute). */
   const actorOf = async (req: FastifyRequest, change: boolean): Promise<{ actor: AuditActor; session: ReturnType<typeof requireAdmin> }> => {
     const s = requireAdmin(req);

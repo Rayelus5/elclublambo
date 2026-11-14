@@ -1,6 +1,5 @@
 import { type AdminStats, expectedTierRates, type StatsPeriod, type StatsSection, TIERS } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
-import type { ChatHub } from '../chat/hub';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 
@@ -9,7 +8,7 @@ import type { DB } from '../db/schema';
 // (empty ones filled), the ledger's flows in and out by currency and reason, pulls by tier against the live gacha
 // config's expected shares, market and trade volume, and what waits for review. Each section also renders as CSV.
 
-export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: Pick<ChatHub, 'size'>; now: () => Date };
+export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: { size: () => number }; now: () => Date };
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;

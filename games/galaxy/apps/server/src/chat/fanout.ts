@@ -11,6 +11,8 @@ export interface ChatLive {
   onlineIds(): Set<string>;
   sendMany(accountIds: Iterable<string>, event: LiveEvent): void;
   chatOpenOf(accountId: string): ChatChannel | null;
+  /** Staff with moderation open (they hear every new message and report). */
+  modWatchers?(): string[];
 }
 
 export interface Fanout {

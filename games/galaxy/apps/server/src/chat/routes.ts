@@ -18,21 +18,14 @@ import { requireSession } from '../auth/guards';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
-import { isAllowedOrigin } from '../security/origin';
 import { type ChatDeps, chatHistory, chatUnread, hideMessage, markRead, muteAccount, reportMessage, searchMentions, sendMessage } from './service';
 
-// The chats' routes (GDD §14.4; M5b-2). Reading and sending are plain HTTP; the socket only pushes. It opens with the
-// session cookie from one of our own origins, or closes at once: 4401 without a session, 4403 from another origin.
+// The chats' routes (GDD §14.4; M5b-2). Reading and sending are plain HTTP; what is new arrives on the live socket
+// (realtime/live-hub.ts; its own socket was retired on 2026-11-14).
 
 export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { origins: string[]; trustCfIp: boolean }): void {
   /** Who acts, for the audit of a moderator's hide or mute. */
   const actorOf = (req: FastifyRequest, s: { accountId: string; username: string }): AuditActor => ({ id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp) });
-
-  api.get('/galaxy/api/chat/ws', { websocket: true }, (socket, req) => {
-    if (!isAllowedOrigin(req.headers.origin, deps.origins)) return socket.close(4403, 'origin');
-    if (!req.session) return socket.close(4401, 'session');
-    deps.hub.add(socket, req.session.accountId);
-  });
 
   // The owner's chat asks (2026-11-14): what is new in my channels, what I read, and names for the mention box. These
   // fixed paths go before `/chat/:channel`.

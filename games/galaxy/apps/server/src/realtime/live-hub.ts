@@ -43,6 +43,8 @@ export class LiveHub {
   private readonly doing = new Map<string, Doing>();
   /** The chat channel each account has open on screen (the owner's chat asks, 2026-11-14). */
   private readonly chatOpen = new Map<string, ChatChannel>();
+  /** Staff with moderation open on screen (they hear every new message and report). */
+  private readonly modOpen = new Set<string>();
   private readonly names = new Map<string, string>();
   private readonly leaving = new Map<string, NodeJS.Timeout>();
   private readonly ping: NodeJS.Timeout;
@@ -101,6 +103,7 @@ export class LiveHub {
       if (this.isOnline(id)) return;
       this.doing.delete(id);
       this.chatOpen.delete(id);
+      this.modOpen.delete(id);
       void this.announce(id);
     }, OFFLINE_GRACE_MS);
     timer.unref();
@@ -144,6 +147,16 @@ export class LiveHub {
 
   chatOpenOf(accountId: string): ChatChannel | null {
     return this.chatOpen.get(accountId) ?? null;
+  }
+
+  /** Staff open or close moderation (the caller checks the account is staff). */
+  setModOpen(accountId: string, open: boolean): void {
+    if (open) this.modOpen.add(accountId);
+    else this.modOpen.delete(accountId);
+  }
+
+  modWatchers(): string[] {
+    return [...this.modOpen];
   }
 
   /** Tells an account's friends its presence (offline when it hides its status). */

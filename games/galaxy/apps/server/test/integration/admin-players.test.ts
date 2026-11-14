@@ -192,10 +192,10 @@ describe('la cuenta', () => {
     expect((await get(ctx.app, '/galaxy/api/auth/me', { cookie: p.cookie })).statusCode).toBe(401);
   });
 
-  test('banear o cerrar sesiones corta también el chat en vivo', async () => {
+  test('banear o cerrar sesiones corta también el socket vivo (y con él, el chat)', async () => {
     for (const path of ['ban', 'sessions/close']) {
       const p = await player();
-      const ws = await ctx.app.injectWS('/galaxy/api/chat/ws', { headers: { origin: 'http://localhost:5173', cookie: `gs_sid=${p.cookie}` } });
+      const ws = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin: 'http://localhost:5173', cookie: `gs_sid=${p.cookie}` } });
       let closed: number | null = null;
       ws.on('close', (code) => {
         closed = code;

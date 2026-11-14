@@ -23,7 +23,7 @@ const channels: ModChannel[] = [
   { key: 'global', label: 'Comunidad', lastAt: '2026-11-08T09:00:00.000Z' },
   { key: 'clan:0f8f0d0e-6c1b-4c39-9a37-1f7b0c4c2a11', label: '[GX] Galácticos', lastAt: '2026-11-08T08:00:00.000Z' },
 ];
-const message = (over: Partial<ModMessage> = {}): ModMessage => ({ id: '41', channel: 'global', author: 'vega', body: 'esto molesta', at: '2026-11-08T09:00:00.000Z', hidden: null, reports: 0, ...over });
+const message = (over: Partial<ModMessage> = {}): ModMessage => ({ id: '41', channel: 'global', author: 'vega', body: 'esto molesta', at: '2026-11-08T09:00:00.000Z', hidden: null, reports: 0, pending: 0, ...over });
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
 
@@ -83,20 +83,17 @@ test('sin denuncias pendientes lo dice', async () => {
   expect(await screen.findByText(t.noReports)).toBeInTheDocument();
 });
 
-test('el chat en vivo lista los ocultos con quién los ocultó, se puede pausar y restaura uno con motivo', async () => {
+test('los mensajes listan los ocultos con quién los ocultó, y restaurar uno pide motivo', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
     [`GET ${M}/channels`]: () => jsonResponse(200, channels),
-    [`GET ${M}/messages?channel=global`]: () =>
+    [`GET ${M}/messages?channel=all`]: () =>
       jsonResponse(200, [message({ id: '42', body: 'hola a todos', author: 'nova' }), message({ hidden: { reason: 'moderator', by: 'vigia', at: '2026-11-08T09:02:00.000Z' } })]),
     [`POST ${M}/messages/41/restore`]: () => jsonResponse(200, { hidden: false }),
   });
   renderAt('/admin/moderacion/chat', { '/admin/moderacion/chat': <LiveChat /> });
   const hidden = await screen.findByRole('article', { name: t.messageOf('vega') });
   expect(within(hidden).getByText(t.hiddenBy('vigia'))).toBeInTheDocument();
-  expect(screen.getByText(t.live)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: t.pause }));
-  expect(screen.getByText(t.paused)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: t.words })).toHaveAttribute('href', '/admin/configuracion/chat');
   await userEvent.click(within(hidden).getByRole('button', { name: t.restore }));
   const dialog = await screen.findByRole('dialog', { name: t.restore });
@@ -109,7 +106,7 @@ test('el filtro de palabras no se ofrece a un moderador', async () => {
   mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, mod),
     [`GET ${M}/channels`]: () => jsonResponse(200, channels),
-    [`GET ${M}/messages?channel=global`]: () => jsonResponse(200, [message()]),
+    [`GET ${M}/messages?channel=all`]: () => jsonResponse(200, [message()]),
   });
   renderAt('/admin/moderacion/chat', { '/admin/moderacion/chat': <LiveChat /> });
   await screen.findByRole('article', { name: t.messageOf('vega') });
