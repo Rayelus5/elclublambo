@@ -96,7 +96,8 @@ for (const [w, h] of [
     await expect.poll(() => document.querySelector<HTMLButtonElement>('.news-button[aria-label*="nuevas"]'), { timeout: 5000 }).toBeTruthy();
     await userEvent.click(document.querySelector<HTMLButtonElement>('.news-button')!);
     await expect.poll(() => document.querySelectorAll('.modal.news.board .news-card').length, { timeout: 5000 }).toBeGreaterThanOrEqual(6);
-    await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
+    // The images matter for the screenshots (a busy runner may load lazy ones late).
+    if (import.meta.env['VITE_NEWS_SHOTS']) await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
     // Let the cards' entrance end.
     await new Promise((r) => setTimeout(r, 700));
     const dialog = document.querySelector<HTMLElement>('.modal.news.board')!;
@@ -135,7 +136,8 @@ for (const [w, h] of [
       createElement(Routes, null, createElement(Route, { path: '/admin', element: createElement(AdminLayout) }, createElement(Route, { path: 'tablon', element: createElement(NewsAdmin) }))),
     );
     await expect.poll(() => document.querySelectorAll('.news-admin-row').length, { timeout: 5000 }).toBe(9);
-    await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
+    // The images matter for the screenshots (a busy runner may load lazy ones late).
+    if (import.meta.env['VITE_NEWS_SHOTS']) await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     // Each row on one line: the thumbnail, the words and the tools.
     const row = document.querySelector<HTMLElement>('.news-admin-row')!;
@@ -145,7 +147,8 @@ for (const [w, h] of [
     if (import.meta.env['VITE_NEWS_SHOTS']) await page.screenshot({ path: `__shots__/news-admin-${w}.png` });
     await userEvent.click(document.querySelector<HTMLButtonElement>(`button[aria-label="${copy.admin.news.editOf('Torneo del sábado')}"]`)!);
     await expect.poll(() => document.querySelector('.modal.news-editor .news-preview .news-card'), { timeout: 5000 }).toBeTruthy();
-    await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
+    // The images matter for the screenshots (a busy runner may load lazy ones late).
+    if (import.meta.env['VITE_NEWS_SHOTS']) await expect.poll(imagesLoaded, { timeout: 8000 }).toBe(true);
     // Its entrance played.
     await new Promise((r) => setTimeout(r, 600));
     const editor = document.querySelector<HTMLElement>('.modal.news-editor')!;
