@@ -25,6 +25,7 @@ describe('la configuración', () => {
       openTrades: 5,
       tradeAlertTierGap: 3,
       tradeGalaxies: 3,
+      board: { open: 3, perDay: 5, days: 7, answers: 20 },
     });
   });
 

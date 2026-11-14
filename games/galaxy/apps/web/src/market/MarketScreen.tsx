@@ -6,7 +6,7 @@ import { type MarketSearch, useMarket, useMarketOffers, useMyMarket } from '../a
 import { FilterSelect, phenomenonOptions, traitOptions } from '../collection/Filters';
 import { WalletBar } from '../hub/WalletBar';
 import { useTrades } from '../api/trades';
-import { TradesPanel } from '../trades/TradesPanel';
+import { TradesTab } from '../trades/TradeBoard';
 import { errorText, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
@@ -287,7 +287,7 @@ export function MarketScreen() {
           trades.data ? (
             <>
               <Gate rules={trades.data.rules} id={gateId} />
-              <TradesPanel trades={trades.data} gateId={trades.data.rules.canTrade ? undefined : gateId} />
+              <TradesTab trades={trades.data} gateId={trades.data.rules.canTrade ? undefined : gateId} />
             </>
           ) : trades.error ? (
             <p className="field-error" role="alert">

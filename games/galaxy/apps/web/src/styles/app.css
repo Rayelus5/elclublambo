@@ -2220,6 +2220,44 @@
   .trade-event time { color: var(--color-ink-mute); font-size: 13px; white-space: nowrap; }
   .trade-event.done b { color: var(--color-terminal); }
   .trade-event.cancelled b { color: var(--color-nova); }
+  /* The public trade board (2026-11-14). */
+  .trade-views { margin-bottom: 4px; justify-self: start; align-self: start; }
+  .trade-views .pill[aria-current='page'] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--color-solar); }
+  .trade-board { display: grid; gap: 18px; }
+  .post-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .post-bar .market-chips { flex: 1 1 520px; }
+  .post-bar > .panel-note { flex: 1 1 100%; margin: 0; }
+  .post-mine { display: grid; gap: 10px; }
+  .post-mine h2 { margin: 0; font: 400 20px var(--font-display); }
+  .post-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+  .post-card { --r: 22px; --lip-h: 6px; padding: 16px 18px 18px; display: grid; gap: 12px; align-content: start; }
+  .post-card.mine { border-color: color-mix(in srgb, var(--color-solar) 45%, transparent); }
+  .post-body { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .post-gives, .post-seeks { display: grid; gap: 8px; justify-items: start; }
+  .post-gives h4, .post-seeks h4 { margin: 0; font-size: 14px; font-weight: 700; color: var(--color-ink-soft); }
+  .post-gives .trade-cards { justify-content: flex-start; }
+  .post-wants { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .post-wants .chip { height: 32px; padding: 0 12px; font-size: 14px; cursor: default; box-shadow: none; }
+  .post-coins-ok { color: var(--color-solar); }
+  .post-anything { margin: 0; color: var(--color-ink-soft); font-style: italic; }
+  .post-note { margin: 0; padding: 8px 12px; border-left: 3px solid var(--color-panel-2); color: var(--color-ink-soft); font-size: 14px; overflow-wrap: anywhere; }
+  .post-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .post-foot .panel-note { margin: 0; }
+  .post-seek { justify-items: stretch; }
+  .post-seek > h3 { justify-self: center; }
+  .post-seek > .post-coins-ok { justify-self: start; }
+  .trade-composer.post-composer .trade-empty { inline-size: 130px; block-size: 182px; }
+  .post-composer textarea { box-sizing: border-box; inline-size: 100%; min-block-size: 64px; padding: 10px 14px; resize: vertical; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 15px/1.4 var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .post-composer textarea:focus-visible { outline: none; border-color: var(--color-ice); }
+  .post-tiers { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .post-tiers legend { padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--color-ink-soft); }
+  .post-tiers .chip { height: 34px; padding: 0 12px; font-size: 14px; }
+  .post-traits { display: grid; gap: 8px; }
+  .post-answer-seeks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: 12px; background: rgb(255 255 255 / .04); }
+  .post-answer-seeks > span { font-weight: 700; color: var(--color-ink-soft); }
+  .post-answer-seeks .post-note { flex: 1 1 100%; }
+  .trade-post-badge { margin: 0; justify-self: start; padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: color-mix(in srgb, var(--color-ice) 14%, transparent); color: var(--color-ice); }
+  @media (max-width: 720px) { .post-body { grid-template-columns: 1fr; } }
   .trade-composer .trade-sides { margin-bottom: 14px; }
   .trade-composer .trade-empty { inline-size: 170px; block-size: 238px; }
   .trade-closed { --r: 20px; padding: 16px 18px; display: grid; gap: 10px; }

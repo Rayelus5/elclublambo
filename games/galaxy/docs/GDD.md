@@ -621,6 +621,16 @@ Ver §15.
   - **Al cerrarse:** cerrar un trueque abierto, como sea (jugador, admin, baneo, revocar o la tarea del mercado al caducar), libera sus galaxias y devuelve sus monedas desde la propia base de datos.
   - **Revertir** un trueque con monedas: se devuelven a quien las pagó y se recuperan del otro hasta donde llegue su saldo, como una venta.
   - **Aviso de desequilibrio:** las rarezas más altas de cada lado, muy separadas; o solo monedas por galaxias, menos que el mínimo de la más rara.
+- **Tablón público** (petición del propietario, 2026-11-14):
+  - **Una publicación** (`trade_posts`, `trade_post_items`) dice qué da su autor: hasta `market.tradeGalaxies` galaxias y monedas.
+  - **Y qué busca:** rarezas, un tipo, una paleta, un fenómeno o monedas. Sin nada marcado, escucha propuestas.
+  - **Nota** de hasta 140 letras.
+  - **Nada de ella se retiene:** sus galaxias siguen libres para su dueño. El tablón solo enseña las que aún son suyas.
+  - **Responder** es proponer un trueque con `post_id` que pide lo que da la publicación (sus monedas exactas y algunas o todas sus galaxias). Cuenta contra la publicación, no contra los trueques abiertos de su autor.
+  - **Aceptar una respuesta** (el autor confirma su trueque) cierra la publicación y cancela las demás respuestas, con sus monedas de vuelta. Retirarla las cancela también.
+  - **Límites** en `market.board`: 3 abiertas por cuenta, 5 al día, 7 días de duración y 20 respuestas por publicación. El interruptor `board` lo apaga.
+  - **Bloqueos:** las parejas bloqueadas, en cualquier sentido, no comercian ni ven sus publicaciones.
+  - **El tablón se lee de página en página** con cursor, de la más nueva a la más vieja, y se filtra por la rareza de lo que da. La tarea del mercado caduca las publicaciones.
 
 ### 14.6 Mercado [U]
 

@@ -104,6 +104,7 @@ function TradeCard({ v, rules, gateId }: { v: TradeView; rules: MyTrades['rules'
         <span className="trade-arrows" aria-hidden="true" />
         <SideView label={t.youGet} s={v.them} commission={rules.commission} getting />
       </div>
+      {v.post ? <p className="trade-post-badge">{t.board.answerBadge}</p> : null}
       <p className={`trade-state${yourTurn ? ' turn' : ''}`}>{stateOf(v)}</p>
       {error ? (
         <p className="field-error" role="alert">

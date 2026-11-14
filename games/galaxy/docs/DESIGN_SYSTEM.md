@@ -812,6 +812,21 @@ Consulta de ui-ux-pro-max: se aplicaron dos guías:
 
 **Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y lo que dio cada lado («Diste Vega y Orión», «Recibiste 500 monedas»).
 
+**Tablón** (2026-11-14, GDD §14.5):
+- **Dos vistas:** «Mis trueques» y «Tablón», como pastillas bajo las pestañas, cada una con su URL (`?pestana=trueques&vista=tablon`). La activa lleva el borde Solar.
+- **La barra:** las rarezas como chips («Da galaxias» de esa rareza) y «Publicar» en Solar con «+». Debajo, cuántas puedes tener abiertas y publicar hoy; sin hueco, el botón se apaga y lo dice.
+- **Tus publicaciones**, arriba, con el borde Solar, «Tuya», sus respuestas y «Retirar» en Nova, que pide confirmación.
+- **Cada publicación:**
+  - una tarjeta con el autor enlazado y hasta cuándo dura;
+  - «Da»: sus cartas (a 104 px cuando hay varias) y el chip Solar de monedas;
+  - «Busca»: chips de rareza con su rombo, de tipo, de paleta, de fenómeno y «Acepta monedas» en Solar; o «Escucha propuestas» en cursiva;
+  - la nota, citada con una raya a la izquierda;
+  - abajo, las respuestas y «Responder» en Solar, o «Ver tu respuesta» si ya respondiste.
+- **Cargar más**, como en Comprar.
+- **Publicar:** el mismo compositor de dos columnas, «Doy» (cartas y monedas) y «Busco» (chips de rareza, los tres desplegables de rasgos y el chip «Acepto monedas»). Debajo, la nota con su cuenta de letras y que nada se reserva hasta aceptar una respuesta. Las monedas siguen yendo en un solo lado.
+- **Responder:** el compositor de trueques titulado «Respuesta a …». Arriba, lo que busca la publicación y su nota. «Quiero» lleva lo que da, fijo («Lo que da la publicación»), sin quitar ni añadir. Se envía con «Enviar respuesta» y lleva a «Mis trueques».
+- **En Mis trueques**, un trueque que responde a una publicación lleva la etiqueta «Respuesta a una publicación del tablón» en Hielo.
+
 **En la colección:**
 - una galaxia ofrecida lleva la insignia «En trueque»;
 - no se desintegra, fusiona, mejora ni vende, y su detalle dice por qué.
