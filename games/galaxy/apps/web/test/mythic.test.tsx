@@ -108,7 +108,7 @@ describe('el mercado', () => {
     mockApi({
       'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha()),
-      'GET /galaxy/api/market?sort=new&page=1': () => jsonResponse(200, { listings: [], page: 1, pages: 1, rules: rules(r) } satisfies MarketPage),
+      'GET /galaxy/api/market?sort=new': () => jsonResponse(200, { listings: [], next: null, rules: rules(r) } satisfies MarketPage),
       'GET /galaxy/api/market/mine': () => jsonResponse(200, { active: [], sold: [], rules: rules(r) } satisfies MyMarket),
       'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('m1', 'mythic', { name: 'Ónice' }), g('r1', 'rare', { name: 'Libre' })])),
       'GET /galaxy/api/galaxies/m1': () => jsonResponse(200, { ...g('m1', 'mythic', { name: 'Ónice' }), origin: 'pull', lineage: [], dna: 'ab'.repeat(32), dust: 750, levelUp: { dust: 20 }, refund: 0 }),

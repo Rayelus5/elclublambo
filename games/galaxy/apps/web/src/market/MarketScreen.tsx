@@ -1,8 +1,10 @@
-import { type MarketListing, type MarketRules, type MarketSort, TIERS, type Tier } from '@galaxy/shared';
+import { FINISHES, MARKET_SORTS, type MarketListing, type MarketRules, type MarketSort, TIERS, type Tier } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
-import { useMarket, useMyMarket } from '../api/market';
+import { type MarketSearch, useMarket, useMyMarket } from '../api/market';
+import { FilterSelect, phenomenonOptions, traitOptions } from '../collection/Filters';
+import { WalletBar } from '../hub/WalletBar';
 import { useTrades } from '../api/trades';
 import { TradesPanel } from '../trades/TradesPanel';
 import { errorText, useMe } from '../auth/useMe';
@@ -13,6 +15,8 @@ import { useSettled } from '../ui/useSettled';
 import { postUrl } from './art';
 import { BuyDialog } from './BuyDialog';
 import { ListingCard } from './ListingCard';
+import { ListingSheet } from './ListingSheet';
+import { MarketStatsView } from './MarketStatsView';
 import { MyListings } from './MyListings';
 import { SellPanel } from './SellPanel';
 import { HomeLink } from '../ui/BackLink';
@@ -21,10 +25,10 @@ import { HomeLink } from '../ui/BackLink';
 // each its own URL (?pestana=vender|mios|trueques). Everyone sees the listings; buying and selling need the trade gates, and a notice says why.
 
 const t = copy.market;
-type Tab = 'buy' | 'sell' | 'mine' | 'trades';
-const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios', trades: 'trueques' };
-const tabOf = (slug: string | null): Tab => (slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : slug === 'trueques' ? 'trades' : 'buy');
-const LABEL: Record<Tab, string> = { buy: t.tabs.buy, sell: t.tabs.sell, mine: t.tabs.mine, trades: copy.trades.tab };
+type Tab = 'buy' | 'sell' | 'mine' | 'trades' | 'stats';
+const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios', trades: 'trueques', stats: 'estadisticas' };
+const tabOf = (slug: string | null): Tab => (slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : slug === 'trueques' ? 'trades' : slug === 'estadisticas' ? 'stats' : 'buy');
+const LABEL: Record<Tab, string> = { buy: t.tabs.buy, sell: t.tabs.sell, mine: t.tabs.mine, trades: copy.trades.tab, stats: t.tabs.stats };
 
 function Gate({ rules, id }: { rules: MarketRules; id: string }) {
   if (rules.canTrade) return null;
@@ -39,6 +43,39 @@ function Gate({ rules, id }: { rules: MarketRules; id: string }) {
   );
 }
 
+type Range = { from: string; to: string };
+const NO_RANGE: Range = { from: '', to: '' };
+const num = (v: string) => (/^\d{1,10}$/.test(v.trim()) ? Number(v.trim()) : undefined);
+
+/** A pair of number fields, from and to (levels, prices). */
+function RangeField({ label, value, max, onChange }: { label: string; value: Range; max: number; onChange: (v: Range) => void }) {
+  const id = useId();
+  return (
+    <fieldset className="market-range">
+      <legend>{label}</legend>
+      {(['from', 'to'] as const).map((end) => (
+        <input
+          key={end}
+          id={`${id}-${end}`}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={max}
+          placeholder={t[end]}
+          aria-label={t.rangeLabel(label, t[end])}
+          value={value[end]}
+          onChange={(e) => onChange({ ...value, [end]: e.target.value })}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
+/**
+ * Comprar (the owner, 2026-11-14: «profesional para 100.000 anuncios, con filtros y búsqueda»): the rarities as chips,
+ * the search, the order and «Filtros» (finish, type, palette, phenomenon, level and price from and to); the cards, each
+ * seen up close with its 3D card and powers; «Cargar más» goes on from where the page ended.
+ */
 function Shop({ gateId }: { gateId: string }) {
   const me = useMe().data;
   const coins = useGacha({ fresh: true }).data?.wallet.coins;
@@ -46,92 +83,134 @@ function Shop({ gateId }: { gateId: string }) {
   const [tier, setTier] = useState<Tier | ''>('');
   const [sort, setSort] = useState<MarketSort>('new');
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [finish, setFinish] = useState<string | undefined>();
+  const [type, setType] = useState<string | undefined>();
+  const [palette, setPalette] = useState<string | undefined>();
+  const [phenomenon, setPhenomenon] = useState<string | undefined>();
+  const [level, setLevel] = useState<Range>(NO_RANGE);
+  const [price, setPrice] = useState<Range>(NO_RANGE);
+  const [open, setOpen] = useState(false);
   const q = useSettled(search.trim(), 300);
-  const market = useMarket({ ...(tier ? { tier } : {}), sort, ...(q ? { q } : {}), page });
+  const levels = useSettled(level, 300);
+  const prices = useSettled(price, 300);
+  const query: MarketSearch = {
+    ...(tier ? { tier } : {}),
+    ...(finish ? { finish: finish as MarketSearch['finish'] } : {}),
+    ...(type ? { type } : {}),
+    ...(palette ? { palette } : {}),
+    ...(phenomenon ? { phenomenon } : {}),
+    ...(num(levels.from) ? { minLevel: num(levels.from) } : {}),
+    ...(num(levels.to) ? { maxLevel: num(levels.to) } : {}),
+    ...(num(prices.from) ? { minPrice: num(prices.from) } : {}),
+    ...(num(prices.to) ? { maxPrice: num(prices.to) } : {}),
+    sort,
+    ...(q ? { q } : {}),
+  };
+  const market = useMarket(query);
   const [buying, setBuying] = useState<MarketListing | null>(null);
-  const v = market.data;
-  const reset = () => setPage(1);
+  const [seeing, setSeeing] = useState<MarketListing | null>(null);
+  const pages = market.data?.pages ?? [];
+  const rules = pages[0]?.rules;
+  const listings = pages.flatMap((p) => p.listings);
+  const active = [finish, type, palette, phenomenon, level.from || level.to, price.from || price.to].filter(Boolean).length;
+  const clear = () => {
+    setFinish(undefined);
+    setType(undefined);
+    setPalette(undefined);
+    setPhenomenon(undefined);
+    setLevel(NO_RANGE);
+    setPrice(NO_RANGE);
+  };
+  const shortOf = (l: MarketListing) => (coins === undefined ? 0 : Math.max(0, l.price - coins));
+  const canBuy = !!rules && rules.canTrade && rules.purchasesLeft > 0;
   return (
     <>
-      {v ? <Gate rules={v.rules} id={gateId} /> : null}
-      <div className="market-filters">
-        <div className="market-filter">
-          <label htmlFor={`${ids}-tier`}>{t.filterTier}</label>
-          <Select<Tier | ''>
-            id={`${ids}-tier`}
-            value={tier}
-            options={[{ value: '', label: t.allTiers }, ...TIERS.map((x) => ({ value: x, label: copy.tiers[x] }))]}
-            onChange={(v) => {
-              setTier(v);
-              reset();
-            }}
-          />
-        </div>
-        <div className="market-filter">
-          <label htmlFor={`${ids}-sort`}>{t.sortLabel}</label>
-          <Select<MarketSort>
-            id={`${ids}-sort`}
-            value={sort}
-            options={(['new', 'cheap', 'dear'] as const).map((x) => ({ value: x, label: t.sorts[x] }))}
-            onChange={(v) => {
-              setSort(v);
-              reset();
-            }}
-          />
+      {rules ? <Gate rules={rules} id={gateId} /> : null}
+      <div className="market-toolbar" role="search" aria-label={t.search}>
+        <div className="market-chips" role="group" aria-label={t.filterTier}>
+          {(['', ...TIERS] as const).map((x) => (
+            <button key={x || 'all'} type="button" className="chip" aria-pressed={tier === x} data-tier={x || undefined} onClick={() => setTier(x)}>
+              {x ? <i aria-hidden="true" /> : null}
+              {x ? copy.tiers[x] : t.allTiers}
+            </button>
+          ))}
         </div>
         <label className="market-search">
           <span>{t.search}</span>
-          <input
-            type="search"
-            value={search}
-            maxLength={40}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reset();
-            }}
-          />
+          <input type="search" value={search} maxLength={40} onChange={(e) => setSearch(e.target.value)} />
         </label>
+        <div className="market-filter">
+          <label htmlFor={`${ids}-sort`}>{t.sortLabel}</label>
+          <Select<MarketSort> id={`${ids}-sort`} value={sort} options={MARKET_SORTS.map((x) => ({ value: x, label: t.sorts[x] }))} onChange={setSort} />
+        </div>
+        <button type="button" className={`lip pill small market-filters-toggle${active > 0 ? ' on' : ''}`} aria-expanded={open} aria-controls={`${ids}-panel`} onClick={() => setOpen((o) => !o)}>
+          <Icon name="sliders" />
+          <span>{t.filtersCount(active)}</span>
+        </button>
       </div>
+      {open ? (
+        <div id={`${ids}-panel`} className="lip panel market-panel">
+          <FilterSelect label={copy.finishLabel} value={finish} options={FINISHES.map((f): [string, string] => [f, copy.finishes[f]])} onChange={setFinish} />
+          <FilterSelect label={copy.traitNames['galaxy_type']!} value={type} options={traitOptions('galaxy_type')} onChange={setType} />
+          <FilterSelect label={copy.traitNames['palette']!} value={palette} options={traitOptions('palette')} onChange={setPalette} />
+          <FilterSelect label={copy.traitNames['phenomenon']!} value={phenomenon} options={phenomenonOptions()} onChange={setPhenomenon} />
+          <RangeField label={t.level} value={level} max={10} onChange={setLevel} />
+          <RangeField label={t.priceRange} value={price} max={1_000_000_000} onChange={setPrice} />
+          {active > 0 ? (
+            <button type="button" className="lip pill small" onClick={clear}>
+              {t.clearFilters}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {market.error ? (
         <p className="field-error" role="alert">
           {errorText(market.error, copy.errors)}
         </p>
       ) : null}
-      {!v ? (
+      {!market.data ? (
         <p className="planetarium-wait" role="status" aria-label={copy.loading}>
           ⠋⠙⠹
         </p>
-      ) : v.listings.length === 0 ? (
+      ) : listings.length === 0 ? (
         <div className="lip panel lb-empty">
           <p>{t.empty}</p>
         </div>
       ) : (
-        <ul className="market-grid">
-          {v.listings.map((l) => (
-            <ListingCard
-              key={l.id}
-              l={l}
-              own={l.seller === me?.username}
-              coins={coins}
-              gateId={v.rules.canTrade ? undefined : gateId}
-              canBuy={v.rules.canTrade && v.rules.purchasesLeft > 0}
-              onBuy={() => setBuying(l)}
-            />
-          ))}
-        </ul>
+        <>
+          <p className="market-shown">{t.shown(listings.length, !!market.hasNextPage)}</p>
+          <ul className="market-grid">
+            {listings.map((l) => (
+              <ListingCard
+                key={l.id}
+                l={l}
+                own={l.seller === me?.username}
+                coins={coins}
+                gateId={rules?.canTrade ? undefined : gateId}
+                canBuy={canBuy}
+                onBuy={() => setBuying(l)}
+                onSee={() => setSeeing(l)}
+              />
+            ))}
+          </ul>
+        </>
       )}
-      {v && v.rules.canTrade && v.rules.purchasesLeft === 0 ? <p className="panel-note">{t.noPurchasesLeft}</p> : null}
-      {v && v.pages > 1 ? (
-        <nav className="market-pages" aria-label={t.pageOf(v.page, v.pages)}>
-          <button type="button" className="lip pill small" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            {t.prev}
-          </button>
-          <span>{t.pageOf(v.page, v.pages)}</span>
-          <button type="button" className="lip pill small" disabled={page >= v.pages} onClick={() => setPage((p) => p + 1)}>
-            {t.next}
-          </button>
-        </nav>
+      {rules && rules.canTrade && rules.purchasesLeft === 0 ? <p className="panel-note">{t.noPurchasesLeft}</p> : null}
+      {market.hasNextPage ? (
+        <button type="button" className="lip pill market-more" disabled={market.isFetchingNextPage} aria-busy={market.isFetchingNextPage || undefined} onClick={() => void market.fetchNextPage()}>
+          {market.isFetchingNextPage ? t.moreLoading : t.more}
+        </button>
+      ) : null}
+      {seeing ? (
+        <ListingSheet
+          l={seeing}
+          own={seeing.seller === me?.username}
+          canBuy={canBuy}
+          short={shortOf(seeing)}
+          // The purchase opens over the preview; closing it comes back to the preview.
+          onBuy={() => setBuying(seeing)}
+          onClose={() => setSeeing(null)}
+        />
       ) : null}
       {buying && coins !== undefined ? <BuyDialog l={buying} coins={coins} onClose={() => setBuying(null)} /> : null}
     </>
@@ -144,6 +223,7 @@ export function MarketScreen() {
   const gateId = useId();
   const mine = useMyMarket();
   const trades = useTrades();
+  const wallet = useGacha().data?.wallet;
   return (
     <div className="screen-root market-root">
       <div className="market">
@@ -153,11 +233,14 @@ export function MarketScreen() {
             <span>{t.back}</span>
           </HomeLink>
           <h1>{t.title}</h1>
-          {mine.data ? <p className="market-commission">{t.commission(Math.round(mine.data.rules.commission * 100))}</p> : null}
+          {/* What one has, where the commission used to be (it says it when selling): the owner, 2026-11-14. */}
+          <div className="market-wallet" role="group" aria-label={t.wallet}>
+            <WalletBar wallet={wallet} />
+          </div>
         </header>
         <div className="market-banner" aria-hidden="true" style={postUrl ? { backgroundImage: `url(${postUrl})` } : undefined} />
         <nav className="tabs market-tabs" aria-label={t.tabsLabel}>
-          {(['buy', 'sell', 'mine', 'trades'] as const).map((k) => (
+          {(['buy', 'sell', 'mine', 'trades', 'stats'] as const).map((k) => (
             <Link key={k} to={SLUG[k] ? `/mercado?pestana=${SLUG[k]}` : '/mercado'} aria-current={k === tab ? 'page' : undefined}>
               {LABEL[k]}
             </Link>
@@ -165,6 +248,8 @@ export function MarketScreen() {
         </nav>
         {tab === 'buy' ? (
           <Shop gateId={gateId} />
+        ) : tab === 'stats' ? (
+          <MarketStatsView />
         ) : tab === 'trades' ? (
           trades.data ? (
             <>

@@ -1,4 +1,4 @@
-import { marketIdParamSchema, marketListSchema, marketQuerySchema, type MarketPage, type MyMarket } from '@galaxy/shared';
+import { marketIdParamSchema, marketListSchema, marketQuerySchema, type MarketPage, type MarketStats, type MyMarket } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
@@ -6,7 +6,7 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { withNotices } from '../realtime/notices';
-import { browseMarket, buyListing, cancelListing, listGalaxy, type MarketDeps, marketConfigs, myMarket } from './service';
+import { browseMarket, buyListing, cancelListing, listGalaxy, type MarketDeps, marketConfigs, marketStats, myMarket } from './service';
 
 // The market's routes (GDD §14.6; M5c-1). Listing and buying are idempotent operations (the configs are read before
 // them: inside, a second connection must not be taken).
@@ -15,6 +15,12 @@ export function registerMarketRoutes(api: FastifyInstance, deps: MarketDeps): vo
   api.get('/galaxy/api/market', async (req): Promise<MarketPage> => {
     const s = requireSession(req);
     return browseMarket(deps, s.accountId, marketQuerySchema.parse(req.query));
+  });
+
+  // The market's public numbers (2026-11-14), as its job last counted them.
+  api.get('/galaxy/api/market/stats', async (req): Promise<MarketStats> => {
+    requireSession(req);
+    return marketStats(deps);
   });
 
   api.get('/galaxy/api/market/mine', async (req): Promise<MyMarket> => {

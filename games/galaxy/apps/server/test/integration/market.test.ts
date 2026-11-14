@@ -1,8 +1,10 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { type GalaxyDetail, generateGalaxy, type MarketPage, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
+import { type GalaxyDetail, generateGalaxy, type MarketPage, type MarketStats, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
+import { expireListings } from '../../src/market/jobs';
+import { refreshMarketStats } from '../../src/market/service';
 import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // The market on the server (GDD §14.6, §14.7; M5c-1): who may trade, listing a galaxy at least at its rarity's floor
@@ -335,5 +337,87 @@ describe('avisos en tiempo real', () => {
     await settle();
     expect(ls.notices()).toEqual([]);
     ls.ws.terminate();
+  });
+});
+
+// The market at scale (the owner, 2026-11-14: «profesional para 100.000 anuncios»): a page at a time from a cursor that
+// never repeats nor skips, the filters, each listing following its galaxy's level, the job that marks what expired,
+// and the public numbers.
+describe('a escala', () => {
+  /** A listing straight in the table (today's cap is 3 in this app), its galaxy's values copied by the trigger. */
+  async function put24(seller: P, word: string, n: number, price = (i: number) => 100 + i) {
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const galaxyId = await own(seller.id, i % 2 ? 'rare' : 'common', `${word} ${i}`);
+      const row = await ctx.db
+        .insertInto('galaxy.market_listings')
+        .values({ galaxy_id: galaxyId, seller_id: seller.id, price: price(i), listed_at: new Date(Date.now() - (n - i) * 1000), expires_at: new Date(Date.now() + 7 * DAY) })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      ids.push(row.id);
+    }
+    return ids;
+  }
+
+  test('de página en página con el cursor: sin repetir ni saltar, aunque entren anuncios entre medias', async () => {
+    const s = await player();
+    const word = `Kq${randomBytes(4).toString('hex')}`;
+    const ids = await put24(s, word, 30);
+    const viewer = await player();
+    const first = await browse(viewer, `?sort=cheap&q=${word}`);
+    expect(first.listings).toHaveLength(24);
+    expect(first.next).toEqual(expect.any(String));
+    // A cheaper one listed meanwhile does not move the second page.
+    await put24(s, word, 1, () => 1);
+    const second = await browse(viewer, `?sort=cheap&q=${word}&cursor=${first.next}`);
+    expect(second.next).toBeNull();
+    expect([...first.listings, ...second.listings].map((l) => l.id)).toEqual(ids);
+    // A cursor of another order is refused.
+    expect((await get(ctx.app, `/galaxy/api/market?sort=dear&cursor=${first.next}`, { cookie: viewer.cookie })).statusCode).toBe(400);
+  });
+
+  test('filtros: rareza, nivel, precio y los más raros primero', async () => {
+    const s = await player();
+    const word = `Fq${randomBytes(4).toString('hex')}`;
+    const ids = await put24(s, word, 6, (i) => 1000 * (i + 1));
+    const viewer = await player();
+    expect((await browse(viewer, `?tier=rare&q=${word}`)).listings.map((l) => l.id).sort()).toEqual([ids[1], ids[3], ids[5]].sort());
+    expect((await browse(viewer, `?minPrice=2000&maxPrice=4000&sort=cheap&q=${word}`)).listings.map((l) => l.id)).toEqual([ids[1], ids[2], ids[3]]);
+    const rare = (await browse(viewer, `?sort=rare&q=${word}`)).listings.map((l) => l.galaxy.tier);
+    expect(rare.slice(0, 3)).toEqual(['rare', 'rare', 'rare']);
+    expect((await browse(viewer, `?minLevel=2&q=${word}`)).listings).toEqual([]);
+  });
+
+  test('un anuncio sigue a su galaxia: si sube de nivel, se ordena y se filtra con el nivel nuevo', async () => {
+    const s = await player();
+    const word = `Lq${randomBytes(4).toString('hex')}`;
+    const [a, b] = await put24(s, word, 2);
+    const galaxy = await ctx.db.selectFrom('galaxy.market_listings').select('galaxy_id').where('id', '=', b!).executeTakeFirstOrThrow();
+    await ctx.db.updateTable('galaxy.galaxies').set({ level: 4 }).where('id', '=', galaxy.galaxy_id).execute();
+    const viewer = await player();
+    expect((await browse(viewer, `?sort=level&q=${word}`)).listings.map((l) => l.id)).toEqual([b, a]);
+    expect((await browse(viewer, `?minLevel=3&q=${word}`)).listings.map((l) => l.id)).toEqual([b]);
+  });
+
+  test('la tarea del mercado marca lo caducado y cuenta los números públicos', async () => {
+    const s = await player();
+    const word = `Eq${randomBytes(4).toString('hex')}`;
+    const [gone] = await put24(s, word, 1);
+    await ctx.db.updateTable('galaxy.market_listings').set({ expires_at: new Date(Date.now() - 1000), listed_at: new Date(Date.now() - 2000) }).where('id', '=', gone!).execute();
+    expect(await expireListings(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('id', '=', gone!).executeTakeFirstOrThrow()).status).toBe('expired');
+
+    const seller = await player();
+    const buyer = await player({ coins: 20_000 });
+    const { listingId } = await listed(seller, 'epic', 9999, `${word} Cara`);
+    expect((await buy(buyer, listingId)).statusCode).toBe(200);
+    await refreshMarketStats(ctx.db, new Date());
+    const stats = (await get(ctx.app, '/galaxy/api/market/stats', { cookie: buyer.cookie })).json() as MarketStats;
+    expect(stats.week.sales).toBeGreaterThanOrEqual(1);
+    expect(stats.day.gold).toBeGreaterThanOrEqual(9999);
+    expect(stats.byTier.epic?.sales).toBeGreaterThanOrEqual(1);
+    expect(stats.top?.price).toBeGreaterThanOrEqual(9999);
+    expect(stats.updatedAt).toEqual(expect.any(String));
+    expect((await get(ctx.app, '/galaxy/api/market/stats')).statusCode).toBe(401);
   });
 });

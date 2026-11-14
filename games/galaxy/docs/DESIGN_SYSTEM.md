@@ -727,15 +727,29 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - Muestra la pared de la estación, un ojo de buey con un planeta anillado, el cartel con una moneda y dos mostradores cuyos emisores proyectan cartas de galaxia. Las cartas flotan y giran, y las luces de la viga se persiguen.
 - Es decorativo, y sin animación con movimiento reducido.
 
-**Las pestañas:** Comprar, Vender y Mis anuncios, cada una con su URL (`?pestana=vender|mios`).
+**Las pestañas:** Comprar, Vender, Mis anuncios, Trueques y Estadísticas, cada una con su URL (`?pestana=vender|mios|trueques|estadisticas`). No se parten en dos líneas.
+
+**Arriba, lo que tienes** (petición del propietario, 2026-11-14): polvo, monedas y señales (la barra de recursos de siempre), donde antes decía «El mercado se queda el 7 %». La comisión se dice al vender.
 
 **Quién puede comerciar:** sin nivel 10 o sin 3 días de cuenta, un aviso con candado y borde Solar dice qué falta. Todo se ve, pero los botones de comprar y vender se desactivan y su descripción es ese aviso.
 
 **Comprar:**
-- **Filtros:** rareza, orden (Más recientes, Más baratas, Más caras) y búsqueda por nombre, que espera a que dejes de escribir.
+- **Filtros** (2026-11-14: «profesional para 100.000 anuncios»):
+  - las rarezas como chips con su rombo de color, «Todas» primero;
+  - la búsqueda por nombre o designación, que espera a que dejes de escribir;
+  - el orden: Más recientes, Más baratas, Más caras, Más raras, Acaban antes y Más nivel;
+  - «Filtros (N)», que abre un panel con acabado, tipo, paleta, fenómeno, nivel desde y hasta, precio desde y hasta, y «Quitar filtros».
+- **Cuántas:** «24 galaxias, y hay más», y al final «Cargar más», que sigue desde la última sin mover lo que ya se ve.
+- **Ver de cerca:** pulsar la carta abre la ficha de reliquia (la carta 3D y lo que hace), titulada con su nombre. Lleva el precio, el vendedor y hasta cuándo está a la venta, con «Cerrar» y «Comprar». Comprar abre la confirmación encima; al cerrarla se vuelve a la ficha.
 - **Cada carta:** la galaxia con su nombre, la rareza (Solar si es legendaria), el precio en Solar con moneda y el vendedor enlazado.
 - **El botón «Comprar»** dice en su nombre qué compra. Sin monedas, debajo dice cuántas faltan. En lo tuyo pone «Tuya».
 - **El diálogo** confirma con el precio y el saldo que deja. Después dice «Es tuya», con «Verla en tu colección». Si alguien se adelantó, lo dice y el escaparate se vuelve a leer.
+
+**Estadísticas:**
+- «El mercado en cifras», contado cada 5 minutos.
+- Las últimas 24 horas y los últimos 7 días, en recuadros: ventas, monedas movidas, comisión retirada, en venta ahora y trueques cerrados.
+- Una tabla por rareza (ventas y precio medio de la semana).
+- La venta más cara de la semana, sobre un fondo Solar tenue.
 
 **Vender:**
 - **«Elegir galaxia»** abre el selector de la colección. Las equipadas, expuestas o ya en venta salen marcadas como «No disponible».

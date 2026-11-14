@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-29-mercado-a-lo-grande',
+    version: '1.29',
+    date: '2026-11-14',
+    title: 'Mercado a lo grande',
+    summary: 'El mercado se busca y se filtra como una tienda de verdad, con cifras públicas',
+    items: [
+      { kind: 'nuevo', text: 'Filtros de acabado, tipo, paleta, fenómeno, nivel y precio, y tres órdenes más: más raras, acaban antes y más nivel' },
+      { kind: 'nuevo', text: 'Pulsa una carta para verla de cerca en 3D con sus poderes, y cómprala desde ahí' },
+      { kind: 'nuevo', text: 'Estadísticas: ventas, monedas movidas, trueques y la venta más cara de la semana' },
+      { kind: 'mejora', text: 'Arriba ves lo que tienes. La comisión se dice al vender' },
+      { kind: 'mejora', text: '«Cargar más» sigue desde donde ibas, aunque entren anuncios nuevos mientras miras' },
+    ],
+  },
+  {
     id: 'v1-28-moderacion',
     version: '1.28',
     date: '2026-11-14',

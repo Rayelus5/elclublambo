@@ -57,6 +57,9 @@ export function writeFilters(f: CollectionFilters): URLSearchParams {
   return p;
 }
 
+/** A trait's choices (the engine's own values, with their Spanish names): the collection's and the market's filters. */
+export const traitOptions = (key: 'galaxy_type' | 'palette'): [string, string][] => TRAITS.traits[key].values.map((v): [string, string] => [v.value, names[key]?.[v.value] ?? v.value]);
+
 /** The phenomenon filter's choices: with one, without, then each (the engine's own, with their Spanish names). */
 export function phenomenonOptions(): [string, string][] {
   const each = TRAITS.traits.phenomenon.values.filter((v) => v.value !== 'none').map((v): [string, string] => [v.value, names['phenomenon']?.[v.value] ?? v.value]);
@@ -97,7 +100,7 @@ export function Filters({
 }) {
   const total = counts ? TIERS.reduce((n, t) => n + counts[t], 0) : undefined;
   const set = (patch: Partial<CollectionFilters>) => onChange({ ...filters, ...patch });
-  const options = (key: 'galaxy_type' | 'palette') => TRAITS.traits[key].values.map((v): [string, string] => [v.value, names[key]?.[v.value] ?? v.value]);
+  const options = traitOptions;
   // How many of the panel's filters are on (the rarity has its own chips).
   const active = [filters.type, filters.palette, filters.phenomenon, filters.finish, filters.locked].filter(Boolean).length;
   // Open from the start when the address already brings filters (a shared or reloaded view).

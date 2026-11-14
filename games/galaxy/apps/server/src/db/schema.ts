@@ -544,6 +544,22 @@ export interface MarketListingsTable {
   buyer_id: string | null;
   sold_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   commission: ColumnType<string | null, number | null | undefined, number | null>;
+  /** Copied from the galaxy when it is listed, to search and sort the market at scale (a trigger; 2026-11-14). */
+  tier: ColumnType<number | null, never, never>;
+  finish: ColumnType<string | null, never, never>;
+  galaxy_type: ColumnType<string | null, never, never>;
+  palette: ColumnType<string | null, never, never>;
+  phenomenon: ColumnType<string | null, never, never>;
+  level: ColumnType<number | null, never, never>;
+  score: ColumnType<number | null, never, never>;
+  search: ColumnType<string | null, never, never>;
+}
+
+/** The market's public numbers, one row the market's job rewrites. */
+export interface MarketStatsTable {
+  id: Generated<number>;
+  data: ColumnType<unknown, string, string>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
 /** The IPs an account signed in from, kept after its sessions end (M5c-1 review: the market's shared-IP alerts). */
@@ -967,6 +983,7 @@ export interface DB {
   'galaxy.news_posts': NewsPostsTable;
   'galaxy.media_assets': MediaAssetsTable;
   'galaxy.market_listings': MarketListingsTable;
+  'galaxy.market_stats': MarketStatsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
   'galaxy.trades': TradesTable;

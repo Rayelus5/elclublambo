@@ -620,6 +620,13 @@ Ver §15.
 - **Precio mínimo por rareza**, impuesto por un *trigger*. Valores *de partida*: Común 50 · Poco común 120 · Rara 400 · Épica 1.500 · Legendaria 6.000 monedas.
 - **Comisión de venta** como sumidero: *de partida*, 7 %.
 - Bloqueo contra dobles compras.
+- **A escala** (petición del propietario, 2026-11-14: «profesional para 100.000 anuncios»):
+  - **Búsqueda y filtros:** por nombre o designación (índice de trigramas), rareza, acabado, tipo, paleta, fenómeno, nivel y precio.
+  - **Seis órdenes,** de página en página con un cursor: lo que entra entre medias nunca mueve ni repite lo que se ve, y no se cuenta nada.
+  - **Cada anuncio** guarda una copia de lo que se busca de su galaxia, que sigue a su nivel y su nombre.
+  - **Cada 5 minutos,** una tarea marca lo caducado.
+- **Estadísticas públicas:** ventas, monedas movidas y comisión de 24 h y 7 días, trueques, anuncios en venta, la semana por rareza y la venta más cara.
+- **Ver de cerca:** cada anuncio abre su carta 3D y sus poderes, con «Comprar».
 
 ### 14.7 Antiabuso del comercio y de las partidas [D]
 

@@ -18,6 +18,7 @@ export function ListingCard({
   gateId,
   canBuy,
   onBuy,
+  onSee,
 }: {
   l: MarketListing;
   own: boolean;
@@ -26,12 +27,20 @@ export function ListingCard({
   gateId: string | undefined;
   canBuy: boolean;
   onBuy: () => void;
+  /** Its preview: the 3D card and its powers (the owner, 2026-11-14). */
+  onSee?: () => void;
 }) {
   const missingId = useId();
   const short = coins === undefined ? 0 : Math.max(0, l.price - coins);
   return (
     <li className="lip panel market-card" data-tier={l.galaxy.tier}>
-      <GalaxyCard galaxy={l.galaxy} size={176} />
+      {onSee ? (
+        <button type="button" className="market-card-see" aria-haspopup="dialog" aria-label={t.seeOf(l.galaxy.name)} onClick={onSee}>
+          <GalaxyCard galaxy={l.galaxy} size={176} />
+        </button>
+      ) : (
+        <GalaxyCard galaxy={l.galaxy} size={176} />
+      )}
       <div className="market-card-body">
         <p className="market-tier">{copy.tiers[l.galaxy.tier]}</p>
         <p className="market-price">
