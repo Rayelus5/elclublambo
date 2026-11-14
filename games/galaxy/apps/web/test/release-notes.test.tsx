@@ -1,5 +1,6 @@
 import type { ReleaseNotesView, SettingsView } from '@galaxy/shared';
 import { act, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { MainMenu } from '../src/hub/MainMenu';
@@ -44,6 +45,8 @@ test('con todo visto, el botón no lleva aviso', async () => {
   expect(within(link).queryByText(copy.hub.notesNew)).toBeNull();
 });
 
+// One version at a time (the owner, 2026-11-14: «se ven demasiadas versiones»), the index by categories: the beta's
+// 1.x under «BETA», open since it holds the one shown; the one before and after, a click away.
 test('la página enseña cada versión con su fecha, su resumen y sus cambios por tipo, y da por vista la última', async () => {
   setPrefs({ notesSeen: '1.1' });
   mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(200, view) });
@@ -58,11 +61,39 @@ test('la página enseña cada versión con su fecha, su resumen y sus cambios po
   expect(within(second).queryByRole('heading', { name: t.kinds.mejora })).toBeNull();
   expect(within(second).getByText('Cosa nueva')).toBeInTheDocument();
   expect(within(second).getByText(t.fresh)).toBeInTheDocument();
-  const first = screen.getByRole('article', { name: 'Primera' });
-  expect(within(first).queryByText(t.fresh)).toBeNull();
+  expect(screen.queryByRole('article', { name: 'Primera' })).toBeNull();
   const index = screen.getByRole('navigation', { name: t.index });
+  expect(within(index).getByRole('button', { name: new RegExp(t.beta) })).toHaveAttribute('aria-expanded', 'true');
   expect(within(index).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['/notas-de-version?version=1.2', '/notas-de-version?version=1.1']);
+  expect(within(index).getAllByRole('link')[0]).toHaveAttribute('aria-current', 'page');
   await waitFor(() => expect(getPrefs().notesSeen).toBe('1.2'));
+  // The one before, from the pager.
+  await userEvent.setup().click(screen.getByRole('link', { name: new RegExp(t.older) }));
+  const first = await screen.findByRole('article', { name: 'Primera' });
+  expect(within(first).queryByText(t.fresh)).toBeNull();
+  // The category closes and opens.
+  const beta = within(index).getByRole('button', { name: new RegExp(t.beta) });
+  await userEvent.setup().click(beta);
+  expect(beta).toHaveAttribute('aria-expanded', 'false');
+  expect(within(index).queryAllByRole('link')).toHaveLength(0);
+});
+
+test('desde 2027 el índice va por año y mes, con las versiones v27.NN', async () => {
+  const notes = {
+    notes: [
+      { id: 'v27-02-feb', version: '27.02', date: '2027-02-03', title: 'Febrero', summary: '', items: [{ kind: 'nuevo' as const, text: 'Algo' }] },
+      { id: 'v27-01-ene', version: '27.01', date: '2027-01-02', title: 'Enero', summary: '', items: [{ kind: 'nuevo' as const, text: 'Algo' }] },
+      ...view.notes,
+    ],
+  };
+  mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(200, notes) });
+  renderAt('/notas-de-version', { '/notas-de-version': <NotesScreen /> });
+  const index = await screen.findByRole('navigation', { name: t.index });
+  const shelves = within(index).getAllByRole('button').map((b) => b.textContent);
+  expect(shelves[0]).toContain('2027');
+  expect(shelves.some((x) => x?.includes('Febrero'))).toBe(true);
+  expect(shelves.at(-1)).toContain(t.beta);
+  expect(await screen.findByRole('article', { name: 'Febrero' })).toHaveTextContent('v27.02');
 });
 
 test('un enlace directo a una versión la trae a la vista', async () => {
@@ -100,7 +131,10 @@ test('en un dispositivo nuevo, espera a la cuenta para saber qué es nuevo y no 
     await act(async () => answer({ settings: { v: 1, notesSeen: '1.1' }, updatedAt: null }));
     const second = screen.getByRole('article', { name: 'Segunda' });
     expect(await within(second).findByText(t.fresh)).toBeInTheDocument();
-    expect(within(screen.getByRole('article', { name: 'Primera' })).queryByText(t.fresh)).toBeNull();
+    // In the index, only the 1.2 is marked new.
+    const links = within(screen.getByRole('navigation', { name: t.index })).getAllByRole('link');
+    expect(within(links[0]!).getByText(t.fresh)).toBeInTheDocument();
+    expect(within(links[1]!).queryByText(t.fresh)).toBeNull();
     await waitFor(() => expect(getPrefs().notesSeen).toBe('1.2'));
   } finally {
     stop();
@@ -110,6 +144,7 @@ test('en un dispositivo nuevo, espera a la cuenta para saber qué es nuevo y no 
 test('dos notas con la misma versión no se pisan en la página', async () => {
   mockApi({ 'GET /galaxy/api/notes': () => jsonResponse(200, { notes: [view.notes[0]!, { ...view.notes[0]!, id: 'v1-2-del-panel', title: 'Del panel' }] }) });
   renderAt('/notas-de-version', { '/notas-de-version': <NotesScreen /> });
-  const [a, b] = await screen.findAllByRole('article');
-  expect(a!.id).not.toBe(b!.id);
+  // One shown, both in the index, each its own entry.
+  expect(await screen.findAllByRole('article')).toHaveLength(1);
+  expect(within(screen.getByRole('navigation', { name: t.index })).getAllByRole('link')).toHaveLength(2);
 });
