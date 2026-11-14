@@ -555,6 +555,30 @@ export interface MarketListingsTable {
   search: ColumnType<string | null, never, never>;
 }
 
+/** Coins held (2026-11-14: offers now, trades' gold next): held, spent on a sale, or released back to their owner. */
+export interface CoinHoldsTable {
+  id: Generated<string>;
+  account_id: string;
+  amount: ColumnType<string, number | string, never>;
+  kind: 'offer' | 'trade';
+  status: ColumnType<'held' | 'spent' | 'released', 'held' | undefined, 'spent' | 'released'>;
+  created_at: Timestamp;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** An offer on a market listing, its coins held in `coin_holds`. */
+export interface MarketOffersTable {
+  id: Generated<string>;
+  listing_id: string;
+  buyer_id: string;
+  amount: ColumnType<string, number | string, never>;
+  hold_id: string;
+  status: ColumnType<'open' | 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed' | 'withdrawn', 'open' | undefined, 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed' | 'withdrawn'>;
+  created_at: Timestamp;
+  expires_at: TimestampRequired;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 /** The market's public numbers, one row the market's job rewrites. */
 export interface MarketStatsTable {
   id: Generated<number>;
@@ -984,6 +1008,8 @@ export interface DB {
   'galaxy.media_assets': MediaAssetsTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.market_stats': MarketStatsTable;
+  'galaxy.coin_holds': CoinHoldsTable;
+  'galaxy.market_offers': MarketOffersTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
   'galaxy.trades': TradesTable;

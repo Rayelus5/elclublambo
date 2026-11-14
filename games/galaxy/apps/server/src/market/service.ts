@@ -38,14 +38,15 @@ import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 
 /** `live`: the live hub, for the notices of a sale and of a trade (real-time notices plan); none in the CLI. */
 export type MarketDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date } & WithLive;
-export type MarketConfigs = { market: MarketConfig; account: AccountConfig };
+/** `offersOn`: the `offers` switch of the live features (on unless said). */
+export type MarketConfigs = { market: MarketConfig; account: AccountConfig; offersOn?: boolean };
 
 const PAGE = 24;
 const DAY_MS = 86_400_000;
 
 export async function marketConfigs(deps: MarketDeps): Promise<MarketConfigs> {
-  const [market, account] = await Promise.all([deps.config.get('market'), deps.config.get('account')]);
-  return { market, account };
+  const [market, account, features] = await Promise.all([deps.config.get('market'), deps.config.get('account'), deps.config.get('features')]);
+  return { market, account, offersOn: features.offers };
 }
 
 /** One account's market actions, one at a time: today's caps are counted and used under it (M5c-1 review). */
@@ -58,11 +59,18 @@ export const todayStart = (now: Date) => new Date(nextMadridMidnight(new Date(no
 
 export async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketConfigs, now: Date): Promise<MarketRules> {
   const { market } = cfgs;
-  const [account, xp, listed, bought] = await Promise.all([
+  const offersOn = cfgs.offersOn ?? true;
+  const [account, xp, listed, bought, offers] = await Promise.all([
     db.selectFrom('galaxy.accounts').select('created_at').where('id', '=', accountId).executeTakeFirstOrThrow(),
     accountXp(db, accountId),
     db.selectFrom('galaxy.market_listings').select(sql<number>`count(*)::int`.as('n')).where('seller_id', '=', accountId).where('listed_at', '>=', todayStart(now)).executeTakeFirstOrThrow(),
     db.selectFrom('galaxy.market_listings').select(sql<number>`count(*)::int`.as('n')).where('buyer_id', '=', accountId).where('sold_at', '>=', todayStart(now)).executeTakeFirstOrThrow(),
+    db
+      .selectFrom('galaxy.market_offers')
+      .select([sql<number>`(count(*) filter (where status = 'open'))::int`.as('open'), sql<number>`(count(*) filter (where created_at >= ${todayStart(now)}))::int`.as('today')])
+      .where('buyer_id', '=', accountId)
+      .where((eb) => eb.or([eb('status', '=', 'open'), eb('created_at', '>=', todayStart(now))]))
+      .executeTakeFirstOrThrow(),
   ]);
   const reason = tradeBlock(levelOf(xp, cfgs.account).level, new Date(account.created_at), now, market);
   return {
@@ -77,6 +85,7 @@ export async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketCo
     listingsLeft: Math.max(0, market.perDay.listings - listed.n),
     purchasesLeft: Math.max(0, market.perDay.purchases - bought.n),
     days: market.days,
+    offers: { enabled: offersOn, hours: market.offers.hours, openLeft: Math.max(0, market.offers.open - offers.open), todayLeft: Math.max(0, market.offers.perDay - offers.today) },
   };
 }
 
@@ -88,11 +97,21 @@ export function refuse(rules: MarketRules): void {
 
 const GALAXY = ['g.id', 'g.seed', 'g.tier', 'g.finish', 'g.traits', 'g.name', 'g.designation', 'g.featured', 'g.level', 'g.created_at', 'g.score'] as const;
 
-function listingsQuery(db: Kysely<DB>) {
+function listingsQuery(db: Kysely<DB>, viewer?: string) {
   return db
     .selectFrom('galaxy.market_listings as m')
     .innerJoin('galaxy.galaxies as g', 'g.id', 'm.galaxy_id')
     .innerJoin('galaxy.accounts as s', 's.id', 'm.seller_id')
+    .select((eb) => [
+      eb.selectFrom('galaxy.market_offers as o').select(sql<number>`count(*)::int`.as('n')).whereRef('o.listing_id', '=', 'm.id').where('o.status', '=', 'open').as('open_offers'),
+      eb
+        .selectFrom('galaxy.market_offers as o')
+        .select('o.amount')
+        .whereRef('o.listing_id', '=', 'm.id')
+        .where('o.status', '=', 'open')
+        .where('o.buyer_id', '=', viewer ?? '00000000-0000-0000-0000-000000000000')
+        .as('my_offer'),
+    ])
     .select([...GALAXY, 'm.id as listing_id', 'm.price', 'm.listed_at', 'm.expires_at', 's.username as seller', 'm.tier as l_tier', 'm.score as l_score', 'm.level as l_level']);
 }
 type ListingRow = Awaited<ReturnType<ReturnType<typeof listingsQuery>['execute']>>[number];
@@ -105,6 +124,8 @@ function listingOf(r: ListingRow): MarketListing {
     price: Number(r.price),
     listedAt: new Date(r.listed_at).toISOString(),
     expiresAt: new Date(r.expires_at).toISOString(),
+    offers: Number(r.open_offers ?? 0),
+    myOffer: r.my_offer === null || r.my_offer === undefined ? null : Number(r.my_offer),
   };
 }
 
@@ -145,7 +166,7 @@ const likeLiteral = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 export async function browseMarket(deps: MarketDeps, accountId: string, q: MarketQuery): Promise<MarketPage> {
   const cfgs = await marketConfigs(deps);
   const now = deps.now();
-  let query = listingsQuery(deps.db).where('m.status', '=', 'active').where('m.expires_at', '>', now)
+  let query = listingsQuery(deps.db, accountId).where('m.status', '=', 'active').where('m.expires_at', '>', now)
     // Sellers banned right now are hidden (a banned trader is not paid; M5c-1 review).
     .where((eb) => eb.or([eb('s.banned_until', 'is', null), eb('s.banned_until', '<=', sql<Date>`now()`)]));
   if (q.tier) query = query.where('m.tier', '=', TIERS.indexOf(q.tier));

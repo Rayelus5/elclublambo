@@ -1,9 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { type GalaxyDetail, generateGalaxy, type MarketPage, type MarketStats, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
+import { commissionOf, type GalaxyDetail, generateGalaxy, type MarketOffersView, type MarketPage, type MarketStats, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
 import { expireListings } from '../../src/market/jobs';
+import { expireOffers } from '../../src/market/offers';
 import { refreshMarketStats } from '../../src/market/service';
 import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
@@ -14,7 +16,7 @@ import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle,
 type Ctx = Awaited<ReturnType<typeof testApp>>;
 let ctx: Ctx;
 beforeAll(async () => {
-  ctx = await testApp({ config: fixedConfig({ market: { perDay: { listings: 3, purchases: 10 } } }) });
+  ctx = await testApp({ config: fixedConfig({ market: { perDay: { listings: 3, purchases: 10 }, offers: { perListing: 2 } } }) });
 });
 afterAll(() => ctx.close());
 
@@ -419,5 +421,104 @@ describe('a escala', () => {
     expect(stats.top?.price).toBeGreaterThanOrEqual(9999);
     expect(stats.updatedAt).toEqual(expect.any(String));
     expect((await get(ctx.app, '/galaxy/api/market/stats')).statusCode).toBe(401);
+  });
+});
+
+// Offers on listings (the owner, 2026-11-14: «se reserva» the gold): the coins leave the balance when an offer is made
+// and come back when it ends without a sale; accepting sells at once at its amount; a listing that leaves sale closes
+// its offers and gives their coins back; a full listing takes a new one only above its lowest, which is outbid.
+describe('ofertas', () => {
+  const offerOn = (p: P, listingId: string, amount: number, headers = key()) => post(ctx.app, `/galaxy/api/market/listings/${listingId}/offers`, { amount }, { cookie: p.cookie, headers });
+  const act = (p: P, id: string, action: 'accept' | 'reject' | 'withdraw') => post(ctx.app, `/galaxy/api/market/offers/${id}/${action}`, undefined, { cookie: p.cookie, headers: key() });
+  const offersOf = async (p: P) => (await get(ctx.app, '/galaxy/api/market/offers', { cookie: p.cookie })).json() as MarketOffersView;
+  const held = async (p: P) => Number((await ctx.db.selectFrom('galaxy.coin_holds').select(sql<string>`coalesce(sum(amount), 0)`.as('n')).where('account_id', '=', p.id).where('status', '=', 'held').executeTakeFirstOrThrow()).n);
+
+  test('hacer una oferta reserva las monedas; dentro del mínimo y por debajo del precio; subirla devuelve la anterior', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 3000);
+    const buyer = await player({ coins: 5000 });
+    expect((await offerOn(buyer, listingId, 1000)).json()).toEqual({ error: 'offer_too_low' });
+    expect((await offerOn(buyer, listingId, 3000)).json()).toEqual({ error: 'offer_too_high' });
+    expect((await offerOn(seller, listingId, 2000)).json()).toEqual({ error: 'own_listing' });
+    const first = await offerOn(buyer, listingId, 2000);
+    expect(first.statusCode).toBe(200);
+    expect(await coins(buyer)).toBe(3000);
+    expect(await held(buyer)).toBe(2000);
+    expect((await offerOn(buyer, listingId, 1800)).json()).toEqual({ error: 'offer_not_higher' });
+    expect((await offerOn(buyer, listingId, 2500)).statusCode).toBe(200);
+    expect(await coins(buyer)).toBe(2500);
+    expect(await held(buyer)).toBe(2500);
+    const page = await browse(buyer);
+    const shown = page.listings.find((l) => l.id === listingId);
+    if (shown) expect(shown).toMatchObject({ offers: 1, myOffer: 2500 });
+    const view = await offersOf(buyer);
+    expect(view.held).toBe(2500);
+    expect(view.sent.map((o) => o.status)).toEqual(expect.arrayContaining(['open', 'withdrawn']));
+    expect((await offersOf(seller)).received.find((o) => o.status === 'open')).toMatchObject({ amount: 2500, buyer: buyer.username });
+  });
+
+  test('aceptar vende al momento a ese precio, y las demás ofertas se cierran con sus monedas de vuelta', async () => {
+    const seller = await player();
+    const { listingId, galaxyId } = await listed(seller, 'epic', 4000);
+    const [a, b] = [await player({ coins: 5000 }), await player({ coins: 5000 })];
+    const offerA = (await offerOn(a, listingId, 3000)).json() as { id: string };
+    await offerOn(b, listingId, 2500);
+    const before = await coins(seller);
+    const res = await act(seller, offerA.id, 'accept');
+    expect(res.json()).toMatchObject({ sold: true, net: 3000 - commissionOf(3000, 0.07) });
+    expect(await ownerOf(galaxyId)).toBe(a.id);
+    expect(await coins(seller)).toBe(before + 3000 - commissionOf(3000, 0.07));
+    expect(await coins(a)).toBe(2000);
+    expect(await held(a)).toBe(0);
+    // The other offer closed and its coins are back.
+    expect(await coins(b)).toBe(5000);
+    expect(await held(b)).toBe(0);
+    const row = await ctx.db.selectFrom('galaxy.market_listings').select(['status', 'price', 'buyer_id']).where('id', '=', listingId).executeTakeFirstOrThrow();
+    expect(row).toMatchObject({ status: 'sold', buyer_id: a.id });
+    expect(Number(row.price)).toBe(3000);
+    // Not twice.
+    expect((await act(seller, offerA.id, 'accept')).statusCode).toBe(409);
+  });
+
+  test('rechazar, retirar o quitar el anuncio devuelven las monedas', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 4000);
+    const [a, b, c] = [await player({ coins: 3000 }), await player({ coins: 3000 }), await player({ coins: 3000 })];
+    const oa = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    const ob = (await offerOn(b, listingId, 2100)).json() as { id: string };
+    await offerOn(c, listingId, 2200);
+    expect((await act(seller, oa.id, 'reject')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    expect((await act(a, ob.id, 'withdraw')).statusCode).toBe(404);
+    expect((await act(b, ob.id, 'withdraw')).statusCode).toBe(200);
+    expect(await coins(b)).toBe(3000);
+    expect((await cancel(seller, listingId)).statusCode).toBe(200);
+    expect(await coins(c)).toBe(3000);
+    expect(await held(c)).toBe(0);
+    const ledger = await ctx.db.selectFrom('galaxy.ledger').select(['reason', 'delta']).where('account_id', '=', c.id).orderBy('id').execute();
+    expect(ledger.map((r) => r.reason)).toEqual(expect.arrayContaining(['market_offer_hold', 'market_offer_release']));
+  });
+
+  test('un anuncio lleno de ofertas solo admite una que supere la más baja, que queda superada', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 9000);
+    const buyers = [await player({ coins: 9000 }), await player({ coins: 9000 }), await player({ coins: 9000 })];
+    await offerOn(buyers[0]!, listingId, 2000);
+    await offerOn(buyers[1]!, listingId, 2500);
+    expect((await offerOn(buyers[2]!, listingId, 2000)).json()).toEqual({ error: 'offer_beaten' });
+    expect((await offerOn(buyers[2]!, listingId, 2100)).statusCode).toBe(200);
+    expect(await coins(buyers[0]!)).toBe(9000);
+    expect((await offersOf(buyers[0]!)).sent[0]?.status).toBe('outbid');
+  });
+
+  test('una oferta pasada de tiempo caduca y devuelve sus monedas', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 4000);
+    const a = await player({ coins: 3000 });
+    const o = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    await ctx.db.updateTable('galaxy.market_offers').set({ expires_at: new Date(Date.now() - 1000) }).where('id', '=', o.id).execute();
+    expect(await expireOffers(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect(await coins(a)).toBe(3000);
+    expect((await offersOf(a)).sent[0]?.status).toBe('expired');
   });
 });

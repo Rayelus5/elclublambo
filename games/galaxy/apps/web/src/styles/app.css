@@ -2101,13 +2101,34 @@
   .market-range input:focus-visible { outline: none; border-color: var(--color-ice); }
   .market-shown { margin: 0; font-size: 13.5px; color: var(--color-ink-mute); }
   .market-tabs a { white-space: nowrap; }
+  /* Offers (the owner, 2026-11-14): the coins held beside the wallet, the count on a card, the tab's two lists. */
+  .market-held { display: inline-flex; align-items: center; gap: 6px; min-block-size: 36px; padding: 0 12px; border-radius: 99px; background: color-mix(in srgb, var(--color-solar) 12%, var(--color-panel-2)); color: var(--color-solar); font-weight: 700; font-size: 14px; text-decoration: none; }
+  .market-held:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .market-my-offer, .market-offers-count { margin: 0; font-size: 13px; font-weight: 700; }
+  .market-my-offer { color: var(--color-solar); }
+  .market-offers-count { color: var(--color-ink-mute); }
+  .listing-sheet-mine { flex: 1 1 100%; margin: 0; font-weight: 700; color: var(--color-solar); }
+  .market-offer-form { display: grid; gap: 8px; align-content: start; }
+  .market-offer-form .field { margin: 0; }
+  .market-offers { display: grid; gap: 18px; }
+  .market-offers h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font: 400 20px var(--font-display); }
+  .market-offer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-inline-size: 920px; }
+  .market-offer-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 16px; background: var(--color-panel); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05); }
+  .market-offer-row:not(.status-open) { opacity: .75; }
+  .market-offer-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-inline-size: 0; }
+  .market-offer-main > b { flex: 1 1 100%; font-size: 15.5px; }
+  .market-offer-main .market-price { margin: 0; }
+  .market-offer-main .admin-chip { margin: 0; }
+  .market-offer-main .panel-note { margin: 0; }
+  .market-offer-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; }
+  @media (max-width: 700px) { .market-offer-row { grid-template-columns: auto minmax(0, 1fr); } .market-offer-actions { grid-column: 1 / -1; justify-content: start; } }
   .market-more { justify-self: center; }
   .market-card-see { display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 16px; }
   .market-card-see:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 4px; }
   .market-wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-inline-start: auto; }
   /* The preview's deal: price, seller and until when, over its powers. */
   .listing-sheet-deal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; margin: 4px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--color-panel-2); }
-  .listing-sheet-deal > div { display: grid; gap: 2px; }
+  .listing-sheet-deal > dl { display: grid; gap: 2px; margin: 0; }
   .listing-sheet-deal dt { font-size: 12.5px; color: var(--color-ink-mute); }
   .listing-sheet-deal dd { margin: 0; font-weight: 700; }
   .listing-sheet-ends { flex: 1 1 100%; margin: 0; font-size: 13px; color: var(--color-ink-mute); }

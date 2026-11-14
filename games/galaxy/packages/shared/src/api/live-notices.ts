@@ -23,4 +23,11 @@ export type LiveNotice =
   /** My clan: a request to join it (to its leader and officers), or what was done to me (`who`: by whom; null when automatic). */
   | { kind: 'clan'; event: ClanNoticeEvent; clan: { tag: string; name: string }; who: NoticePlayer | null }
   /** An achievement unlocked, waiting to be collected. */
-  | { kind: 'achievement'; id: string; name: string; tier: 'bronze' | 'silver' | 'gold' };
+  | { kind: 'achievement'; id: string; name: string; tier: 'bronze' | 'silver' | 'gold' }
+  /**
+   * An offer (the owner, 2026-11-14): one on my listing (`received`), or what happened to mine (accepted: the galaxy is
+   * mine; rejected, outbid, expired or closed: my coins are back).
+   */
+  | { kind: 'offer'; event: OfferNoticeEvent; offer: string; galaxy: { id: string; name: string; tier: Tier }; amount: number; from: NoticePlayer | null };
+
+export type OfferNoticeEvent = 'received' | 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed';

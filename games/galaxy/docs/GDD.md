@@ -627,6 +627,16 @@ Ver §15.
   - **Cada 5 minutos,** una tarea marca lo caducado.
 - **Estadísticas públicas:** ventas, monedas movidas y comisión de 24 h y 7 días, trueques, anuncios en venta, la semana por rareza y la venta más cara.
 - **Ver de cerca:** cada anuncio abre su carta 3D y sus poderes, con «Comprar».
+- **Ofertas** (petición del propietario, 2026-11-14: «se reserva» el oro):
+  - **Cuánto:** desde el mínimo de su rareza hasta una moneda menos que el precio (a ese precio, se compra).
+  - **Monedas reservadas:** salen del saldo al ofertar (tabla `coin_holds`, con su apunte en el libro) y vuelven al cerrarse sin venta.
+  - **Duración:** 48 h, nunca más que el anuncio.
+  - **Límites por comprador:** 10 abiertas y 30 al día, y una por anuncio, que se puede subir (la anterior se retira y vuelve).
+  - **Límite por anuncio:** 20. Lleno, una nueva tiene que superar a la más baja, que queda «Superada».
+  - **Aceptar:** vende al momento a esa cantidad, con la comisión de siempre, y cuenta como venta.
+  - **Al vender, retirar, caducar o cancelar desde admin:** un *trigger* cierra las demás ofertas, y las monedas vuelven.
+  - **Aviso en directo** al vendedor y al comprador.
+  - Todo se ajusta en `market.offers`, y el interruptor `offers` las apaga.
 
 ### 14.7 Antiabuso del comercio y de las partidas [D]
 

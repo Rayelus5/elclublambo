@@ -44,6 +44,7 @@ function toneOf(toast: LiveToast): NoticeTone {
   const x = toast.notice;
   if (x.kind === 'trade') return x.event === 'cancelled' ? 'alert' : 'trade';
   if (x.kind === 'clan') return x.event === 'kicked' || x.event === 'rejected' ? 'alert' : 'clan';
+  if (x.kind === 'offer') return x.event === 'accepted' ? 'sale' : x.event === 'received' ? 'trade' : 'alert';
   return x.kind;
 }
 
@@ -165,6 +166,20 @@ function NoticeToast({ toast, notice }: { toast: LiveToast; notice: LiveNotice }
     }
     case 'achievement':
       return <Shell toast={toast} face={<IconFace name="trophy" />} title={n.achievement} detail={notice.name} actions={see('/misiones?pestana=logros', n.collect)} />;
+    case 'offer': {
+      const o = n.offer;
+      const title = notice.event === 'received' ? o.received(notice.from?.username ?? '', notice.amount, notice.galaxy.name) : o[notice.event](notice.galaxy.name);
+      const detail = notice.event === 'received' || notice.event === 'accepted' ? undefined : o.back(notice.amount);
+      return (
+        <Shell
+          toast={toast}
+          face={notice.from ? <PlayerFace p={notice.from} /> : <IconFace name="coin" />}
+          title={title}
+          detail={detail}
+          actions={notice.event === 'accepted' ? see(`/coleccion/${notice.galaxy.id}`) : see('/mercado?pestana=ofertas')}
+        />
+      );
+    }
   }
 }
 

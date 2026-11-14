@@ -1,5 +1,6 @@
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
+import { expireOffers } from './offers';
 import { refreshMarketStats } from './service';
 
 // The market's job (the owner, 2026-11-14: a market «para 100.000 anuncios»): every few minutes it marks the listings
@@ -33,6 +34,13 @@ export function startMarketJobs(db: Kysely<DB>, log: { info: (o: object, m: stri
         expired += n;
       }
       if (expired > 0) log.info({ expired }, 'market listings expired');
+      // Offers past their time give their coins back (2026-11-14).
+      let offers = 0;
+      for (let n = BATCH; n === BATCH; ) {
+        n = await expireOffers(db);
+        offers += n;
+      }
+      if (offers > 0) log.info({ offers }, 'market offers expired');
       await refreshMarketStats(db, new Date());
     } catch (err) {
       log.error({ err }, 'market job failed');

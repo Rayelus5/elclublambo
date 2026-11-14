@@ -13,6 +13,9 @@ export interface MarketListing {
   /** ISO. */
   listedAt: string;
   expiresAt: string;
+  /** Open offers on it (2026-11-14), and the viewer's own (its amount), if any. */
+  offers?: number;
+  myOffer?: number | null;
 }
 
 /** Who may trade and what the market asks, for the viewer. */
@@ -32,6 +35,8 @@ export interface MarketRules {
   purchasesLeft: number;
   /** Days a listing stays up. */
   days: number;
+  /** Offers (2026-11-14): how long one lasts, and what is left of the viewer's open ones and today's. */
+  offers: { enabled: boolean; hours: number; openLeft: number; todayLeft: number };
 }
 
 /**
@@ -113,3 +118,29 @@ export const marketListSchema = z.object({ galaxyId: z.string().uuid(), price: z
 export type MarketListRequest = z.infer<typeof marketListSchema>;
 
 export const marketIdParamSchema = z.object({ id: z.string().uuid() }).strict();
+
+/** What an offer can be now, and after. */
+export const OFFER_STATUSES = ['open', 'accepted', 'rejected', 'outbid', 'expired', 'closed', 'withdrawn'] as const;
+export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+/** An offer on a listing (the owner, 2026-11-14): its coins are held from the buyer until it ends. */
+export interface MarketOffer {
+  id: string;
+  listing: { id: string; galaxy: GalaxySummary; price: number; seller: string; active: boolean };
+  buyer: string;
+  amount: number;
+  status: OfferStatus;
+  createdAt: string;
+  expiresAt: string;
+  closedAt: string | null;
+}
+
+/** GET /market/offers: the ones on my listings and mine, the open first, then the latest. */
+export interface MarketOffersView {
+  received: MarketOffer[];
+  sent: MarketOffer[];
+  /** My coins held in open offers. */
+  held: number;
+}
+
+export const marketOfferSchema = z.object({ amount: z.number().int().min(1).max(1_000_000_000) }).strict();

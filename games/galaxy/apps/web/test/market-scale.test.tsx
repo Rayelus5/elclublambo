@@ -17,7 +17,7 @@ const t = copy.market;
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
 const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 4321, dust: 87, signal: 2 } };
 const galaxy = (id: string, over: Partial<GalaxySummary> = {}): GalaxySummary => ({ id, seed: '12345', tier: 'rare', finish: 'normal', traits: {}, name: `Vega ${id}`, designation: `GX-${id.toUpperCase()}`, featured: false, level: 1, createdAt: '2026-11-01T10:00:00.000Z', ...over });
-const rules: MarketRules = { commission: 0.07, minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 }, mythicListing: false, maxPrice: 10_000_000, canTrade: true, reason: null, minLevel: 10, minAccountDays: 3, listingsLeft: 10, purchasesLeft: 10, days: 7 };
+const rules: MarketRules = { commission: 0.07, minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 }, mythicListing: false, maxPrice: 10_000_000, canTrade: true, reason: null, minLevel: 10, minAccountDays: 3, listingsLeft: 10, purchasesLeft: 10, days: 7, offers: { enabled: true, hours: 48, openLeft: 10, todayLeft: 30 } };
 const listing = (id: string, price: number, seller = 'lyra'): MarketListing => ({ id, galaxy: galaxy(`g${id}`), seller, price, listedAt: '2026-11-14T10:00:00.000Z', expiresAt: '2026-11-21T10:00:00.000Z' });
 const page = (listings: MarketListing[], next: string | null = null): MarketPage => ({ listings, next, rules });
 const mine: MyMarket = { active: [], sold: [], rules };

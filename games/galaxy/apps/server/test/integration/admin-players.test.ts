@@ -207,17 +207,24 @@ describe('la cuenta', () => {
     }
   });
 
-  test('banear cierra sesiones y cancela anuncios y trueques; desbanear lo levanta', async () => {
+  test('banear cierra sesiones y cancela anuncios, ofertas y trueques; desbanear lo levanta', async () => {
     const s = await player({ trader: true });
     const other = await player({ trader: true });
-    const [g1, g2] = [await own(s.id), await own(s.id)];
+    const [g1, g2, g3] = [await own(s.id), await own(s.id), await own(other.id)];
     await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g1, price: 50 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } });
     await post(ctx.app, '/galaxy/api/trades', { username: other.username, give: g2 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } });
+    // An offer of theirs on someone else's listing: its coins come back with the ban.
+    await credit(ctx.db, s.id, 'coins', 500, 'test');
+    const listing = (await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g3, price: 400 }, { cookie: other.cookie, headers: { 'idempotency-key': randomUUID() } })).json() as { id: string };
+    expect((await post(ctx.app, `/galaxy/api/market/listings/${listing.id}/offers`, { amount: 200 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    expect((await getWallet(ctx.db, s.id)).coins).toBe(300);
     expect((await act(`/players/${s.username}/ban`, { minutes: null, reason: 'Trampas' })).statusCode).toBe(400);
     expect((await act(`/players/${s.username}/ban`, { minutes: null, reason: 'Trampas', password: admin.password })).statusCode).toBe(200);
     expect((await get(ctx.app, '/galaxy/api/auth/me', { cookie: s.cookie })).statusCode).toBe(401);
     expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', g1).executeTakeFirstOrThrow()).status).toBe('cancelled');
     expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect((await ctx.db.selectFrom('galaxy.market_offers').select('status').where('listing_id', '=', listing.id).executeTakeFirstOrThrow()).status).toBe('closed');
+    expect((await getWallet(ctx.db, s.id)).coins).toBe(500);
     expect((await view(s.username)).banned).toMatchObject({ permanent: true });
     expect((await act(`/players/${s.username}/unban`, { reason: 'Recurso aceptado' })).statusCode).toBe(200);
     expect((await view(s.username)).banned).toBeNull();
