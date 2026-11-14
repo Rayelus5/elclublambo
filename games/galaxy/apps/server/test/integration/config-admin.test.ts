@@ -209,12 +209,12 @@ describe('los interruptores', () => {
     expect((await publish('features', { data: { market: false, trades: false, chat: false }, reason: 'Mantenimiento', password: admin.password })).statusCode).toBe(201);
     expect((await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: randomUUID(), price: 50 }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).toEqual({ error: 'market_disabled' });
     expect((await get(ctx.app, '/galaxy/api/market', { cookie })).statusCode).toBe(200);
-    expect((await post(ctx.app, '/galaxy/api/trades', { username: 'alguien', give: randomUUID() }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).toEqual({ error: 'trades_disabled' });
+    expect((await post(ctx.app, '/galaxy/api/trades', { username: 'alguien', give: { galaxies: [randomUUID()], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).toEqual({ error: 'trades_disabled' });
     expect((await post(ctx.app, '/galaxy/api/chat/global/messages', { body: 'hola' }, { cookie })).json()).toEqual({ error: 'chat_disabled' });
     expect((await get(ctx.app, '/galaxy/api/chat/global', { cookie })).statusCode).toBe(200);
     expect((await publish('features', { data: { market: true, trades: true, chat: true }, reason: 'Vuelve', password: admin.password })).statusCode).toBe(201);
     expect((await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: randomUUID(), price: 50 }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).not.toEqual({ error: 'market_disabled' });
-    expect((await post(ctx.app, '/galaxy/api/trades', { username: 'alguien', give: randomUUID() }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).not.toEqual({ error: 'trades_disabled' });
+    expect((await post(ctx.app, '/galaxy/api/trades', { username: 'alguien', give: { galaxies: [randomUUID()], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).not.toEqual({ error: 'trades_disabled' });
     expect((await post(ctx.app, '/galaxy/api/chat/global/messages', { body: 'hola' }, { cookie })).json()).toEqual({ error: 'chat_level' });
   });
 });

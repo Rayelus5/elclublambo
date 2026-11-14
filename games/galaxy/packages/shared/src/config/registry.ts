@@ -7,6 +7,7 @@ import { SEASON_FINISHES, TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
+import { TRADE_GALAXIES_MAX } from '../api/trade';
 import { redshiftSchema } from '../progress/redshift';
 import { shopSchema } from '../shop/schema';
 import { cosmeticsConfigSchema } from '../cosmetics/catalog';
@@ -534,6 +535,8 @@ export const configSchemas = {
       tradeDays: z.number().int().min(1).max(30).default(3),
       openTrades: z.number().int().min(1).max(50).default(5),
       tradeAlertTierGap: z.number().int().min(1).max(4).default(3),
+      /** How many galaxies a side of a swap gives at most (trades 2.0, the owner, 2026-11-14: «hasta 3 por lado»). */
+      tradeGalaxies: z.number().int().min(1).max(TRADE_GALAXIES_MAX).default(3),
     })
     .strict()
     .refine((m) => m.maxPrice >= Math.max(m.minPrice.legendary, m.minPrice.mythic ?? 0), 'maxPrice is at least the legendary and mythic floors'),

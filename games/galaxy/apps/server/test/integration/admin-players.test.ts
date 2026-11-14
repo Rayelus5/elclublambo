@@ -135,10 +135,10 @@ describe('cambiar', () => {
     const other = await player({ trader: true });
     const [listed, offered] = [await own(s.id), await own(s.id)];
     expect((await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: listed, price: 50 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
-    expect((await post(ctx.app, '/galaxy/api/trades', { username: other.username, give: offered }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    expect((await post(ctx.app, '/galaxy/api/trades', { username: other.username, give: { galaxies: [offered], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     for (const g of [listed, offered]) expect((await act(`/players/${s.username}/galaxies/${g}/revoke`, { reason: 'Revisión', password: admin.password })).statusCode).toBe(200);
     expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', listed).executeTakeFirstOrThrow()).status).toBe('cancelled');
-    expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', offered).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect((await ctx.db.selectFrom('galaxy.trades as t').innerJoin('galaxy.trade_items as i', 'i.trade_id', 't.id').select('t.status').where('i.galaxy_id', '=', offered).executeTakeFirstOrThrow()).status).toBe('cancelled');
   });
 
   test('experiencia y nombre, con contraseña; un nombre ocupado no', async () => {
@@ -212,7 +212,7 @@ describe('la cuenta', () => {
     const other = await player({ trader: true });
     const [g1, g2, g3] = [await own(s.id), await own(s.id), await own(other.id)];
     await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g1, price: 50 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } });
-    await post(ctx.app, '/galaxy/api/trades', { username: other.username, give: g2 }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } });
+    await post(ctx.app, '/galaxy/api/trades', { username: other.username, give: { galaxies: [g2], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie: s.cookie, headers: { 'idempotency-key': randomUUID() } });
     // An offer of theirs on someone else's listing: its coins come back with the ban.
     await credit(ctx.db, s.id, 'coins', 500, 'test');
     const listing = (await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g3, price: 400 }, { cookie: other.cookie, headers: { 'idempotency-key': randomUUID() } })).json() as { id: string };
@@ -222,7 +222,7 @@ describe('la cuenta', () => {
     expect((await act(`/players/${s.username}/ban`, { minutes: null, reason: 'Trampas', password: admin.password })).statusCode).toBe(200);
     expect((await get(ctx.app, '/galaxy/api/auth/me', { cookie: s.cookie })).statusCode).toBe(401);
     expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', g1).executeTakeFirstOrThrow()).status).toBe('cancelled');
-    expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect((await ctx.db.selectFrom('galaxy.trades as t').innerJoin('galaxy.trade_items as i', 'i.trade_id', 't.id').select('t.status').where('i.galaxy_id', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
     expect((await ctx.db.selectFrom('galaxy.market_offers').select('status').where('listing_id', '=', listing.id).executeTakeFirstOrThrow()).status).toBe('closed');
     expect((await getWallet(ctx.db, s.id)).coins).toBe(500);
     expect((await view(s.username)).banned).toMatchObject({ permanent: true });
@@ -338,7 +338,7 @@ describe('eliminar', () => {
     await ctx.db.insertInto('galaxy.clan_members').values({ clan_id: clan.id, account_id: heir.id, role: 'member' }).execute();
     const [g1, g2] = [await own(p.id), await own(p.id)];
     await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g1, price: 50 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
-    await post(ctx.app, '/galaxy/api/trades', { username: friend.username, give: g2 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    await post(ctx.app, '/galaxy/api/trades', { username: friend.username, give: { galaxies: [g2], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
     const [lo, hi] = p.id < friend.id ? [p.id, friend.id] : [friend.id, p.id];
     await ctx.db.insertInto('galaxy.friendships').values({ a: lo, b: hi, status: 'accepted', requested_by: p.id, accepted_at: new Date() }).execute();
     await ctx.db.insertInto('galaxy.chat_messages').values({ author_id: p.id, channel: 'global', body: 'hola a todos' }).execute();
@@ -370,7 +370,7 @@ describe('eliminar', () => {
     expect(await ctx.db.selectFrom('galaxy.friendships').select('a').where((eb) => eb.or([eb('a', '=', p.id), eb('b', '=', p.id)])).execute()).toEqual([]);
     expect((await ctx.db.selectFrom('galaxy.clan_members').select('role').where('account_id', '=', heir.id).executeTakeFirstOrThrow()).role).toBe('leader');
     expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('galaxy_id', '=', g1).executeTakeFirstOrThrow()).status).toBe('cancelled');
-    expect((await ctx.db.selectFrom('galaxy.trades').select('status').where('a_galaxy', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
+    expect((await ctx.db.selectFrom('galaxy.trades as t').innerJoin('galaxy.trade_items as i', 'i.trade_id', 't.id').select('t.status').where('i.galaxy_id', '=', g2).executeTakeFirstOrThrow()).status).toBe('cancelled');
     expect(await count('galaxy.ledger', p.id)).toBe(ledger);
     expect(await ctx.db.selectFrom('galaxy.settings').select('account_id').where('account_id', '=', p.id).executeTakeFirst()).toBeUndefined();
 
