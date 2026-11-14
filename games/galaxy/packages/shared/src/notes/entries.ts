@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-25-notas-por-categorias',
+    version: '1.25',
+    date: '2026-11-14',
+    title: 'Notas por categorías',
+    summary: 'Las notas de versión se leen de una en una y se ordenan en categorías',
+    items: [
+      { kind: 'mejora', text: 'Las notas de versión se agrupan: las de la beta en BETA y, desde 2027, por año y mes, con versiones como v27.01' },
+      { kind: 'mejora', text: 'Ves una versión cada vez, con botones para ir a la anterior y a la siguiente' },
+      { kind: 'mejora', text: 'Cada categoría se abre y se cierra, y un punto avisa de las que traen versiones nuevas' },
+    ],
+  },
+  {
     id: 'v1-24-coleccion-ordenada',
     version: '1.24',
     date: '2026-11-14',

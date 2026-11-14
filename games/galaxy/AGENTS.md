@@ -113,7 +113,7 @@ pnpm viene de corepack y se usa Node 22. Desde la raíz del repo, con `-C games/
 
 **Proceso:**
 - TDD: primero el test que falla, después el código.
-- **Notas de versión:** todo PR con algo que nota el jugador añade su nota en `packages/shared/src/notes/entries.ts`. Si la de arriba ya está en `develop` (desplegada), crea la versión siguiente (`1.5` → `1.6`) con su id fijo; si es de tu misma rama, amplíala. Así nadie se pierde un cambio añadido a una versión que ya vio. Se escriben para el jugador: de tú, cortas, sin punto final y sin nada del panel de admin. El propietario puede corregirlas u ocultarlas desde Administración, en Notas de versión.
+- **Notas de versión:** todo PR con algo que nota el jugador añade su nota en `packages/shared/src/notes/entries.ts`. Si la de arriba ya está en `develop` (desplegada), crea la versión siguiente (`1.5` → `1.6`) con su id fijo. **Numeración:** las de la beta abierta son `1.x` hasta el 31/12/2026. Desde el 1/1/2027 (temporada 3), la versión es el año con dos cifras y su número de cambio en el año, también con dos cifras: `27.01`, `27.02`… El número sigue todo el año, nunca vuelve a 01 en un mes nuevo. Se muestra «v27.01» y la página la agrupa por año y mes (`nextNoteVersion` y `noteShelf` en `notes/schema.ts`); si es de tu misma rama, amplíala. Así nadie se pierde un cambio añadido a una versión que ya vio. Se escriben para el jugador: de tú, cortas, sin punto final y sin nada del panel de admin. El propietario puede corregirlas u ocultarlas desde Administración, en Notas de versión.
 - Antes de diseñar interfaz, la skill ui-ux-pro-max. Nada de estilo genérico de IA.
 - Ver `../../INSTRUCCIONES_PROYECTO.md`.
 

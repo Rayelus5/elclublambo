@@ -1,9 +1,9 @@
-import { type AdminReleaseNote, compareVersions, NOTE_KINDS, type NoteKind, type ReleaseNote } from '@galaxy/shared';
+import { type AdminReleaseNote, compareVersions, NOTE_KINDS, type NoteKind, nextNoteVersion, type ReleaseNote } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { type NoteAction, useAdminNotes, useNoteChange } from '../api/notes';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
-import { NoteArticle, newestVersion } from '../notes/NotesScreen';
+import { NoteArticle } from '../notes/NotesScreen';
 import { DateField } from '../ui/DateField';
 import { Dialog } from '../ui/Dialog';
 import { HScroll } from '../ui/HScroll';
@@ -28,11 +28,8 @@ const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-const nextVersion = (v: string | null) => {
-  if (!v) return '1.0';
-  const [major = 1, minor = 0] = v.split('.').map(Number);
-  return `${major}.${minor + 1}`;
-};
+// The next version (the owner, 2026-11-14): the beta's 1.x until the end of 2026, then the year's own (27.01…).
+const nextVersion = (versions: readonly string[], date: string) => nextNoteVersion(versions, date);
 /** A new note's id: its version and title, as a slug (`v1-6-la-nota`). */
 export function noteId(version: string, title: string): string {
   const slug = title
@@ -167,7 +164,7 @@ export function NotesAdmin() {
       <h1>{t.title}</h1>
       <p className="panel-note">{t.intro}</p>
       <div className="notes-admin-tools">
-        <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setEditing({ id: null, version: nextVersion(newestVersion(list)), date: today(), title: '', summary: '', items: [item('nuevo', '')] })}>
+        <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setEditing({ id: null, version: nextVersion(list.map((n) => n.version), today()), date: today(), title: '', summary: '', items: [item('nuevo', '')] })}>
           <Icon name="plus" />
           <span>{t.create}</span>
         </button>

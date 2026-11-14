@@ -2918,7 +2918,22 @@
   .notes-index-link b { font-weight: 700; white-space: nowrap; }
   .notes-index-link > span:not(.notes-dot) { color: var(--color-ink-mute); font-size: 13.5px; white-space: nowrap; }
   .notes-index-link:hover { background: var(--color-panel-2); }
-  .notes-index-link[aria-current='true'] { box-shadow: inset 0 0 0 2px var(--color-ice); }
+  .notes-index-link[aria-current='true'], .notes-index-link[aria-current='page'] { box-shadow: inset 0 0 0 2px var(--color-ice); background: var(--color-panel-2); }
+  /* The index by categories (the owner, 2026-11-14): «BETA», then each year and its months, each opening and closing. */
+  .notes-tree, .notes-months { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .notes-months { padding-inline-start: 10px; margin-block-start: 6px; border-inline-start: 2px solid rgb(255 255 255 / .06); }
+  .notes-versions { margin-block-start: 6px !important; }
+  .notes-shelf { display: flex; align-items: center; gap: 8px; inline-size: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: rgb(0 0 0 / .28); color: var(--color-ink); font-family: inherit; text-align: start; cursor: pointer; }
+  .notes-shelf b { font: 400 16px var(--font-display); letter-spacing: .04em; }
+  .notes-shelf.month b { font: 700 14.5px var(--font-sans); letter-spacing: 0; }
+  .notes-shelf small { color: var(--color-ink-mute); font-size: 12.5px; white-space: nowrap; }
+  .notes-shelf .ico { flex: none; color: var(--color-ink-mute); }
+  .notes-shelf:hover { background: rgb(0 0 0 / .4); }
+  .notes-shelf:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .notes-shelf .notes-dot { margin-inline-start: auto; }
+  .notes-pager { display: flex; justify-content: space-between; gap: 12px; }
+  .notes-pager .pill { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .notes-pager .pill small { color: var(--color-ink-mute); font-weight: 700; }
   .notes-index-link:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
   .notes-dot { flex: none; align-self: center; margin-inline-start: auto; inline-size: 9px; block-size: 9px; border-radius: 50%; background: var(--color-solar); box-shadow: 0 0 10px color-mix(in oklab, var(--color-solar) 60%, transparent); }
   .notes-list { display: grid; gap: 16px; min-inline-size: 0; }

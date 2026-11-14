@@ -56,8 +56,11 @@ for (const [w, h] of [
     setPrefs({ notesSeen: '1.3' });
     mount('/notas-de-version', createElement(NotesScreen), withNotes());
     await wait(700);
+    // One version at a time, and its category (BETA) open in the index with every 1.x (the owner, 2026-11-14).
     const entries = document.querySelectorAll<HTMLElement>('.notes-entry');
-    expect(entries).toHaveLength(RELEASE_NOTES.length);
+    expect(entries).toHaveLength(1);
+    expect(document.querySelector('.notes-shelf')!.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelectorAll('.notes-versions a')).toHaveLength(RELEASE_NOTES.length);
     for (const e of entries) {
       const box = e.getBoundingClientRect();
       expect(box.left).toBeGreaterThanOrEqual(0);

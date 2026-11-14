@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { compareVersions, RELEASE_NOTES, releaseNoteSchema } from '../src';
+import { compareVersions, nextNoteVersion, noteShelf, RELEASE_NOTES, releaseNoteSchema, versionLabel } from '../src';
 
 // «Notas de versión» (plan «notas de versión»): what changed in the game, version by version, from the open beta on.
 // The notes written in the code must be valid, in order (the newest first) and never repeat an id or a version.
@@ -29,6 +29,29 @@ describe('las notas de versión del código', () => {
       expect(note.summary, note.id).not.toMatch(/\.$/);
       for (const item of note.items) expect(item.text, note.id).not.toMatch(/\.$/);
     }
+  });
+});
+
+// The owner (2026-11-14): the beta's notes under «BETA»; from 2027, year › month › vYY.NN, numbered through the year.
+describe('las categorías y la numeración', () => {
+  test('las 1.x son de la BETA; desde 2027 van por su año y su mes', () => {
+    expect(noteShelf({ version: '1.22', date: '2026-11-13' })).toEqual({ kind: 'beta' });
+    expect(noteShelf({ version: '1.40', date: '2026-12-30' })).toEqual({ kind: 'beta' });
+    expect(noteShelf({ version: '27.01', date: '2027-01-02' })).toEqual({ kind: 'month', year: 2027, month: 1 });
+    expect(noteShelf({ version: '27.09', date: '2027-02-14' })).toEqual({ kind: 'month', year: 2027, month: 2 });
+    for (const note of RELEASE_NOTES) if (note.date < '2027-01-01') expect(noteShelf(note), note.id).toEqual({ kind: 'beta' });
+  });
+
+  test('la siguiente versión: la beta sigue con 1.x hasta 2026; en 2027 empieza en 27.01 y sigue todo el año', () => {
+    expect(nextNoteVersion([], '2026-11-10')).toBe('1.0');
+    expect(nextNoteVersion(['1.22', '1.9'], '2026-12-31')).toBe('1.23');
+    expect(nextNoteVersion(['1.22'], '2027-01-01')).toBe('27.01');
+    expect(nextNoteVersion(['1.22', '27.01', '27.07'], '2027-02-03')).toBe('27.08');
+    expect(nextNoteVersion(['27.12'], '2028-01-05')).toBe('28.01');
+    expect(versionLabel('27.01')).toBe('v27.01');
+    // The new ones still come after the beta's, as numbers.
+    expect(compareVersions('27.01', '1.40')).toBeGreaterThan(0);
+    expect(compareVersions('27.10', '27.09')).toBeGreaterThan(0);
   });
 });
 

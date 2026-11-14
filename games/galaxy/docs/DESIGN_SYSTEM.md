@@ -1189,6 +1189,15 @@ Plan «escáner pro», parte E.
 - Un acabado especial la recorre (holo, prismático, braille, corrupto o fisura). Una copia más suave tiñe toda la página detrás de los paneles, que conservan su fondo para que todo se lea.
 - Nunca se usa `backdrop-filter` encima de capas que se mueven.
 
+## 8 sexquatricies. Notas de versión
+
+- **Una versión cada vez** (2026-11-14): la del enlace (`?version=`) o la más nueva, con «Versión anterior» y «Siguiente versión» debajo, cada una con su número pequeño.
+- **Índice por categorías** a la izquierda, la más nueva arriba:
+  - **2027, 2028…**, con sus meses dentro (v27.01…);
+  - **BETA**, con las 1.x, al final.
+- **Cada categoría** es un botón con su flecha, su nombre (el año y BETA en la letra de títulos), cuántas versiones tiene y un punto solar si trae alguna nueva. Se abre y se cierra (`aria-expanded`); de entrada solo está abierta la que lleva la versión que se ve.
+- **La versión que se ve** lleva el borde de hielo (`aria-current="page"`). Las versiones se escriben «v1.24».
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
