@@ -1390,6 +1390,7 @@ export const copy = {
     sortLabel: 'Orden',
     sorts: { new: 'Más recientes', cheap: 'Más baratas', dear: 'Más caras', rare: 'Más raras', ending: 'Acaban antes', level: 'Más nivel' },
     search: 'Buscar por nombre',
+    searchArea: 'Buscar en el mercado',
     // The market at scale (the owner, 2026-11-14).
     filters: 'Filtros',
     filtersCount: (n: number) => (n > 0 ? `Filtros (${n})` : 'Filtros'),

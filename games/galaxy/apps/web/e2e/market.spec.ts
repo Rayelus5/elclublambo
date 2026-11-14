@@ -83,7 +83,7 @@ test('vender una galaxia desde la colección y comprarla desde Comprar', async (
   execFileSync('node', [cli, 'grant', buyer, 'coins', String(floor * 4), '--reason', 'e2e'], { env: { ...process.env, ...E2E_ENV } });
   await buyerPage.getByRole('link', { name: 'Mercado' }).click();
   await expect(buyerPage).toHaveURL(/\/galaxy\/mercado$/);
-  await buyerPage.getByLabel('Buscar por nombre').fill(g.name);
+  await buyerPage.getByRole('searchbox', { name: 'Buscar por nombre' }).fill(g.name);
   await buyerPage.getByRole('button', { name: `Comprar ${g.name}` }).first().click();
   const confirm = buyerPage.getByRole('alertdialog', { name: `Comprar ${g.name}` });
   await expect(confirm).toContainText(`Tu saldo pasará de`);
