@@ -34,6 +34,9 @@ afterEach(() => {
   localStorage.clear();
 });
 
+/** A busy CI browser may lose the window's focus, which pauses the run (by design): back to it. */
+const unpause = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === copy.arena.resume)?.click();
+
 /** Plays `ticks` with the bot before the screen starts its own loop. */
 function advance(sim: Sim, ticks: number): void {
   while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
@@ -69,7 +72,13 @@ async function show(width: number, height: number, ticks: number, then?: (sim: S
 test('el HUD sobre la arena: vida, nivel, tiempo, capa, botín y equipo', async () => {
   const sim = await show(1280, 720, 4 * 3600);
   // The fast-forward blocks the page for a while under load: wait for the HUD's next read, not a fixed time.
-  await vi.waitFor(() => expect(document.querySelectorAll('.hud-kit-item').length).toBeGreaterThan(1), { timeout: 30_000 });
+  await vi.waitFor(
+    () => {
+      unpause();
+      expect(document.querySelectorAll('.hud-kit-item').length).toBeGreaterThan(1);
+    },
+    { timeout: 30_000 },
+  );
   expect(document.querySelector('.hud-hp')).not.toBeNull();
   expect(sim.tick).toBeGreaterThan(4 * 3600 - 10);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/hud-1280.png' });
@@ -77,7 +86,13 @@ test('el HUD sobre la arena: vida, nivel, tiempo, capa, botín y equipo', async 
 
 test('en una ultrapanorámica el HUD se ancla a los bordes y la arena lleva bandas', async () => {
   await show(3440, 1440, 5 * 3600 + 120);
-  await vi.waitFor(() => expect(document.querySelector('.hud-boss')).not.toBeNull(), { timeout: 30_000 });
+  await vi.waitFor(
+    () => {
+      unpause();
+      expect(document.querySelector('.hud-boss')).not.toBeNull();
+    },
+    { timeout: 30_000 },
+  );
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/hud-3440.png' });
 }, 120_000);
 
@@ -125,8 +140,7 @@ for (const [w, h] of [
     expect(document.querySelector('.hud-dash')!.classList.contains('ready')).toBe(true);
     expect(document.querySelector('.hud-dash kbd')!.textContent).toBe('SHIFT');
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hud-dash-ready-${w}.png` });
-    // A busy CI browser may lose the window's focus, which pauses the run (by design): back to it before pressing.
-    const unpause = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === copy.arena.resume)?.click();
+    // Back to the run before pressing (a CI browser may have lost the focus).
     unpause();
     await vi.waitFor(() => expect(document.querySelector('.pause-menu, [aria-label="' + copy.arena.pause + '"]')).toBeNull(), { timeout: 5_000 }).catch(() => {});
     const x0 = p.x;
