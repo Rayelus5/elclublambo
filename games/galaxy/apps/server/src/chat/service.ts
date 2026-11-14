@@ -327,11 +327,12 @@ export async function reportMessage(deps: ChatDeps, s: SessionInfo, id: string, 
   if (m.channel !== 'global' && (await channelKey(deps, s.accountId, asChannel(m.channel)).catch(() => null)) !== m.channel) throw new HttpError(404, 'message_not_found');
   if (m.author_id === s.accountId) return { hidden: false };
   if (!isModerator(s) && levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) return { hidden: false };
-  await deps.db
+  const added = await deps.db
     .insertInto('galaxy.chat_reports')
     .values({ message_id: id, reporter_id: s.accountId, reason: reason?.trim() || null })
     .onConflict((oc) => oc.columns(['message_id', 'reporter_id']).doNothing())
-    .execute();
+    .executeTakeFirst();
+  if (Number(added.numInsertedOrUpdatedRows ?? 0) > 0) deps.hub.reported();
   if ((await pendingReports(deps.db, id)) < chat.hideAfter) return { hidden: false };
   await hide(deps, id, m.channel, 'reports', null);
   return { hidden: true };

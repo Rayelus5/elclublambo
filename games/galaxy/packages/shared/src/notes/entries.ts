@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-28-moderacion',
+    version: '1.28',
+    date: '2026-11-14',
+    title: 'Moderación más rápida',
+    summary: 'El equipo encuentra y retira antes lo que incumple las normas del chat',
+    items: [
+      { kind: 'mejora', text: 'El equipo de moderación busca en todos los chats a la vez y actúa sobre varios mensajes de una vez, así lo ofensivo dura menos' },
+      { kind: 'mejora', text: 'Los chats llegan solo por la conexión en directo del juego: menos conexiones abiertas y avisos más fiables' },
+    ],
+  },
+  {
     id: 'v1-27-chats-al-dia',
     version: '1.27',
     date: '2026-11-14',

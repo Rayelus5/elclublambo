@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { type ChatEvent, type ChatHistory, type ChatMessage, PROBE_TEST, type RoomView } from '@galaxy/shared';
+import { type ChatEvent, type ChatHistory, type ChatMessage, type LiveEvent, PROBE_TEST, type RoomView } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
 import { credit } from '../../src/economy/wallet';
@@ -41,15 +41,28 @@ async function moderator(): Promise<P> {
 const send = (p: P, body: string, channel = 'global') => post(ctx.app, `/galaxy/api/chat/${channel}/messages`, { body }, { cookie: p.cookie });
 const history = async (p: P, channel = 'global') => (await get(ctx.app, `/galaxy/api/chat/${channel}`, { cookie: p.cookie })).json() as ChatHistory;
 
-/** A socket as the browser opens it, with every event it receives. */
+/**
+ * The live socket as the browser opens it, with Comunidad open (so its messages come in full), and the chat's events
+ * it receives: a message, or one taken down. The chats arrive there since the owner's chat asks (2026-11-14).
+ */
 async function socket(p: P | null, origin = ORIGIN) {
   const events: ChatEvent[] = [];
   let closed: number | null = null;
-  const ws: WebSocket = await ctx.app.injectWS('/galaxy/api/chat/ws', { headers: { origin, ...(p ? { cookie: `gs_sid=${p.cookie}` } : {}) } });
-  ws.on('message', (data) => events.push(JSON.parse(String(data)) as ChatEvent));
+  const ws: WebSocket = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin, ...(p ? { cookie: `gs_sid=${p.cookie}` } : {}) } });
+  ws.on('message', (data) => {
+    const e = JSON.parse(String(data)) as LiveEvent;
+    if (e.type === 'chat') events.push({ type: 'message', message: e.message });
+    else if (e.type === 'chatDeleted') events.push({ type: 'deleted', channel: e.channel, id: e.id });
+  });
   ws.on('close', (code) => {
     closed = code;
   });
+  try {
+    ws.send(JSON.stringify({ type: 'chat', open: 'global' }));
+  } catch {
+    // Closed at once (no session, another origin): nothing to say.
+  }
+  await new Promise((r) => setTimeout(r, 60));
   return { ws, events, closed: () => closed };
 }
 const settle = () => new Promise((r) => setTimeout(r, 150));

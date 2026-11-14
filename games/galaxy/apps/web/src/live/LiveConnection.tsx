@@ -7,6 +7,7 @@ import { FRIENDS_KEY, refreshFriends, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
 import { onPurchaseDelivered } from '../api/shop';
 import { CHAT_KEY } from '../api/chat';
+import { modLiveChat, modLiveReport, useModLive } from '../api/moderation';
 import { CLANS_KEY } from '../api/clans';
 import { MAILBOX_KEY } from '../api/mail';
 import { TRADES_KEY } from '../api/trades';
@@ -115,6 +116,9 @@ function LiveSocket() {
   // The chat channel open on screen (the server sends Comunidad in full only to who has it open).
   const chat = JSON.stringify({ type: 'chat', open: useUi((s) => s.chat) });
   const latestChat = useRef(chat);
+  // Moderation open on screen (staff only: the server ignores it from anyone else).
+  const mod = JSON.stringify({ type: 'mod', open: useModLive((s) => s.open) });
+  const latestMod = useRef(mod);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -128,6 +132,7 @@ function LiveSocket() {
         useLive.setState({ connected: true, dropped: false });
         s.send(latest.current);
         s.send(latestChat.current);
+        if (useModLive.getState().open) s.send(latestMod.current);
       };
       // The player's choice for notices (the friends view carries it; with sound until it is known).
       const mode = (): NoticeMode => qc.getQueryData<FriendsView>(FRIENDS_KEY)?.prefs.notices ?? 'sound';
@@ -160,6 +165,8 @@ function LiveSocket() {
           toast({ kind: 'notice', username: '', notice: event.notice });
         }
         else if (isChatEvent(event)) onChatEvent(qc, event, mode());
+        else if (event.type === 'modChat') modLiveChat(event.channel);
+        else if (event.type === 'modReport') modLiveReport();
         else if (event.type === 'purchase') {
           // A purchase of the shop delivered (shop and lab plan, F5): its wallet everywhere, and the purchase itself
           // for the payment dialog waiting on it.
@@ -194,6 +201,13 @@ function LiveSocket() {
     const s = socket.current;
     if (s && s.readyState === WebSocket.OPEN) s.send(chat);
   }, [chat]);
+
+  useEffect(() => {
+    if (latestMod.current === mod) return;
+    latestMod.current = mod;
+    const s = socket.current;
+    if (s && s.readyState === WebSocket.OPEN) s.send(mod);
+  }, [mod]);
 
   return null;
 }

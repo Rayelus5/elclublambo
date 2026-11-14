@@ -5,7 +5,10 @@ import {
   adminClanQuerySchema,
   adminClanTagParamSchema,
   chatMessageParamSchema,
+  modAuthorHideSchema,
   modChannelQuerySchema,
+  modHideManySchema,
+  modHideMuteSchema,
   modMuteSchema,
   modReasonSchema,
   modReportsQuerySchema,
@@ -21,7 +24,7 @@ import type { Env } from '../env';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
 import { adminClan, adminClans, adminDissolve, adminEditClan, adminKick, adminTransfer } from './clans';
-import { modChannels, modHide, modMessages, modMute, modMutes, modReports, modRestore, modUnmute, resolveReport } from './moderation';
+import { modChannels, modDelete, modHide, modHideAuthor, modHideMany, modHideMute, modMessages, modMute, modMutes, modReports, modRestore, modUnmute, resolveReport } from './moderation';
 
 // Moderation's routes (GDD §16.1, §16.4; M6c-1). The chats' (live view, hide and restore, the report queue, mutes)
 // are for staff signed in with TOTP, moderators included; the clans' are for admins only (§16.1). Every change is rate
@@ -43,8 +46,32 @@ export function registerModerationRoutes(api: FastifyInstance, deps: ChatDeps & 
 
   api.get('/galaxy/api/admin/moderation/messages', async (req) => {
     requireStaff(req);
-    const { channel, before } = modChannelQuerySchema.parse(req.query);
-    return modMessages(deps.db, channel, before);
+    return modMessages(deps.db, modChannelQuerySchema.parse(req.query));
+  });
+
+  // The owner's chat asks (2026-11-14): many at once, what an account wrote lately, hide and mute, and delete.
+  api.post('/galaxy/api/admin/moderation/messages/hide', async (req) => {
+    const { actor } = await actorOf(req, requireStaff);
+    const { ids, reason } = modHideManySchema.parse(req.body);
+    return modHideMany(deps, actor, ids, reason);
+  });
+
+  api.post('/galaxy/api/admin/moderation/authors/:username/hide', async (req) => {
+    const { actor, session } = await actorOf(req, requireStaff);
+    const { username } = modUsernameParamSchema.parse(req.params);
+    const { hours, reason } = modAuthorHideSchema.parse(req.body);
+    return modHideAuthor(deps, actor, session, username, hours, reason);
+  });
+
+  api.post('/galaxy/api/admin/moderation/messages/:id/hide-mute', async (req) => {
+    const { actor, session } = await actorOf(req, requireStaff);
+    const { minutes, reason } = modHideMuteSchema.parse(req.body);
+    return modHideMute(deps, actor, session, messageId(req), minutes, reason);
+  });
+
+  api.post('/galaxy/api/admin/moderation/messages/:id/delete', async (req) => {
+    const { actor } = await actorOf(req, requireStaff);
+    return modDelete(deps, actor, messageId(req), modReasonSchema.parse(req.body).reason);
   });
 
   api.post('/galaxy/api/admin/moderation/messages/:id/hide', async (req) => {

@@ -752,11 +752,20 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 ### 16.4 Moderación [U+D]
 
 - **Chats:**
-  - vista en vivo del global y de los de clan;
-  - borrar mensajes;
+  - **búsqueda en todos los chats** (petición del propietario, 2026-11-14):
+    - filtros: el texto (índice de trigramas), la cuenta, el chat, oculto o visible, denunciado y fechas;
+    - lo más nuevo primero, por id;
+    - pensada para cientos de miles de mensajes;
+  - el historial de una cuenta;
+  - **actuar:**
+    - ocultar y restaurar;
+    - ocultar varios a la vez (100) u ocultar lo último de una cuenta (hora, día o semana; 500);
+    - ocultar y silenciar de una vez;
+    - **eliminar**: no se deshace, y el texto se guarda como prueba hasta que caduca;
   - silenciar;
-  - filtro de palabras;
-  - **cola de denuncias**.
+  - filtro de palabras (lista de partida de insultos y odio, es y en);
+  - **cola de denuncias**: cada mensaje lleva sus denuncias (todas y las que esperan), mantenidas por triggers;
+  - **en directo:** el socket vivo avisa a la moderación abierta de cada mensaje y denuncia nuevos; nada se relee solo.
 - **Partidas en grupo (§14.8):**
   - salas en vivo, con cerrar una sala;
   - **ver en directo** una partida, con selector de cámara;

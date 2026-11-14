@@ -92,12 +92,17 @@ export type LiveEvent =
   /** A message taken down (a moderator, reports). */
   | { type: 'chatDeleted'; channel: ChatChannel; id: string }
   /** I read a channel up to this message elsewhere (another tab or device). */
-  | { type: 'chatRead'; channel: ChatChannel; id: string };
+  | { type: 'chatRead'; channel: ChatChannel; id: string }
+  /** Staff watching moderation: a new message in a chat (by its key), or a new report (read the queue again). */
+  | { type: 'modChat'; channel: string }
+  | { type: 'modReport' };
 
 /** The live socket, client → server: what I am doing now. */
 export const liveMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('activity'), activity: z.enum(ACTIVITIES), layer: z.number().int().min(1).max(999).optional() }).strict(),
   /** The chat channel I have open on screen now (none: the chat is closed). */
   z.object({ type: z.literal('chat'), open: z.enum(CHAT_CHANNELS).nullable() }).strict(),
+  /** Staff: moderation is open on screen (it hears new messages and reports). */
+  z.object({ type: z.literal('mod'), open: z.boolean() }).strict(),
 ]);
 export type LiveMessage = z.infer<typeof liveMessageSchema>;

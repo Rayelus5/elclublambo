@@ -485,7 +485,11 @@ export interface ChatMessagesTable {
   created_at: Timestamp;
   hidden_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   hidden_by: string | null;
-  hidden_reason: 'moderator' | 'reports' | null;
+  hidden_reason: 'moderator' | 'reports' | 'deleted' | null;
+  /** Its reports, those waiting since its last review, and the newest one's time (kept by triggers). */
+  report_count: Generated<number>;
+  report_pending: Generated<number>;
+  report_last_at: ColumnType<Date | null, never, never>;
 }
 
 /** One report per account and message (M5b-2). */

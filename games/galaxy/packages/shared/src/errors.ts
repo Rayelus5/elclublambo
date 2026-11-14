@@ -143,6 +143,7 @@ export const API_ERROR_CODES = [
   'message_not_found',
   'message_hidden',
   'message_visible',
+  'message_deleted',
   'report_reviewed',
   'mute_not_found',
   'revert_blocked',
