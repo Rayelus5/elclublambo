@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { copy } from '../copy/es';
 import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
+import { type KeyLabels, useKeyLabels } from '../settings/keybinds';
 
 // The Guía (GDD §12.2; M7c, DESIGN_SYSTEM §8 octovicies): chapters to read at any time, each with a small animated
 // example (CSS; still with reduced motion). Short: what to do, never a wall of text.
@@ -76,6 +77,7 @@ function Demo({ chapter }: { chapter: Chapter }) {
 export function GuideScreen() {
   const [chapter, setChapter] = useState<Chapter>('run');
   const c = t.chapters[chapter];
+  const keys = useKeyLabels();
   return (
     <div className="screen-root missions-root">
       <div className="missions guide">
@@ -98,9 +100,11 @@ export function GuideScreen() {
             <h2 id="guide-title">{c.title}</h2>
             <Demo chapter={chapter} />
             <ul className="guide-points">
-              {c.points.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
+              {(c.points as readonly (string | ((k: KeyLabels) => string))[]).map((p) => {
+                // A point that names keys says the player's own (Ajustes › Controles).
+                const text = typeof p === 'function' ? p(keys) : p;
+                return <li key={text}>{text}</li>;
+              })}
             </ul>
           </article>
         </div>

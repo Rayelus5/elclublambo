@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { DesktopGate } from './shell/DesktopGate';
 import { applyPrefs, prefersReduced } from './settings/prefs';
+import { loadKeyboardLayout } from './settings/keybinds';
 import { applyCursor, readCursor } from './ui/cursor';
 import './styles/app.css';
 
@@ -12,6 +13,8 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 
 // The game's own preferences on <html> (motion, colour vision), before anything paints.
 applyPrefs();
+// The keys' names as this keyboard has them (Ajustes › Controles, the dash meter).
+loadKeyboardLayout();
 
 // One orchestrated entrance per screen (DESIGN_SYSTEM §5): `.ready` starts it, `.settled` removes the delays.
 const reduce = prefersReduced();

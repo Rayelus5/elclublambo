@@ -209,7 +209,8 @@ test('el líder con todos listos pulsa Despegar y el lobby pasa a ser la partida
   lobby();
   await user.click(await screen.findByRole('button', { name: t.start }));
   await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/rooms/start')).toBe(true));
-  expect(await screen.findByText(t.arena.connecting)).toBeInTheDocument();
+  // The loading screen (the owner, 2026-11-14) says it is connecting.
+  expect(await screen.findByRole('status', { name: t.loading.label })).toHaveTextContent(t.loading.steps.connect);
   expect(FakeSocket.last?.url).toContain('/galaxy/api/coop/play/ws?run=run-1');
 });
 

@@ -104,13 +104,13 @@ test('la carta de evolución, dorada y primera, y el arma evolucionada en el kit
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/evolve-1280.png' });
 }, 120_000);
 
-// The dash (SIM 1.12.0): SHIFT or Space asks for one, and its meter by the life bar says the charges ready, the next one
+// The dash (SIM 1.12.0): SHIFT or the left click (the owner's defaults, 2026-11-14) ask for one, and its meter by the life bar says the charges ready, the next one
 // filling and the short pause between two. Spark has two charges.
 for (const [w, h] of [
   [1280, 720],
   [1920, 1080],
 ] as const) {
-  test(`el dash con SHIFT y Espacio y su medidor junto a la vida a ${w}×${h}`, async () => {
+  test(`el dash con SHIFT y con el clic, y su medidor junto a la vida a ${w}×${h}`, async () => {
     const sim = await show(w, h, 600);
     // A Spark for its two charges (the screen's run is Lumen: same sim, its quirk swapped before the first dash).
     const p = sim.probes[0]!;
@@ -131,11 +131,12 @@ for (const [w, h] of [
     await vi.waitFor(() => expect(Math.hypot(p.x - x0, p.y)).toBeGreaterThan(40), { timeout: 10_000 });
     await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(1), { timeout: 10_000 });
     expect(document.querySelector('.hud-dash-charges i.next')).not.toBeNull();
-    // Pressed during the pause between two dashes: it waits for it instead of being lost.
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ' }));
+    // The left click on the field is the dash's other key (the owner, 2026-11-14). Pressed during the pause between two
+    // dashes, it waits for it instead of being lost.
+    document.querySelector('canvas.arena-canvas')!.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true }));
     await vi.waitFor(() => expect(p.dash.charges).toBe(0), { timeout: 10_000 });
     await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(0), { timeout: 10_000 });
-    expect(document.querySelector('.hud-dash')!.getAttribute('aria-label')).toMatch(/^Dash con SHIFT o Espacio: 0 de 2 cargas, la siguiente en \d s$/);
+    expect(document.querySelector('.hud-dash')!.getAttribute('aria-label')).toMatch(/^Dash con SHIFT o Clic izquierdo: 0 de 2 cargas, la siguiente en \d s$/);
     // Inside the top bar, nothing out of the screen.
     const vitals = document.querySelector('.hud-vitals')!.getBoundingClientRect();
     const center = document.querySelector('.hud-center')!.getBoundingClientRect();

@@ -14,7 +14,8 @@ import { BeaconMarker, BossBar, Radio, SatelliteMarker } from './hud/Overlays';
 import { Hud } from './hud/Hud';
 import { LevelUp } from './hud/LevelUp';
 import { PauseMenu } from './hud/PauseMenu';
-import { DASH_BUTTONS, DASH_KEYS, dashWaits, emptyInput, pointerAngle, readInput } from './input';
+import { DASH_BUTTONS, dashWaits, emptyInput, mouseCode, pointerAngle, readInput } from './input';
+import { actionOf, isAction, keyLabels } from '../settings/keybinds';
 import { createLoop, type Loop } from './loop';
 import { arenaZoom, manualAim as storedAim, markRadioSeen, radioSeen, setManualAim } from './settings';
 import { useWheelZoom } from './zoom';
@@ -295,9 +296,9 @@ export function ArenaScreen({
         const c = copy.tour.coach;
         const line: [string, string] | null =
           h.hp <= h.maxHp * 0.3 && !radioSeen('coach:lowhp') ? ['coach:lowhp', c.lowHp]
-          : !radioSeen('coach:move') ? ['coach:move', c.move]
+          : !radioSeen('coach:move') ? ['coach:move', c.move(keyLabels())]
           : h.kills >= 3 && !radioSeen('coach:gems') ? ['coach:gems', c.gems]
-          : h.kills >= 12 && !radioSeen('coach:dash') ? ['coach:dash', c.dash]
+          : h.kills >= 12 && !radioSeen('coach:dash') ? ['coach:dash', c.dash(keyLabels())]
           : h.kills >= 25 && !radioSeen('coach:loot') ? ['coach:loot', c.loot]
           : h.phase === 'waves' && h.layer === 1 && h.phaseLeft <= 60 && !radioSeen('coach:boss') ? ['coach:boss', c.boss]
           : null;
@@ -335,21 +336,37 @@ export function ArenaScreen({
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
-      if (e.code === 'Escape' || e.code === 'KeyP') {
+      // Escape always pauses; the player's pause key too (Ajustes › Controles).
+      if (e.code === 'Escape' || isAction('pause', e.code)) {
         if (sim.status === 'choosing' || briefingRef.current) return;
         if (loopRef.current?.paused) resume();
         else pause();
         return;
       }
-      if (DASH_KEYS.includes(e.code)) {
+      if (isAction('dash', e.code)) {
         if (!e.repeat) askDash();
         e.preventDefault();
         return;
       }
       input.current.keys.add(e.code);
-      if (e.code.startsWith('Arrow')) e.preventDefault();
+      // A key of the run (the arrows, Space…) never scrolls the page.
+      if (actionOf(e.code) || e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     };
     const up = (e: KeyboardEvent) => input.current.keys.delete(e.code);
+    // Mouse buttons on the field (never on the HUD's buttons): the dash's (the left click by default), or a move.
+    const canvas = canvasRef.current;
+    const press = (e: PointerEvent) => {
+      const code = mouseCode(e.button);
+      if (isAction('dash', code)) {
+        askDash();
+        e.preventDefault();
+      } else if (actionOf(code)) input.current.keys.add(code);
+    };
+    const release = (e: PointerEvent) => input.current.keys.delete(mouseCode(e.button));
+    const noMenu = (e: MouseEvent) => e.preventDefault();
+    canvas?.addEventListener('pointerdown', press);
+    canvas?.addEventListener('contextmenu', noMenu);
+    window.addEventListener('pointerup', release);
     const move = (e: MouseEvent) => {
       input.current.mouse = { x: e.clientX, y: e.clientY };
     };
@@ -376,6 +393,9 @@ export function ArenaScreen({
       window.removeEventListener('blur', blur);
       window.removeEventListener('beforeunload', leave);
       document.removeEventListener('visibilitychange', hidden);
+      canvas?.removeEventListener('pointerdown', press);
+      canvas?.removeEventListener('contextmenu', noMenu);
+      window.removeEventListener('pointerup', release);
     };
   }, [askDash, pause, resume, sim]);
 

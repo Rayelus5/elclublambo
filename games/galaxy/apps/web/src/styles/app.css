@@ -2395,7 +2395,29 @@
   .setting.setting-wide { grid-template-columns: minmax(0, 1fr) minmax(240px, 380px); }
   .setting.setting-stack { grid-template-columns: minmax(0, 1fr); }
   .setting.setting-stack .setting-control { justify-content: flex-start; }
-  /* The run's controls (Ajustes › Incursión): a small table of keys and buttons. */
+  /* The run's controls (Ajustes › Incursión), rebindable: a grid of actions with their two key slots and the pad's. */
+  .controls-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .controls-said { min-block-size: 18px; margin: 0; font-size: 13px; color: var(--color-solar); }
+  .controls-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0 22px; }
+  .controls-row { display: flex; align-items: center; gap: 8px; min-block-size: 32px; border-block-end: 1px solid rgb(255 255 255 / .05); }
+  .controls-what { flex: 1; min-inline-size: 0; font-size: 13.5px; font-weight: 600; color: var(--color-ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .controls-pad { margin: 2px 0 0; font-size: 12px; line-height: 1.4; color: var(--color-ink-mute); }
+  /* In the pause (over the run): only the keys, the help lines left for the full Ajustes. */
+  .settings-shell.in-run .controls-hint, .settings-shell.in-run .controls-pad { display: none; }
+  .controls-slots { display: flex; align-items: center; gap: 6px; order: 2; }
+  .controls-slot { position: relative; display: inline-flex; }
+  .controls-key { min-inline-size: 64px; block-size: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: var(--color-panel-2); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .35); color: var(--color-ink); font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .controls-key:hover { background: #2a2e63; }
+  .controls-key:focus-visible { outline: 2px solid var(--color-solar); outline-offset: 2px; }
+  .controls-key.empty { color: var(--color-ink-mute); font-weight: 600; }
+  .controls-key.waiting { background: var(--color-solar); color: var(--color-on-solar); box-shadow: inset 0 -3px 0 var(--color-solar-lip); animation: controls-wait 1s ease-in-out infinite; }
+  @keyframes controls-wait { 50% { filter: brightness(1.15); } }
+  .controls-clear { position: absolute; inset-block-start: -6px; inset-inline-end: -6px; display: grid; place-items: center; inline-size: 18px; block-size: 18px; padding: 0; border: 0; border-radius: 50%; background: var(--color-panel-lip); color: var(--color-ink-mute); font-size: 10px; cursor: pointer; opacity: 0; transition: opacity .12s ease; }
+  .controls-slot:hover .controls-clear, .controls-clear:focus-visible { opacity: 1; }
+  .controls-clear:focus-visible { outline: 2px solid var(--color-solar); }
+  .controls-row.locked kbd { display: inline-grid; place-items: center; min-inline-size: 64px; block-size: 26px; padding: 0 9px; border-radius: 8px; background: rgb(255 255 255 / .04); font-family: inherit; font-weight: 700; font-size: 12px; color: var(--color-ink-mute); }
+  .controls-row.locked small { font-size: 11px; color: var(--color-ink-mute); }
+  :where(:root[data-motion='reduced']) { .controls-key.waiting { animation: none; } }
   .controls { display: grid; gap: 6px; padding: 16px 0 4px; border-block-start: 2px solid rgb(255 255 255 / .05); }
   .controls h3 { margin: 0; }
   .controls-table { inline-size: 100%; border-collapse: collapse; font-size: 14px; }
@@ -3335,6 +3357,15 @@
   .coop-cards-left .track { stroke: rgb(255 255 255 / .1); }
   .coop-cards-left .fill { stroke: var(--color-solar); stroke-linecap: round; transition: stroke-dasharray .2s linear; }
   .coop-cards-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  /* A card taken (group runs): it glows, lifts and flies to the kit; the others fade; the strip goes after it. */
+  .coop-cards.taking { pointer-events: none; animation: coop-strip-out .52s ease-in both; }
+  .coop-cards.taking header { opacity: .45; transition: opacity .15s ease; }
+  .coop-cards.taking .coop-card:not(.chosen) { animation: coop-card-fade .22s ease-out both; }
+  .coop-cards.taking .coop-card.chosen { z-index: 2; box-shadow: 0 0 0 3px var(--color-solar), 0 0 26px rgb(255 201 74 / .65); animation: coop-card-take .52s cubic-bezier(.5, 0, .75, .3) both; }
+  @keyframes coop-card-take { 0% { scale: 1; } 22% { scale: 1.08; translate: 0 -8px; filter: brightness(1.3); } 100% { scale: .25; translate: var(--fly-x, 0) var(--fly-y, 60px); opacity: 0; } }
+  @keyframes coop-card-fade { to { opacity: 0; scale: .95; } }
+  @keyframes coop-strip-out { 0%, 40% { background: rgb(11 12 36 / .88); border-color: rgb(255 201 74 / .45); } 100% { background: rgb(11 12 36 / 0); border-color: rgb(255 201 74 / 0); box-shadow: none; } }
+  .arena.reduced .coop-cards.taking, .arena.reduced .coop-cards.taking .coop-card { animation: coop-card-fade .16s ease-out both; }
   .coop-card { --r: 14px; --lip-h: 4px; position: relative; display: flex; align-items: flex-start; gap: 10px; min-block-size: 58px; padding: 9px 10px 9px 36px; color: var(--color-ink); text-align: start; }
   .coop-card .levelup-key { position: absolute; top: 6px; left: 8px; }
   .coop-card img { image-rendering: pixelated; flex: none; }
@@ -3359,6 +3390,33 @@
   .coop-spectate-arrow { display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 50%; border: 0; background: rgb(255 255 255 / .08); color: var(--color-ink); font: 700 24px/1 var(--font-body, inherit); cursor: pointer; }
   .coop-spectate-arrow:hover { background: color-mix(in srgb, var(--tint) 30%, transparent); }
   .coop-spectate-arrow:focus-visible { outline: 3px solid var(--tint); outline-offset: 2px; }
+  /* The loading screen before a group run (the owner, 2026-11-14): the sector in its biome's colours, the team and
+     the three steps with a bar; a moment at least, then a fade. Over the arena while it is being drawn. */
+  .coop-loading { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--biome-a) 80%, transparent), var(--color-void) 70%), var(--color-void);
+    animation: coop-loading-in .25s ease-out both; }
+  .coop-loading.leaving { animation: coop-loading-out .3s ease-in both; pointer-events: none; }
+  @keyframes coop-loading-in { from { opacity: 0; } }
+  @keyframes coop-loading-out { to { opacity: 0; } }
+  .coop-loading-card { display: grid; justify-items: center; gap: 18px; inline-size: min(720px, 100%); text-align: center; }
+  .coop-loading-kicker { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--biome-glow); }
+  .coop-loading-sector { margin: 0; font: 400 clamp(30px, 4vw, 46px) var(--font-display); color: var(--color-ink); text-shadow: 0 4px 0 rgb(0 0 0 / .45), 0 0 28px color-mix(in oklab, var(--biome-glow) 45%, transparent); }
+  .coop-loading-team { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; min-block-size: 120px; }
+  .coop-loading-team li { display: grid; justify-items: center; gap: 4px; inline-size: 128px; padding: 12px 8px 10px; border-radius: 18px; background: rgb(11 12 36 / .7); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); animation: coop-mate-in .4s var(--ease-bounce) both; animation-delay: calc(var(--i) * 90ms); }
+  .coop-loading-team li.me { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 20px rgb(255 201 74 / .25); }
+  .coop-loading-team img { image-rendering: pixelated; animation: coop-mate-float 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 300ms); }
+  .coop-loading-team b { font-size: 15px; color: var(--color-ink); max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .coop-loading-team small { font-size: 12px; color: var(--color-ink-mute); }
+  @keyframes coop-mate-in { from { opacity: 0; translate: 0 10px; scale: .9; } }
+  @keyframes coop-mate-float { 50% { translate: 0 -4px; } }
+  .coop-loading-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; align-items: center; font-size: 14px; font-weight: 700; color: var(--color-ink-mute); }
+  .coop-loading-steps li { display: flex; align-items: center; gap: 10px; }
+  .coop-loading-steps li + li::before { content: ''; inline-size: 18px; block-size: 2px; border-radius: 2px; background: rgb(255 255 255 / .12); }
+  .coop-loading-steps li.done { color: var(--color-ink-soft); }
+  .coop-loading-steps li.now { color: var(--color-solar); }
+  .coop-loading-bar { position: relative; inline-size: min(420px, 100%); block-size: 8px; border-radius: 8px; background: rgb(255 255 255 / .08); overflow: hidden; }
+  .coop-loading-bar i { position: absolute; inset: 0 auto 0 0; inline-size: var(--p); border-radius: inherit; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); box-shadow: 0 0 12px rgb(255 201 74 / .5); transition: inline-size .4s ease; }
+  :where(:root[data-motion='reduced']) { .coop-loading, .coop-loading.leaving, .coop-loading-team li, .coop-loading-team img { animation: none; } .coop-loading-bar i { transition: none; } }
   .coop-arena-status { position: absolute; top: 50%; left: 50%; translate: -50% -50%; margin: 0; padding: 14px 22px; border-radius: 16px; background: rgb(11 12 36 / .88); font-weight: 700; color: var(--color-ink); }
   .arena-ending small { display: block; margin-top: 8px; font-size: 15px; color: var(--color-ink-soft); text-align: center; }
   :where(:root[data-motion='reduced']) { .coop-cards { animation: none; } }

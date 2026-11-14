@@ -1,4 +1,5 @@
 import type { Quirk } from '@galaxy/sim';
+import type { KeyLabels } from '../settings/keybinds';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
 import { type ApiErrorCode, pieceName } from '@galaxy/shared';
 
@@ -1718,6 +1719,15 @@ export const copy = {
     accept: 'Unirse',
     kicked: 'El líder te ha sacado de la sala',
     closed: 'La sala se ha cerrado',
+    // The short loading screen before a group run (the owner, 2026-11-14).
+    loading: {
+      label: 'Preparando la incursión en grupo',
+      kicker: 'Incursión en grupo',
+      unknown: 'Buscando el sector',
+      team: 'Equipo',
+      you: 'Tú',
+      steps: { connect: 'Conectando', arena: 'Preparando la arena', sync: 'Sincronizando' },
+    },
     arena: {
       connecting: 'Conectando con la partida',
       catchingUp: 'Poniéndote al día',
@@ -1740,7 +1750,7 @@ export const copy = {
       watchPrev: 'Ver al compañero anterior',
       watchNext: 'Ver al siguiente compañero',
       cards: 'Elige una mejora',
-      cardsHint: 'Pulsa 1, 2 o 3. El mundo no se para',
+      cardsHint: (k: KeyLabels) => `Pulsa ${k.pick[0]}, ${k.pick[1]} o ${k.pick[2]}. El mundo no se para`,
       pickLeft: (s: number) => `${s} s para elegir; luego, al azar`,
       waitResult: 'Esperando el pago',
       noResult: 'No se pudo leer tu pago. Lo verás en tu monedero',
@@ -2750,16 +2760,36 @@ export const copy = {
     manualAimHint: 'Si está apagado, la sonda apunta sola al enemigo más cercano',
     // The run's controls (SIM 1.12.0 brought the dash): keyboard and mouse, and the pad.
     controls: 'Controles',
-    controlsKeyboard: 'Teclado y ratón',
-    controlsPad: 'Mando',
-    controlRows: [
-      { what: 'Moverte', keys: ['WASD', 'Flechas'], pad: ['Stick izquierdo'] },
-      { what: 'Dash', keys: ['SHIFT', 'Espacio'], pad: ['A', 'RB'] },
-      { what: 'Apuntar a mano', keys: ['Ratón'], pad: ['Stick derecho'] },
-      { what: 'Elegir una mejora', keys: ['1', '2', '3', 'Enter'], pad: ['A'] },
-      { what: 'Acercar o alejar la vista', keys: ['Rueda del ratón'], pad: [] },
-      { what: 'Pausa', keys: ['Esc', 'P'], pad: ['Start'] },
-      { what: 'Aviso rápido en grupo', keys: ['Q'], pad: [] },
+    // Rebindable controls (the owner, 2026-11-14): keyboard and mouse; the pad is fixed.
+    controlsHint: 'Pulsa un hueco y después la tecla o el botón del ratón. El mando no cambia',
+    controlsReset: 'Restaurar por defecto',
+    controlsResetDone: 'Controles restaurados',
+    controlsCapture: 'Pulsa una tecla',
+    controlsCaptureLive: (action: string) => `Pulsa una tecla o un botón del ratón para «${action}». Esc cancela`,
+    controlsSlot: (action: string, n: number, key: string) => (key ? `${action}, tecla ${n}: ${key}. Pulsa para cambiarla` : `${action}, tecla ${n}: vacía. Pulsa para asignarla`),
+    controlsClear: (action: string, n: number) => `Quitar la tecla ${n} de ${action}`,
+    controlsMoved: (key: string, from: string) => `${key} ya no es «${from}»`,
+    controlsSet: (key: string, action: string) => `${key} para «${action}»`,
+    controlsFixed: 'Fijo',
+    controlsPad: 'Mando: stick izquierdo para moverte, A o RB para el dash, cruceta y A para las mejoras, Start para la pausa y stick derecho para apuntar',
+    controlActions: {
+      up: 'Arriba',
+      down: 'Abajo',
+      left: 'Izquierda',
+      right: 'Derecha',
+      dash: 'Dash',
+      pick1: 'Mejora 1',
+      pick2: 'Mejora 2',
+      pick3: 'Mejora 3',
+      confirm: 'Confirmar mejora',
+      pause: 'Pausa',
+      mark: 'Aviso rápido en grupo',
+    },
+    // What stays fixed: aiming, the zoom and Escape.
+    controlFixed: [
+      { what: 'Apuntar a mano', keys: 'Ratón' },
+      { what: 'Acercar o alejar', keys: 'Rueda' },
+      { what: 'Pausa (siempre)', keys: 'Esc' },
     ],
     help: 'Ayuda',
     radio: 'Volver a oír a PERKINS',
@@ -2874,19 +2904,19 @@ export const copy = {
       play: 'Tu primera incursión',
       briefingTitle: 'Antes de despegar',
       move: 'Muévete',
-      moveHint: 'WASD o las flechas',
+      moveHint: (k: KeyLabels) => (k.moveArrows ? `${k.move} o las flechas` : k.move),
       auto: 'La sonda dispara sola',
       autoHint: 'Tú solo esquiva y recoge',
       gems: 'Recoge los datos',
       gemsHint: 'Los cristales verdes te suben de nivel',
       dash: 'Haz un dash',
-      dashHint: 'SHIFT o Espacio: nada te toca mientras dura',
+      dashHint: (k: KeyLabels) => `${k.dashAll}: nada te toca mientras dura`,
       launch: 'Despegar',
     },
     coach: {
-      move: 'Muévete con WASD o las flechas. La sonda dispara sola: tú esquiva.',
+      move: (k: KeyLabels) => `Muévete con ${k.moveArrows ? `${k.move} o las flechas` : k.move}. La sonda dispara sola: tú esquiva.`,
       gems: 'Los cristales verdes son datos. Recógelos y subirás de nivel.',
-      dash: 'Si te rodean, pulsa SHIFT o Espacio: tu sonda hace un dash y nada la toca mientras dura. Mira sus cargas junto a tu vida.',
+      dash: (k: KeyLabels) => `Si te rodean, pulsa ${k.dashAll}: tu sonda hace un dash y nada la toca mientras dura. Mira sus cargas junto a tu vida.`,
       loot: 'Las monedas y el polvo que caen se cobran al terminar. Aguanta todo lo que puedas.',
       boss: 'En un minuto llega el Núcleo de la Estática. Prepárate.',
       lowHp: 'Te queda poca vida. Los botiquines verdes curan: búscalos.',
@@ -2937,7 +2967,7 @@ export const copy = {
     open: 'Guía',
     chaptersLabel: 'Capítulos',
     chapters: {
-      run: { title: 'La incursión', points: ['Te mueves con WASD o las flechas; la sonda dispara sola.', 'Con SHIFT o Espacio haces un dash hacia donde te mueves, o hacia el ratón si estás quieto. Nada te toca mientras dura, y sus cargas, junto a tu vida, se recargan solas.', 'Con la rueda del ratón acercas o alejas la vista; nunca ves menos de lo que ves al empezar.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
+      run: { title: 'La incursión', points: [(k: KeyLabels) => `Te mueves con ${k.moveArrows ? `${k.move} o las flechas` : k.move}; la sonda dispara sola.`, (k: KeyLabels) => `Con ${k.dashAll} haces un dash hacia donde te mueves, o hacia el ratón si estás quieto. Nada te toca mientras dura, y sus cargas, junto a tu vida, se recargan solas.`, 'Cambia tus teclas en Ajustes › Incursión.', 'Con la rueda del ratón acercas o alejas la vista; nunca ves menos de lo que ves al empezar.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
       upgrades: { title: 'Las mejoras', points: ['Al subir de nivel eliges una mejora entre varias; el sector espera.', 'Las armas y las pasivas suben de nivel. Algunas parejas evolucionan.', 'Tus reliquias, las galaxias equipadas, dan bonos desde el principio.'] },
       layers: { title: 'Capas, Núcleos y baliza', points: ['Cada capa acaba con un Núcleo de la Estática.', 'Al purgarlo se abre una baliza: llega y aguanta dentro para extraer.', 'Si no extraes, bajas a la capa siguiente: más difícil y mejor botín.'] },
       galaxies: { title: 'Las galaxias', points: ['El Escáner transcribe galaxias nuevas con señales o monedas.', 'Cada una tiene su rareza, su acabado y sus rasgos.', 'En la colección las fusionas para subir de rareza o las desintegras por polvo.'] },
@@ -3110,7 +3140,7 @@ export const copy = {
   arena: {
     loading: 'Preparando la incursión',
     levelUp: 'Elige una mejora',
-    levelUpHint: 'Pulsa 1, 2 o 3, o elige con las flechas y Enter',
+    levelUpHint: (k: KeyLabels) => `Pulsa ${k.pick[0]}, ${k.pick[1]} o ${k.pick[2]}, o elige con las flechas y ${k.confirm}`,
     newItem: 'Nueva',
     evolution: 'Evolución',
     evolves: (base: string) => `Evoluciona tu ${base}`,
@@ -3148,9 +3178,8 @@ export const copy = {
     evaded: '¡Fase!',
     // The dash (SIM 1.12.0): the key on its meter and what the meter says.
     dash: {
-      key: 'SHIFT',
-      label: (charges: number, max: number, next: number) =>
-        `Dash con SHIFT o Espacio: ${fmt(charges)} de ${fmt(max)} ${max === 1 ? 'carga' : 'cargas'}${next > 0 ? `, la siguiente en ${fmt(next)} s` : ''}`,
+      label: (keys: string, charges: number, max: number, next: number) =>
+        `Dash con ${keys}: ${fmt(charges)} de ${fmt(max)} ${max === 1 ? 'carga' : 'cargas'}${next > 0 ? `, la siguiente en ${fmt(next)} s` : ''}`,
     },
     // A relic's anomaly went off on my probe (a glitch: thrown aside, a freeze or a strike).
     anomaly: '¡Anomalía!',

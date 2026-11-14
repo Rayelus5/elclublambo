@@ -113,7 +113,11 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 ### 5.2 Controles [D]
 
 - Movimiento con WASD o flechas; ataque automático.
-- **Dash [U] (2026-11-13, SIM 1.12.0):** lo decide el jugador con **SHIFT o Espacio** (en mando, A o RB). Va hacia donde te mueves; quieto, hacia el ratón (o el stick derecho) o hacia donde apuntas. Es invulnerable mientras dura y un instante más. Todas las sondas lo tienen:
+- **Controles reasignables [U] (2026-11-14):** en Ajustes › Incursión cada acción tiene dos teclas o botones del ratón, con «Restaurar por defecto». Se guardan en la cuenta.
+  - Las acciones son moverse en las cuatro direcciones, dash, mejora 1, 2 y 3, confirmar la mejora, pausa y aviso rápido.
+  - Son fijos apuntar a mano (ratón o stick), acercar o alejar la vista (rueda) y Esc, que siempre pausa.
+  - El mando no se reasigna.
+- **Dash [U] (2026-11-13, SIM 1.12.0):** lo decide el jugador con **SHIFT o el clic izquierdo** por defecto (en mando, A o RB). Espacio dejó de ser su tecla el 2026-11-14, porque elegía cartas sin querer. Va hacia donde te mueves; quieto, hacia el ratón (o el stick derecho) o hacia donde apuntas. Es invulnerable mientras dura y un instante más. Todas las sondas lo tienen:
   - **cargas** que vuelven una a una (la recarga sigue la stat de enfriamiento);
   - una **pausa** corta entre dos dashes; una pulsación durante la pausa espera a que acabe;
   - el HUD muestra junto a la vida su tecla, un rombo por carga y la siguiente llenándose.
@@ -122,6 +126,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 - Apuntado manual con el ratón **opcional** (conmutador en ajustes).
 - Soporte de mando.
 - Pausa en cualquier momento (en solitario).
+- **Cartas de mejora:** en solitario y en grupo, 1, 2 y 3 (o sus teclas) eligen al instante; en solitario, las flechas y Enter también. Las cartas no hacen caso a nada durante 0,35 s tras aparecer, para no elegir sin querer en pleno dash.
 
 ### 5.3 Armas, pasivas y evoluciones [D]
 

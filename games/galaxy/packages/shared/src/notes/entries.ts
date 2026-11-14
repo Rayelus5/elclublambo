@@ -7,6 +7,22 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-23-tus-controles',
+    version: '1.23',
+    date: '2026-11-14',
+    title: 'Tus controles',
+    summary: 'Cambia las teclas a tu gusto, el dash pasa al clic y las cartas se eligen sin sustos. En grupo, una pantalla de carga y tu carta volando al kit',
+    items: [
+      { kind: 'nuevo', text: 'En Ajustes › Incursión puedes cambiar cada control: dos teclas o botones del ratón por acción, y «Restaurar por defecto». Se guardan en tu cuenta' },
+      { kind: 'mejora', text: 'El dash ahora va con SHIFT o con el clic izquierdo. Espacio ya no hace dash' },
+      { kind: 'mejora', text: 'En solitario, 1, 2 y 3 eligen la mejora al instante, como en grupo. Las flechas y Enter siguen funcionando' },
+      { kind: 'mejora', text: 'Las cartas de mejora no hacen caso a nada en su primer instante: ya no eliges una sin querer en pleno dash' },
+      { kind: 'nuevo', text: 'Las incursiones en grupo empiezan con una pantalla de carga con el sector y tu equipo' },
+      { kind: 'nuevo', text: 'En grupo, la carta que eliges brilla y vuela a tu equipo de armas' },
+      { kind: 'mejora', text: 'Las pistas, PERKINS y la Guía dicen siempre tus teclas' },
+    ],
+  },
+  {
     id: 'v1-22-el-dash-es-tuyo',
     version: '1.22',
     date: '2026-11-13',
