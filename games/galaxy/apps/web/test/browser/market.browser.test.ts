@@ -34,7 +34,8 @@ const listings: MarketListing[] = Array.from({ length: 8 }, (_, i) => ({
   id: `l${i}`,
   galaxy: galaxy(i + 1),
   seller: ['lyra', 'orion_7', 'deneb'][i % 3]!,
-  price: [600, 1450, 3200, 9800, 15000][i % 5]! + i * 10,
+  // The last one at the top of the scale (the owner, 2026-11-14: «preparados a valores grandes como 1.000.000.000»).
+  price: i === 7 ? 1_000_000_000 : [600, 1450, 3200, 9800, 15000][i % 5]! + i * 10,
   listedAt: '2026-11-14T10:00:00.000Z',
   expiresAt: '2026-11-21T10:00:00.000Z',
   offers: i % 3,
@@ -126,8 +127,22 @@ for (const [w, h] of [
     const wallet = document.querySelector<HTMLElement>('.market-wallet')!.getBoundingClientRect();
     expect(wallet.right).toBeLessThanOrEqual(w);
     expect(document.querySelector('.market-more')).not.toBeNull();
+    // A price of 1.000.000.000 fits its card, on one line.
+    for (const card of document.querySelectorAll('.market-card')) {
+      const box = card.getBoundingClientRect();
+      const price = card.querySelector('.market-price')!.getBoundingClientRect();
+      expect(price.left).toBeGreaterThanOrEqual(box.left);
+      expect(price.right).toBeLessThanOrEqual(box.right);
+      expect(price.height).toBeLessThan(30);
+    }
     await new Promise((r) => setTimeout(r, 600));
     if (import.meta.env['VITE_MARKET_SHOTS']) await page.screenshot({ path: `__shots__/market-${w}.png` });
+    if (import.meta.env['VITE_MARKET_SHOTS']) {
+      [...document.querySelectorAll('.market-card')].at(-1)!.scrollIntoView({ block: 'center' });
+      await new Promise((r) => setTimeout(r, 400));
+      await page.screenshot({ path: `__shots__/market-cards-${w}.png` });
+      window.scrollTo(0, 0);
+    }
     // The preview of a listing.
     await userEvent.click(document.querySelector<HTMLButtonElement>('.market-card-see')!);
     await expect.poll(() => document.querySelector('.relic-sheet .listing-sheet-deal') !== null, { timeout: 8000 }).toBe(true);

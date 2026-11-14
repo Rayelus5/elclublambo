@@ -5,6 +5,7 @@ import { useCancelListing } from '../api/market';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 
 const t = copy.market;
@@ -29,7 +30,9 @@ export function MyListings({ mine }: { mine: MyMarket }) {
                   <b>{l.galaxy.name}</b>
                   <span>{t.until(day(l.expiresAt))}</span>
                 </p>
-                <span className="market-row-price">{t.price(l.price)}</span>
+                <span className="market-row-price">
+                  <CoinAmount n={l.price} icon />
+                </span>
                 <button type="button" className="lip pill small" aria-label={t.withdrawOf(l.galaxy.name)} disabled={cancel.isPending} onClick={() => setPending(l)}>
                   {t.withdraw}
                 </button>
@@ -58,7 +61,9 @@ export function MyListings({ mine }: { mine: MyMarket }) {
                     {t.boughtBy} {l.buyer ? <Link to={`/perfil/${encodeURIComponent(l.buyer)}`}>{l.buyer}</Link> : null}
                   </span>
                 </p>
-                <span className="market-row-price">{t.price(l.price)}</span>
+                <span className="market-row-price">
+                  <CoinAmount n={l.price} icon />
+                </span>
                 <span className="market-net">{t.netGot(l.net)}</span>
               </li>
             ))}

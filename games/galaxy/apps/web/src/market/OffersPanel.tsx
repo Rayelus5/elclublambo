@@ -5,6 +5,7 @@ import { useMarketOffers, useOfferAction } from '../api/market';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 
@@ -22,7 +23,7 @@ function OfferRow({ x, side, busy, onAccept, onReject, onWithdraw }: { x: Market
         <b>{x.listing.galaxy.name}</b>
         <span className="market-price">
           <Icon name="coin" />
-          <span>{t.price(x.amount)}</span>
+          <CoinAmount n={x.amount} />
         </span>
         <span className="panel-note">
           {side === 'received' ? o.by(x.buyer) : o.to(x.listing.seller)} · {o.price(x.listing.price)}

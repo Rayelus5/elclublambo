@@ -105,5 +105,5 @@ test('las estadísticas públicas: 24 horas, 7 días, por rareza y la venta más
   expect(within(section).getByRole('group', { name: t.stats.trades })).toHaveTextContent('9');
   const epic = within(section).getByRole('row', { name: new RegExp(copy.tiers.epic) });
   expect(epic).toHaveTextContent(t.price(2100));
-  expect(section).toHaveTextContent(t.stats.topLine('Kathra', t.price(48_000)));
+  expect(section).toHaveTextContent(`${t.stats.topLine('Kathra')} ${t.price(48_000)}`);
 });

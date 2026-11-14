@@ -5,6 +5,7 @@ import { useCancelTrade, useConfirmTrade } from '../api/trades';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { TradeComposer } from './TradeComposer';
@@ -48,7 +49,7 @@ function SideView({ label, s, commission, getting }: { label: string; s: TradeSi
           {s.coins > 0 ? (
             <p className="trade-coins-chip">
               <Icon name="coin" />
-              <span>{t.coinsChip(s.coins)}</span>
+              <CoinAmount n={s.coins} />
             </p>
           ) : null}
           {getting && s.coins > 0 ? <p className="panel-note">{t.net(s.coins - commissionOf(s.coins, commission))}</p> : null}

@@ -2,6 +2,7 @@ import { TIERS } from '@galaxy/shared';
 import { useMarketStats } from '../api/market';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Icon } from '../ui/Icon';
 
 const t = copy.market.stats;
@@ -72,7 +73,7 @@ export function MarketStatsView() {
               <tr key={tier} data-tier={tier}>
                 <th scope="row">{copy.tiers[tier]}</th>
                 <td>{row ? fmt(row.sales) : t.none}</td>
-                <td>{row ? copy.market.price(row.avg) : '—'}</td>
+                <td>{row ? <CoinAmount n={row.avg} icon /> : '—'}</td>
               </tr>
             );
           })}
@@ -82,7 +83,7 @@ export function MarketStatsView() {
         <p className="market-stats-top">
           <Icon name="trophy" />
           <span>
-            <b>{t.top}</b> {t.topLine(s.top.name, copy.market.price(s.top.price))}
+            <b>{t.top}</b> {t.topLine(s.top.name)} <CoinAmount n={s.top.price} icon />
           </span>
         </p>
       ) : null}

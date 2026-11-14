@@ -18,6 +18,8 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'Responde a una publicación con lo que das: se abre un trueque con su historial y sus contraofertas' },
       { kind: 'mejora', text: 'Al aceptar una respuesta, la publicación se cierra y las demás respuestas se cancelan devolviendo lo reservado' },
       { kind: 'mejora', text: 'No puedes comerciar con quien te ha bloqueado ni con quien has bloqueado, y sus publicaciones no te salen' },
+      { kind: 'mejora', text: 'En el mercado los precios llevan solo el icono de moneda, también los muy grandes, y la carta ya no dice cuántas te faltan' },
+      { kind: 'mejora', text: 'El aviso del botón de eventos dice solo «Recoger»' },
     ],
   },
   {
