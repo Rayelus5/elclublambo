@@ -742,7 +742,8 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - **Cuántas:** «24 galaxias, y hay más», y al final «Cargar más», que sigue desde la última sin mover lo que ya se ve.
 - **Ver de cerca:** pulsar la carta abre la ficha de reliquia (la carta 3D y lo que hace), titulada con su nombre. Lleva el precio, el vendedor y hasta cuándo está a la venta, con «Cerrar» y «Comprar». Comprar abre la confirmación encima; al cerrarla se vuelve a la ficha.
 - **Cada carta:** la galaxia con su nombre, la rareza (Solar si es legendaria), el precio en Solar con moneda y el vendedor enlazado.
-- **El botón «Comprar»** dice en su nombre qué compra. Sin monedas, debajo dice cuántas faltan. En lo tuyo pone «Tuya».
+- **El botón «Comprar»** dice en su nombre qué compra. Sin monedas se apaga y cuántas faltan va solo en su descripción, sin aviso bajo la carta (2026-11-14). En lo tuyo pone «Tuya».
+- **Las cantidades de monedas** (2026-11-14): el icono de moneda y el número agrupado («1.000.000.000»), sin la palabra «monedas», que queda solo para los lectores de pantalla (`CoinAmount`). Caben en una línea en la carta. Las frases completas («Recibes 930 monedas después de la comisión») la mantienen.
 - **El diálogo** confirma con el precio y el saldo que deja. Después dice «Es tuya», con «Verla en tu colección». Si alguien se adelantó, lo dice y el escaparate se vuelve a leer.
 
 **Estadísticas:**

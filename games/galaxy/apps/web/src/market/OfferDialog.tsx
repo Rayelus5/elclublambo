@@ -4,6 +4,7 @@ import { useMakeOffer } from '../api/market';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 
@@ -41,7 +42,7 @@ export function OfferDialog({ l, rules, coins, onClose }: { l: MarketListing; ru
             <>
               <p className="market-price">
                 <Icon name="coin" />
-                <span>{t.price(l.price)}</span>
+                <CoinAmount n={l.price} />
               </p>
               <div className="field">
                 <label htmlFor={`${ids}-amount`}>{t.offerAmount}</label>

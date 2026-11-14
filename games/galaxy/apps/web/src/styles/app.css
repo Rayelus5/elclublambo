@@ -2122,7 +2122,7 @@
   .market-offer-main .panel-note { margin: 0; }
   .market-offer-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; }
   @media (max-width: 700px) { .market-offer-row { grid-template-columns: auto minmax(0, 1fr); } .market-offer-actions { grid-column: 1 / -1; justify-content: start; } }
-  .market-more { justify-self: center; }
+  .market-more { justify-self: center; inline-size: fit-content; margin-inline: auto; }
   .market-card-see { display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 16px; }
   .market-card-see:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 4px; }
   .market-wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-inline-start: auto; }
@@ -2150,6 +2150,10 @@
   .market-card[data-tier="mythic"] .market-tier { color: var(--color-tier-mythic); }
   .market-price { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: 400 18px/1 var(--font-display); color: var(--color-solar); white-space: nowrap; }
   .market-price svg { inline-size: 18px; block-size: 18px; flex: none; }
+  /* An amount of coins: the icon and the number, no word (the owner, 2026-11-14); ready for 1.000.000.000. */
+  .coin-amount { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .coin-amount.with-icon > svg { inline-size: 1em; block-size: 1em; flex: none; color: var(--color-solar); }
+  .market-card .market-price { max-inline-size: 100%; }
   .market-seller { margin: 0; font-size: 14px; }
   .market-seller a, .market-rows a { color: var(--color-ink-soft); font-weight: 600; }
   .market-seller a:hover, .market-rows a:hover { color: var(--color-ink); }

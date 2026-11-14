@@ -3,6 +3,7 @@ import { useId } from 'react';
 import { Link } from 'react-router';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Icon } from '../ui/Icon';
 
 const t = copy.market;
@@ -45,7 +46,7 @@ export function ListingCard({
         <p className="market-tier">{copy.tiers[l.galaxy.tier]}</p>
         <p className="market-price">
           <Icon name="coin" />
-          <span>{t.price(l.price)}</span>
+          <CoinAmount n={l.price} />
         </p>
         <p className="market-seller">
           <Link to={`/perfil/${encodeURIComponent(l.seller)}`}>{l.seller}</Link>
@@ -65,8 +66,9 @@ export function ListingCard({
             >
               {t.buy}
             </button>
+            {/* How many coins are missing: not under the card (the owner, 2026-11-14), only the disabled button's description. */}
             {canBuy && short > 0 ? (
-              <span id={missingId} className="panel-note">
+              <span id={missingId} className="sr-only">
                 {t.missing(short)}
               </span>
             ) : null}

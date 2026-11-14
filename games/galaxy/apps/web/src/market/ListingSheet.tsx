@@ -1,6 +1,7 @@
 import type { MarketListing } from '@galaxy/shared';
 import { Link } from 'react-router';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { RelicSheet } from '../hangar/RelicSheet';
 import { Icon } from '../ui/Icon';
 
@@ -44,7 +45,7 @@ export function ListingSheet({
             <dt>{t.sheetPrice}</dt>
             <dd className="market-price">
               <Icon name="coin" />
-              <span>{t.price(l.price)}</span>
+              <CoinAmount n={l.price} />
             </dd>
           </dl>
           <dl>

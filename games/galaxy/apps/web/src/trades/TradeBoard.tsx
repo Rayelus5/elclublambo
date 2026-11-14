@@ -5,6 +5,7 @@ import { useCancelPost, useMyPosts, useTradeBoard } from '../api/trades';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { PostComposer } from './PostComposer';
@@ -45,7 +46,7 @@ function PostCard({ p, canTrade, onAnswer, onWithdraw }: { p: TradePostView; can
           {p.coins > 0 ? (
             <p className="trade-coins-chip">
               <Icon name="coin" />
-              <span>{t.coinsChip(p.coins)}</span>
+              <CoinAmount n={p.coins} />
             </p>
           ) : null}
         </section>

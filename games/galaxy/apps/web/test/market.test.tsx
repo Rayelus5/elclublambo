@@ -2,7 +2,7 @@ import type { GachaView, GalaxyDetail, GalaxySummary, MarketListing, MarketPage,
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
-import { copy } from '../src/copy/es';
+import { copy, fmt } from '../src/copy/es';
 import { GalaxyDetailDialog } from '../src/collection/GalaxyDetailDialog';
 import { MarketScreen } from '../src/market/MarketScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
@@ -77,7 +77,9 @@ test('tres pestañas, y las cartas dicen precio y vendedor', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: t.title })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /^(Comprar|Vender|Mis anuncios)$/ }).map((a) => a.textContent)).toEqual([t.tabs.buy, t.tabs.sell, t.tabs.mine]);
   const card = await itemOf('Vega g1');
-  expect(within(card).getByText(t.price(600))).toBeInTheDocument();
+  // The price: the coin icon and the number, the word only for screen readers (the owner, 2026-11-14).
+  expect(within(card).getByText(fmt(600))).toBeInTheDocument();
+  expect(card).toHaveTextContent(t.price(600));
   expect(within(card).getByRole('link', { name: 'lyra' })).toHaveAttribute('href', '/perfil/lyra');
   // One's own listing: no «Comprar».
   const own = await itemOf('Vega g3');
@@ -93,12 +95,14 @@ test('sin el nivel o los días, todo se ve pero no se compra, y se dice por qué
   expect(screen.getByRole('button', { name: t.buyOf('Vega g1') })).toBeDisabled();
 });
 
-test('sin monedas dice cuántas faltan', async () => {
+test('sin monedas no se compra; cuántas faltan lo dice el botón, no un aviso bajo la carta (2026-11-14)', async () => {
   mount({}, 100);
   screenAt();
   const card = await itemOf('Vega g1');
-  expect(within(card).getByRole('button', { name: t.buyOf('Vega g1') })).toBeDisabled();
-  expect(within(card).getByText(t.missing(500))).toBeInTheDocument();
+  const buy = within(card).getByRole('button', { name: t.buyOf('Vega g1') });
+  expect(buy).toBeDisabled();
+  expect(buy).toHaveAccessibleDescription(t.missing(500));
+  expect(card.querySelector('.panel-note')).toBeNull();
 });
 
 test('comprar pide confirmación con el precio y el saldo, y después lleva a la colección', async () => {
