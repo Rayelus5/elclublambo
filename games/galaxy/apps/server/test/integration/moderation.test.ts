@@ -261,7 +261,10 @@ describe('a escala', () => {
     await act(`/messages/${ids[2]}/hide`, { reason: 'Ya estaba' });
     expect((await act('/messages/hide', { ids, reason: 'Inundación' })).json()).toEqual({ hidden: 2 });
     for (const id of ids) expect(await seen(a, id)).toBe(false);
-    expect((await audits(ids[0]!)).map((r) => r.action)).toContain('chat.hide_many');
+    // One entry for the change, on one of the messages hidden.
+    const entries = [...(await audits(ids[0]!)), ...(await audits(ids[1]!))].filter((r) => r.action === 'chat.hide_many');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.after).toMatchObject({ ids: expect.arrayContaining([ids[0], ids[1]]) });
     expect((await act('/messages/hide', { ids: [], reason: 'Nada' })).statusCode).toBe(400);
   });
 
