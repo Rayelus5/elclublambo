@@ -171,6 +171,12 @@ export const API_ERROR_CODES = [
   'referral_code_not_found',
   'referral_not_found',
   'referral_not_held',
+  // The news board (2026-11-14).
+  'news_not_found',
+  'news_auto',
+  'media_invalid',
+  'media_not_found',
+  'media_in_use',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

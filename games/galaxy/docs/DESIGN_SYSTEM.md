@@ -1198,6 +1198,23 @@ Plan «escáner pro», parte E.
 - **Cada categoría** es un botón con su flecha, su nombre (el año y BETA en la letra de títulos), cuántas versiones tiene y un punto solar si trae alguna nueva. Se abre y se cierra (`aria-expanded`); de entrada solo está abierta la que lleva la versión que se ve.
 - **La versión que se ve** lleva el borde de hielo (`aria-current="page"`). Las versiones se escriben «v1.24».
 
+## 8 septquatricies. Tablón de noticias
+
+- **Dónde:** el botón «Noticias» de la barra superior (con su cuenta de lo nuevo) abre el tablón, un diálogo de hasta 1180 px que nunca crece hacia los lados.
+- **De arriba abajo:**
+  - los **avisos** del equipo (el importante, marcado);
+  - el **carrusel «Destacado»**: la imagen grande a la izquierda (16:9 en estrecho) y el título, el texto y el botón sólido a la derecha. Pasa solo cada 8 s, pero nunca con movimiento reducido ni mientras el ratón o el foco están encima. Tiene flechas y puntos (`aria-current`);
+  - las **secciones** como columnas de un tablón: Comunidad, Eventos y torneos y Novedades, cada una con su color (lila, solar, terminal) y sus tarjetas una bajo otra. Son tres en ancho y una en móvil.
+- **La tarjeta:** imagen 16:9, una etiqueta pequeña («v1.26», «Evento»), «Nueva», el título en la letra de títulos, el texto, unas líneas en su color y el botón con flecha.
+  - El enlace la cubre entera: dentro del juego navega y cierra el tablón; una URL se abre en otra pestaña (`noopener`) y lo dice su nombre accesible.
+  - Las clases de variante llevan prefijo (`news-card-hero`, `news-card-tile`), porque `.tile` y otras son globales.
+- **Arte:** las imágenes de la galería (`apps/web/src/news/art/*.png`, 960×540) se dibujan con las piezas del juego: sus sondas y skins, la fauna, los Núcleos, las galaxias reales y los iconos, sobre fondo de espacio y sin texto. Se regeneran con `VITE_NEWS_ART=1` y la prueba `news-art.browser.test.ts`.
+- **Admin › Tablón:**
+  - cada sección con sus filas: flechas de orden a la izquierda, miniatura, título, estado («En el tablón», «Oculta», «Programada», «Terminada», «Ahora no tiene nada que contar») y adónde lleva, con las acciones a la derecha;
+  - el editor con el formulario a la izquierda y la tarjeta tal como la verán a la derecha;
+  - la imagen se elige en una rejilla de miniaturas o se sube arrastrando;
+  - el enlace se elige entre tres opciones (ninguno, una pantalla de una lista cerrada o una página https).
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

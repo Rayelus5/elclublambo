@@ -615,6 +615,39 @@ export interface TitleNoticesTable {
   ended_at: ColumnType<Date | null, never, Date | string>;
 }
 
+/** The news board's cards (2026-11-14): custom ones, and one of each auto card (its words come from the game). */
+export interface NewsPostsTable {
+  id: Generated<string>;
+  kind: string;
+  section: string;
+  title: Generated<string>;
+  body: Generated<string>;
+  image: ColumnType<unknown, string | null | undefined, string | null>;
+  link: ColumnType<unknown, string | null | undefined, string | null>;
+  featured: Generated<boolean>;
+  sort: Generated<number>;
+  starts_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  ends_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  hidden: Generated<boolean>;
+  created_by: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** Images the admin uploaded for the news board (PNG, JPG or WebP, 2 MB at most), served from the same origin. */
+export interface MediaAssetsTable {
+  id: Generated<string>;
+  name: string;
+  mime: string;
+  bytes: number;
+  width: number;
+  height: number;
+  sha256: string;
+  data: Buffer;
+  created_by: string | null;
+  created_at: Timestamp;
+}
+
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
 export interface ClansTable {
   id: Generated<string>;
@@ -911,6 +944,8 @@ export interface DB {
   'galaxy.mailbox_messages': MailboxMessagesTable;
   'galaxy.mailbox_receipts': MailboxReceiptsTable;
   'galaxy.title_notices': TitleNoticesTable;
+  'galaxy.news_posts': NewsPostsTable;
+  'galaxy.media_assets': MediaAssetsTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;

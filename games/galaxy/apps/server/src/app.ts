@@ -31,6 +31,7 @@ import { registerAdminRoutes } from './admin/routes';
 import { registerModerationRoutes } from './admin/moderation-routes';
 import { registerAdminMarketRoutes } from './admin/market-routes';
 import { registerCommunicationRoutes } from './admin/communication-routes';
+import { registerNewsRoutes } from './news/routes';
 import { registerStatsRoutes } from './admin/stats-routes';
 import { registerReferralRoutes } from './referrals/routes';
 import { type Disk, serverDisk } from './admin/storage';
@@ -187,6 +188,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerNotesRoutes(api, { db: deps.db, env: deps.env });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
+    registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });

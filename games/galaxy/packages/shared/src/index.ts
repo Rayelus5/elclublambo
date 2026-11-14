@@ -46,6 +46,7 @@ export * from './api/admin-market';
 export * from './api/admin-runs';
 export * from './api/solo-watch';
 export * from './api/settings';
+export * from './api/news';
 export * from './notes/schema';
 export * from './notes/entries';
 export * from './api/admin-progress';
