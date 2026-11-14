@@ -513,6 +513,29 @@ describe('ofertas', () => {
     expect((await offersOf(buyers[0]!)).sent[0]?.status).toBe('outbid');
   });
 
+  // The bug the owner hit on PRE (2026-11-14: «Esa oferta ya no está abierta» al retirar): the Ofertas tab acts with the
+  // ids its own list gives, so they have to be the offers' (not their galaxies').
+  test('la pestaña Ofertas actúa con los ids que ella misma recibe: retirar, rechazar y aceptar', async () => {
+    const seller = await player();
+    const { listingId, galaxyId } = await listed(seller, 'epic', 4000);
+    const [a, b] = [await player({ coins: 3000 }), await player({ coins: 3000 })];
+    const made = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    const sent = (await offersOf(a)).sent;
+    expect(sent.map((o) => o.id)).toEqual([made.id]);
+    expect(sent[0]!.listing.galaxy.id).toBe(galaxyId);
+    expect((await act(a, sent[0]!.id, 'withdraw')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    await offerOn(a, listingId, 2100);
+    await offerOn(b, listingId, 2200);
+    const received = (await offersOf(seller)).received.filter((o) => o.status === 'open');
+    const fromA = received.find((o) => o.buyer === a.username)!;
+    const fromB = received.find((o) => o.buyer === b.username)!;
+    expect((await act(seller, fromA.id, 'reject')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    expect((await act(seller, fromB.id, 'accept')).statusCode).toBe(200);
+    expect(await ownerOf(galaxyId)).toBe(b.id);
+  });
+
   test('una oferta pasada de tiempo caduca y devuelve sus monedas', async () => {
     const seller = await player();
     const { listingId } = await listed(seller, 'epic', 4000);
