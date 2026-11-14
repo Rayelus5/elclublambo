@@ -19,3 +19,10 @@ Petición del propietario del 14/11: «rellenar el filtro de palabras vacío con
 **`antes/chat.json`:** lo que hay ahora, para volver atrás.
 
 Se publica con la skill galaxy-publicar-config, solo con el OK del propietario.
+
+## Publicado
+
+- **Cuándo:** 14/11/2026 a las 16:31 (Madrid), con el OK del propietario.
+- **Versión:** `chat` v1 → v2, con el motivo «Filtro de palabras del chat».
+- **Comprobado:** v2 tiene sus 150 palabras, la salud está bien y el contenedor no registró errores.
+- **`antes/chat.json`:** la v1 tal como estaba justo antes (lista vacía), para volver atrás.
