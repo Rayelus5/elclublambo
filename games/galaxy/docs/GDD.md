@@ -763,6 +763,12 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 
 - **Buzón:** noticias para todos o por segmentos, con **regalos adjuntos**.
 - **Avisos** en la pantalla de título.
+- **Tablón de noticias** (Admin › Tablón):
+  - Tarjetas por secciones: Destacado, Comunidad, Eventos y torneos y Novedades.
+  - Cada tarjeta lleva su título, su texto y una imagen: de la galería del juego, o subida en PNG, JPG o WebP de hasta 2 MB, comprobada por sus bytes y servida desde el mismo origen.
+  - Puede llevar a una pantalla del juego de una lista cerrada o a una página https, y tener fechas de inicio y fin.
+  - Las automáticas (las últimas notas, los eventos en marcha, la temporada con su anomalía, los multiplicadores y el Discord) cuentan lo que hay ahora. Solo se colocan, se ilustran o se ocultan, y no salen cuando no tienen nada que contar.
+  - Todo cambio, con motivo y auditado.
 
 ### 16.6 Paneles y herramientas [D]
 

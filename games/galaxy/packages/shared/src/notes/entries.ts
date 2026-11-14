@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-26-tablon-de-noticias',
+    version: '1.26',
+    date: '2026-11-14',
+    title: 'Tablón de noticias',
+    summary: 'Noticias pasa a ser un tablón grande, con imágenes y secciones',
+    items: [
+      { kind: 'nuevo', text: 'Noticias se abre en un tablón: los avisos arriba, lo destacado en grande y el resto por secciones (Comunidad, Eventos y torneos, Novedades)' },
+      { kind: 'nuevo', text: 'Cada tarjeta lleva su imagen y casi todas te llevan a algún sitio: a una pantalla del juego, a las notas de la última versión o al Discord' },
+      { kind: 'mejora', text: 'Las tarjetas de la temporada, los eventos y los multiplicadores se ponen al día solas y desaparecen cuando no hay nada que contar' },
+      { kind: 'mejora', text: 'Lo que no has visto sigue marcado como nuevo, también cuando una tarjeta cambia' },
+      { kind: 'mejora', text: 'Nuevos colores en los accesos de la sala de incursión: Taller amarillo, Colección azul claro, Estación verde, Temporada morado y Clan azul. En el inicio, Clan también es azul' },
+    ],
+  },
+  {
     id: 'v1-25-notas-por-categorias',
     version: '1.25',
     date: '2026-11-14',

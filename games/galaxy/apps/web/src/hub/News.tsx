@@ -1,17 +1,20 @@
-import type { BoostsView, TitleNotice } from '@galaxy/shared';
-import { type CSSProperties, useId, useState } from 'react';
-import { useBoosts } from '../api/boosts';
+import type { BoostsView, NewsSection, TitleNotice } from '@galaxy/shared';
+import { type CSSProperties, useEffect, useId, useState } from 'react';
 import { useNotices } from '../api/mail';
-import { useLeaderboard } from '../api/social';
+import { useNews as useNewsPosts } from '../api/news';
+import { type BoardCard, boardCard, useAutoData } from '../news/cards';
+import { NewsCard } from '../news/NewsCard';
+import { useReducedMotion } from '../ui/motion';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 
-// Noticias (open beta): the title notices, the season's anomaly and the multipliers running now no longer sit on the
-// home screen. They wait behind a button of the top bar, next to Comunidad and Amigos, which says how many are new to
-// this browser and opens them in a window: the notices (an important one marked), the anomaly and what it does, then
-// the multipliers, one card per launch with each currency's factor and when it ends. Opening the window counts
-// everything in it as seen.
+// Noticias (open beta; a board since the owner's ask of 2026-11-14): behind a button of the top bar, next to Comunidad
+// and Amigos, which says how many things are new to this browser. It opens the news board: the team's notices (an
+// important one marked), the featured cards turning in a carousel, and each section's cards (Comunidad, Eventos y
+// torneos, Novedades), all set up by the admin, some saying what the game has now (patch notes, events, season,
+// multipliers, Discord). Opening it counts everything in it as seen. The multipliers' and the anomaly's cards below
+// are also what «Condiciones de hoy» shows.
 
 const t = copy.news;
 const KEY = 'gs.news.seen';
@@ -44,8 +47,8 @@ export function groupBoosts(boosts: Boost[]): BoostGroup[] {
 }
 
 const noticeId = (n: TitleNotice) => `n:${n.id}`;
-const boostIds = (g: BoostGroup) => g.items.map((b) => `b:${b.id}`);
-const anomalyId = (a: Anomaly) => `a:${a.id}`;
+/** How long the featured carousel shows each card (ms). */
+const HERO_MS = 8000;
 
 function readSeen(): string[] {
   try {
@@ -64,25 +67,24 @@ function saveSeen(ids: string[]): void {
   }
 }
 
-/** What there is now and what of it this browser has not seen. */
-function useNews(seen: string[]) {
+/** What there is now and what of it this browser has not seen: the notices and the board's cards. */
+function useBoard(seen: string[]) {
   const notices = useNotices().data ?? [];
-  const boosts = useBoosts().data;
-  const groups = groupBoosts(boosts?.boosts ?? []);
-  const anomaly = boosts?.anomaly ?? null;
+  const posts = useNewsPosts().data?.posts ?? [];
+  const data = useAutoData();
+  const cards = posts.map((p) => boardCard(p, data)).filter((c): c is BoardCard => c !== null);
   const isNewNotice = (n: TitleNotice) => !seen.includes(noticeId(n));
-  const isNewGroup = (g: BoostGroup) => boostIds(g).some((id) => !seen.includes(id));
-  const anomalyNew = !!anomaly && !seen.includes(anomalyId(anomaly));
-  const fresh = notices.filter(isNewNotice).length + groups.filter(isNewGroup).length + (anomalyNew ? 1 : 0);
-  const ids = [...notices.map(noticeId), ...(anomaly ? [anomalyId(anomaly)] : []), ...groups.flatMap(boostIds)];
-  return { notices, groups, anomaly, anomalyNew, fresh, ids, isNewNotice, isNewGroup };
+  const isNewCard = (c: BoardCard) => !seen.includes(c.seenKey);
+  const fresh = notices.filter(isNewNotice).length + cards.filter(isNewCard).length;
+  const ids = [...notices.map(noticeId), ...cards.map((c) => c.seenKey)];
+  return { notices, cards, fresh, ids, isNewNotice, isNewCard };
 }
 
 export function NewsButton({ style }: { style?: CSSProperties }) {
   const [seen, setSeen] = useState<string[]>(readSeen);
-  // What was seen before this opening, so the window can still mark what is new in it.
+  // What was seen before this opening, so the board can still mark what is new in it.
   const [shownWith, setShownWith] = useState<string[] | null>(null);
-  const news = useNews(seen);
+  const news = useBoard(seen);
   const label = t.buttonLabel(news.fresh);
   return (
     <>
@@ -114,16 +116,22 @@ export function NewsButton({ style }: { style?: CSSProperties }) {
   );
 }
 
+const SECTIONS: NewsSection[] = ['comunidad', 'eventos', 'novedades'];
+
+/**
+ * The news board (the owner, 2026-11-14: «más grande, llamativo, y profesional, como un tablón de anuncios»): the
+ * team's notices on top, the featured cards in a carousel, then each section's cards in a grid.
+ */
 function NewsDialog({ seen, onClose }: { seen: string[]; onClose: () => void }) {
-  const { notices, groups, anomaly, anomalyNew, isNewNotice, isNewGroup } = useNews(seen);
-  const endsAt = useLeaderboard('general').data?.season?.endsAt;
+  const { notices, cards, isNewNotice, isNewCard } = useBoard(seen);
   const ids = useId();
+  const hero = [...cards.filter((c) => c.section === 'destacado'), ...cards.filter((c) => c.section !== 'destacado' && c.featured)];
   return (
-    <Dialog title={t.title} onClose={onClose} className="news">
+    <Dialog title={t.title} onClose={onClose} className="news board">
       <button type="button" className="lip iconbtn modal-close" aria-label={t.close} title={t.close} onClick={onClose}>
         <Icon name="close" />
       </button>
-      {notices.length === 0 && groups.length === 0 && !anomaly ? (
+      {notices.length === 0 && cards.length === 0 ? (
         <div className="news-empty">
           <Icon name="megaphone" />
           <p>
@@ -134,8 +142,10 @@ function NewsDialog({ seen, onClose }: { seen: string[]; onClose: () => void }) 
       ) : null}
       {notices.length > 0 ? (
         <section className="news-section" aria-labelledby={`${ids}-notices`}>
-          <h3 id={`${ids}-notices`}>{t.notices}</h3>
-          <ul className="news-list">
+          <h3 id={`${ids}-notices`} className="sr-only">
+            {t.notices}
+          </h3>
+          <ul className="news-list news-notices">
             {notices.map((n) => (
               <li key={n.id} className={`news-notice ${n.tone}`}>
                 <Icon name={n.tone === 'warning' ? 'alert' : 'info'} />
@@ -153,19 +163,67 @@ function NewsDialog({ seen, onClose }: { seen: string[]; onClose: () => void }) 
           </ul>
         </section>
       ) : null}
-      {anomaly ? (
-        <section className="news-section" aria-labelledby={`${ids}-anomaly`}>
-          <h3 id={`${ids}-anomaly`}>{t.anomaly}</h3>
-          <AnomalyCard anomaly={anomaly} endsAt={endsAt} fresh={anomalyNew} />
-        </section>
-      ) : null}
-      {groups.length > 0 ? (
-        <section className="news-section" aria-labelledby={`${ids}-boosts`}>
-          <h3 id={`${ids}-boosts`}>{t.boosts}</h3>
-          <BoostCards groups={groups} isNew={isNewGroup} />
-        </section>
-      ) : null}
+      {hero.length > 0 ? <Carousel cards={hero} isNew={isNewCard} onNavigate={onClose} /> : null}
+      {/* The sections side by side, like the columns of a board (one under another when narrow). */}
+      <div className="news-columns">
+        {SECTIONS.map((section) => {
+          const list = cards.filter((c) => c.section === section && !c.featured);
+          if (list.length === 0) return null;
+          return (
+            <section key={section} className={`news-section news-column section-${section}`} aria-labelledby={`${ids}-${section}`}>
+              <h3 id={`${ids}-${section}`}>{t.board.sections[section]}</h3>
+              <div className="news-grid">
+                {list.map((c, i) => (
+                  <NewsCard key={c.id} card={c} fresh={isNewCard(c)} onNavigate={onClose} style={{ '--i': i } as CSSProperties} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </Dialog>
+  );
+}
+
+/** The featured cards, one at a time, turning by themselves (never with reduced motion, nor while hovered or focused). */
+function Carousel({ cards, isNew, onNavigate }: { cards: BoardCard[]; isNew: (c: BoardCard) => boolean; onNavigate: () => void }) {
+  const [at, setAt] = useState(0);
+  const [held, setHeld] = useState(false);
+  const reduced = useReducedMotion();
+  const n = cards.length;
+  const shown = cards[Math.min(at, n - 1)]!;
+  useEffect(() => {
+    if (n < 2 || held || reduced) return;
+    const id = setTimeout(() => setAt((a) => (a + 1) % n), HERO_MS);
+    return () => clearTimeout(id);
+  }, [at, n, held, reduced]);
+  return (
+    <section
+      className="news-hero"
+      aria-roledescription="carrusel"
+      aria-label={t.board.featured}
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={() => setHeld(false)}
+    >
+      <NewsCard key={shown.id} card={shown} variant="hero" fresh={isNew(shown)} onNavigate={onNavigate} />
+      {n > 1 ? (
+        <div className="news-hero-nav">
+          <button type="button" className="lip iconbtn small" aria-label={t.board.prev} onClick={() => setAt((a) => (a + n - 1) % n)}>
+            <Icon name="back" />
+          </button>
+          <div className="news-hero-dots">
+            {cards.map((c, i) => (
+              <button key={c.id} type="button" aria-label={t.board.goTo(i + 1, n)} aria-current={i === at ? 'true' : undefined} onClick={() => setAt(i)} />
+            ))}
+          </div>
+          <button type="button" className="lip iconbtn small" aria-label={t.board.next} onClick={() => setAt((a) => (a + 1) % n)}>
+            <Icon name="next" />
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

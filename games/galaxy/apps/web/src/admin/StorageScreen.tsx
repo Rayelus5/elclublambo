@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ADMIN_KEY } from '../api/admin';
 import { api } from '../api/client';
+import { useAdminMedia } from '../api/news';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { HScroll } from '../ui/HScroll';
@@ -72,6 +73,7 @@ function Tile({ label, value, detail, children }: { label: string; value: string
 
 function Tiles({ s }: { s: AdminStorage }) {
   const { disk } = s;
+  const media = useAdminMedia().data;
   const used = disk ? disk.totalBytes - disk.freeBytes : 0;
   const share = disk && disk.totalBytes > 0 ? used / disk.totalBytes : 0;
   return (
@@ -89,6 +91,7 @@ function Tiles({ s }: { s: AdminStorage }) {
       <Tile label={t.tiles.galaxies} value={whole.format(s.galaxies.live + s.galaxies.disintegrated)} detail={t.tiles.alive(whole.format(s.galaxies.live), whole.format(s.galaxies.disintegrated))} />
       <Tile label={t.tiles.galaxiesTable} value={formatBytes(s.galaxies.bytes)} detail={t.tiles.galaxiesTableDetail} />
       <Tile label={t.tiles.images} value={formatBytes(0)} detail={t.tiles.imagesDetail} />
+      {media?.assets ? <Tile label={t.tiles.newsImages} value={formatBytes(media.totalBytes)} detail={t.tiles.newsImagesDetail(media.assets.length)} /> : null}
     </div>
   );
 }

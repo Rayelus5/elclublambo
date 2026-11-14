@@ -39,6 +39,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/tablon">{t.sections.news}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/referidos">{t.sections.referrals}</NavLink>
                 </li>
                 <li>

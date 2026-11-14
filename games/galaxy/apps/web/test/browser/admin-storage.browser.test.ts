@@ -42,7 +42,7 @@ for (const [w, h] of [
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        const body = url.endsWith('/auth/me') ? me : url.endsWith('/admin/storage') ? storage : {};
+        const body = url.endsWith('/auth/me') ? me : url.endsWith('/admin/storage') ? storage : url.endsWith('/admin/media') ? { assets: [{ id: 'a' }, { id: 'b' }], totalBytes: 3_500_000 } : {};
         return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
       }),
     );
@@ -63,6 +63,8 @@ for (const [w, h] of [
     );
     await expect.poll(() => document.querySelectorAll('.storage-tables tbody tr').length, { timeout: 5000 }).toBe(12);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    // The news board's uploaded images have their own tile.
+    await expect.poll(() => document.querySelector('[role="group"][aria-label="Imágenes del tablón"]')?.textContent ?? '').toContain('2 imágenes subidas');
     // The disk's bar fills as much as is used (29 of 80).
     const bar = document.querySelector<HTMLElement>('.storage-meter')!.getBoundingClientRect();
     const fill = document.querySelector<HTMLElement>('.storage-meter > span')!.getBoundingClientRect();

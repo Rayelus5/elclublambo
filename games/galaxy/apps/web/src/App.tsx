@@ -43,6 +43,7 @@ import { ChatHost } from './chat/ChatPanel';
 import { LiveConnection } from './live/LiveConnection';
 import { SettingsSync } from './settings/SettingsSync';
 import { NotesScreen } from './notes/NotesScreen';
+import { NewsAdmin } from './admin/NewsAdmin';
 import { NotesAdmin } from './admin/NotesAdmin';
 import { MusicRehearsal } from './admin/MusicRehearsal';
 import { FriendsHost } from './social/FriendsPanel';
@@ -169,6 +170,7 @@ export function App() {
             <Route path="tienda" element={<ShopAdminScreen />} />
             <Route path="escaner-ensayo" element={<RevealRehearsal />} />
             <Route path="notas-de-version" element={<NotesAdmin />} />
+            <Route path="tablon" element={<NewsAdmin />} />
             <Route path="musica" element={<MusicRehearsal />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
