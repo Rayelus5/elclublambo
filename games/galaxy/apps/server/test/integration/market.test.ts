@@ -484,14 +484,16 @@ describe('ofertas', () => {
     const seller = await player();
     const { listingId } = await listed(seller, 'epic', 4000);
     const [a, b, c] = [await player({ coins: 3000 }), await player({ coins: 3000 }), await player({ coins: 3000 })];
+    // Two at a time here (perListing 2): the third comes once the first two are gone.
     const oa = (await offerOn(a, listingId, 2000)).json() as { id: string };
     const ob = (await offerOn(b, listingId, 2100)).json() as { id: string };
-    await offerOn(c, listingId, 2200);
     expect((await act(seller, oa.id, 'reject')).statusCode).toBe(200);
     expect(await coins(a)).toBe(3000);
     expect((await act(a, ob.id, 'withdraw')).statusCode).toBe(404);
     expect((await act(b, ob.id, 'withdraw')).statusCode).toBe(200);
     expect(await coins(b)).toBe(3000);
+    expect((await offerOn(c, listingId, 2200)).statusCode).toBe(200);
+    expect(await coins(c)).toBe(800);
     expect((await cancel(seller, listingId)).statusCode).toBe(200);
     expect(await coins(c)).toBe(3000);
     expect(await held(c)).toBe(0);
@@ -516,7 +518,7 @@ describe('ofertas', () => {
     const { listingId } = await listed(seller, 'epic', 4000);
     const a = await player({ coins: 3000 });
     const o = (await offerOn(a, listingId, 2000)).json() as { id: string };
-    await ctx.db.updateTable('galaxy.market_offers').set({ expires_at: new Date(Date.now() - 1000) }).where('id', '=', o.id).execute();
+    await ctx.db.updateTable('galaxy.market_offers').set({ created_at: new Date(Date.now() - 2000), expires_at: new Date(Date.now() - 1000) }).where('id', '=', o.id).execute();
     expect(await expireOffers(ctx.db)).toBeGreaterThanOrEqual(1);
     expect(await coins(a)).toBe(3000);
     expect((await offersOf(a)).sent[0]?.status).toBe('expired');
