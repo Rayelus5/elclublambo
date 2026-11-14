@@ -369,10 +369,10 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
 - **Avisos (siempre antes del golpe):**
   - **Embestida:** banda roja translúcida que late, con flecha.
   - **Ráfaga del jefe:** anillo que se cierra.
-  - **Explosión de Inestable:** círculo rojo que se llena.
+  - **Explosión de Inestable** (2026-11-14): todo su alcance con un borde rojo grueso que parpadea cada vez más rápido y un relleno que crece hasta que estalla (1,2 s). Su mecha pita cada vez más seguido. Al estallar: un destello naranja con el centro blanco, una onda naranja hasta su alcance, chispas naranjas, rojas y amarillas, una sacudida de 5 px y un «bum» grave. Con movimiento reducido el borde no parpadea y no hay sacudida.
   - **Lanza** (tiradores `lancer`, M3b-3): la misma banda que la embestida, del largo de su alcance, mientras apuntan.
   - **Salto** (`blink` de fauna y Núcleos): círculo rojo que se llena donde va a aparecer. Al saltar, chispas lila donde estaba y violeta donde llega. Un Núcleo que salta queda como un fantasma (20 % de opacidad) hasta aparecer.
-  - **Minas** de los Núcleos: los círculos rojos que se llenan de la explosión de Inestable, uno por mina. Estallan con partículas rojas y una sacudida de 3 px.
+  - **Minas** de los Núcleos: el mismo aviso de la explosión de Inestable, uno por mina, y el mismo estallido.
 - **Apoyo** (`support`, M3b-3): anillo verde Terminal si cura y lila si escuda. Cualquier enemigo con escudo lleva el círculo hielo, sea élite o no.
 - **Biomas** (M3b-3, GDD §5.5). Cada sector cambia los tres tonos de la nebulosa, las estrellas, las motas y las rocas, siempre oscuros y de poco contraste; los avisos son del mismo rojo en todos. Consulta de ui-ux-pro-max: la legibilidad de los avisos no depende del fondo.
   - **Nebulosa Exterior:** la de M3a.

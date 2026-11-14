@@ -148,7 +148,9 @@ const elite = z
     name,
     shield: z.number().min(0).max(10),
     speed: z.number().min(0.1).max(10),
-    explode: z.object({ radius: n, damage: n, delay: n }).strict().nullable(),
+    // `keep` (2026-11-14): the share of the life one has that a blast always leaves (it never kills on its own); content
+    // published before it gets the 40 %.
+    explode: z.object({ radius: n, damage: n, delay: n, keep: z.number().min(0.05).max(0.95).default(0.4) }).strict().nullable(),
   })
   .strict();
 

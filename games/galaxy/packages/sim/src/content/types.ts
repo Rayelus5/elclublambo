@@ -204,7 +204,11 @@ export interface EliteDef {
   shield: number;
   /** Speed multiplier (1: unchanged). */
   speed: number;
-  explode: { radius: number; damage: number; delay: number } | null;
+  /**
+   * A blast `delay` s after it dies, within `radius`: `damage` (scaled like the enemy's), never taking more than `1 - keep`
+   * of the life a probe has (the owner, 2026-11-14: it hurts, but never kills on its own).
+   */
+  explode: { radius: number; damage: number; delay: number; keep: number } | null;
 }
 
 export type BossPattern =

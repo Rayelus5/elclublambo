@@ -876,7 +876,8 @@ export const DEFAULT_CONTENT: Content = {
   elites: [
     { id: 'shielded', name: 'Blindada', shield: 0.6, speed: 1, explode: null },
     { id: 'swift', name: 'Veloz', shield: 0, speed: 1.45, explode: null },
-    { id: 'volatile', name: 'Inestable', shield: 0, speed: 1, explode: { radius: 50, damage: 18, delay: 0.6 } },
+    // The owner, 2026-11-14: twice the warning (1,2 s) and a blast that leaves 40 % of the life one has; 12 as on PRE.
+    { id: 'volatile', name: 'Inestable', shield: 0, speed: 1, explode: { radius: 50, damage: 12, delay: 1.2, keep: 0.4 } },
   ],
   bosses: [
     {

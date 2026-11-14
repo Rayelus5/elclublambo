@@ -1119,6 +1119,18 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - las señales en el HUD;
   - «N de satélites» en Resultados.
 
+## La explosión de Inestable ya no mata (SIM 1.13.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.13.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **El tope:** la explosión del élite Inestable se lleva como mucho el 60 % de la vida que tenga la sonda (`explode.keep`, 0,4 por defecto). Vale aunque el `content` publicado no traiga `keep`.
+- **Lo que se ve y se oye:** el estallido avisa a la pantalla (evento `blast`), con destello, onda, chispas y sonido, y su mecha pita. Las minas de los Núcleos usan el mismo estallido.
+
+**Lo que hay que publicar después** (con el OK del propietario): `content` con `elites.volatile.explode.delay` a 1,2 (en PRE está a 0,6) y `keep` a 0,4. La carpeta es `ops/launch/2026-11-14-inestable`.
+
+**Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
 ## El dash lo decide el jugador (SIM 1.12.0)
 
 **Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.12.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.

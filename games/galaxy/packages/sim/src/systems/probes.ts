@@ -52,8 +52,11 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
   }
 }
 
-/** Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. */
-export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
+/**
+ * Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. With `keep`, the hit
+ * takes at most `1 - keep` of the life the probe has (a volatile elite's blast never kills on its own: 2026-11-14).
+ */
+export function hurtProbe(sim: Sim, p: ProbeState, amount: number, opts?: { keep?: number }): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
   // Fase cuántica (Nov plan B2): the hit goes through; the usual breather follows, so contact does not hit next tick.
   if (p.stats.evasion > 0 && sim.rng.combat.chance(p.stats.evasion)) {
@@ -65,6 +68,7 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
   dmg -= absorbed;
+  if (opts?.keep !== undefined) dmg = Math.min(dmg, p.hp * (1 - opts.keep));
   p.hp -= dmg;
   p.invulnT = ticks(INVULN_SECONDS);
   p.fx['lastHurt'] = sim.tick;

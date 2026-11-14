@@ -195,3 +195,19 @@ test('cada singularidad tiene un tope de motas vivas, aunque pase mucho tiempo e
   expect(of(0)).toBeLessThanOrEqual(SWIRL_MAX);
   expect(of(300)).toBeLessThanOrEqual(SWIRL_MAX);
 });
+
+// A blast (2026-11-14): its wave reaches the blast's own radius, fast at first; its flash is filled and short.
+test('la onda de una explosión llega a su radio y el destello es breve y relleno', () => {
+  const fx = createFx(false);
+  fx.ring(0, 0, 0xffa23a, { radius: 50, life: 0.42 });
+  fx.ring(0, 0, 0xfff1b8, { radius: 37, life: 0.2, fill: true });
+  fx.update(0.1);
+  const [wave, flash] = fx.rings;
+  expect(wave!.radius).toBeGreaterThan(50 * (0.1 / 0.42));
+  expect(flash!.fill).toBe(true);
+  fx.update(0.15);
+  expect(fx.rings).toHaveLength(1);
+  expect(fx.rings[0]!.radius).toBeLessThanOrEqual(50);
+  fx.update(0.2);
+  expect(fx.rings).toHaveLength(0);
+});

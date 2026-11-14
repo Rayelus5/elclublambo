@@ -45,6 +45,12 @@ export interface FxRing {
   age: number;
   radius: number;
   alpha: number;
+  /** How far it grows and for how long, and whether it is a filled flash (a blast) instead of a line. */
+  max: number;
+  life: number;
+  fill: boolean;
+  /** A blast's wave rushes out and slows down; an evolution's ring grows evenly. */
+  ease: boolean;
 }
 
 export interface Fx {
@@ -54,8 +60,11 @@ export interface Fx {
   rings: FxRing[];
   /** A reaction's name over the enemy (world units). */
   label(x: number, y: number, text: string, color: number): void;
-  /** An expanding ring (an evolution, around the probe). */
-  ring(x: number, y: number, color: number): void;
+  /**
+   * An expanding ring (an evolution, around the probe). A blast's (2026-11-14) grows to its own reach, in its own time,
+   * and may be a filled flash.
+   */
+  ring(x: number, y: number, color: number, opts?: { radius?: number; life?: number; fill?: boolean }): void;
   shake(amount: number): void;
   number(x: number, y: number, value: number, crit: boolean): void;
   burst(x: number, y: number, color: number, count: number, speed?: number): void;
@@ -151,8 +160,8 @@ export function createFx(startReduced: boolean): Fx {
       if (labels.length >= MAX_LABELS) labels.shift();
       labels.push({ x, y, text, color, age: 0, alpha: 1 });
     },
-    ring(x, y, color) {
-      rings.push({ x, y, color, age: 0, radius: 0, alpha: 1 });
+    ring(x, y, color, opts) {
+      rings.push({ x, y, color, age: 0, radius: 0, alpha: 1, max: opts?.radius ?? RING_RADIUS, life: opts?.life ?? RING_LIFE, fill: opts?.fill ?? false, ease: opts?.radius !== undefined });
     },
     shake(amount) {
       if (!reduced) trauma = Math.max(trauma, amount);
@@ -268,12 +277,13 @@ export function createFx(startReduced: boolean): Fx {
       for (let i = rings.length - 1; i >= 0; i--) {
         const r = rings[i]!;
         r.age += dt;
-        if (r.age >= RING_LIFE) {
+        if (r.age >= r.life) {
           rings.splice(i, 1);
           continue;
         }
-        r.radius = RING_RADIUS * (r.age / RING_LIFE);
-        r.alpha = 1 - r.age / RING_LIFE;
+        const k = r.age / r.life;
+        r.radius = r.max * (r.ease ? 1 - (1 - k) ** 3 : k);
+        r.alpha = 1 - k;
       }
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]!;

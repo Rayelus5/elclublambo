@@ -542,7 +542,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
     }
     // Evolution rings around the probe.
-    for (const ring of fx.rings) areas.circle(ring.x, ring.y, ring.radius).stroke({ width: 3, color: ring.color, alpha: ring.alpha });
+    for (const ring of fx.rings) {
+      if (ring.fill) areas.circle(ring.x, ring.y, ring.radius).fill({ color: ring.color, alpha: ring.alpha * 0.8 });
+      else areas.circle(ring.x, ring.y, ring.radius).stroke({ width: 3, color: ring.color, alpha: ring.alpha });
+    }
     // The beacon: a Terminal ring with turning braille dots, its hold arc and a beam of light.
     const b = sim.beacon;
     if (b) {
@@ -639,6 +642,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: pal.bad, alpha: 0.9 });
       } else if (wv.kind === 'burst') {
         warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: pal.danger, alpha: 0.7 });
+      } else if (wv.kind === 'explode') {
+        // A blast on its way (a volatile elite's corpse, a Core's mine; 2026-11-14): its whole reach drawn bold, blinking
+        // faster as the fuse burns, and filling up until it goes off.
+        const blink = opts.reduced ? 0.85 : 0.5 + 0.45 * Math.abs(Math.sin(clock * (5 + 26 * k)));
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 2.5, color: pal.danger, alpha: blink });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.16 + 0.22 * k });
       } else {
         warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 1, color: pal.danger, alpha: 0.8 });
         warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.25 });
@@ -1406,8 +1415,15 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
             fx.burst(e.tx, e.ty, 0xe05cff, 12, 80);
             break;
           case 'blast':
-            fx.burst(e.x, e.y, 0xff4d6d, 16, 100);
-            fx.shake(3);
+            // A blast going off (a Core's mine, a volatile elite: the owner, 2026-11-14, «no hay ninguna animación»): a
+            // hot flash, a shockwave out to its reach, and sparks and embers flying.
+            fx.ring(e.x, e.y, 0xffb347, { radius: e.radius * 0.85, life: 0.26, fill: true });
+            fx.ring(e.x, e.y, 0xffffff, { radius: e.radius * 0.4, life: 0.12, fill: true });
+            fx.ring(e.x, e.y, 0xffa23a, { radius: e.radius, life: 0.42 });
+            fx.burst(e.x, e.y, 0xffa23a, 24, 140);
+            fx.burst(e.x, e.y, 0xff4d6d, 14, 180);
+            fx.burst(e.x, e.y, 0xfff1b8, 10, 70);
+            fx.shake(5);
             break;
           case 'bossDown':
             fx.burst(e.x, e.y, 0xffc94a, 40, 140);
