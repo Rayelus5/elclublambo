@@ -91,7 +91,7 @@ function Tiles({ s }: { s: AdminStorage }) {
       <Tile label={t.tiles.galaxies} value={whole.format(s.galaxies.live + s.galaxies.disintegrated)} detail={t.tiles.alive(whole.format(s.galaxies.live), whole.format(s.galaxies.disintegrated))} />
       <Tile label={t.tiles.galaxiesTable} value={formatBytes(s.galaxies.bytes)} detail={t.tiles.galaxiesTableDetail} />
       <Tile label={t.tiles.images} value={formatBytes(0)} detail={t.tiles.imagesDetail} />
-      {media ? <Tile label={t.tiles.newsImages} value={formatBytes(media.totalBytes)} detail={t.tiles.newsImagesDetail(media.assets.length)} /> : null}
+      {media?.assets ? <Tile label={t.tiles.newsImages} value={formatBytes(media.totalBytes)} detail={t.tiles.newsImagesDetail(media.assets.length)} /> : null}
     </div>
   );
 }

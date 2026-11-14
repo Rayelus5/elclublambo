@@ -45,7 +45,7 @@ alter table galaxy.news_posts enable row level security;
 create policy galaxy_api_all on galaxy.media_assets for all to galaxy_api using (true) with check (true);
 create policy galaxy_api_all on galaxy.news_posts for all to galaxy_api using (true) with check (true);
 revoke all on galaxy.media_assets, galaxy.news_posts from public, anon, authenticated, service_role;
-grant select, insert, delete on galaxy.media_assets to galaxy_api;
+grant select, insert, update, delete on galaxy.media_assets to galaxy_api;
 grant select, insert, update, delete on galaxy.news_posts to galaxy_api;
 
 -- The auto cards, each once, with the game's own images and where they lead.

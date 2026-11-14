@@ -79,7 +79,12 @@ function mount(path: string, element: ReturnType<typeof createElement>) {
   return host;
 }
 
-const imagesLoaded = () => [...document.querySelectorAll<HTMLImageElement>('.news-card img, .news-admin-thumb img, .news-pick img')].every((i) => i.complete && i.naturalWidth > 0);
+/** The images in sight have loaded (the lazy ones further down load when they come into view). */
+const inSight = (i: HTMLElement) => {
+  const r = i.getBoundingClientRect();
+  return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+};
+const imagesLoaded = () => [...document.querySelectorAll<HTMLImageElement>('.news-card img, .news-admin-thumb img, .news-pick img')].filter(inSight).every((i) => i.complete && i.naturalWidth > 0);
 
 for (const [w, h] of [
   [1280, 720],
