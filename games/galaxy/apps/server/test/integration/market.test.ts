@@ -345,7 +345,7 @@ describe('avisos en tiempo real', () => {
 // and the public numbers.
 describe('a escala', () => {
   /** A listing straight in the table (today's cap is 3 in this app), its galaxy's values copied by the trigger. */
-  async function put24(seller: P, word: string, n: number, price = (i: number) => 100 + i) {
+  async function put24(seller: P, word: string, n: number, price = (i: number) => 500 + i) {
     const ids: string[] = [];
     for (let i = 0; i < n; i++) {
       const galaxyId = await own(seller.id, i % 2 ? 'rare' : 'common', `${word} ${i}`);
@@ -367,8 +367,8 @@ describe('a escala', () => {
     const first = await browse(viewer, `?sort=cheap&q=${word}`);
     expect(first.listings).toHaveLength(24);
     expect(first.next).toEqual(expect.any(String));
-    // A cheaper one listed meanwhile does not move the second page.
-    await put24(s, word, 1, () => 1);
+    // A cheaper one listed meanwhile does not move the second page (common, above its floor of 50).
+    await put24(s, word, 1, () => 60);
     const second = await browse(viewer, `?sort=cheap&q=${word}&cursor=${first.next}`);
     expect(second.next).toBeNull();
     expect([...first.listings, ...second.listings].map((l) => l.id)).toEqual(ids);
