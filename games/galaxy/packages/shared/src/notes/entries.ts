@@ -17,6 +17,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'Cada tarjeta lleva su imagen y casi todas te llevan a algún sitio: a una pantalla del juego, a las notas de la última versión o al Discord' },
       { kind: 'mejora', text: 'Las tarjetas de la temporada, los eventos y los multiplicadores se ponen al día solas y desaparecen cuando no hay nada que contar' },
       { kind: 'mejora', text: 'Lo que no has visto sigue marcado como nuevo, también cuando una tarjeta cambia' },
+      { kind: 'mejora', text: 'Nuevos colores en los accesos de la sala de incursión: Taller amarillo, Colección azul claro, Estación verde, Temporada morado y Clan azul. En el inicio, Clan también es azul' },
     ],
   },
   {

@@ -135,7 +135,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
         />
         <Tile to="/taller" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
         <Tile to="/misiones?pestana=logros" icon="trophy" title={copy.hub.achievements} sub={copy.hub.achievementsHint} color="var(--color-solar)" d="1.18s" />
-        <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="var(--color-uv-soft)" d="1.22s" />
+        <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="color-mix(in oklab, var(--color-sky) 78%, white)" d="1.22s" />
         <Tile to="/clasificacion" icon="podium" title={copy.hub.ranking} sub={copy.social.rankingTile} color="var(--color-nova)" d="1.26s" />
         <Tile to="/codice" icon="book" title={copy.hub.codex} sub={copy.hub.codexHint} color="var(--color-solar-2)" d="1.3s" />
       </div>

@@ -8,13 +8,15 @@ import { Icon, type IconName } from '../../ui/Icon';
 // propio lobby también damos la posibilidad de que el jugador vaya a otras zonas»). Narrow screens keep the icons.
 
 const z = copy.lobby.zone;
+// Each place's colour (the owner, 2026-11-14): Taller yellow, Colección light blue, Estación green, Temporada purple,
+// Clasificación red, Clan dark blue.
 const ZONES: { to: string; icon: IconName; name: string; tone: string }[] = [
-  { to: '/taller', icon: 'wrench', name: z.workshop, tone: 'terminal' },
-  { to: '/coleccion', icon: 'cards', name: z.collection, tone: 'uv' },
-  { to: '/estacion', icon: 'station', name: z.station, tone: 'sky' },
-  { to: '/temporada', icon: 'comet', name: z.season, tone: 'solar' },
+  { to: '/taller', icon: 'wrench', name: z.workshop, tone: 'solar' },
+  { to: '/coleccion', icon: 'cards', name: z.collection, tone: 'ice' },
+  { to: '/estacion', icon: 'station', name: z.station, tone: 'terminal' },
+  { to: '/temporada', icon: 'comet', name: z.season, tone: 'uv' },
   { to: '/clasificacion', icon: 'podium', name: z.ranking, tone: 'nova' },
-  { to: '/clanes', icon: 'clan', name: z.clan, tone: 'ice' },
+  { to: '/clanes', icon: 'clan', name: z.clan, tone: 'sky' },
 ];
 
 export function Rail() {
