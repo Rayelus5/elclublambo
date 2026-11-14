@@ -81,6 +81,8 @@ for (const [w, h] of [
     await expect.poll(() => document.querySelectorAll('.chat-msg').length, { timeout: 5000 }).toBe(8);
     await new Promise((r) => setTimeout(r, 400));
     const sheet = document.querySelector<HTMLElement>('.chat-sheet')!;
+    // Its entrance (sliding in from the right) ends first: a busy runner measures it mid-way otherwise.
+    await Promise.all(sheet.getAnimations().map((a) => a.finished));
     const box = sheet.getBoundingClientRect();
     expect(box.right).toBeLessThanOrEqual(w);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
