@@ -190,8 +190,9 @@ export async function myOffers(db: Kysely<DB>, accountId: string): Promise<Marke
       .innerJoin('galaxy.galaxies as g', 'g.id', 'm.galaxy_id')
       .innerJoin('galaxy.accounts as s', 's.id', 'm.seller_id')
       .innerJoin('galaxy.accounts as b', 'b.id', 'o.buyer_id')
+      // The offer's id under its own name: the galaxy's `id` (for its card) would otherwise overwrite it.
       .select([
-        'o.id',
+        'o.id as offer_id',
         'o.amount',
         'o.status',
         'o.created_at as offered_at',
@@ -225,7 +226,7 @@ export async function myOffers(db: Kysely<DB>, accountId: string): Promise<Marke
   ]);
   type Row = (typeof sent)[number];
   const of = (r: Row): MarketOffer => ({
-    id: r.id,
+    id: r.offer_id,
     listing: { id: r.listing_id, galaxy: summary(r), price: Number(r.price), seller: r.seller, active: r.listing_status === 'active' && new Date(r.listing_expires) > new Date() },
     buyer: r.buyer,
     amount: Number(r.amount),

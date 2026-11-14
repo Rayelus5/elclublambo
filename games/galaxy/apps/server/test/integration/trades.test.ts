@@ -368,7 +368,7 @@ describe('avisos en tiempo real', () => {
     const { a, b, ga, gb } = await pair();
     const [la, lb] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie)];
     const key = randomUUID();
-    const body = { username: b.username, give: ga, want: gb };
+    const body = { username: b.username, give: one(ga), want: one(gb) };
     const first = await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
     expect(first.statusCode).toBe(200);
     await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
