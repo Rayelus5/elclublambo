@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { ArenaScreen } from '../../src/arena/ArenaScreen';
+import { copy } from '../../src/copy/es';
 import '../../src/styles/app.css';
 
 // The whole run screen in a real browser: the PixiJS arena with the React HUD on top. With VITE_ARENA_SHOTS=1 it
@@ -124,10 +125,24 @@ for (const [w, h] of [
     expect(document.querySelector('.hud-dash')!.classList.contains('ready')).toBe(true);
     expect(document.querySelector('.hud-dash kbd')!.textContent).toBe('SHIFT');
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hud-dash-ready-${w}.png` });
+    // A busy CI browser may lose the window's focus, which pauses the run (by design): back to it before pressing.
+    const unpause = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === copy.arena.resume)?.click();
+    unpause();
+    await vi.waitFor(() => expect(document.querySelector('.pause-menu, [aria-label="' + copy.arena.pause + '"]')).toBeNull(), { timeout: 5_000 }).catch(() => {});
     const x0 = p.x;
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft', key: 'Shift' }));
     window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft', key: 'Shift' }));
-    await vi.waitFor(() => expect(p.dash.charges).toBe(1), { timeout: 10_000 });
+    await vi.waitFor(
+      () => {
+        // Paused in between: resume and ask again.
+        if (p.dash.charges === 2 && document.querySelector('[role="dialog"]')) {
+          unpause();
+          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft', key: 'Shift' }));
+        }
+        expect(p.dash.charges).toBe(1);
+      },
+      { timeout: 15_000 },
+    );
     await vi.waitFor(() => expect(Math.hypot(p.x - x0, p.y)).toBeGreaterThan(40), { timeout: 10_000 });
     await vi.waitFor(() => expect(document.querySelectorAll('.hud-dash-charges i.on')).toHaveLength(1), { timeout: 10_000 });
     expect(document.querySelector('.hud-dash-charges i.next')).not.toBeNull();
