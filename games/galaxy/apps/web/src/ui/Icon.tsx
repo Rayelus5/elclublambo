@@ -176,6 +176,15 @@ const PATHS = {
       <path d="M13.8 10.2L4 20M11.5 7.5L5.5 13.5M16.5 12.5l-6 6" />
     </>
   ),
+  // Three sliders (a collection's filters).
+  sliders: (
+    <>
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+      <circle cx="15" cy="6" r="2" />
+      <circle cx="9" cy="12" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </>
+  ),
   list: (
     <>
       <path d="M10 6h10M10 12h10M10 18h10" />

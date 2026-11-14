@@ -49,7 +49,7 @@ test('poner y quitar el candado desde el detalle; con candado no se desintegra y
   let locked = false;
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'rare')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'rare')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail(locked ? { locked: true } : {})),
     'PUT /galaxy/api/galaxies/g9/lock': (body) => {
       locked = (body as { locked: boolean }).locked;
@@ -69,7 +69,7 @@ test('poner y quitar el candado desde el detalle; con candado no se desintegra y
 test('en la rejilla una galaxia con candado lleva su candado y no se puede elegir para fusionar', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1', 'common', { locked: true }), g('c2')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1', 'common', { locked: true }), g('c2')])),
   });
   const user = userEvent.setup();
   renderAt('/coleccion', screens);
@@ -85,8 +85,8 @@ test('la fusión automática parte del filtro de rareza, enseña la previsión y
   const bodies: unknown[] = [];
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
-    'GET /galaxy/api/galaxies?tier=common&sort=new&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
+    'GET /galaxy/api/galaxies?tier=common&sort=rarity&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
     'POST /galaxy/api/galaxies/fuse-auto': (body) => {
       bodies.push(body);
       return (body as { preview: boolean }).preview ? jsonResponse(200, preview) : jsonResponse(200, made);
@@ -116,7 +116,7 @@ test('cambiar el «Desde» por encima del «Hasta» sube el «Hasta» y vuelve a
   const bodies: { criteria: Record<string, unknown> }[] = [];
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1')])),
     'POST /galaxy/api/galaxies/fuse-auto': (body) => {
       bodies.push(body as { criteria: Record<string, unknown> });
       return jsonResponse(200, { ...preview, steps: [], fusions: 0, dust: 0 });
