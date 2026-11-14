@@ -141,6 +141,13 @@ export interface PullResponse {
   view: GachaView;
 }
 
+/**
+ * The collection's orders (the owner, 2026-11-14): rarest (the screen's default), newest, oldest, most and least star
+ * dust on disintegrating, and by name. The API's default stays `new` (other screens ask for theirs).
+ */
+export const COLLECTION_SORTS = ['rarity', 'new', 'old', 'dust-desc', 'dust-asc', 'name-asc', 'name-desc'] as const;
+export type CollectionSort = (typeof COLLECTION_SORTS)[number];
+
 export interface CollectionPage {
   items: GalaxySummary[];
   next?: string;

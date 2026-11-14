@@ -16,6 +16,9 @@ import {
   TIERS,
   validateFusion,
   type CollectionPage,
+  COLLECTION_SORTS,
+  type CollectionSort,
+  perTier,
   type Finish,
   type GachaConfig,
   type GalaxiesConfig,
@@ -28,7 +31,7 @@ import {
   relicRefund,
   type RelicsConfig,
 } from '@galaxy/shared';
-import { type Kysely, type Selectable, sql } from 'kysely';
+import { type Kysely, type RawBuilder, type Selectable, sql } from 'kysely';
 import { z } from 'zod';
 import type { ConfigReader } from '../config/reader';
 import type { DB, GalaxiesTable } from '../db/schema';
@@ -54,7 +57,7 @@ export const listQuerySchema = z
     finish: z.enum(FINISHES).optional(),
     /** Only locked galaxies (plan phase 2). */
     locked: z.enum(['true']).optional(),
-    sort: z.enum(['new', 'rarity']).default('new'),
+    sort: z.enum(COLLECTION_SORTS).default('new'),
     cursor: z.string().max(200).optional(),
     limit: z.coerce.number().int().min(1).max(60).default(30),
   })
@@ -103,8 +106,44 @@ function decode(raw: string): Cursor {
   }
 }
 
+/**
+ * The keys a sort orders by (all in one direction), as SQL over a table reference `t` (the list's own table, or the
+ * cursor's row). The star dust is what disintegrating would pay: the tier × finish yield of `galaxies.disintegrate`
+ * plus the levels' refund (the lab's bonus multiplies every one alike, so it does not change the order).
+ */
+function sortKeys(sort: CollectionSort, t: string, galaxies: GalaxiesConfig, relics: RelicsConfig): { keys: RawBuilder<unknown>[]; desc: boolean } {
+  const c = (col: string) => sql.ref(`${t}.${col}`);
+  const tierYield = perTier(galaxies.disintegrate.tier);
+  const fin = galaxies.disintegrate.finish;
+  const dust = sql`(round((case ${c('tier')} ${sql.join(
+    tierYield.map((v, i) => sql`when ${sql.lit(i)} then ${sql.lit(v)}::float8`),
+    sql` `,
+  )} else 0 end) * (case ${c('finish')} ${sql.join(
+    FINISHES.map((f, i) => sql`when ${sql.lit(f)} then ${sql.lit(fin[i] ?? fin[fin.length - 1]!)}::float8`),
+    sql` `,
+  )} else ${sql.lit(fin[fin.length - 1]!)}::float8 end)) + floor(${c('level_dust')} * ${sql.lit(relics.refund)}::float8 + 1e-9))`;
+  switch (sort) {
+    case 'rarity':
+      return { keys: [c('tier'), c('score'), c('id')], desc: true };
+    case 'old':
+      return { keys: [c('created_at'), c('id')], desc: false };
+    case 'dust-desc':
+      return { keys: [dust, c('id')], desc: true };
+    case 'dust-asc':
+      return { keys: [dust, c('id')], desc: false };
+    case 'name-asc':
+      return { keys: [c('name'), c('id')], desc: false };
+    case 'name-desc':
+      return { keys: [c('name'), c('id')], desc: true };
+    default:
+      return { keys: [c('created_at'), c('id')], desc: true };
+  }
+}
+
 export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: ListQuery): Promise<CollectionPage> {
   const { db } = deps;
+  const [galaxiesCfg, relicsCfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('relics')]);
+  const order = sortKeys(q.sort, 'galaxy.galaxies', galaxiesCfg, relicsCfg);
   let query = db
     .selectFrom('galaxy.galaxies')
     .select([...SUMMARY, equippedColumn, exhibitedColumn, listedColumn, tradedColumn])
@@ -121,16 +160,12 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
     // The cursor is the last row's id: the boundary is that row's own stored values, compared in SQL. Exact for
     // REAL scores and microsecond timestamps, which do not survive a round trip through JSON text.
     const { id } = decode(q.cursor);
-    const at = sql`(select g.tier, g.score, g.created_at, g.id from galaxy.galaxies g where g.id = ${id}::uuid and g.owner_id = ${ownerId}::uuid)`;
-    query =
-      q.sort === 'rarity'
-        ? query.where(sql<boolean>`(tier, score, id) < (select b.tier, b.score, b.id from ${at} as b)`)
-        : query.where(sql<boolean>`(created_at, id) < (select b.created_at, b.id from ${at} as b)`);
+    const at = sortKeys(q.sort, 'g', galaxiesCfg, relicsCfg);
+    query = query.where(
+      sql<boolean>`(${sql.join(order.keys)}) ${order.desc ? sql`<` : sql`>`} (select ${sql.join(at.keys)} from galaxy.galaxies g where g.id = ${id}::uuid and g.owner_id = ${ownerId}::uuid)`,
+    );
   }
-  query =
-    q.sort === 'rarity'
-      ? query.orderBy('tier', 'desc').orderBy('score', 'desc').orderBy('id', 'desc')
-      : query.orderBy('created_at', 'desc').orderBy('id', 'desc');
+  for (const k of order.keys) query = query.orderBy(k as never, order.desc ? 'desc' : 'asc');
   const rows = await query.limit(q.limit + 1).execute();
   const page = rows.slice(0, q.limit);
   const last = page[page.length - 1];
@@ -144,7 +179,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
     .execute();
   const counts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
   for (const c of counted) counts[TIERS[c.tier]!] = c.n;
-  const { fusion } = await deps.config.get('galaxies');
+  const { fusion } = galaxiesCfg;
   const lab = await accountLabEffects(db, ownerId, await deps.config.get('lab'));
   return { items: page.map(summary), ...(next ? { next } : {}), counts, fusion: { count: fusion.count, dust: fusion.dust.map((d) => fusionDust(d, lab.fusion)) } };
 }

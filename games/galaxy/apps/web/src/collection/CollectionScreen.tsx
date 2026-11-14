@@ -138,58 +138,53 @@ export function CollectionScreen() {
         </header>
 
         <div className="lip panel collection-toolbar">
-          <Filters filters={filters} counts={first?.counts} onChange={change} />
-          <div className="collection-tools">
-          <div className={`fuse-group${fusing ? ' on' : ''}`} role="group" aria-labelledby="fuse-group">
-            <span className="fuse-group-title" id="fuse-group">
-              {copy.collection.fusionTitle}
-            </span>
-            <div className="fuse-group-row">
-              <button
-                type="button"
-                className={`lip pill ${fusing ? 'fusing' : 'pill-solar'}`}
-                aria-pressed={fusing}
-                onClick={() => {
-                  if (fusing) return stopFusing();
-                  stopDissolving();
-                  setFusing(true);
-                }}
-              >
-                <Icon name="fuse" />
-                <span>{copy.collection.fuse}</span>
-              </button>
-              {fusing ? (
-                <span className="fuse-group-hint">{copy.collection.fusingHint(count)}</span>
-              ) : (
-                <button type="button" className="lip pill" onClick={() => setAuto(true)}>
-                  <Icon name="cards" />
-                  <span>{copy.collection.auto.open}</span>
+          <Filters
+            filters={filters}
+            counts={first?.counts}
+            onChange={change}
+            actions={
+              <>
+                <button
+                  type="button"
+                  className={`lip pill small ${fusing ? 'fusing' : 'pill-solar'}`}
+                  aria-pressed={fusing}
+                  onClick={() => {
+                    if (fusing) return stopFusing();
+                    stopDissolving();
+                    setFusing(true);
+                  }}
+                >
+                  <Icon name="fuse" />
+                  <span>{copy.collection.fuse}</span>
                 </button>
-              )}
-            </div>
-          </div>
-          <div className={`fuse-group${dissolving ? ' on' : ''}`} role="group" aria-labelledby="dissolve-group">
-            <span className="fuse-group-title" id="dissolve-group">
-              {copy.collection.dissolveGroup}
-            </span>
-            <div className="fuse-group-row">
-              <button
-                type="button"
-                className={`lip pill${dissolving ? ' fusing' : ''}`}
-                aria-pressed={dissolving}
-                onClick={() => {
-                  if (dissolving) return stopDissolving();
-                  stopFusing();
-                  setDissolving(true);
-                }}
-              >
-                <Icon name="dust" />
-                <span>{copy.collection.dissolveMany}</span>
-              </button>
-              {dissolving ? <span className="fuse-group-hint">{copy.collection.dissolvingHint(DISINTEGRATE_MAX)}</span> : null}
-            </div>
-          </div>
-          </div>
+                <button type="button" className="lip pill small" aria-label={copy.collection.auto.open} onClick={() => setAuto(true)} disabled={fusing || dissolving}>
+                  <Icon name="cards" />
+                  <span aria-hidden="true">{copy.collection.autoShort}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`lip pill small${dissolving ? ' fusing' : ''}`}
+                  aria-pressed={dissolving}
+                  aria-label={copy.collection.dissolveMany}
+                  onClick={() => {
+                    if (dissolving) return stopDissolving();
+                    stopFusing();
+                    setDissolving(true);
+                  }}
+                >
+                  <Icon name="dust" />
+                  <span aria-hidden="true">{copy.collection.dissolveShort}</span>
+                </button>
+              </>
+            }
+            hint={
+              fusing || dissolving ? (
+                <span className="collection-mode" role="status">
+                  {fusing ? copy.collection.fusingHint(count) : copy.collection.dissolvingHint(DISINTEGRATE_MAX)}
+                </span>
+              ) : null
+            }
+          />
         </div>
 
         <main className="collection-main" aria-busy={pages.isPending || pages.isFetchingNextPage || undefined}>

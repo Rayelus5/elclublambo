@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-24-coleccion-ordenada',
+    version: '1.24',
+    date: '2026-11-14',
+    title: 'Colección ordenada',
+    summary: 'Tu colección empieza por las más raras y tiene nuevos órdenes y una barra más limpia',
+    items: [
+      { kind: 'mejora', text: 'La colección se ordena por las más raras al entrar' },
+      { kind: 'nuevo', text: 'Nuevos órdenes: más antiguas, más polvo, menos polvo y por nombre de la A a la Z o de la Z a la A' },
+      { kind: 'mejora', text: 'Una barra más limpia: las rarezas arriba y, debajo, Filtros (dice cuántos tienes activos), el orden y las acciones' },
+      { kind: 'mejora', text: 'Limpiar filtros los quita todos de una vez' },
+    ],
+  },
+  {
     id: 'v1-23-tus-controles',
     version: '1.23',
     date: '2026-11-14',

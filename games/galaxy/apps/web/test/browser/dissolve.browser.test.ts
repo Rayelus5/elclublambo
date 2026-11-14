@@ -70,7 +70,7 @@ for (const [w, h] of [
     await page.viewport(w, h);
     mount(createElement(CollectionScreen));
     await expect.poll(() => document.querySelectorAll('.card-grid li').length, { timeout: 10_000 }).toBe(12);
-    const open = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Desintegrar varias'))!;
+    const open = document.querySelector<HTMLButtonElement>('button[aria-label="Desintegrar varias"]')!;
     open.click();
     await expect.poll(() => document.querySelectorAll('.gcard-hit[aria-pressed]').length).toBe(12);
     for (const b of [...document.querySelectorAll<HTMLButtonElement>('.gcard-hit[aria-pressed]')].slice(0, 6)) b.click();
@@ -101,3 +101,30 @@ test('la animación de desintegrar: las cartas se deshacen y el polvo vuela a la
   await new Promise((r) => setTimeout(r, 700));
   if (import.meta.env['VITE_DISSOLVE_SHOTS']) await page.screenshot({ path: '__shots__/dissolve-fx-late.png' });
 }, 60_000);
+
+// The toolbar (the owner, 2026-11-14: «actualmente es un auténtico caos»): the rarity chips with the actions at their
+// end, «Filtros» and the order under them, the filters' panel when open; inside the screen at every width.
+for (const [w, h] of [
+  [1280, 720],
+  [1600, 900],
+  [1920, 1080],
+  [2560, 1440],
+  [390, 844],
+] as const) {
+  test(`la barra de la colección, ordenada y sin desbordar, a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(CollectionScreen));
+    await expect.poll(() => document.querySelectorAll('.card-grid li').length, { timeout: 10_000 }).toBe(12);
+    const bar = document.querySelector<HTMLElement>('.collection-toolbar')!;
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    expect(bar.getBoundingClientRect().right).toBeLessThanOrEqual(w);
+    // The order says «Más raras» from the start.
+    expect(document.querySelector('.filters-order')!.textContent).toContain('Más raras');
+    if (w >= 1280) expect(bar.getBoundingClientRect().height).toBeLessThan(150);
+    if (import.meta.env['VITE_DISSOLVE_SHOTS']) await page.screenshot({ path: `__shots__/collection-bar-${w}.png`, element: bar });
+    document.querySelector<HTMLButtonElement>('.filters-toggle')!.click();
+    await expect.poll(() => document.querySelectorAll('.filters-row .filter-select').length).toBe(4);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    if (import.meta.env['VITE_DISSOLVE_SHOTS']) await page.screenshot({ path: `__shots__/collection-bar-open-${w}.png`, element: bar });
+  }, 60_000);
+}

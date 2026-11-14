@@ -78,6 +78,45 @@ test('la colección pagina sin repetir ni saltar, por fecha y por rareza (Review
   }
 });
 
+// The owner (2026-11-14): oldest first, most and least star dust (what disintegrating pays) and by name, each paging
+// with its cursor, never repeating nor skipping.
+test('ordena por antigüedad, polvo y nombre, paginando sin repetir ni saltar', async () => {
+  const { cookie, id } = await player();
+  await own(id, 0, 30);
+  await own(id, 3, 8, 'holo');
+  await own(id, 4, 4);
+  const all = async (sort: string) => {
+    const seen: GalaxySummary[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list(cookie, `?sort=${sort}&limit=7${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      seen.push(...page.items);
+      cursor = page.next;
+    } while (cursor);
+    expect(seen, sort).toHaveLength(42);
+    expect(new Set(seen.map((g) => g.id)).size, sort).toBe(42);
+    return seen;
+  };
+  const old = await all('old');
+  const times = old.map((g) => Date.parse(g.createdAt));
+  expect(times).toEqual([...times].sort((a, b) => a - b));
+  for (const [sort, sign] of [
+    ['dust-desc', -1],
+    ['dust-asc', 1],
+  ] as const) {
+    const seen = await all(sort);
+    // What each would pay, from its detail: never against the order.
+    const dust = await Promise.all(seen.map(async (g) => ((await get(ctx.app, `/galaxy/api/galaxies/${g.id}`, { cookie })).json() as GalaxyDetail).dust));
+    for (let k = 1; k < dust.length; k++) expect(sign * (dust[k]! - dust[k - 1]!), sort).toBeGreaterThanOrEqual(0);
+  }
+  // By name: A–Z is Z–A backwards (the database's own collation decides ties of case and signs).
+  const az = await all('name-asc');
+  const za = await all('name-desc');
+  expect(az.map((g) => g.id)).toEqual(za.map((g) => g.id).reverse());
+  expect(az[0]!.name.localeCompare(az.at(-1)!.name, 'en', { sensitivity: 'base' })).toBeLessThanOrEqual(0);
+  expect((await get(ctx.app, '/galaxy/api/galaxies?sort=nope', { cookie })).statusCode).toBe(400);
+});
+
 test('filtra por nivel, tipo, paleta y acabado, y solo enseña las propias', async () => {
   const me = await player();
   const other = await player();

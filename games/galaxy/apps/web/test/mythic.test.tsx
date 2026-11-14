@@ -52,7 +52,7 @@ describe('la colección', () => {
   test('la mítica tiene su chip con su número, va primero y no se elige para fusionar', async () => {
     mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha()),
-      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('m1', 'mythic'), g('l1', 'legendary'), ...['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => g(id))])),
+      'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('m1', 'mythic'), g('l1', 'legendary'), ...['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => g(id))])),
     });
     const user = userEvent.setup();
     renderAt('/coleccion', collection);
@@ -70,7 +70,7 @@ describe('la colección', () => {
   test('la fusión automática nunca ofrece la mítica como tope, ni parte de ella', async () => {
     mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha()),
-      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('m1', 'mythic')])),
+      'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('m1', 'mythic')])),
       'GET /galaxy/api/galaxies?tier=mythic&sort=new&limit=30': () => jsonResponse(200, page([g('m1', 'mythic')])),
       'POST /galaxy/api/galaxies/fuse-auto': () => jsonResponse(200, { steps: [], fusions: 0, dust: 0, wallet: 400, short: false, limited: false, kept: { busy: 0, locked: 0, finishes: 0, leveled: 0 } }),
     });

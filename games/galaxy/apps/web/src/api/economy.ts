@@ -1,4 +1,5 @@
 import type {
+  CollectionSort,
   AutoFusionCriteria,
   AutoFusionPreview,
   AutoFusionResult, CollectionPage, DisintegrateManyPreview, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
@@ -29,7 +30,7 @@ export interface CollectionQuery {
   finish?: Finish;
   /** Only locked galaxies (plan phase 2). */
   locked?: true;
-  sort?: 'new' | 'rarity';
+  sort?: CollectionSort;
   cursor?: string;
   limit?: number;
 }

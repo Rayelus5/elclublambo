@@ -82,7 +82,7 @@ test('fusionar con la presentación pro: las bandas cierran mientras responde, l
   let answer: (r: Response) => void = () => {};
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page()),
     'POST /galaxy/api/galaxies/fuse': () => new Promise<Response>((r) => (answer = r)) as unknown as Response,
   });
   const user = userEvent.setup();
@@ -111,7 +111,7 @@ test('fusionar con la presentación pro: las bandas cierran mientras responde, l
 test('si la fusión falla, las bandas se abren y la barra dice por qué, con las cinco aún elegidas', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page()),
     'POST /galaxy/api/galaxies/fuse': () => jsonResponse(409, { error: 'invalid_fusion' }),
   });
   const user = userEvent.setup();
@@ -126,7 +126,7 @@ test('con la presentación pro apagada, la fusión se ve como siempre', async ()
   setPrefs({ scannerPro: false });
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page()),
     'POST /galaxy/api/galaxies/fuse': () => jsonResponse(200, { galaxy: g('n1', 'uncommon', 'Zenveae'), wallet: { coins: 0, dust: 20, signal: 0 } }),
   });
   const user = userEvent.setup();
