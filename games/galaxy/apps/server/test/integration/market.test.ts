@@ -235,7 +235,8 @@ describe('comprar', () => {
     const other = await player();
     const { galaxyId, listingId } = await listed(s);
     // As if the seller offered it in a swap the instant its listing expired, while this purchase waited.
-    await ctx.db.insertInto('galaxy.trades').values({ a_id: s.id, b_id: other.id, a_galaxy: galaxyId, a_offered: true, expires_at: new Date(Date.now() + DAY) }).execute();
+    const trade = await ctx.db.insertInto('galaxy.trades').values({ a_id: s.id, b_id: other.id, a_offered: true, expires_at: new Date(Date.now() + DAY) }).returning('id').executeTakeFirstOrThrow();
+    await ctx.db.insertInto('galaxy.trade_items').values({ trade_id: trade.id, side: 'a', galaxy_id: galaxyId, held: true }).execute();
     expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
     expect(await ownerOf(galaxyId)).toBe(s.id);
   });

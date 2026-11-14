@@ -601,15 +601,44 @@ export interface TradesTable {
   status: ColumnType<'open' | 'done' | 'cancelled' | 'expired', 'open' | undefined, 'done' | 'cancelled' | 'expired'>;
   a_id: string;
   b_id: string;
-  a_galaxy: string | null;
-  b_galaxy: string | null;
   a_offered: Generated<boolean>;
   b_offered: Generated<boolean>;
   a_confirmed: Generated<boolean>;
   b_confirmed: Generated<boolean>;
+  /** Trades 2.0 (2026-11-14): the coins each side gives (one side at most) and their holds while offered. */
+  a_coins: ColumnType<string, number | string | undefined, number | string>;
+  b_coins: ColumnType<string, number | string | undefined, number | string>;
+  a_hold: string | null;
+  b_hold: string | null;
+  commission: ColumnType<string | null, number | string | null | undefined, number | string | null>;
   created_at: Timestamp;
   expires_at: TimestampRequired;
   closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** A galaxy a side of a trade gives (trades 2.0): held while its owner offers it in the open trade. */
+export interface TradeItemsTable {
+  trade_id: string;
+  side: 'a' | 'b';
+  galaxy_id: string;
+  held: Generated<boolean>;
+}
+
+/** One step of a trade's history (append-only): the deal a proposal or counter-offer made. */
+export interface TradeEventsTable {
+  id: Generated<string>;
+  trade_id: string;
+  version: number;
+  actor_id: string | null;
+  kind: 'proposed' | 'countered' | 'confirmed' | 'done' | 'cancelled';
+  deal: ColumnType<TradeEventDeal | null, string | null | undefined, never>;
+  created_at: Timestamp;
+}
+
+/** A deal as a trade's history keeps it (tiers as stored, 0–5). */
+export interface TradeEventDeal {
+  a: { galaxies: { id: string; name: string; tier: number }[]; coins: number };
+  b: { galaxies: { id: string; name: string; tier: number }[]; coins: number };
 }
 
 /** A sale the admin should look at (M5c-1): an IP shared by buyer and seller, or a price far above the floor. */
@@ -1013,6 +1042,8 @@ export interface DB {
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
   'galaxy.trades': TradesTable;
+  'galaxy.trade_items': TradeItemsTable;
+  'galaxy.trade_events': TradeEventsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;

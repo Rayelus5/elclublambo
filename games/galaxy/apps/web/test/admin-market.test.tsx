@@ -210,3 +210,37 @@ test('el filtro de cuenta espera a un nombre completo antes de buscar', async ()
   await userEvent.type(screen.getByLabelText(t.account), 'g');
   await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${A}/deals?kind=listings&user=veg&page=1`)).toBe(true));
 });
+
+// Trades 2.0 (2026-11-14): each side of a trade lists its galaxies and its coins.
+test('el historial de trueques enseña las galaxias de cada lado y las monedas', async () => {
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    [`GET ${A}/deals?kind=trades&page=1`]: () =>
+      jsonResponse(200, {
+        kind: 'trades',
+        rows: [
+          {
+            id: 't1',
+            a: 'vega',
+            b: 'nova',
+            aGalaxies: [galaxy, { id: 'g2', name: 'Cúmulo Orión', tier: 1 }],
+            bGalaxies: [],
+            aCoins: 0,
+            bCoins: 2500,
+            status: 'done',
+            createdAt: '2026-11-08T09:00:00.000Z',
+            closedAt: '2026-11-08T09:05:00.000Z',
+            reversal: null,
+          },
+        ],
+        page: 1,
+        pages: 1,
+      } satisfies AdminDealsPage),
+  });
+  renderAt('/admin/moderacion/comercio?tipo=trueques', { '/admin/moderacion/comercio': <Commerce /> });
+  const table = await screen.findByRole('table', { name: t.tradesTitle });
+  const row = within(table).getAllByRole('row')[1]!;
+  expect(row).toHaveTextContent('Nebulosa Vega');
+  expect(row).toHaveTextContent('Cúmulo Orión');
+  expect(row).toHaveTextContent(copy.market.price(2500));
+});

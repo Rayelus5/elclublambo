@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-31-trueques-con-oro',
+    version: '1.31',
+    date: '2026-11-14',
+    title: 'Trueques con oro',
+    summary: 'Los trueques admiten varias galaxias por lado, monedas y contraofertas con su historial',
+    items: [
+      { kind: 'nuevo', text: 'Hasta 3 galaxias por cada lado de un trueque' },
+      { kind: 'nuevo', text: 'Monedas en un lado del trato: quien las da las tiene reservadas y quien las recibe las cobra al cerrarse, después de la comisión del mercado' },
+      { kind: 'nuevo', text: 'Contraoferta: cambia lo que das y lo que pides, y el otro decide' },
+      { kind: 'nuevo', text: 'Cada trueque guarda su historial: quién propuso qué, cada contraoferta y cuándo se confirmó' },
+      { kind: 'mejora', text: 'Al cancelarse o caducar un trueque, sus galaxias y sus monedas vuelven a estar libres al momento' },
+    ],
+  },
+  {
     id: 'v1-30-ofertas',
     version: '1.30',
     date: '2026-11-14',

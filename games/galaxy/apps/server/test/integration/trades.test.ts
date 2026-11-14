@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { generateGalaxy, type MyTrades, PROBE_TEST, parseConfig, TIERS, type Tier, type TradeView } from '@galaxy/shared';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { credit, getWallet } from '../../src/economy/wallet';
+import { expireTrades } from '../../src/market/trades';
 import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
-// Swaps on the server (GDD §14.5, §14.7; M5c-2): one galaxy for one galaxy. What a side offers stays in escrow; every
-// change is a new version, and the swap runs when both confirmed the same one. The trade gates, open and daily limits,
-// expiry and the alerts for the admin. Every account and galaxy here is new.
+// Swaps on the server (GDD §14.5, §14.7; M5c-2; trades 2.0 on 2026-11-14): up to three galaxies a side and coins on one
+// side. What a side offers stays in escrow (its coins held); every change is a new version, and the swap runs when both
+// confirmed the same one. The trade gates, open and daily limits, expiry, the history and the alerts for the admin.
+// Every account and galaxy here is new.
 
 type Ctx = Awaited<ReturnType<typeof testApp>>;
 let ctx: Ctx;
@@ -43,9 +47,15 @@ async function own(owner: string, tier: Tier = 'common'): Promise<string> {
   return row.id;
 }
 
-const propose = (p: P, username: string, give: string, want?: string) =>
-  post(ctx.app, '/galaxy/api/trades', { username, give, ...(want ? { want } : {}) }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
-const offer = (p: P, id: string, body: { give: string | null; want: string | null; version: number }) => post(ctx.app, `/galaxy/api/trades/${id}/offer`, body, { cookie: p.cookie });
+type Deal = { galaxies: string[]; coins: number };
+const deal = (galaxies: string[] = [], coins = 0): Deal => ({ galaxies, coins });
+const one = (g: string | null | undefined): Deal => deal(g ? [g] : []);
+const proposeDeal = (p: P, username: string, give: Deal, want: Deal = deal()) => post(ctx.app, '/galaxy/api/trades', { username, give, want }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+const propose = (p: P, username: string, give: string, want?: string) => proposeDeal(p, username, one(give), one(want));
+const offerDeal = (p: P, id: string, body: { give: Deal; want: Deal; version: number }) => post(ctx.app, `/galaxy/api/trades/${id}/offer`, body, { cookie: p.cookie });
+const offer = (p: P, id: string, body: { give: string | null; want: string | null; version: number }) => offerDeal(p, id, { give: one(body.give), want: one(body.want), version: body.version });
+const coinsOf = async (p: P) => (await getWallet(ctx.db, p.id)).coins;
+const held = async (p: P) => Number((await ctx.db.selectFrom('galaxy.coin_holds').select(sql<string>`coalesce(sum(amount), 0)`.as('n')).where('account_id', '=', p.id).where('status', '=', 'held').executeTakeFirstOrThrow()).n);
 const confirm = (p: P, id: string, version: number) => post(ctx.app, `/galaxy/api/trades/${id}/confirm`, { version }, { cookie: p.cookie });
 const cancel = (p: P, id: string) => post(ctx.app, `/galaxy/api/trades/${id}/cancel`, undefined, { cookie: p.cookie });
 const mine = async (p: P) => (await get(ctx.app, '/galaxy/api/trades', { cookie: p.cookie })).json() as MyTrades;
@@ -65,9 +75,10 @@ describe('proponer', () => {
     const res = await propose(a, b.username, ga, gb);
     expect(res.statusCode).toBe(200);
     const t = res.json() as TradeView;
-    expect(t).toMatchObject({ version: 1, status: 'open', proposedByMe: true, me: { galaxy: { id: ga }, confirmed: true }, them: { username: b.username, galaxy: { id: gb }, confirmed: false } });
+    expect(t).toMatchObject({ version: 1, status: 'open', proposedByMe: true, me: { galaxies: [{ id: ga }], coins: 0, confirmed: true }, them: { username: b.username, galaxies: [{ id: gb }], confirmed: false } });
     const seen = (await mine(b)).open.find((x) => x.id === t.id)!;
-    expect(seen).toMatchObject({ proposedByMe: false, me: { galaxy: { id: gb }, confirmed: false }, them: { username: a.username, galaxy: { id: ga }, confirmed: true } });
+    expect(seen).toMatchObject({ proposedByMe: false, me: { galaxies: [{ id: gb }], confirmed: false }, them: { username: a.username, galaxies: [{ id: ga }], confirmed: true } });
+    expect(seen.history).toEqual([expect.objectContaining({ version: 1, kind: 'proposed', byMe: false, deal: { me: { galaxies: [expect.objectContaining({ id: gb })], coins: 0 }, them: { galaxies: [expect.objectContaining({ id: ga })], coins: 0 } } })]);
   });
 
   test('sin pedir nada nadie puede confirmar todavía', async () => {
@@ -189,7 +200,7 @@ describe('cambiar y confirmar', () => {
     const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
     const other = await own(b.id, 'rare');
     const v2 = (await offer(b, t.id, { give: other, want: ga, version: 1 })).json() as TradeView;
-    expect(v2).toMatchObject({ version: 2, me: { galaxy: { id: other }, confirmed: true }, them: { confirmed: false } });
+    expect(v2).toMatchObject({ version: 2, me: { galaxies: [{ id: other }], confirmed: true }, them: { confirmed: false } });
     // B's new offer is in escrow now; the one A asked for first is free.
     expect((await equip(b, other)).json()).toEqual({ error: 'galaxy_in_trade' });
     expect((await equip(b, gb)).statusCode).toBe(200);
@@ -263,6 +274,91 @@ describe('avisos al admin', () => {
   });
 });
 
+// Trades 2.0 (the owner, 2026-11-14: «oro, hasta 3 galaxias por lado, contraofertas»).
+describe('trueques 2.0', () => {
+  test('tres galaxias por lado cruzan a la vez; una cuarta no cabe', async () => {
+    const a = await player();
+    const b = await player();
+    const mineA = [await own(a.id), await own(a.id), await own(a.id)];
+    const mineB = [await own(b.id), await own(b.id)];
+    expect((await proposeDeal(a, b.username, deal([...mineA, await own(a.id)]), deal(mineB))).json()).toEqual({ error: 'trade_too_many' });
+    const t = (await proposeDeal(a, b.username, deal(mineA), deal(mineB))).json() as TradeView;
+    expect(t.me.galaxies.map((g) => g.id).sort()).toEqual([...mineA].sort());
+    for (const g of mineA) expect((await equip(a, g)).json()).toEqual({ error: 'galaxy_in_trade' });
+    expect(((await confirm(b, t.id, 1)).json() as TradeView).status).toBe('done');
+    for (const g of mineA) expect(await ownerOf(g)).toBe(b.id);
+    for (const g of mineB) expect(await ownerOf(g)).toBe(a.id);
+  });
+
+  test('el oro va en un solo lado; ni la misma galaxia dos veces, ni dar nada al proponer', async () => {
+    const { a, b, ga, gb } = await pair();
+    expect((await proposeDeal(a, b.username, deal([ga], 100), deal([gb], 100))).json()).toEqual({ error: 'trade_coins_both' });
+    expect((await proposeDeal(a, b.username, deal([ga]), deal([ga]))).json()).toEqual({ error: 'trade_duplicate' });
+    expect((await proposeDeal(a, b.username, deal(), deal([gb]))).json()).toEqual({ error: 'trade_empty' });
+    expect((await proposeDeal(a, b.username, deal([], 500), deal([gb]))).json()).toEqual({ error: 'insufficient_funds' });
+  });
+
+  test('monedas por una galaxia: se reservan al ofrecerlas y, hecho el trato, el otro las cobra menos la comisión', async () => {
+    const { a, b, ga, gb } = await pair();
+    await credit(ctx.db, b.id, 'coins', 3000, 'test');
+    // A gives a galaxy and asks for 1000 coins; B offers them by confirming.
+    const t = (await proposeDeal(a, b.username, deal([ga]), deal([], 1000))).json() as TradeView;
+    expect(t.them).toMatchObject({ galaxies: [], coins: 1000, confirmed: false });
+    const done = (await confirm(b, t.id, 1)).json() as TradeView;
+    expect(done).toMatchObject({ status: 'done', commission: 70 });
+    expect(await ownerOf(ga)).toBe(b.id);
+    expect(await coinsOf(b)).toBe(2000);
+    expect(await held(b)).toBe(0);
+    expect(await coinsOf(a)).toBe(930);
+    const reasons = await ctx.db.selectFrom('galaxy.ledger').select('reason').where('account_id', 'in', [a.id, b.id]).where('reason', 'like', 'trade_%').execute();
+    expect(reasons.map((r) => r.reason).sort()).toEqual(['trade_coins', 'trade_hold']);
+    // The galaxy B's coins bought is B's, free to use.
+    expect((await equip(b, ga)).statusCode).toBe(200);
+    expect(await ownerOf(gb)).toBe(b.id);
+  });
+
+  test('las monedas ofrecidas vuelven al cancelar, al cambiarlas y al caducar', async () => {
+    const { a, b, gb } = await pair();
+    await credit(ctx.db, a.id, 'coins', 1000, 'test');
+    const t = (await proposeDeal(a, b.username, deal([], 800), deal([gb]))).json() as TradeView;
+    expect(await coinsOf(a)).toBe(200);
+    expect(await held(a)).toBe(800);
+    // A counter-offer of its own with other coins: the old hold back, the new one held.
+    const v2 = (await offerDeal(a, t.id, { give: deal([], 600), want: deal([gb]), version: 1 })).json() as TradeView;
+    expect(v2).toMatchObject({ version: 2, me: { coins: 600 } });
+    expect(await coinsOf(a)).toBe(400);
+    expect(await held(a)).toBe(600);
+    expect((await cancel(a, t.id)).statusCode).toBe(200);
+    expect(await coinsOf(a)).toBe(1000);
+    expect(await held(a)).toBe(0);
+    // Again, left to expire: the market job gives them back.
+    const c = await player();
+    const t2 = (await proposeDeal(a, c.username, deal([], 300), deal([await own(c.id)]))).json() as TradeView;
+    expect(await coinsOf(a)).toBe(700);
+    await ctx.db.updateTable('galaxy.trades').set({ created_at: new Date(Date.now() - 2000), expires_at: new Date(Date.now() - 1000) }).where('id', '=', t2.id).execute();
+    expect(await expireTrades(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect(await coinsOf(a)).toBe(1000);
+    expect((await mine(a)).closed.find((x) => x.id === t2.id)?.status).toBe('expired');
+  });
+
+  test('contraofertas: cada una queda en el historial, con su trato y quién la hizo', async () => {
+    const { a, b, ga, gb } = await pair();
+    const gb2 = await own(b.id);
+    const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
+    expect((await offerDeal(b, t.id, { give: deal([gb2]), want: deal([ga]), version: 1 })).statusCode).toBe(200);
+    expect((await confirm(a, t.id, 2)).statusCode).toBe(200);
+    const view = (await mine(a)).closed.find((x) => x.id === t.id)!;
+    expect(view.history.map((e) => [e.version, e.kind, e.byMe])).toEqual([
+      [1, 'proposed', true],
+      [2, 'countered', false],
+      [2, 'done', true],
+    ]);
+    expect(view.history[1]!.deal).toEqual({ me: { galaxies: [expect.objectContaining({ id: ga })], coins: 0 }, them: { galaxies: [expect.objectContaining({ id: gb2 })], coins: 0 } });
+    expect(await ownerOf(gb2)).toBe(a.id);
+    expect(await ownerOf(gb)).toBe(b.id);
+  });
+});
+
 test('sin sesión no hay trueques', async () => {
   expect((await get(ctx.app, '/galaxy/api/trades')).statusCode).toBe(401);
 });
@@ -272,7 +368,7 @@ describe('avisos en tiempo real', () => {
     const { a, b, ga, gb } = await pair();
     const [la, lb] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie)];
     const key = randomUUID();
-    const body = { username: b.username, give: ga, want: gb };
+    const body = { username: b.username, give: one(ga), want: one(gb) };
     const first = await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
     expect(first.statusCode).toBe(200);
     await post(ctx.app, '/galaxy/api/trades', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });

@@ -297,6 +297,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     tradeDays: { label: 'Un trueque dura', unit: 'days' },
     openTrades: { label: 'Trueques abiertos por cuenta' },
     tradeAlertTierGap: { label: 'Avisar de trueques con rarezas separadas por', hint: 'Número de rarezas de diferencia' },
+    tradeGalaxies: { label: 'Galaxias por lado de un trueque' },
     offers: { label: 'Ofertas' },
     'offers.hours': { label: 'Una oferta dura', unit: 'hours', hint: 'Nunca más que el anuncio' },
     'offers.open': { label: 'Ofertas abiertas por cuenta' },

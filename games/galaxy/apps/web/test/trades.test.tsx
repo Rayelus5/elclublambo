@@ -9,9 +9,10 @@ import { useState } from 'react';
 import { ProfileScreen } from '../src/social/ProfileScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
-// Swaps on the web (GDD §14.5; M5c-2): proposing one from another player's profile (what I give, what I want of
-// theirs), the Trueques tab of the market with each trade's two sides and whose turn it is, confirming the version
-// seen, a change by the other side, and cancelling.
+// Swaps on the web (GDD §14.5; M5c-2; trades 2.0 on 2026-11-14): proposing one from another player's profile (what I
+// give, what I want of theirs: up to `tradeGalaxies` galaxies a side and coins on one side), the Trueques tab of the
+// market with each trade's two sides, whose turn it is and its history, confirming the version seen, a counter-offer,
+// and cancelling.
 afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.trades;
@@ -33,6 +34,7 @@ const rules: MyTrades['rules'] = {
   openTrades: 4,
   tradesLeft: 9,
   tradeDays: 3,
+  tradeGalaxies: 3,
 } as MarketRules & MyTrades['rules'];
 const trade = (over: Partial<TradeView> = {}): TradeView => ({
   id: '00000000-0000-4000-8000-0000000000t1'.replace('t1', 'a1'),
@@ -41,8 +43,10 @@ const trade = (over: Partial<TradeView> = {}): TradeView => ({
   createdAt: '2026-11-08T10:00:00.000Z',
   expiresAt: '2026-11-11T10:00:00.000Z',
   proposedByMe: false,
-  me: { galaxy: pub('m1', 'Mía'), confirmed: false },
-  them: { username: 'vega', galaxy: pub('v1', 'Suya'), confirmed: true },
+  me: { galaxies: [pub('m1', 'Mía')], coins: 0, confirmed: false },
+  them: { username: 'vega', galaxies: [pub('v1', 'Suya')], coins: 0, confirmed: true },
+  commission: null,
+  history: [],
   ...over,
 });
 const TID = '00000000-0000-4000-8000-0000000000a1';
@@ -87,7 +91,7 @@ test('confirmar nombra la versión vista; si el trato cambió, lo dice y vuelve 
 });
 
 test('confirmado por mí espera al otro; incompleto no se confirma', async () => {
-  marketApi({}, [trade({ id: TID, me: { galaxy: pub('m1', 'Mía'), confirmed: true }, them: { username: 'vega', galaxy: pub('v1', 'Suya'), confirmed: false } })]);
+  marketApi({}, [trade({ id: TID, me: { galaxies: [pub('m1', 'Mía')], coins: 0, confirmed: true }, them: { username: 'vega', galaxies: [pub('v1', 'Suya')], coins: 0, confirmed: false } })]);
   await openTab();
   const card = await cardOf();
   expect(within(card).getByText(t.waiting('vega'))).toBeInTheDocument();
@@ -103,7 +107,7 @@ test('cancelar pide confirmación', async () => {
   await waitFor(() => expect(posted(fetch, `/${TID}/cancel`)).toHaveLength(1));
 });
 
-test('cambiar el trato: otra galaxia pedida, con la versión vista', async () => {
+test('contraoferta: otra galaxia pedida además de la que había, con la versión vista', async () => {
   const fetch = marketApi(
     {
       'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30': () => jsonResponse(200, { items: [pub('v1', 'Suya'), pub('v2', 'Otra suya')], counts: {} }),
@@ -118,7 +122,7 @@ test('cambiar el trato: otra galaxia pedida, con la versión vista', async () =>
   const picker = await screen.findByRole('dialog', { name: t.pickTheirs('vega') });
   await user.click(within(picker).getByRole('button', { name: t.askOne('Otra suya') }));
   await user.click(within(dialog).getByRole('button', { name: t.save }));
-  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: 'm1', want: 'v2', version: 2 }]));
+  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: { galaxies: ['m1'], coins: 0 }, want: { galaxies: ['v1', 'v2'], coins: 0 }, version: 2 }]));
 });
 
 test('un trueque cerrado dice qué diste y qué recibiste', async () => {
@@ -150,6 +154,7 @@ test('desde el perfil de otro: doy una mía libre, pido una suya y lleva a los t
     'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
     'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile),
     'GET /galaxy/api/trades': () => jsonResponse(200, { open: [], closed: [], rules }),
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, { items: [mineG('m9', 'Equipada', { equipped: true }), mineG('m1', 'Libre')], counts: {}, fusion: { count: 5, dust: [] } }),
     'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30': () => jsonResponse(200, { items: [pub('v1', 'Suya')], counts: {} }),
     'POST /galaxy/api/trades': () => jsonResponse(200, trade({ proposedByMe: true })),
@@ -158,7 +163,8 @@ test('desde el perfil de otro: doy una mía libre, pido una suya y lleva a los t
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.propose }));
   const dialog = await screen.findByRole('dialog', { name: t.proposeTitle('vega') });
-  expect(within(dialog).getByText(t.held(3))).toBeInTheDocument();
+  expect(dialog).toHaveTextContent(t.held(3));
+  expect(dialog).toHaveTextContent(t.upTo(3));
   expect(within(dialog).getByRole('button', { name: t.send })).toBeDisabled();
   await user.click(within(dialog).getByRole('button', { name: t.chooseMine }));
   const mine = await screen.findByRole('dialog', { name: t.pickMine });
@@ -167,7 +173,7 @@ test('desde el perfil de otro: doy una mía libre, pido una suya y lleva a los t
   await user.click(within(dialog).getByRole('button', { name: t.chooseTheirs }));
   await user.click(within(await screen.findByRole('dialog', { name: t.pickTheirs('vega') })).getByRole('button', { name: t.askOne('Suya') }));
   await user.click(within(dialog).getByRole('button', { name: t.send }));
-  await waitFor(() => expect(posted(fetch, '')).toEqual([{ username: 'vega', give: 'm1', want: 'v1' }]));
+  await waitFor(() => expect(posted(fetch, '')).toEqual([{ username: 'vega', give: { galaxies: ['m1'], coins: 0 }, want: { galaxies: ['v1'], coins: 0 } }]));
   await waitFor(() => expect(locationOf(screen.getByTestId('location'))).toMatchObject({ pathname: '/mercado', search: '?pestana=trueques' }));
 });
 
@@ -194,7 +200,7 @@ test('el compositor cambia la versión que viste, no la que llegue mientras tant
         <button type="button" onClick={() => setV({ ...v, version: 3 })}>
           llega otra versión
         </button>
-        <TradeComposer username="vega" trade={v} days={3} onDone={() => {}} onClose={() => {}} />
+        <TradeComposer username="vega" trade={v} rules={rules} onDone={() => {}} onClose={() => {}} />
       </>
     );
   }
@@ -202,11 +208,84 @@ test('el compositor cambia la versión que viste, no la que llegue mientras tant
   const user = userEvent.setup();
   const dialog = await screen.findByRole('dialog', { name: t.changeTitle('vega') });
   expect(within(dialog).getByRole('button', { name: t.save })).toBeDisabled();
-  expect(within(dialog).getByText(t.heldUntil('11 de noviembre'))).toBeInTheDocument();
+  expect(dialog).toHaveTextContent(t.heldUntil('11 de noviembre'));
   await user.click(screen.getByRole('button', { name: 'llega otra versión' }));
   await user.click(within(dialog).getByRole('button', { name: t.chooseTheirs }));
   await user.click(within(await screen.findByRole('dialog', { name: t.pickTheirs('vega') })).getByRole('button', { name: t.askOne('Otra suya') }));
   await user.click(within(dialog).getByRole('button', { name: t.save }));
-  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: 'm1', want: 'v2', version: 2 }]));
+  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: { galaxies: ['m1'], coins: 0 }, want: { galaxies: ['v1', 'v2'], coins: 0 }, version: 2 }]));
   expect(await within(dialog).findByRole('alert')).toHaveTextContent(copy.errors.trade_changed);
+});
+
+// Trades 2.0 (the owner, 2026-11-14: «oro, hasta 3 galaxias por lado, contraofertas»).
+test('el oro va en un solo lado: con monedas pedidas, las mías se apagan; dice lo que recibo tras la comisión', async () => {
+  const fetch = marketApi({ [`POST /galaxy/api/trades/${TID}/offer`]: () => jsonResponse(200, trade({ id: TID, version: 3 })) });
+  renderAt('/', { '/': <TradeComposer username="vega" trade={trade({ id: TID, version: 2 })} rules={rules} onDone={() => {}} onClose={() => {}} /> });
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole('dialog', { name: t.changeTitle('vega') });
+  await user.type(within(dialog).getByLabelText(t.wantCoins), '1000');
+  expect(within(dialog).getByLabelText(t.giveCoins)).toBeDisabled();
+  expect(dialog).toHaveTextContent(t.coinsOneSide);
+  expect(dialog).toHaveTextContent(t.net(1000 - 70));
+  await user.click(within(dialog).getByRole('button', { name: t.save }));
+  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: { galaxies: ['m1'], coins: 0 }, want: { galaxies: ['v1'], coins: 1000 }, version: 2 }]));
+});
+
+test('dar monedas que no tengo no se envía, y se dice cuántas faltan; quitar una galaxia la saca del trato', async () => {
+  marketApi();
+  renderAt('/', { '/': <TradeComposer username="vega" trade={trade({ id: TID, version: 2 })} rules={rules} onDone={() => {}} onClose={() => {}} /> });
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole('dialog', { name: t.changeTitle('vega') });
+  await user.type(within(dialog).getByLabelText(t.giveCoins), '800');
+  expect(await within(dialog).findByText(copy.market.missing(300))).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: t.save })).toBeDisabled();
+  await user.clear(within(dialog).getByLabelText(t.giveCoins));
+  await user.click(within(dialog).getByRole('button', { name: t.remove('Mía') }));
+  expect(within(within(dialog).getByRole('region', { name: t.give })).getByText(t.nothing)).toBeInTheDocument();
+});
+
+test('hasta tres galaxias por lado: con el lado lleno no se añaden más', async () => {
+  const three = [pub('v1', 'Suya'), pub('v2', 'Otra'), pub('v3', 'Tercera')];
+  marketApi();
+  renderAt('/', { '/': <TradeComposer username="vega" trade={trade({ id: TID, them: { username: 'vega', galaxies: three, coins: 0, confirmed: false } })} rules={rules} onDone={() => {}} onClose={() => {}} /> });
+  const dialog = await screen.findByRole('dialog', { name: t.changeTitle('vega') });
+  const want = within(dialog).getByRole('region', { name: t.want });
+  expect(within(want).queryByRole('button', { name: t.chooseTheirs })).toBeNull();
+  expect(want).toHaveTextContent(t.upTo(3));
+  expect(within(dialog).getByRole('button', { name: t.chooseMine })).toBeInTheDocument();
+});
+
+test('la tarjeta enseña varias galaxias y monedas por lado, y el historial de contraofertas', async () => {
+  const v = trade({
+    id: TID,
+    version: 2,
+    me: { galaxies: [pub('m1', 'Mía'), pub('m2', 'Otra mía')], coins: 0, confirmed: false },
+    them: { username: 'vega', galaxies: [pub('v1', 'Suya')], coins: 2000, confirmed: true },
+    history: [
+      { version: 1, kind: 'proposed', byMe: true, at: '2026-11-08T10:00:00.000Z', deal: { me: { galaxies: [{ id: 'm1', name: 'Mía', tier: 'rare' }], coins: 0 }, them: { galaxies: [{ id: 'v1', name: 'Suya', tier: 'rare' }], coins: 0 } } },
+      {
+        version: 2,
+        kind: 'countered',
+        byMe: false,
+        at: '2026-11-08T11:00:00.000Z',
+        deal: {
+          me: { galaxies: [{ id: 'm1', name: 'Mía', tier: 'rare' }, { id: 'm2', name: 'Otra mía', tier: 'rare' }], coins: 0 },
+          them: { galaxies: [{ id: 'v1', name: 'Suya', tier: 'rare' }], coins: 2000 },
+        },
+      },
+    ],
+  });
+  marketApi({}, [v]);
+  const user = await openTab();
+  const card = await cardOf();
+  expect(within(card).getByRole('region', { name: t.youGive })).toHaveTextContent('Otra mía');
+  const get = within(card).getByRole('region', { name: t.youGet });
+  expect(get).toHaveTextContent(t.coinsChip(2000));
+  expect(get).toHaveTextContent(t.net(2000 - 140));
+  await user.click(within(card).getByText(t.history(2)));
+  const lines = within(card).getAllByRole('listitem').filter((li) => li.classList.contains('trade-event'));
+  expect(lines[0]).toHaveTextContent(t.events.countered('vega'));
+  expect(lines[0]).toHaveTextContent(t.dealGives('vega', `Suya y ${t.coinsChip(2000)}`));
+  expect(lines[1]).toHaveTextContent(t.eventsMine.proposed);
+  expect(lines[1]).toHaveTextContent(t.dealYouGive('Mía'));
 });
