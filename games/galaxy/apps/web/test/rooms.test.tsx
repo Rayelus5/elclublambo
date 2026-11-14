@@ -302,3 +302,17 @@ test('quien abandonó una partida en grupo recibe su resultado al acabar: un avi
   const dialog = await screen.findByRole('dialog', { name: t.resultTitle });
   expect(within(dialog).getByRole('heading', { name: copy.results.abandoned })).toBeInTheDocument();
 });
+
+// The owner, 2026-11-14: the room's chat button lit in red with what is unread in it, and «Salir de la sala» red and
+// plain to see.
+test('en la sala, el chat se enciende en rojo con lo que hay sin leer y Salir de la sala es rojo', async () => {
+  mockApi({
+    ...base(rooms({ mine: room() })),
+    'GET /galaxy/api/chat/unread': () => jsonResponse(200, { global: 0, clan: null, room: 4, mentions: { global: 0, clan: 0, room: 0 } }),
+  });
+  lobby();
+  const chat = await screen.findByRole('button', { name: copy.chat.roomChatLabel(4) });
+  expect(chat).toHaveClass('has-unread');
+  expect(chat).toHaveTextContent('4');
+  expect(screen.getByRole('button', { name: t.leave })).toHaveClass('danger');
+});

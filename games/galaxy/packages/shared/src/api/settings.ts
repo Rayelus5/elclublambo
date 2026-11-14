@@ -41,6 +41,8 @@ export const accountSettingsSchema = z.object({
   musicStyle: z.enum(SETTINGS_MUSIC_STYLES).optional(),
   /** The run's controls: two slots per action (a key or a mouse button, or none). Each device checks them again. */
   keybinds: z.partialRecord(z.enum(KEYBIND_ACTIONS), z.tuple([slot, slot])).optional(),
+  /** Which chats tell me with a notice while I do not have them open (the owner, 2026-11-14). */
+  chatNotify: z.object({ global: z.boolean(), clan: z.boolean(), room: z.boolean(), mentions: z.boolean() }).partial().strict().optional(),
   /** The highest release note («Notas de versión») the player has opened, e.g. `1.4`. */
   notesSeen: z.string().regex(/^\d{1,3}\.\d{1,3}$/).nullable().optional(),
 });

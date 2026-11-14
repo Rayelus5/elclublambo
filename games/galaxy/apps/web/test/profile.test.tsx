@@ -141,3 +141,27 @@ test('en el nivel más alto no hay barra: lo dice', async () => {
   expect(await screen.findByText(t.maxLevel)).toBeInTheDocument();
   expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 });
+
+// Blocking from a profile always asks first and says a friend stops being one (the owner, 2026-11-14: «si dos personas
+// son amigas y una le da a bloquear sin querer, se elimina de amigo aunque no lo parezca»).
+test('bloquear desde el perfil pregunta antes y avisa de que deja de ser tu amigo', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 6 }),
+    'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile()),
+    'GET /galaxy/api/friends/relation/vega': () => jsonResponse(200, { relation: 'friends' }),
+    'GET /galaxy/api/trades': () => jsonResponse(200, { trades: [] }),
+    'GET /galaxy/api/cosmetics': () => jsonResponse(200, {}),
+    'POST /galaxy/api/friends/vega/block': () => jsonResponse(200, { friends: [], incoming: [], outgoing: [], blocked: [{ username: 'vega', at: '2026-11-14T10:00:00Z' }], prefs: { invites: 'friends', showStatus: true, notices: 'sound' }, max: 100 }),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: copy.friends.profile.block }));
+  const confirm = await screen.findByRole('alertdialog', { name: copy.friends.blockTitle('vega') });
+  expect(confirm).toHaveTextContent(copy.friends.blockBody);
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/block'))).toBe(false);
+  await user.click(within(confirm).getByRole('button', { name: copy.friends.keep }));
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  await user.click(screen.getByRole('button', { name: copy.friends.profile.block }));
+  await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: copy.friends.block }));
+  await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/friends/vega/block' && init?.method === 'POST')).toBe(true));
+});

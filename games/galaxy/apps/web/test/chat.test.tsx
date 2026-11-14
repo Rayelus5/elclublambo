@@ -1,7 +1,9 @@
-import type { ChatEvent, ChatHistory, ChatMessage, ClanView, MeResponse } from '@galaxy/shared';
+import type { ChatHistory, ChatMessage, ClanView, LiveEvent, MeResponse } from '@galaxy/shared';
+import type { QueryClient } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { onChatEvent } from '../src/chat/live';
 import { ChatHost } from '../src/chat/ChatPanel';
 import { ClanScreen } from '../src/clans/ClanScreen';
 import { copy } from '../src/copy/es';
@@ -11,45 +13,23 @@ import { jsonResponse, mockApi, renderAt } from './render';
 
 // The chats on the web (GDD §14.4; M5b-2): a side sheet that does not block the game, opened from «Comunidad» or from
 // one's clan; the Comunidad and Clan tabs; each message with its author, level, clan and time; writing with a counter,
-// Enter to send and the reason when one cannot; what the socket pushes, without duplicates; reports and moderation.
+// Enter to send and the reason when one cannot; what the live socket brings, without duplicates; reports and
+// moderation.
 
 const t = copy.chat;
 
-/** The browser's socket, replaced: each one opened is kept, and a test pushes events into it. */
-class FakeSocket {
-  static all: FakeSocket[] = [];
-  onopen: (() => void) | null = null;
-  onmessage: ((e: { data: string }) => void) | null = null;
-  onclose: ((e: { code: number }) => void) | null = null;
-  closed = false;
-  constructor(readonly url: string) {
-    FakeSocket.all.push(this);
-  }
-  close() {
-    this.closed = true;
-  }
-  // TanStack Query tells the screen on the next tick: each step waits for it.
-  private async step(fn: () => void) {
-    await act(async () => {
-      fn();
-      await new Promise((r) => setTimeout(r, 0));
-    });
-  }
-  open() {
-    return this.step(() => this.onopen?.());
-  }
-  push(event: ChatEvent) {
-    return this.step(() => this.onmessage?.({ data: JSON.stringify(event) }));
-  }
-  drop(code = 1006) {
-    return this.step(() => this.onclose?.({ code }));
-  }
+/** The cache of the screen under test, where the live socket's events land. */
+let client: QueryClient;
+/** An event of the live socket, as it arrives (TanStack Query tells the screen on the next tick). */
+async function live(event: LiveEvent) {
+  await act(async () => {
+    if (event.type === 'chat' || event.type === 'chatHead' || event.type === 'chatDeleted' || event.type === 'chatRead') onChatEvent(client, event, 'sound');
+    await new Promise((r) => setTimeout(r, 0));
+  });
 }
-const lastSocket = () => FakeSocket.all.at(-1)!;
 
 beforeEach(() => {
-  FakeSocket.all = [];
-  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('WebSocket', class {});
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -83,16 +63,18 @@ function mount(routes: Record<string, (b: unknown) => Response> = {}, mine: Clan
     'GET /galaxy/api/auth/me': () => jsonResponse(200, me()),
     'GET /galaxy/api/clans/mine': () => jsonResponse(200, mine),
     'GET /galaxy/api/chat/global': () => jsonResponse(200, history()),
+    'GET /galaxy/api/chat/unread': () => jsonResponse(200, { global: 0, clan: mine ? 0 : null, room: null, mentions: { global: 0, clan: 0, room: 0 } }),
+    'POST /galaxy/api/chat/read': (b) => jsonResponse(200, { id: (b as { id: string }).id }),
     ...routes,
   });
-  renderAt('/', {
+  ({ client } = renderAt('/', {
     '/': (
       <>
         <TopBar me={me()} wallet={undefined} freePull={false} onLogout={() => {}} leaving={false} />
         <ChatHost />
       </>
     ),
-  });
+  }));
   return fetch;
 }
 
@@ -110,13 +92,11 @@ test('el panel es una hoja que no bloquea el juego, se abre desde Comunidad y se
   const { user, panel } = await open();
   expect(panel).not.toHaveAttribute('aria-modal');
   expect(screen.getByRole('button', { name: copy.hub.community })).toHaveAttribute('aria-expanded', 'true');
-  await waitFor(() => expect(within(panel).getByRole('textbox', { name: t.field })).toHaveFocus());
-  expect(lastSocket().url).toBe(`ws://${location.host}/galaxy/api/chat/ws`);
+  await waitFor(() => expect(within(panel).getByRole('combobox', { name: t.field })).toHaveFocus());
 
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('dialog', { name: t.title })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: copy.hub.community })).toHaveFocus();
-  expect(lastSocket().closed).toBe(true);
 });
 
 test('la pestaña Clan solo aparece con clan, y lee el canal del clan', async () => {
@@ -148,7 +128,7 @@ test('en una sala sale la pestaña Sala (fase 6c), que lee el chat de la sala', 
   await user.click(roomTab);
   expect(roomTab).toHaveAttribute('aria-selected', 'true');
   expect(await within(panel).findByText('voy por la izquierda')).toBeInTheDocument();
-  expect(within(panel).getByRole('textbox', { name: t.field })).toHaveAttribute('placeholder', t.placeholderRoom);
+  expect(within(panel).getByRole('combobox', { name: t.field })).toHaveAttribute('placeholder', t.placeholderRoom);
   expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/chat/room')).toBe(true);
 });
 
@@ -169,7 +149,7 @@ test('escribir: el contador, Mayúsculas con Enter salta de línea y Enter enví
     'POST /galaxy/api/chat/global/messages': (b) => jsonResponse(200, msg('11', { author: { username: 'sonda_rayo', level: 6, clan: null }, body: (b as { body: string }).body })),
   });
   const { user, panel, log } = await open();
-  const field = within(panel).getByRole('textbox', { name: t.field });
+  const field = within(panel).getByRole('combobox', { name: t.field });
   await user.type(field, 'hola qué tal');
   expect(within(panel).getByText(t.count(12, 280))).toBeInTheDocument();
   await user.type(field, '{Shift>}{Enter}{/Shift}adiós');
@@ -184,7 +164,7 @@ test('sin nivel el campo está desactivado y dice el nivel que hace falta, y no 
   mount({ 'GET /galaxy/api/chat/global': () => jsonResponse(200, history({ canWrite: false, reason: 'level' })) });
   const { panel, log } = await open();
   expect(within(log).queryByRole('button', { name: t.reportOf('vega') })).not.toBeInTheDocument();
-  expect(within(panel).getByRole('textbox', { name: t.field })).toBeDisabled();
+  expect(within(panel).getByRole('combobox', { name: t.field })).toBeDisabled();
   expect(within(panel).getByRole('button', { name: t.send })).toBeDisabled();
   expect(within(panel).getByText(t.needLevel(5))).toBeInTheDocument();
 });
@@ -193,34 +173,32 @@ test('silenciado dice hasta cuándo', async () => {
   const until = '2026-11-08T11:30:00.000Z';
   mount({ 'GET /galaxy/api/chat/global': () => jsonResponse(200, history({ canWrite: false, reason: 'muted', mutedUntil: until })) });
   const { panel } = await open();
-  expect(within(panel).getByRole('textbox', { name: t.field })).toBeDisabled();
+  expect(within(panel).getByRole('combobox', { name: t.field })).toBeDisabled();
   expect(within(panel).getByText(t.mutedUntil(hhmm(until)))).toBeInTheDocument();
 });
 
 test('pasado el límite dice que vas muy deprisa y no borra lo escrito', async () => {
   mount({ 'POST /galaxy/api/chat/global/messages': () => jsonResponse(429, { error: 'rate_limited' }) });
   const { user, panel } = await open();
-  const field = within(panel).getByRole('textbox', { name: t.field });
+  const field = within(panel).getByRole('combobox', { name: t.field });
   await user.type(field, 'otra vez{Enter}');
   expect(await within(panel).findByRole('alert')).toHaveTextContent(t.tooFast);
   expect(field).toHaveValue('otra vez');
 });
 
-test('lo que llega por el socket se añade una sola vez, y lo borrado desaparece', async () => {
+test('lo que llega en directo se añade una sola vez, y lo borrado desaparece', async () => {
   mount();
   const { log } = await open();
-  const s = lastSocket();
-  await s.open();
-  await s.push({ type: 'message', message: msg('12', { body: 'acaba de llegar' }) });
-  await s.push({ type: 'message', message: msg('12', { body: 'acaba de llegar' }) });
+  await live({ type: 'chat', message: msg('12', { body: 'acaba de llegar' }) });
+  await live({ type: 'chat', message: msg('12', { body: 'acaba de llegar' }) });
   expect(within(log).getAllByText('acaba de llegar')).toHaveLength(1);
-  await s.push({ type: 'message', message: msg('30', { channel: 'clan', body: 'solo del clan' }) });
+  await live({ type: 'chat', message: msg('30', { channel: 'clan', body: 'solo del clan' }) });
   expect(within(log).queryByText('solo del clan')).not.toBeInTheDocument();
-  await s.push({ type: 'deleted', channel: 'global', id: '10' });
+  await live({ type: 'chatDeleted', channel: 'global', id: '10' });
   expect(within(log).queryByText('hola a todos')).not.toBeInTheDocument();
 });
 
-test('al conectar el socket se relee el canal, y lo que llega mientras tanto no se pierde', async () => {
+test('al releer el canal, lo que llega mientras tanto no se pierde', async () => {
   let release: (h: ChatHistory) => void = () => {};
   let calls = 0;
   const fetch = mount({
@@ -233,10 +211,11 @@ test('al conectar el socket se relee el canal, y lo que llega mientras tanto no 
     },
   });
   const { log } = await open();
-  await lastSocket().open();
+  // The live socket came back: the channel is read again.
+  await act(async () => void client.invalidateQueries({ queryKey: ['chat', 'global'] }));
   await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/chat/global')).toHaveLength(2));
-  // The read is under way when a message comes in through the socket; the answer does not have it.
-  await lastSocket().push({ type: 'message', message: msg('12', { body: 'en pleno camino' }) });
+  // The read is under way when a message comes in; the answer does not have it.
+  await live({ type: 'chat', message: msg('12', { body: 'en pleno camino' }) });
   await act(async () => release(history()));
   expect(await within(log).findByText('en pleno camino')).toBeInTheDocument();
   expect(within(log).getByText('hola a todos')).toBeInTheDocument();
@@ -253,26 +232,10 @@ test('un mensaje que llega antes del primer historial tampoco se pierde', async 
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: copy.hub.community }));
   const panel = await screen.findByRole('dialog', { name: t.title });
-  await waitFor(() => expect(FakeSocket.all).toHaveLength(1));
-  await lastSocket().push({ type: 'message', message: msg('12', { body: 'llegó primero' }) });
+  await live({ type: 'chat', message: msg('12', { body: 'llegó primero' }) });
   await act(async () => release(history()));
   const log = await within(panel).findByRole('log');
   expect(await within(log).findByText('llegó primero')).toBeInTheDocument();
-});
-
-test('si el socket se cae vuelve a conectar y relee el canal; sin sesión no insiste', async () => {
-  const fetch = mount();
-  await open();
-  const reads = () => fetch.mock.calls.filter(([url]) => url === '/galaxy/api/chat/global').length;
-  await lastSocket().open();
-  await lastSocket().drop();
-  await waitFor(() => expect(FakeSocket.all).toHaveLength(2), { timeout: 3000 });
-  const before = reads();
-  await lastSocket().open();
-  await waitFor(() => expect(reads()).toBeGreaterThan(before));
-  await lastSocket().drop(4401);
-  await new Promise((r) => setTimeout(r, 1300));
-  expect(FakeSocket.all).toHaveLength(2);
 });
 
 test('Denunciar pide confirmación y deja el mensaje como denunciado; lo propio no se denuncia ni un jugador modera', async () => {

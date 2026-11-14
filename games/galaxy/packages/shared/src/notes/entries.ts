@@ -7,6 +7,22 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-27-chats-al-dia',
+    version: '1.27',
+    date: '2026-11-14',
+    title: 'Chats al día',
+    summary: 'Los chats te dicen lo que no has leído, te avisan cuando te nombran y se leen mucho mejor',
+    items: [
+      { kind: 'nuevo', text: 'Comunidad, cada pestaña y el chat de la sala dicen cuántos mensajes no has leído, con «@» si alguien te nombra' },
+      { kind: 'nuevo', text: 'Con el chat cerrado, un aviso te dice quién ha escrito y dónde, con «Responder». En Ajustes › Sonido eliges de qué chats' },
+      { kind: 'nuevo', text: 'Escribe @ y el principio de un nombre para nombrar a alguien. Si te nombran, el mensaje se resalta' },
+      { kind: 'mejora', text: 'Los mensajes se separan por días, los seguidos de un mismo jugador se juntan y «Ver anteriores» trae los de antes' },
+      { kind: 'mejora', text: 'El chat se puede abrir en pantalla completa' },
+      { kind: 'mejora', text: 'Bloquear desde el chat o desde un perfil pregunta antes y avisa de que un amigo deja de serlo' },
+      { kind: 'mejora', text: 'El chat de la sala se enciende en rojo cuando hay mensajes sin leer, y «Salir de la sala» es rojo' },
+    ],
+  },
+  {
     id: 'v1-26-tablon-de-noticias',
     version: '1.26',
     date: '2026-11-14',

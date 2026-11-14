@@ -28,6 +28,7 @@ const SHOWN = 3;
 /** How long a toast stays: a result longest, what asks for an answer longer, a piece of news less. */
 function lifeOf(toast: LiveToast): number {
   if (toast.kind === 'coopResult') return 30_000;
+  if (toast.kind === 'chat' || toast.kind === 'chatHead') return 8000;
   if (toast.kind === 'request' || toast.kind === 'invite') return 20_000;
   if (toast.kind === 'notice') {
     const x = toast.notice;
@@ -91,6 +92,32 @@ function InviteText({ from, sector }: { from: string; sector: string }) {
   return <>{copy.coop.toastInvite(from, name)}</>;
 }
 
+/** A chat message I am not reading (the owner's chat asks, 2026-11-14): who, where, what, and «Responder». */
+function ChatToast({ toast }: { toast: Extract<LiveToast, { kind: 'chat' | 'chatHead' }> }) {
+  const dismiss = useLive((s) => s.dismiss);
+  const openChat = useUi((s) => s.openChat);
+  const c = copy.chat;
+  const channel = toast.kind === 'chat' ? toast.message.channel : 'global';
+  const where = c.where[channel];
+  const open = (
+    <button
+      type="button"
+      className="lip pill pill-solar small"
+      onClick={() => {
+        dismiss(toast.id);
+        openChat(channel);
+      }}
+    >
+      {toast.kind === 'chat' ? c.reply : c.openChat}
+    </button>
+  );
+  if (toast.kind === 'chatHead') return <Shell toast={toast} face={<IconFace name="chat" />} title={c.toastMany(toast.n, where)} actions={open} />;
+  const m = toast.message;
+  const title = toast.mention ? c.toastMention(m.author.username, where) : toast.n > 1 ? c.toastMany(toast.n, where) : c.toastFrom(m.author.username, where);
+  const text = [...m.body].length > 90 ? `${[...m.body].slice(0, 89).join('')}…` : m.body;
+  return <Shell toast={toast} face={<PlayerFace p={{ username: m.author.username, avatar: m.author.avatar, frame: m.author.frame }} />} title={title} detail={<span className="live-toast-quote">{text}</span>} actions={open} />;
+}
+
 /** A notice from the server (a trade, a sale, a mail, my clan, an achievement): its words and where it leads. */
 function NoticeToast({ toast, notice }: { toast: LiveToast; notice: LiveNotice }) {
   const dismiss = useLive((s) => s.dismiss);
@@ -148,6 +175,7 @@ function Toast({ toast }: { toast: LiveToast }) {
   const room = useRoomAction();
   const navigate = useNavigate();
   if (toast.kind === 'notice') return <NoticeToast toast={toast} notice={toast.notice} />;
+  if (toast.kind === 'chat' || toast.kind === 'chatHead') return <ChatToast toast={toast} />;
   if (toast.kind === 'coopResult') {
     return (
       <Shell

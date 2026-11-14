@@ -1,4 +1,4 @@
-import type { Activity, LiveEvent, Presence } from '@galaxy/shared';
+import type { Activity, ChatChannel, LiveEvent, Presence } from '@galaxy/shared';
 import type { WebSocket } from 'ws';
 
 // The live socket's side on the server (multiplayer plan, phase 3): who is connected right now, what each account is
@@ -41,6 +41,8 @@ type Doing = { activity: Activity; layer?: number; room?: { size: number; max: n
 export class LiveHub {
   private readonly clients = new Set<Client>();
   private readonly doing = new Map<string, Doing>();
+  /** The chat channel each account has open on screen (the owner's chat asks, 2026-11-14). */
+  private readonly chatOpen = new Map<string, ChatChannel>();
   private readonly names = new Map<string, string>();
   private readonly leaving = new Map<string, NodeJS.Timeout>();
   private readonly ping: NodeJS.Timeout;
@@ -98,6 +100,7 @@ export class LiveHub {
       this.leaving.delete(id);
       if (this.isOnline(id)) return;
       this.doing.delete(id);
+      this.chatOpen.delete(id);
       void this.announce(id);
     }, OFFLINE_GRACE_MS);
     timer.unref();
@@ -131,6 +134,16 @@ export class LiveHub {
     const before = JSON.stringify(this.doing.get(accountId) ?? null);
     this.doing.set(accountId, doing);
     if (JSON.stringify(doing) !== before) void this.announce(accountId);
+  }
+
+  /** The chat channel an account has open now (null: its chat is closed, or it is offline). */
+  setChatOpen(accountId: string, channel: ChatChannel | null): void {
+    if (channel) this.chatOpen.set(accountId, channel);
+    else this.chatOpen.delete(accountId);
+  }
+
+  chatOpenOf(accountId: string): ChatChannel | null {
+    return this.chatOpen.get(accountId) ?? null;
   }
 
   /** Tells an account's friends its presence (offline when it hides its status). */

@@ -203,3 +203,17 @@ test('Sonido: el estilo de música se elige, con Ambiente espacial por defecto',
   expect(within(row).getByRole('combobox')).toHaveTextContent(t.musicStyles.ambient);
   expect(screen.getByText(t.musicStyleHint)).toBeInTheDocument();
 });
+
+// The owner's chat asks (2026-11-14): which chats tell me with a notice while closed (clan, room and mentions by
+// default; Comunidad off), one switch each, kept with the rest of the settings.
+test('Sonido: los avisos del chat vienen en clan, sala y menciones, y cada uno se apaga o se enciende', async () => {
+  openSettings('/ajustes?seccion=sonido');
+  const group = await screen.findByRole('group', { name: t.chatNotify });
+  expect(within(group).getByRole('switch', { name: t.chatNotifyOf.clan })).toBeChecked();
+  expect(within(group).getByRole('switch', { name: t.chatNotifyOf.room })).toBeChecked();
+  expect(within(group).getByRole('switch', { name: t.chatNotifyOf.mentions })).toBeChecked();
+  expect(within(group).getByRole('switch', { name: t.chatNotifyOf.global })).not.toBeChecked();
+  await userEvent.click(within(group).getByRole('switch', { name: t.chatNotifyOf.clan }));
+  await userEvent.click(within(group).getByRole('switch', { name: t.chatNotifyOf.global }));
+  expect(getPrefs().chatNotify).toEqual({ global: true, clan: false, room: true, mentions: true });
+});

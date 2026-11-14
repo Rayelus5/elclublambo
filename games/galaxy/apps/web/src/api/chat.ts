@@ -1,4 +1,4 @@
-import type { ChatChannel, ChatHistory, ChatMessage } from '@galaxy/shared';
+import { CHAT_UNREAD_CAP, type ChatChannel, type ChatHistory, type ChatMentionCandidate, type ChatMessage, type ChatUnread } from '@galaxy/shared';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 
@@ -18,7 +18,7 @@ export const chatHistoryKey = historyKey;
 const earlyKey = (channel: ChatChannel) => [...CHAT_KEY, 'early', channel] as const;
 const merge = (list: ChatMessage[], more: ChatMessage[]) => {
   const fresh = more.filter((m) => !list.some((x) => x.id === m.id));
-  return fresh.length ? [...list, ...fresh].sort(byId).slice(-KEEP) : list;
+  return fresh.length ? [...list, ...fresh].sort(byId).slice(-Math.max(KEEP, list.length)) : list;
 };
 
 export function addMessage(qc: QueryClient, m: ChatMessage): void {
@@ -96,4 +96,70 @@ export function useMuteAccount() {
   return useMutation({
     mutationFn: (v: { username: string; reason: string }) => api<{ until: string }>('/chat/mutes', { method: 'POST', body: { username: v.username, minutes: MUTE_MINUTES, reason: v.reason } }),
   });
+}
+
+// The owner's chat asks (2026-11-14): what is new in each channel (the server counts it; the live socket keeps it up
+// to date between reads), what I read, older messages on demand, and names for the mention box.
+
+export const CHAT_UNREAD_KEY = [...CHAT_KEY, 'unread'] as const;
+const EMPTY_UNREAD: ChatUnread = { global: 0, clan: null, room: null, mentions: { global: 0, clan: 0, room: 0 } };
+
+export function useChatUnread(enabled = true) {
+  return useQuery({ queryKey: CHAT_UNREAD_KEY, queryFn: () => api<ChatUnread>('/chat/unread'), enabled, staleTime: 60_000, retry: false });
+}
+
+/** All my channels' unread messages together, and whether any names me (the top bar's button). */
+export function unreadTotal(u: ChatUnread | undefined): { n: number; mentions: number } {
+  if (!u) return { n: 0, mentions: 0 };
+  return { n: Math.min(CHAT_UNREAD_CAP, u.global + (u.clan ?? 0) + (u.room ?? 0)), mentions: u.mentions.global + u.mentions.clan + u.mentions.room };
+}
+
+/** One more unread message in a channel (and one more naming me, `mention`), as the live socket brings it. */
+export function bumpUnread(qc: QueryClient, channel: ChatChannel, by = 1, mention = false): void {
+  qc.setQueryData<ChatUnread>(CHAT_UNREAD_KEY, (u = EMPTY_UNREAD) => ({
+    ...u,
+    [channel]: Math.min(CHAT_UNREAD_CAP, (u[channel] ?? 0) + by),
+    mentions: mention ? { ...u.mentions, [channel]: Math.min(CHAT_UNREAD_CAP, u.mentions[channel] + 1) } : u.mentions,
+  }));
+}
+
+/** A channel read to its end here: nothing new in it. */
+export function clearUnread(qc: QueryClient, channel: ChatChannel): void {
+  qc.setQueryData<ChatUnread>(CHAT_UNREAD_KEY, (u) => u && { ...u, [channel]: u[channel] === null ? null : 0, mentions: { ...u.mentions, [channel]: 0 } });
+}
+
+/** I read a channel up to a message: the server keeps it (only forward) and my other tabs learn it. */
+export function useMarkRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { channel: ChatChannel; id: string }) => api<{ id: string }>('/chat/read', { method: 'POST', body: v }),
+    onMutate: (v) => clearUnread(qc, v.channel),
+  });
+}
+
+/** The messages before the oldest on screen (one page), added to the channel's history. */
+export function useOlderMessages(channel: ChatChannel) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (before: string) => api<ChatHistory>(`/chat/${channel}?before=${before}`),
+    onSuccess: (older) =>
+      qc.setQueryData<ChatHistory>(historyKey(channel), (h) => {
+        if (!h) return h;
+        const known = new Set(h.messages.map((m) => m.id));
+        return { ...h, messages: [...older.messages.filter((m) => !known.has(m.id)), ...h.messages].sort(byId) };
+      }),
+  });
+}
+
+/** Players whose name starts like this (two letters at least), for the mention box. */
+export function searchMentionNames(q: string): Promise<ChatMentionCandidate[]> {
+  return api<{ players?: ChatMentionCandidate[] }>(`/chat/mentions?q=${encodeURIComponent(q)}`).then((r) => (Array.isArray(r.players) ? r.players : []));
+}
+
+/** Someone I just blocked: their messages leave every channel on screen, and the counts are read again. */
+export function dropAuthor(qc: QueryClient, username: string): void {
+  for (const channel of ['global', 'clan', 'room'] as const) {
+    qc.setQueryData<ChatHistory>(historyKey(channel), (h) => h && { ...h, messages: h.messages.filter((m) => m.author.username !== username) });
+  }
+  void qc.invalidateQueries({ queryKey: CHAT_UNREAD_KEY });
 }

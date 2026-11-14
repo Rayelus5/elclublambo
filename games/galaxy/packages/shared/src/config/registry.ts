@@ -1,3 +1,4 @@
+import { DEFAULT_CHAT_WORDS } from '../chat/words';
 import { contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { DEFAULT_LAB_NODES, nodeTotal } from '../lab/tree';
 import { z } from 'zod';
@@ -470,7 +471,7 @@ export const configSchemas = {
       words: z
         .array(z.string().regex(/^[\p{L}\p{N}]{2,40}$/u))
         .max(500)
-        .default([]),
+        .default([...DEFAULT_CHAT_WORDS]),
     })
     .strict(),
   /**

@@ -160,7 +160,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerPlanetariumRoutes(api, { db: deps.db, config });
     registerSocialRoutes(api, { db: deps.db, config, now });
     registerClanRoutes(api, { db: deps.db, config, now, live });
-    const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? []);
+    // The owner's chat asks (2026-11-14): the chats also go out on the live socket (unread counts, notices, mentions).
+    const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? [], live);
     api.addHook('onClose', async () => hub.close());
     // Phase 6c: who left a group run hears its result on the live socket when it ends.
     coop.notify = (id, event) => live.send(id, event);
@@ -170,7 +171,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerPlayerReportRoutes(api, { db: deps.db, trustCfIp: deps.env.TRUST_CF_IP });
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size(), online: () => live.onlineIds() };
-    registerChatRoutes(api, { db: deps.db, config, now, hub, roomOf: (id) => rooms.manager.roomOf(id)?.id ?? null, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
+    registerChatRoutes(api, { db: deps.db, config, now, hub, live, roomOf: (id) => rooms.manager.roomOf(id)?.id ?? null, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
     registerMarketRoutes(api, { db: deps.db, config, now, live });
     registerTradeRoutes(api, { db: deps.db, config, now, live });
     registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub: sockets });

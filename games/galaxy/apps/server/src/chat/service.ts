@@ -1,5 +1,5 @@
-import { type ChatChannel, type ChatHistory, type ChatMessage, cleanBody, levelOf, maskWords } from '@galaxy/shared';
-import { type Kysely, sql } from 'kysely';
+import { CHAT_UNREAD_CAP, type ChatChannel, type ChatHistory, type ChatMentionCandidate, type ChatMessage, type ChatUnread, cleanBody, type LiveEvent, levelOf, maskWords, mentionsIn } from '@galaxy/shared';
+import { type ExpressionBuilder, type Kysely, sql } from 'kysely';
 import { guardTarget } from '../admin/players';
 import { type AuditActor, writeAudit } from '../audit';
 import { isStaff } from '../auth/guards';
@@ -18,8 +18,11 @@ import type { ChatHub } from './hub';
 // with TOTP) hide messages and mute accounts, audited (M6c-1). Messages are hidden, never deleted. Only the reports
 // after a message's last review count: a message a moderator kept visible needs new reports to be hidden again.
 
-/** `roomOf`: the id of the room an account is in (rooms live in the server's memory); without it there is no room chat. */
-export type ChatDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; hub: ChatHub; roomOf?: (accountId: string) => string | null };
+/**
+ * `roomOf`: the id of the room an account is in (rooms live in the server's memory); without it there is no room chat.
+ * `live`: the live socket, to tell my other tabs and devices what I read.
+ */
+export type ChatDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; hub: ChatHub; roomOf?: (accountId: string) => string | null; live?: { send(accountId: string, event: LiveEvent): void } };
 
 /** Staff signed in with TOTP moderate the chats (the panel's rule, `isStaff`). */
 export const isModerator = isStaff;
@@ -42,7 +45,8 @@ async function channelKey(deps: Pick<ChatDeps, 'db' | 'roomOf'>, accountId: stri
 
 export const asChannel = (key: string): ChatChannel => (key === 'global' ? 'global' : key.startsWith('room:') ? 'room' : 'clan');
 
-async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: string; id?: string; limit: number }, levels: (xp: number) => number): Promise<ChatMessage[]> {
+/** A channel's visible messages, newest `limit` (oldest first); `viewer` never sees the authors they blocked. */
+async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: string; id?: string; limit: number; viewer?: string }, levels: (xp: number) => number): Promise<ChatMessage[]> {
   let q = db
     .selectFrom('galaxy.chat_messages as m')
     .innerJoin('galaxy.accounts as a', 'a.id', 'm.author_id')
@@ -54,6 +58,8 @@ async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: strin
     .where('m.hidden_at', 'is', null);
   if (opts.before) q = q.where('m.id', '<', opts.before);
   if (opts.id) q = q.where('m.id', '=', opts.id);
+  const viewer = opts.viewer;
+  if (viewer) q = q.where(({ not, exists, selectFrom }) => not(exists(selectFrom('galaxy.blocks as b').select('b.blocker').where('b.blocker', '=', viewer).whereRef('b.blocked', '=', 'm.author_id'))));
   const rows = await q.orderBy('m.id', 'desc').limit(opts.limit).execute();
   return rows.reverse().map((r) => ({
     id: String(r.id),
@@ -73,7 +79,7 @@ export async function chatHistory(deps: ChatDeps, s: SessionInfo, channel: ChatC
   const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
   const key = await channelKey(deps, s.accountId, channel);
   const levels = (xp: number) => levelOf(xp, account).level;
-  const messages = await messagesWhere(deps.db, key, { before, limit: chat.history }, levels);
+  const messages = await messagesWhere(deps.db, key, { before, limit: chat.history, viewer: s.accountId }, levels);
   const level = levels(await accountXp(deps.db, s.accountId));
   const muted = await muteOf(deps.db, s.accountId, deps.now());
   // Moderators write whatever their level (a new staff account is level 1).
@@ -98,14 +104,137 @@ export async function sendMessage(deps: ChatDeps, s: SessionInfo, channel: ChatC
   const body = cleanBody(raw, chat.maxLength);
   if (body === null) throw new HttpError(400, 'chat_empty');
   await hitRateLimit(deps.db, `a:${s.accountId}`, 'chat', chat.perMinute, 60);
-  const row = await deps.db
-    .insertInto('galaxy.chat_messages')
-    .values({ channel: key, author_id: s.accountId, body: maskWords(body, chat.words) })
-    .returning('id')
-    .executeTakeFirstOrThrow();
-  const [message] = await messagesWhere(deps.db, key, { id: String(row.id), limit: 1 }, (xp) => levelOf(xp, account).level);
-  await deps.hub.broadcast(key, { type: 'message', message: message! });
+  const text = maskWords(body, chat.words);
+  const { id, named } = await inTransaction(deps.db, async (trx) => {
+    const row = await trx.insertInto('galaxy.chat_messages').values({ channel: key, author_id: s.accountId, body: text }).returning('id').executeTakeFirstOrThrow();
+    const named = await mentionable(trx, deps, key, s.accountId, mentionsIn(text));
+    if (named.length > 0) await trx.insertInto('galaxy.chat_mentions').values(named.map((account_id) => ({ message_id: String(row.id), account_id, channel: key }))).execute();
+    return { id: String(row.id), named };
+  });
+  const [message] = await messagesWhere(deps.db, key, { id, limit: 1 }, (xp) => levelOf(xp, account).level);
+  await deps.hub.broadcast(key, { type: 'message', message: message! }, { authorId: s.accountId, named });
   return message!;
+}
+
+/** No block either way between an account (a column) and another (an id). */
+const unblocked =
+  (other: string) =>
+  ({ not, exists, selectFrom }: ExpressionBuilder<DB & { a: DB['galaxy.accounts'] }, 'a'>) =>
+    not(
+      exists(
+        selectFrom('galaxy.blocks as b')
+          .select('b.blocker')
+          .where((w) => w.or([w.and([w('b.blocker', '=', w.ref('a.id')), w('b.blocked', '=', other)]), w.and([w('b.blocker', '=', other), w('b.blocked', '=', w.ref('a.id'))])])),
+      ),
+    );
+
+/**
+ * The accounts a message names that can be told (the owner's chat asks, 2026-11-14): by name (lower case), live, not
+ * the author, able to read the channel (its clan's members, its room's), and with no block either way.
+ */
+async function mentionable(db: Kysely<DB>, deps: Pick<ChatDeps, 'roomOf'>, key: string, authorId: string, names: string[]): Promise<string[]> {
+  if (names.length === 0) return [];
+  let q = db.selectFrom('galaxy.accounts as a').select('a.id').where('a.username', 'in', names).where('a.deleted_at', 'is', null).where('a.id', '<>', authorId).where(unblocked(authorId));
+  if (key.startsWith('clan:')) q = q.where(({ exists, selectFrom }) => exists(selectFrom('galaxy.clan_members as cm').select('cm.account_id').whereRef('cm.account_id', '=', 'a.id').where('cm.clan_id', '=', key.slice(5))));
+  const ids = (await q.execute()).map((r) => r.id);
+  return key.startsWith('room:') ? ids.filter((id) => deps.roomOf?.(id) === key.slice(5)) : ids;
+}
+
+/** My channels now, by their key: Comunidad, my clan's and my room's (when I am in one). */
+async function myChannels(deps: Pick<ChatDeps, 'db' | 'roomOf'>, accountId: string): Promise<{ channel: ChatChannel; key: string }[]> {
+  const out: { channel: ChatChannel; key: string }[] = [{ channel: 'global', key: 'global' }];
+  for (const channel of ['clan', 'room'] as const) {
+    const key = await channelKey(deps, accountId, channel).catch(() => null);
+    if (key) out.push({ channel, key });
+  }
+  return out;
+}
+
+/**
+ * What is new for me in each of my channels (the owner's chat asks, 2026-11-14): the visible messages by others after
+ * what I last read, but not by those I blocked, 99 at most (counted on the channel's index), and how many name me. A
+ * channel I never read starts at its head: nothing is new in it until something comes.
+ */
+export async function chatUnread(deps: ChatDeps, s: SessionInfo): Promise<ChatUnread> {
+  const me = s.accountId;
+  const out: ChatUnread = { global: 0, clan: null, room: null, mentions: { global: 0, clan: 0, room: 0 } };
+  for (const { channel, key } of await myChannels(deps, me)) {
+    let read = await deps.db.selectFrom('galaxy.chat_reads').select('last_read_id').where('account_id', '=', me).where('channel', '=', key).executeTakeFirst();
+    if (!read) {
+      const head = await deps.db.selectFrom('galaxy.chat_messages').select(sql<string>`coalesce(max(id), 0)`.as('id')).where('channel', '=', key).executeTakeFirstOrThrow();
+      await deps.db
+        .insertInto('galaxy.chat_reads')
+        .values({ account_id: me, channel: key, last_read_id: head.id })
+        .onConflict((oc) => oc.columns(['account_id', 'channel']).doNothing())
+        .execute();
+      read = { last_read_id: head.id };
+    }
+    const after = String(read.last_read_id);
+    const fresh = await deps.db
+      .selectFrom((qb) =>
+        qb
+          .selectFrom('galaxy.chat_messages as m')
+          .select('m.id')
+          .where('m.channel', '=', key)
+          .where('m.hidden_at', 'is', null)
+          .where('m.id', '>', after)
+          .where('m.author_id', '<>', me)
+          .where(({ not, exists, selectFrom }) => not(exists(selectFrom('galaxy.blocks as b').select('b.blocker').where('b.blocker', '=', me).whereRef('b.blocked', '=', 'm.author_id'))))
+          .orderBy('m.id', 'desc')
+          .limit(CHAT_UNREAD_CAP + 1)
+          .as('x'),
+      )
+      .select(sql<number>`count(*)::int`.as('n'))
+      .executeTakeFirstOrThrow();
+    const named = await deps.db
+      .selectFrom('galaxy.chat_mentions as mm')
+      .innerJoin('galaxy.chat_messages as m', 'm.id', 'mm.message_id')
+      .select(sql<number>`count(*)::int`.as('n'))
+      .where('mm.account_id', '=', me)
+      .where('mm.channel', '=', key)
+      .where('mm.message_id', '>', after)
+      .where('m.hidden_at', 'is', null)
+      .executeTakeFirstOrThrow();
+    out[channel] = Math.min(CHAT_UNREAD_CAP, fresh.n);
+    out.mentions[channel] = Math.min(CHAT_UNREAD_CAP, named.n);
+  }
+  return out;
+}
+
+/**
+ * I have read a channel up to a message (it never moves back, nor past the channel's newest); my other tabs and
+ * devices learn it on the live socket.
+ */
+export async function markRead(deps: ChatDeps, s: SessionInfo, channel: ChatChannel, id: string): Promise<{ id: string }> {
+  const key = await channelKey(deps, s.accountId, channel);
+  const row = await deps.db
+    .insertInto('galaxy.chat_reads')
+    .values({ account_id: s.accountId, channel: key, last_read_id: sql<string>`least(${id}::bigint, (select coalesce(max(id), 0) from galaxy.chat_messages where channel = ${key}))` })
+    .onConflict((oc) =>
+      oc.columns(['account_id', 'channel']).doUpdateSet({ last_read_id: sql<string>`greatest(galaxy.chat_reads.last_read_id, excluded.last_read_id)`, updated_at: sql<Date>`now()` }),
+    )
+    .returning('last_read_id')
+    .executeTakeFirstOrThrow();
+  const read = String(row.last_read_id);
+  deps.live?.send(s.accountId, { type: 'chatRead', channel, id: read });
+  return { id: read };
+}
+
+/** `like` takes these literally (a name has `_`). */
+const likeLiteral = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/** Players whose name starts like this, for the mention box: live accounts, none blocked either way, eight at most. */
+export async function searchMentions(deps: Pick<ChatDeps, 'db'>, s: SessionInfo, q: string): Promise<{ players: ChatMentionCandidate[] }> {
+  const rows = await deps.db
+    .selectFrom('galaxy.accounts as a')
+    .select(['a.username', 'a.avatar', 'a.frame'])
+    .where('a.username', 'like', `${likeLiteral(q)}%`)
+    .where('a.deleted_at', 'is', null)
+    .where(unblocked(s.accountId))
+    .orderBy('a.username')
+    .limit(8)
+    .execute();
+  return { players: rows.map((r) => ({ username: r.username, avatar: r.avatar, frame: r.frame })) };
 }
 
 /** A message that can still be seen, and its channel's key; 404 when hidden or gone. */

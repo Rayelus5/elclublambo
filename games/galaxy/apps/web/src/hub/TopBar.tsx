@@ -2,6 +2,7 @@ import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isStaff } from '../auth/useMe';
+import { unreadTotal, useChatUnread } from '../api/chat';
 import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
@@ -44,6 +45,11 @@ export function TopBar({
   const chatOpen = useUi((s) => s.chat !== null);
   const openChat = useUi((s) => s.openChat);
   const closeChat = useUi((s) => s.closeChat);
+  // What is unread in my chats (the owner, 2026-11-14): the count on Comunidad, «@» when someone names me; it opens on
+  // the channel that has something new (my clan's or my room's first).
+  const unreadView = useChatUnread().data;
+  const unread = unreadTotal(unreadView);
+  const firstUnread = unreadView && (unreadView.clan ?? 0) > 0 ? 'clan' : unreadView && (unreadView.room ?? 0) > 0 ? 'room' : 'global';
   const friendsOpen = useUi((s) => s.friends);
   const openFriends = useUi((s) => s.openFriends);
   const closeFriends = useUi((s) => s.closeFriends);
@@ -66,14 +72,20 @@ export function TopBar({
         </Link>
         <button
           type="button"
-          className="lip pill fold enter"
+          className="lip pill fold enter chat-button"
           style={delay('1.05s')}
           aria-haspopup="dialog"
           aria-expanded={chatOpen}
-          onClick={() => (chatOpen ? closeChat() : openChat('global'))}
+          aria-label={copy.chat.communityLabel(unread.n, unread.mentions)}
+          onClick={() => (chatOpen ? closeChat() : openChat(firstUnread))}
         >
           <Icon name="chat" />
           <span className="label">{copy.hub.community}</span>
+          {unread.n > 0 ? (
+            <span className={`chat-unread${unread.mentions > 0 ? ' mention' : ''}`} aria-hidden="true">
+              {unread.mentions > 0 ? '@' : unread.n > 99 ? '99+' : unread.n}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"

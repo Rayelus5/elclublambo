@@ -1,4 +1,4 @@
-import type { Activity, FriendsView, LiveEvent, LiveNotice, NoticeMode, RoomInvite, RunResult } from '@galaxy/shared';
+import type { Activity, ChatMessage, FriendsView, LiveEvent, LiveNotice, NoticeMode, RoomInvite, RunResult } from '@galaxy/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -6,11 +6,14 @@ import { create } from 'zustand';
 import { FRIENDS_KEY, refreshFriends, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
 import { onPurchaseDelivered } from '../api/shop';
+import { CHAT_KEY } from '../api/chat';
 import { CLANS_KEY } from '../api/clans';
 import { MAILBOX_KEY } from '../api/mail';
 import { TRADES_KEY } from '../api/trades';
 import { useMe } from '../auth/useMe';
+import { isChatEvent, onChatEvent } from '../chat/live';
 import { retryDelay } from '../chat/useChatSocket';
+import { useUi } from '../state/ui';
 import { applyNotice } from './notices';
 
 // The live socket (multiplayer plan, phase 3): open while signed in, anywhere in the game. It says hello with the
@@ -31,12 +34,18 @@ export type LiveToast =
   /** A group run I had left ended (phase 6c): what it paid me. */
   | { id: number; kind: 'coopResult'; username: string; result: RunResult }
   /** Something happened to me elsewhere (real-time notices plan): a trade, a sale, a mail, my clan, an achievement. */
-  | { id: number; kind: 'notice'; username: string; notice: LiveNotice };
+  | { id: number; kind: 'notice'; username: string; notice: LiveNotice }
+  /** A chat message I am not reading (the owner's chat asks, 2026-11-14): who, where and what; `n` that came together. */
+  | { id: number; kind: 'chat'; username: string; message: ChatMessage; mention: boolean; n: number }
+  /** New messages in Comunidad while it is closed (only when the player asked for its notices). */
+  | { id: number; kind: 'chatHead'; username: string; n: number };
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 type NewToast = WithoutId<LiveToast>;
 
 type LiveState = {
   connected: boolean;
+  /** It was connected and dropped (coming back now): the chat says «Reconectando». */
+  dropped: boolean;
   /** The arena's report (a run and its layer); null: the screen decides. */
   run: { layer: number } | null;
   toasts: LiveToast[];
@@ -51,6 +60,7 @@ type LiveState = {
 let toastId = 0;
 export const useLive = create<LiveState>((set) => ({
   connected: false,
+  dropped: false,
   run: null,
   toasts: [],
   shownResult: null,
@@ -66,6 +76,17 @@ const QUEUE = 8;
 export function pushToast(toast: NewToast, mode: NoticeMode = 'sound'): void {
   if (mode === 'off') return;
   if (toast.kind === 'invite' && useLive.getState().run) return;
+  // A busy chat never piles up notices: what comes from the same channel joins the one waiting (its count grows, the
+  // newest message shows); a mention keeps its own.
+  if (toast.kind === 'chat' || toast.kind === 'chatHead') {
+    const same = useLive.getState().toasts.find((x) =>
+      toast.kind === 'chatHead' ? x.kind === 'chatHead' : x.kind === 'chat' && !x.mention && !toast.mention && x.message.channel === toast.message.channel,
+    );
+    if (same) {
+      useLive.setState((s) => ({ toasts: s.toasts.map((x) => (x.id === same.id ? ({ ...toast, id: same.id, n: (same as { n: number }).n + toast.n } as LiveToast) : x)) }));
+      return;
+    }
+  }
   useLive.setState((s) => ({ toasts: [...s.toasts.slice(-(QUEUE - 1)), { ...toast, id: ++toastId } as LiveToast] }));
 }
 
@@ -91,6 +112,9 @@ function LiveSocket() {
   const socket = useRef<WebSocket | null>(null);
   const doing = run ? JSON.stringify({ type: 'activity', activity: 'run', layer: run.layer }) : JSON.stringify({ type: 'activity', activity: activityOf(path) });
   const latest = useRef(doing);
+  // The chat channel open on screen (the server sends Comunidad in full only to who has it open).
+  const chat = JSON.stringify({ type: 'chat', open: useUi((s) => s.chat) });
+  const latestChat = useRef(chat);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -101,8 +125,9 @@ function LiveSocket() {
       socket.current = s;
       s.onopen = () => {
         attempt = 0;
-        useLive.setState({ connected: true });
+        useLive.setState({ connected: true, dropped: false });
         s.send(latest.current);
+        s.send(latestChat.current);
       };
       // The player's choice for notices (the friends view carries it; with sound until it is known).
       const mode = (): NoticeMode => qc.getQueryData<FriendsView>(FRIENDS_KEY)?.prefs.notices ?? 'sound';
@@ -117,7 +142,7 @@ function LiveSocket() {
         if (event.type === 'hello') {
           qc.setQueryData(FRIENDS_KEY, event.friends);
           // Back after a drop: what may have changed meanwhile is read again where it shows.
-          for (const key of [TRADES_KEY, MAILBOX_KEY, [...CLANS_KEY, 'mine']]) void qc.invalidateQueries({ queryKey: key });
+          for (const key of [TRADES_KEY, MAILBOX_KEY, [...CLANS_KEY, 'mine'], CHAT_KEY]) void qc.invalidateQueries({ queryKey: key });
         }
         else if (event.type === 'presence') setPresence(qc, event.username, event.presence);
         else if (event.type === 'friends') {
@@ -134,6 +159,7 @@ function LiveSocket() {
           applyNotice(qc, event.notice);
           toast({ kind: 'notice', username: '', notice: event.notice });
         }
+        else if (isChatEvent(event)) onChatEvent(qc, event, mode());
         else if (event.type === 'purchase') {
           // A purchase of the shop delivered (shop and lab plan, F5): its wallet everywhere, and the purchase itself
           // for the payment dialog waiting on it.
@@ -142,7 +168,7 @@ function LiveSocket() {
       };
       s.onclose = (e: CloseEvent) => {
         socket.current = null;
-        useLive.setState({ connected: false });
+        useLive.setState({ connected: false, dropped: !stopped && !FINAL.has(e.code) });
         if (stopped || FINAL.has(e.code)) return;
         timer = setTimeout(connect, retryDelay(attempt++));
       };
@@ -152,7 +178,7 @@ function LiveSocket() {
       stopped = true;
       clearTimeout(timer);
       socket.current?.close();
-      useLive.setState({ connected: false });
+      useLive.setState({ connected: false, dropped: false });
     };
   }, [qc]);
 
@@ -162,6 +188,12 @@ function LiveSocket() {
     const s = socket.current;
     if (s && s.readyState === WebSocket.OPEN) s.send(doing);
   }, [doing]);
+
+  useEffect(() => {
+    latestChat.current = chat;
+    const s = socket.current;
+    if (s && s.readyState === WebSocket.OPEN) s.send(chat);
+  }, [chat]);
 
   return null;
 }

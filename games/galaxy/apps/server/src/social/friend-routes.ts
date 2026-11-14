@@ -47,6 +47,7 @@ export function registerFriendRoutes(api: FastifyInstance, deps: FriendDeps): vo
       const msg = liveMessageSchema.safeParse(parsed);
       if (!msg.success) return;
       if (msg.data.type === 'activity') deps.live.setActivity(s.accountId, { activity: msg.data.activity, ...(msg.data.layer ? { layer: msg.data.layer } : {}) });
+      else if (msg.data.type === 'chat') deps.live.setChatOpen(s.accountId, msg.data.open);
     });
     void view(s.accountId)
       .then((friends) => {

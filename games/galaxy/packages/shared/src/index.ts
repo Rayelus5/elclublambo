@@ -32,6 +32,7 @@ export * from './api/cosmetics';
 export * from './clans/rules';
 export * from './api/clans';
 export * from './chat/rules';
+export * from './chat/words';
 export * from './api/chat';
 export * from './api/friends';
 export * from './api/live-notices';
