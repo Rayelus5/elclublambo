@@ -97,6 +97,23 @@ function StatusCell({ status, reversal }: { status: string; reversal: DealRevers
 }
 
 const galaxyCell = (g: { name: string; tier: number } | null) => <td className={g ? `deal-galaxy tier-${TIERS[g.tier]}` : undefined}>{g ? g.name : '—'}</td>;
+/** What a side of a trade gives (trades 2.0): its galaxies, each in its rarity's colour, and its coins. */
+const givesCell = (galaxies: { id: string; name: string; tier: number }[], coins: number) => (
+  <td>
+    {galaxies.length === 0 && coins === 0 ? (
+      '—'
+    ) : (
+      <span className="deal-gives">
+        {galaxies.map((g) => (
+          <span key={g.id} className={`deal-galaxy tier-${TIERS[g.tier]}`}>
+            {g.name}
+          </span>
+        ))}
+        {coins > 0 ? <span className="deal-coins">{copy.market.price(coins)}</span> : null}
+      </span>
+    )}
+  </td>
+);
 
 /**
  * Comercio (DESIGN_SYSTEM §8 novodecies): the history of listings or of trades, filtered by account and status from
@@ -279,9 +296,9 @@ function TradesTable({ rows, onAction }: { rows: AdminTradeRow[]; onAction: (o: 
               <time dateTime={r.closedAt ?? r.createdAt}>{when(r.closedAt ?? r.createdAt)}</time>
             </td>
             <td>{r.a}</td>
-            {galaxyCell(r.aGalaxy)}
+            {givesCell(r.aGalaxies, r.aCoins)}
             <td>{r.b}</td>
-            {galaxyCell(r.bGalaxy)}
+            {givesCell(r.bGalaxies, r.bCoins)}
             <StatusCell status={r.status} reversal={r.reversal} />
             <td>
               <div className="admin-row-actions">

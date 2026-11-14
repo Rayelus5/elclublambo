@@ -228,10 +228,10 @@ export function ProfileScreen() {
                 </button>
               </div>
             ) : null}
-            {proposing ? (
+            {proposing && trades.data ? (
               <TradeComposer
                 username={p.username}
-                days={trades.data?.rules.tradeDays ?? 3}
+                rules={trades.data.rules}
                 onDone={() => navigate('/mercado?pestana=trueques')}
                 onClose={() => setProposing(false)}
               />

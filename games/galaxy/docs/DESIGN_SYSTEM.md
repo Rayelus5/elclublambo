@@ -776,32 +776,41 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 
 ## 8 quindecies. Trueque
 
-Galaxia por galaxia entre dos jugadores (GDD §14.5, M5c-2). Se propone desde el perfil de otro jugador («Proponer trueque») y se sigue en la pestaña «Trueques» del mercado (`/mercado?pestana=trueques`).
+Galaxias y monedas entre dos jugadores (GDD §14.5, M5c-2; trueques 2.0 el 2026-11-14). Se propone desde el perfil de otro jugador («Proponer trueque») y se sigue en la pestaña «Trueques» del mercado (`/mercado?pestana=trueques`).
 
 Consulta de ui-ux-pro-max: se aplicaron dos guías:
 - **Confirmar lo que no se deshace:** cancelar un trueque pide confirmación;
 - **El estado siempre a la vista:** cada trueque dice a quién le toca.
 
-**Componer el trueque** (proponer o «Cambiar»):
-- **Las casillas:** «Doy» y «Quiero», una junto a otra con ⇄ en Solar entre ambas. Cada una tiene su carta o un hueco punteado que dice «Nada todavía».
+**Componer el trueque** (proponer o «Contraoferta»):
+- **Las columnas:** «Doy» y «Quiero», una junto a otra con ⇄ en Solar entre ambas. Cada una tiene sus cartas (a 120 px cuando hay varias), cada carta con su × para quitarla («Quitar …»), o un hueco punteado que dice «Nada todavía».
+- **Añadir:** «Elegir lo que doy» y «Elegir lo que pido», con «+», hasta el límite por lado. Con el lado lleno, el botón deja paso a «Hasta N galaxias por lado».
 - **Doy:** el selector de tu colección marca lo equipado, expuesto, en venta o en otro trueque como «No disponible».
-- **Quiero:** un selector con la colección pública del otro.
-- **El aviso:** «Lo que das queda reservado hasta que el trato se cierre o caduque en 3 días».
-- **Enviar:** «Proponer» o «Guardar cambios», desactivados mientras no des nada.
+- **Quiero:** un selector con la colección pública del otro, sin las que ya pides.
+- **Las monedas:** un campo numérico por columna, «Monedas que das» y «Monedas que pides». Con monedas en un lado, el campo del otro se apaga y dice «Las monedas van en un solo lado del trato».
+  - **Si das monedas:** «Se reservan de tu saldo», o cuántas te faltan, y entonces no se envía.
+  - **Si las pides:** «Recibes N monedas después de la comisión del mercado».
+- **El aviso:** el límite por lado y «Lo que das queda reservado hasta que el trato se cierre o caduque en 3 días».
+- **Enviar:** «Proponer» (desactivado mientras no des nada) o «Enviar contraoferta» (desactivado si no cambias nada).
 
 **Cada trueque abierto:**
 - **La cabecera:** «Con» y el otro jugador enlazado a su perfil, y hasta cuándo sigue abierto.
-- **Las cartas:** «Tú das» y «Recibes», lado a lado.
+- **Las cartas:** «Tú das» y «Recibes», lado a lado. Varias cartas van a 112 px. Las monedas, en un chip Solar con moneda; las que recibes dicen cuánto queda tras la comisión.
 - **El estado:**
   - «… ha confirmado. Te toca», en Solar y con el borde de la tarjeta en Solar;
   - «Has confirmado. Esperando a …»;
-  - «Falta una galaxia en algún lado».
+  - «Cada parte tiene que dar algo: galaxias o monedas».
 - **Las acciones:**
   - «Confirmar trato» confirma la versión que ves. Si el trato cambió entretanto, lo dice y se vuelve a leer;
-  - «Cambiar»;
+  - «Contraoferta», que abre el compositor con el trato que ves;
   - «Cancelar», en Nova, que pide confirmación.
+- **Historial (N):** un desplegable bajo una línea fina, del paso más nuevo al más viejo. Cada paso lleva:
+  - su versión («v2»);
+  - quién hizo qué, en negrita: «Propusiste», «lyra hizo una contraoferta», «Trato hecho» en Terminal o «… canceló» en Nova;
+  - el trato de las propuestas y contraofertas: «Tú das … · lyra da …»;
+  - la hora.
 
-**Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y las dos galaxias.
+**Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y lo que dio cada lado («Diste Vega y Orión», «Recibiste 500 monedas»).
 
 **En la colección:**
 - una galaxia ofrecida lleva la insignia «En trueque»;

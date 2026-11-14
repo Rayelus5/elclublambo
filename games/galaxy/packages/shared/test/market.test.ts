@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { API_ERROR_CODES, commissionOf, marketListSchema, marketQuerySchema, minPriceFor, parseConfig, tradeBlock, tradeConfirmSchema, tradeOfferSchema, tradeProposeSchema } from '../src/index';
+import { API_ERROR_CODES, commissionOf, dealProblem, marketListSchema, marketQuerySchema, minPriceFor, parseConfig, tradeBlock, tradeConfirmSchema, tradeOfferSchema, tradeProposeSchema } from '../src/index';
 
 // The market (GDD §14.6, §14.7; M5c-1): galaxies only, a minimum price per rarity, a commission that sinks coins, and
 // who may trade (level 10, an account 3 days old).
@@ -24,6 +24,7 @@ describe('la configuración', () => {
       tradeDays: 3,
       openTrades: 5,
       tradeAlertTierGap: 3,
+      tradeGalaxies: 3,
     });
   });
 
@@ -85,20 +86,36 @@ describe('lo que se envía', () => {
 describe('el trueque', () => {
   const a = '00000000-0000-4000-8000-000000000001';
   const b = '00000000-0000-4000-8000-000000000002';
-  test('proponer da una galaxia y puede pedir una del otro', () => {
-    expect(tradeProposeSchema.parse({ username: 'vega_9', give: a })).toEqual({ username: 'vega_9', give: a });
-    expect(tradeProposeSchema.parse({ username: 'vega_9', give: a, want: b })).toEqual({ username: 'vega_9', give: a, want: b });
-    expect(() => tradeProposeSchema.parse({ username: 'vega_9' })).toThrow();
+  const d = (galaxies: string[] = [], coins = 0) => ({ galaxies, coins });
+  test('proponer da galaxias o monedas y puede pedir lo mismo del otro', () => {
+    expect(tradeProposeSchema.parse({ username: 'vega_9', give: d([a]), want: d() })).toEqual({ username: 'vega_9', give: d([a]), want: d() });
+    expect(tradeProposeSchema.parse({ username: 'vega_9', give: d([], 500), want: d([b]) })).toEqual({ username: 'vega_9', give: d([], 500), want: d([b]) });
+    expect(() => tradeProposeSchema.parse({ username: 'vega_9', give: a })).toThrow();
+    expect(() => tradeProposeSchema.parse({ username: 'vega_9', give: d([a, a]), want: d() })).toThrow();
+    expect(() => tradeProposeSchema.parse({ username: 'vega_9', give: d([], -1), want: d() })).toThrow();
   });
 
   test('cambiar o confirmar nombran la versión que se ve', () => {
-    expect(tradeOfferSchema.parse({ give: a, want: null, version: 2 })).toEqual({ give: a, want: null, version: 2 });
-    expect(() => tradeOfferSchema.parse({ give: a, want: b })).toThrow();
+    expect(tradeOfferSchema.parse({ give: d([a]), want: d(), version: 2 })).toEqual({ give: d([a]), want: d(), version: 2 });
+    expect(() => tradeOfferSchema.parse({ give: d([a]), want: d([b]) })).toThrow();
     expect(tradeConfirmSchema.parse({ version: 3 })).toEqual({ version: 3 });
     expect(() => tradeConfirmSchema.parse({ version: 0 })).toThrow();
   });
 
   test('sus errores existen', () => {
-    for (const code of ['galaxy_in_trade', 'trade_changed', 'trade_gone', 'trade_self', 'trade_limit', 'trade_incomplete']) expect(API_ERROR_CODES).toContain(code);
+    for (const code of ['galaxy_in_trade', 'trade_changed', 'trade_gone', 'trade_self', 'trade_limit', 'trade_incomplete', 'trade_too_many', 'trade_duplicate', 'trade_coins_both', 'trade_empty'])
+      expect(API_ERROR_CODES).toContain(code);
+  });
+
+  // Trades 2.0 (the owner, 2026-11-14: «oro, hasta 3 galaxias por lado»).
+  test('un trato: hasta tres galaxias por lado, cada una una vez, y el oro en un solo lado', () => {
+    const rules = { tradeGalaxies: 3, maxPrice: 10_000 };
+    const ids = (n: number, k: string) => Array.from({ length: n }, (_, i) => `${k}${i}`);
+    expect(dealProblem(d(ids(3, 'a')), d(ids(3, 'b')), rules)).toBeNull();
+    expect(dealProblem(d(ids(4, 'a')), d(), rules)).toBe('trade_too_many');
+    expect(dealProblem(d(['x']), d(['x']), rules)).toBe('trade_duplicate');
+    expect(dealProblem(d(['x'], 10), d(['y'], 10), rules)).toBe('trade_coins_both');
+    expect(dealProblem(d([], 10_001), d(['y']), rules)).toBe('price_too_high');
+    expect(dealProblem(d([], 500), d(['y']), rules)).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
-import type { GalaxySummary, PublicGalaxy, TradeView } from '@galaxy/shared';
-import { useState } from 'react';
+import { commissionOf, type GalaxySummary, type MyTrades, type PublicGalaxy, type TradeDealInput, type TradeView } from '@galaxy/shared';
+import { useId, useState } from 'react';
+import { useGacha } from '../api/economy';
 import { useChangeTrade, useProposeTrade } from '../api/trades';
 import { usePublicCollection } from '../api/social';
 import { errorText } from '../auth/useMe';
@@ -7,16 +8,17 @@ import { GalaxyCard } from '../cards/GalaxyCard';
 import { GalaxyPicker } from '../cards/GalaxyPicker';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
+import { Icon } from '../ui/Icon';
 
 const t = copy.trades;
 const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));
 /** A galaxy already held somewhere else (equipped, exhibited, for sale or in another trade). */
-const heldElsewhere = (g: GalaxySummary, current: string | null) => g.id !== current && (g.equipped === true || g.exhibited === true || g.listed === true || g.traded === true);
+const heldElsewhere = (g: GalaxySummary, current: string[]) => !current.includes(g.id) && (g.equipped === true || g.exhibited === true || g.listed === true || g.traded === true);
 
-/** One of the other player's galaxies, from their public collection. */
-function TheirPicker({ username, onPick, onClose }: { username: string; onPick: (g: PublicGalaxy) => void; onClose: () => void }) {
+/** One of the other player's galaxies, from their public collection; the ones already asked for, out. */
+function TheirPicker({ username, chosen, onPick, onClose }: { username: string; chosen: string[]; onPick: (g: PublicGalaxy) => void; onClose: () => void }) {
   const pages = usePublicCollection(username, undefined);
-  const items = pages.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = (pages.data?.pages.flatMap((p) => p.items) ?? []).filter((g) => !chosen.includes(g.id));
   return (
     <Dialog title={t.pickTheirs(username)} onClose={onClose} className="relic-picker">
       {pages.isPending ? (
@@ -45,63 +47,131 @@ function TheirPicker({ username, onPick, onClose }: { username: string; onPick: 
   );
 }
 
-type Slot = PublicGalaxy | GalaxySummary | null;
+type Card = PublicGalaxy | GalaxySummary;
+type Chosen = { galaxies: Card[]; coins: string };
+const coinsOf = (p: Chosen) => (/^\d{1,10}$/.test(p.coins.trim()) ? Number(p.coins.trim()) : p.coins.trim() === '' ? 0 : NaN);
+const toDeal = (p: Chosen): TradeDealInput => ({ galaxies: p.galaxies.map((g) => g.id), coins: coinsOf(p) || 0 });
+const sameDeal = (x: TradeDealInput, y: TradeDealInput) => x.coins === y.coins && x.galaxies.length === y.galaxies.length && x.galaxies.every((g) => y.galaxies.includes(g));
 
 /**
- * Composing a swap (DESIGN_SYSTEM §8 quindecies): «Doy» (one of mine that is free) and «Quiero» (one of theirs). New, it
- * proposes; over an open trade, it changes it naming the version seen. What I give is reserved until the trade closes.
+ * Composing a swap (DESIGN_SYSTEM §8 quindecies; trades 2.0, 2026-11-14): «Doy» (mine that are free) and «Quiero»
+ * (theirs), up to `tradeGalaxies` galaxies a side, and coins on one side at most. New, it proposes; over an open trade
+ * it sends a counter-offer naming the version seen. What I give, coins included, is held until the trade closes.
  */
 export function TradeComposer({
   username,
   trade,
-  days,
+  rules,
   onDone,
   onClose,
 }: {
   username: string;
-  /** The trade being changed, or none to propose a new one. */
+  /** The trade being countered, or none to propose a new one. */
   trade?: TradeView;
-  days: number;
+  rules: Pick<MyTrades['rules'], 'tradeDays' | 'tradeGalaxies' | 'commission'>;
   onDone: (v: TradeView) => void;
   onClose: () => void;
 }) {
-  const [give, setGive] = useState<Slot>(trade?.me.galaxy ?? null);
-  const [want, setWant] = useState<Slot>(trade?.them.galaxy ?? null);
+  const ids = useId();
+  const coins = useGacha().data?.wallet.coins;
+  const [give, setGive] = useState<Chosen>({ galaxies: trade?.me.galaxies ?? [], coins: trade?.me.coins ? String(trade.me.coins) : '' });
+  const [want, setWant] = useState<Chosen>({ galaxies: trade?.them.galaxies ?? [], coins: trade?.them.coins ? String(trade.them.coins) : '' });
   // The version and the deal as they were when this opened: a newer version that arrives meanwhile is answered with
   // trade_changed instead of being overwritten (M5c-2 review).
-  const [seen] = useState(() => (trade ? { version: trade.version, give: trade.me.galaxy?.id ?? null, want: trade.them.galaxy?.id ?? null, until: trade.expiresAt } : null));
-  const unchanged = seen !== null && (give?.id ?? null) === seen.give && (want?.id ?? null) === seen.want;
+  const [seen] = useState(() => (trade ? { version: trade.version, give: toDeal({ galaxies: trade.me.galaxies, coins: String(trade.me.coins) }), want: toDeal({ galaxies: trade.them.galaxies, coins: String(trade.them.coins) }), until: trade.expiresAt } : null));
   const [picking, setPicking] = useState<'mine' | 'theirs' | null>(null);
   const propose = useProposeTrade();
   const change = useChangeTrade();
   const busy = propose.isPending || change.isPending;
   const error = propose.error ?? change.error;
-  const current = trade?.me.galaxy?.id ?? null;
+  const [g, w] = [coinsOf(give), coinsOf(want)];
+  const coinsOk = Number.isFinite(g) && Number.isFinite(w) && !(g > 0 && w > 0);
+  const short = coins !== undefined && g > coins && (!seen || g !== seen.give.coins) ? g - coins : 0;
+  const unchanged = seen !== null && sameDeal(toDeal(give), seen.give) && sameDeal(toDeal(want), seen.want);
+  const givesSomething = give.galaxies.length > 0 || g > 0;
+  const canSend = coinsOk && short === 0 && !unchanged && !busy && (trade ? true : givesSomething);
+  const max = rules.tradeGalaxies;
+  const current = (trade?.me.galaxies ?? []).map((x) => x.id);
 
   function submit(): void {
-    if (!give) return;
-    if (trade && seen) change.mutate({ id: trade.id, give: give.id, want: want?.id ?? null, version: seen.version }, { onSuccess: onDone });
-    else propose.mutate({ username, give: give.id, ...(want ? { want: want.id } : {}) }, { onSuccess: onDone });
+    const d = { give: toDeal(give), want: toDeal(want) };
+    if (trade && seen) change.mutate({ id: trade.id, ...d, version: seen.version }, { onSuccess: onDone });
+    else propose.mutate({ username, ...d }, { onSuccess: onDone });
   }
 
-  const slot = (label: string, g: Slot, choose: string, open: () => void) => (
-    <section className="trade-slot" aria-label={label}>
-      <h3>{label}</h3>
-      {g ? <GalaxyCard galaxy={g} size={170} /> : <div className="trade-empty">{t.nothing}</div>}
-      <button type="button" className="lip pill small" onClick={open}>
-        {choose}
-      </button>
-    </section>
-  );
+  const column = (side: 'give' | 'want') => {
+    const p = side === 'give' ? give : want;
+    const set = side === 'give' ? setGive : setWant;
+    const otherCoins = side === 'give' ? w : g;
+    const label = side === 'give' ? t.give : t.want;
+    return (
+      <section className="trade-slot trade-column" aria-label={label}>
+        <h3>{label}</h3>
+        <ul className={`trade-cards n${p.galaxies.length}`}>
+          {p.galaxies.map((x) => (
+            <li key={x.id}>
+              <GalaxyCard galaxy={x} size={p.galaxies.length > 1 ? 120 : 160} />
+              <button type="button" className="lip pill small trade-remove" aria-label={t.remove(x.name)} onClick={() => set({ ...p, galaxies: p.galaxies.filter((y) => y.id !== x.id) })}>
+                <Icon name="close" />
+              </button>
+            </li>
+          ))}
+          {p.galaxies.length === 0 ? (
+            <li>
+              <div className="trade-empty">{t.nothing}</div>
+            </li>
+          ) : null}
+        </ul>
+        {p.galaxies.length < max ? (
+          <button type="button" className="lip pill small" aria-haspopup="dialog" onClick={() => setPicking(side === 'give' ? 'mine' : 'theirs')}>
+            <Icon name="plus" />
+            <span>{side === 'give' ? t.chooseMine : t.chooseTheirs}</span>
+          </button>
+        ) : (
+          <p className="panel-note">{t.upTo(max)}</p>
+        )}
+        <div className="field trade-coins">
+          <label htmlFor={`${ids}-${side}`}>{side === 'give' ? t.giveCoins : t.wantCoins}</label>
+          <div className="control">
+            <input
+              id={`${ids}-${side}`}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="0"
+              value={p.coins}
+              disabled={otherCoins > 0}
+              aria-describedby={`${ids}-${side}-hint`}
+              aria-invalid={!Number.isFinite(coinsOf(p)) || undefined}
+              onChange={(e) => set({ ...p, coins: e.target.value })}
+            />
+          </div>
+          <p className="hint" id={`${ids}-${side}-hint`}>
+            {otherCoins > 0
+              ? t.coinsOneSide
+              : side === 'give' && g > 0
+                ? short > 0
+                  ? copy.market.missing(short)
+                  : t.coinsHeld
+                : side === 'want' && w > 0
+                  ? t.net(w - commissionOf(w, rules.commission))
+                  : t.coinsOneSide}
+          </p>
+        </div>
+      </section>
+    );
+  };
 
   return (
     <Dialog title={trade ? t.changeTitle(username) : t.proposeTitle(username)} onClose={onClose} className="trade-composer">
       <div className="trade-sides">
-        {slot(t.give, give, t.chooseMine, () => setPicking('mine'))}
+        {column('give')}
         <span className="trade-arrows" aria-hidden="true" />
-        {slot(t.want, want, t.chooseTheirs, () => setPicking('theirs'))}
+        {column('want')}
       </div>
-      <p className="panel-note">{seen ? t.heldUntil(day(seen.until)) : t.held(days)}</p>
+      <p className="panel-note">
+        {t.upTo(max)} · {seen ? t.heldUntil(day(seen.until)) : t.held(rules.tradeDays)}
+      </p>
       {error ? (
         <p className="field-error" role="alert">
           {errorText(error, copy.errors)}
@@ -111,17 +181,17 @@ export function TradeComposer({
         <button type="button" className="lip pill" onClick={onClose}>
           {t.keep}
         </button>
-        <button type="button" className="lip pill pill-solar" disabled={!give || busy || unchanged} aria-busy={busy || undefined} onClick={submit}>
+        <button type="button" className="lip pill pill-solar" disabled={!canSend} aria-busy={busy || undefined} onClick={submit}>
           {trade ? t.save : t.send}
         </button>
       </div>
       {picking === 'mine' ? (
         <GalaxyPicker
           text={{ title: t.pickMine, empty: t.mineEmpty, pick: t.giveOne, taken: t.unavailable }}
-          taken={new Set()}
-          isTaken={(g) => heldElsewhere(g, current)}
-          onPick={(g) => {
-            setGive(g);
+          taken={new Set(give.galaxies.map((x) => x.id))}
+          isTaken={(x) => heldElsewhere(x, current)}
+          onPick={(x) => {
+            setGive((p) => ({ ...p, galaxies: [...p.galaxies, x].slice(0, max) }));
             setPicking(null);
           }}
           onClose={() => setPicking(null)}
@@ -130,8 +200,9 @@ export function TradeComposer({
       ) : picking === 'theirs' ? (
         <TheirPicker
           username={username}
-          onPick={(g) => {
-            setWant(g);
+          chosen={want.galaxies.map((x) => x.id)}
+          onPick={(x) => {
+            setWant((p) => ({ ...p, galaxies: [...p.galaxies, x].slice(0, max) }));
             setPicking(null);
           }}
           onClose={() => setPicking(null)}

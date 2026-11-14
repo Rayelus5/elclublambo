@@ -611,8 +611,16 @@ Ver §15.
 
 ### 14.5 Trueque [U]
 
-- Intercambio 1:1 confirmado por ambos.
+- Intercambio confirmado por ambos.
 - Lo ofrecido queda en depósito y cada trato tiene versiones: los dos confirman la misma.
+- **Trueques 2.0** (petición del propietario, 2026-11-14: «oro, hasta 3 galaxias por lado, contraofertas»):
+  - **Galaxias:** cada lado da hasta `market.tradeGalaxies` (3 de partida), en la tabla `trade_items`. Una galaxia está retenida mientras su dueño la ofrece en un trueque abierto, y en uno solo.
+  - **Monedas:** van en un solo lado del trato. Quien las da las tiene retenidas como una oferta (`coin_holds`, tipo `trade`). Al cerrarse el trato, el otro lado las cobra menos la comisión del mercado, que se guarda en el trueque.
+  - **Contraofertas:** cada cambio es una versión nueva que solo ha confirmado quien la hizo.
+  - **Historial** (`trade_events`, solo se añade): cada propuesta y contraoferta queda con su trato tal como era, más las confirmaciones, el cierre y la cancelación. Los dos lados lo ven.
+  - **Al cerrarse:** cerrar un trueque abierto, como sea (jugador, admin, baneo, revocar o la tarea del mercado al caducar), libera sus galaxias y devuelve sus monedas desde la propia base de datos.
+  - **Revertir** un trueque con monedas: se devuelven a quien las pagó y se recuperan del otro hasta donde llegue su saldo, como una venta.
+  - **Aviso de desequilibrio:** las rarezas más altas de cada lado, muy separadas; o solo monedas por galaxias, menos que el mínimo de la más rara.
 
 ### 14.6 Mercado [U]
 
