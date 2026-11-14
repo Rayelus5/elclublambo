@@ -32,6 +32,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'Aceptar una oferta vende al momento a ese precio, y las demás se cierran devolviendo sus monedas' },
       { kind: 'mejora', text: 'Cada carta dice cuántas ofertas tiene y cuál es la tuya, y arriba ves cuántas monedas tienes en ofertas' },
       { kind: 'mejora', text: 'Un aviso en directo cuando te hacen una oferta, la aceptan, la rechazan o te superan' },
+      { kind: 'arreglo', text: 'Retirar, aceptar o rechazar una oferta desde la pestaña Ofertas ya funciona: antes decía que la oferta ya no estaba abierta' },
     ],
   },
   {
