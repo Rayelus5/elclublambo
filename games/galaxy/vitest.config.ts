@@ -62,6 +62,9 @@ export default defineConfig({
           // engine and arena tests that pass in a few seconds locally (Nov plan C1).
           testTimeout: 45_000,
           hookTimeout: 60_000,
+          // On that shared runner a busy moment can stall a page for seconds (its screenshots time out too): a browser
+          // test that fails there runs again, twice at most. Locally it never does, so a real failure still shows.
+          retry: process.env['CI'] ? 2 : 0,
           browser: {
             enabled: true,
             // Software WebGL (SwiftShader) everywhere: CI runners have no GPU, and the same renderer locally keeps
