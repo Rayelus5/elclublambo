@@ -30,7 +30,7 @@ test('en el chat, el marco del avatar no tapa ni el nombre ni el mensaje', async
   host.style.cssText = 'inline-size:420px;padding:16px;list-style:none;margin:0';
   document.body.append(host);
   root = createRoot(host);
-  const props = { own: false, showClan: true, moderator: false, canReport: true, reported: false, busy: false, onReport: () => {}, onHide: () => {}, onMute: () => {} };
+  const props = { me: 'sonda', own: false, cont: false, mentionsMe: false, onBlock: () => {}, showClan: true, moderator: false, canReport: true, reported: false, busy: false, onReport: () => {}, onHide: () => {}, onMute: () => {} };
   flushSync(() => root!.render(createElement(MemoryRouter, null, createElement(ChatMessageItem, { m: message('vega', 'prism'), ...props }), createElement(ChatMessageItem, { m: message('lyra', null), ...props }))));
   const [framed, plain] = [...host.querySelectorAll<HTMLElement>('.chat-msg')];
   const ring = framed!.querySelector('.avatar-frame')!.getBoundingClientRect();

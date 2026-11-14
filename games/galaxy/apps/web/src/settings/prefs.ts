@@ -27,9 +27,20 @@ export interface Prefs {
   musicStyle: MusicStyleChoice;
   /** A soft white glow behind my probe in the runs, to tell it from the background (the owner; off by default). */
   probeGlow: boolean;
+  /** Which chats tell me with a notice while I do not have them open (the owner, 2026-11-14: clan, room and mentions). */
+  chatNotify: ChatNotify;
 }
 
-export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false });
+export interface ChatNotify {
+  global: boolean;
+  clan: boolean;
+  room: boolean;
+  mentions: boolean;
+}
+export const CHAT_NOTIFY_KEYS = ['clan', 'room', 'mentions', 'global'] as const satisfies readonly (keyof ChatNotify)[];
+const DEFAULT_CHAT_NOTIFY: ChatNotify = Object.freeze({ global: false, clan: true, room: true, mentions: true });
+
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: DEFAULT_CHAT_NOTIFY });
 const NOTE_VERSION = /^\d{1,3}\.\d{1,3}$/;
 
 const KEY = 'galaxy.prefs';
@@ -47,7 +58,14 @@ function sanitize(raw: unknown): Prefs {
     notesSeen: typeof r['notesSeen'] === 'string' && NOTE_VERSION.test(r['notesSeen']) ? r['notesSeen'] : null,
     musicStyle: oneOf(SETTINGS_MUSIC_STYLES, r['musicStyle'], DEFAULT_PREFS.musicStyle),
     probeGlow: typeof r['probeGlow'] === 'boolean' ? r['probeGlow'] : DEFAULT_PREFS.probeGlow,
+    chatNotify: chatNotifyOf(r['chatNotify']),
   };
+}
+
+function chatNotifyOf(raw: unknown): ChatNotify {
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const one = (k: keyof ChatNotify) => (typeof r[k] === 'boolean' ? (r[k] as boolean) : DEFAULT_CHAT_NOTIFY[k]);
+  return { global: one('global'), clan: one('clan'), room: one('room'), mentions: one('mentions') };
 }
 
 /** What this browser has kept (version 1 is the first; a later one would be migrated here). */

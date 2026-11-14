@@ -497,6 +497,20 @@ export interface ChatReportsTable {
 }
 
 /** An account that cannot write until `until` (M5b-2). */
+/** What an account has read in a channel (by its key), and the mentions of it (the owner's chat asks, 2026-11-14). */
+export interface ChatReadsTable {
+  account_id: string;
+  channel: string;
+  last_read_id: ColumnType<string, string | number, string | number>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+export interface ChatMentionsTable {
+  message_id: ColumnType<string, string | number, never>;
+  account_id: string;
+  channel: string;
+}
+
 export interface ChatMutesTable {
   account_id: string;
   until: ColumnType<Date, Date | string, Date | string>;
@@ -937,6 +951,8 @@ export interface DB {
   'galaxy.clan_requests': ClanRequestsTable;
   'galaxy.clan_kicks': ClanKicksTable;
   'galaxy.chat_messages': ChatMessagesTable;
+  'galaxy.chat_reads': ChatReadsTable;
+  'galaxy.chat_mentions': ChatMentionsTable;
   'galaxy.chat_reports': ChatReportsTable;
   'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.chat_report_reviews': ChatReportReviewsTable;

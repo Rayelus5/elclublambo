@@ -38,3 +38,21 @@ export function cleanBody(raw: string, max: number): string | null {
   const length = [...text].length;
   return length === 0 || length > max ? null : text;
 }
+
+/** The most players one message names (more are left as text). */
+export const MENTIONS_PER_MESSAGE = 5;
+const MENTION = /(?<![\p{L}\p{N}_@.])@([a-z0-9_]{3,20})(?![a-z0-9_@])/giu;
+
+/**
+ * The players a message names with «@nombre» (the owner's chat asks, 2026-11-14): in lower case (the names are), each
+ * once, in order, `max` at most. Never inside a word or an e-mail address (`vega@correo.es`).
+ */
+export function mentionsIn(body: string, max = MENTIONS_PER_MESSAGE): string[] {
+  const out: string[] = [];
+  for (const m of body.matchAll(MENTION)) {
+    const name = m[1]!.toLowerCase();
+    if (!out.includes(name)) out.push(name);
+    if (out.length >= max) break;
+  }
+  return out;
+}

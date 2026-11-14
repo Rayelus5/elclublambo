@@ -2,6 +2,7 @@ import type { PlayerLook } from './cosmetics';
 import type { LiveNotice } from './live-notices';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
+import { CHAT_CHANNELS, type ChatChannel, type ChatMessage } from './chat';
 import type { CoopOutcome } from './coop';
 import type { RoomInvite, RoomView } from './rooms';
 import type { RunResult } from './runs';
@@ -80,10 +81,23 @@ export type LiveEvent =
   /** A purchase of the resource shop was delivered (shop and lab plan, F4): the celebration starts. */
   | { type: 'purchase'; purchase: ShopPurchaseView }
   /** Something happened to me elsewhere (real-time notices plan): a trade, a sale, a mail, my clan, an achievement. */
-  | { type: 'notice'; notice: LiveNotice };
+  | { type: 'notice'; notice: LiveNotice }
+  /**
+   * A new message in one of my channels (the owner's chat asks, 2026-11-14): in full in my clan's and my room's, in
+   * Comunidad while I have it open, and whenever it names me (`mention`).
+   */
+  | { type: 'chat'; message: ChatMessage; mention?: true }
+  /** New messages in Comunidad while I do not have it open: how many and the latest, every few seconds. */
+  | { type: 'chatHead'; channel: 'global'; last: string; n: number }
+  /** A message taken down (a moderator, reports). */
+  | { type: 'chatDeleted'; channel: ChatChannel; id: string }
+  /** I read a channel up to this message elsewhere (another tab or device). */
+  | { type: 'chatRead'; channel: ChatChannel; id: string };
 
 /** The live socket, client → server: what I am doing now. */
 export const liveMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('activity'), activity: z.enum(ACTIVITIES), layer: z.number().int().min(1).max(999).optional() }).strict(),
+  /** The chat channel I have open on screen now (none: the chat is closed). */
+  z.object({ type: z.literal('chat'), open: z.enum(CHAT_CHANNELS).nullable() }).strict(),
 ]);
 export type LiveMessage = z.infer<typeof liveMessageSchema>;

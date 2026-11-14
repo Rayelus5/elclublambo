@@ -18,7 +18,7 @@ import { Slider } from '../ui/Slider';
 import { Switch } from '../ui/Switch';
 import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
 import { ELEMENT_GLYPH } from '../arena/stage/palette';
-import { COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
+import { CHAT_NOTIFY_KEYS, COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
 import { type Action, ACTIONS, keyCap, keyLabel, resetKeybinds, setBinding, useKeybinds } from './keybinds';
 
@@ -34,6 +34,25 @@ function Volume({ label, value, onChange, off }: { label: string; value: number;
     <SettingRow label={label} layout="wide" off={off}>
       {(ids) => (
         <Slider aria-labelledby={ids.label} value={Math.round(value * 100)} step={5} disabled={off} valueText={t.percent} onChange={(v) => onChange(v / 100)} />
+      )}
+    </SettingRow>
+  );
+}
+
+/** Which chats tell me with a notice while I do not have them open (the owner, 2026-11-14): one switch each. */
+function ChatNotifyRow() {
+  const notify = usePrefs((p) => p.chatNotify);
+  return (
+    <SettingRow label={t.chatNotify} hint={t.chatNotifyHint} layout="stack">
+      {(ids) => (
+        <div className="chat-notify" role="group" aria-labelledby={ids.label} aria-describedby={ids.hint}>
+          {CHAT_NOTIFY_KEYS.map((k) => (
+            <label key={k} className="chat-notify-item">
+              <Switch checked={notify[k]} onChange={(on) => setPrefs({ chatNotify: { ...notify, [k]: on } })} aria-label={t.chatNotifyOf[k]} />
+              <span aria-hidden="true">{t.chatNotifyOf[k]}</span>
+            </label>
+          ))}
+        </div>
       )}
     </SettingRow>
   );
@@ -125,6 +144,7 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
         </SettingRow>
       )}
       {inRun ? null : <NoticesRow />}
+      {inRun ? null : <ChatNotifyRow />}
     </>
   );
 }

@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 test('sin nada guardado: escáner pro, movimiento del sistema y visión normal', () => {
-  expect(getPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false });
+  expect(getPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: { global: false, clan: true, room: true, mentions: true } });
   expect(DEFAULT_PREFS.scannerPro).toBe(true);
 });
 
@@ -38,12 +38,12 @@ test('se guardan con versión en galaxy.prefs y se leen al volver', () => {
   expect(getPrefs()).toMatchObject({ scannerPro: false, motion: 'reduced' });
   const stored = JSON.parse(localStorage.getItem('galaxy.prefs')!);
   expect(stored.version).toBe(1);
-  expect(readStoredPrefs()).toEqual({ scannerPro: false, motion: 'reduced', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false });
+  expect(readStoredPrefs()).toEqual({ scannerPro: false, motion: 'reduced', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: { global: false, clan: true, room: true, mentions: true } });
 });
 
 test('lo guardado que no vale se cambia por el valor de siempre', () => {
   localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { scannerPro: 'sí', motion: 'rapido', colorVision: 'deutan', notesSeen: 'beta' }, version: 1 }));
-  expect(readStoredPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'deutan', notesSeen: null, musicStyle: 'ambient', probeGlow: false });
+  expect(readStoredPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'deutan', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: { global: false, clan: true, room: true, mentions: true } });
   localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { notesSeen: '1.4' }, version: 1 }));
   expect(readStoredPrefs().notesSeen).toBe('1.4');
   localStorage.setItem('galaxy.prefs', '{roto');

@@ -17,6 +17,7 @@ import { HomeLink } from '../ui/BackLink';
 import { SeasonHistoryList } from '../season/TrophiesScreen';
 import { useCosmeticsView } from '../api/cosmetics';
 import { CustomizeDialog } from '../profile/CustomizeDialog';
+import { BlockConfirm } from './BlockConfirm';
 import { ProbesPanel } from './ProbesPanel';
 import { InvitePanel } from './InvitePanel';
 import { ProfileBanner } from '../profile/ProfileBanner';
@@ -255,9 +256,10 @@ function FriendButtons({ username }: { username: string }) {
   const relation = useRelation(username);
   const action = useFriendAction();
   const f = copy.friends.profile;
+  const [asking, setAsking] = useState(false);
   const r = relation.data?.relation;
   if (!r) return null;
-  const run = (kind: 'request' | 'accept' | 'remove' | 'block' | 'unblock') => action.mutate({ username, action: kind });
+  const run = (kind: 'request' | 'accept' | 'remove' | 'unblock') => action.mutate({ username, action: kind });
   return (
     <>
       {r === 'none' ? (
@@ -287,11 +289,13 @@ function FriendButtons({ username }: { username: string }) {
           <span>{f.unblock}</span>
         </button>
       ) : (
-        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('block')}>
+        <button type="button" className="lip pill" aria-haspopup="dialog" disabled={action.isPending} onClick={() => setAsking(true)}>
           <Icon name="lock" />
           <span>{f.block}</span>
         </button>
       )}
+      {/* Always asked first: a friend stops being one (the owner, 2026-11-14). */}
+      {asking ? <BlockConfirm username={username} friend={r === 'friends'} onClose={() => setAsking(false)} /> : null}
       {action.isError ? (
         <p className="field-error" role="alert">
           {errorText(action.error, copy.errors)}

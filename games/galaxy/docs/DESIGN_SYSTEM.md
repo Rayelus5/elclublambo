@@ -667,13 +667,34 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **«Comunidad»:** se tiñe de Hielo mientras la hoja está abierta, y vuelve a pulsarse para cerrarla.
 - **Al abrir:** entra deslizándose 28 px en 0,24 s (sin animación con movimiento reducido). El foco va al campo, o a las pestañas si no puedes escribir.
 - **Al cerrar:** con Escape o con la X; el foco vuelve a quien la abrió.
-- **El socket:** solo escucha mientras la hoja está abierta, y cada vez que conecta vuelve a leer el canal sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **En directo:** los mensajes llegan por el socket vivo, abierto en todo el juego. Cada vez que vuelve, se releen los canales sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **Pantalla completa:** un botón junto a la X la abre centrada en grande (hasta 1100 px) sobre un velo, con las mismas piezas. Vuelve a pulsarse para salir (`aria-pressed`).
 - **En una incursión** la hoja se cierra: el teclado es del juego.
 
-**Las pestañas:** Comunidad y, si tienes clan, Clan. Las flechas cambian de una a otra.
+**Las pestañas:** Comunidad y, si tienes clan o sala, Clan y Sala. Las flechas cambian de una a otra.
+
+**Sin leer (petición del propietario, 2026-11-14):**
+- **La pastilla:** pequeña, en Nova, con lo que no has leído («99+» a partir de 100). Va en Comunidad (arriba, sumando todos tus chats; en la esquina cuando el botón se pliega), en cada pestaña que no es la abierta y en «Chat de la sala».
+- **Si te nombran:** la pastilla es «@» en Solar.
+- **Lo que dice:** el nombre accesible de cada botón, por ejemplo «Comunidad, 5 sin leer, con menciones».
+- **«Chat de la sala»:** se enciende entero en Nova mientras hay algo sin leer.
+- **«Salir de la sala»:** en Nova siempre.
+- **Abrir:** Comunidad abre el canal que tiene algo nuevo (primero el clan, luego la sala).
+- **Leer:** lo que ves al fondo de la lista cuenta como leído un momento después (nunca con la pestaña del navegador oculta).
+- **Avisos:** con un chat cerrado, un aviso dice quién escribió, dónde y qué, con «Responder».
+  - Los del mismo canal se juntan en uno que cuenta («3 mensajes nuevos en el clan»); una mención va siempre aparte.
+  - Se eligen en Ajustes › Sonido › Avisos del chat. Vienen encendidos el clan, la sala y las menciones; Comunidad, apagada.
+
+**La lista:**
+- separadores de día («Hoy», «Ayer», «14 de noviembre») en mayúsculas pequeñas entre dos líneas;
+- los mensajes seguidos de un mismo autor (menos de 5 minutos) se juntan: sin avatar ni nombre otra vez, con la hora al pasar el ratón;
+- «Ver anteriores» arriba trae la página de antes sin mover lo que estás leyendo; sin más, «No hay mensajes anteriores»;
+- leyendo más arriba, una pastilla «2 mensajes nuevos» baja al final.
 
 **Cada mensaje:**
 - el avatar a 28 px, el nombre enlazado a su perfil (en Solar si es tuyo), «Nivel N», la etiqueta del clan (solo en Comunidad) y la hora;
+- cada «@nombre» va en Hielo; el tuyo, sobre Solar, y el mensaje que te nombra lleva un fondo Solar tenue con una barra a la izquierda;
+- «Bloquear» pregunta antes, en un diálogo de alerta, lo que hace un bloqueo (y, si era tu amigo, que deja de serlo). Sus mensajes desaparecen y no vuelven;
 - el texto conserva sus saltos de línea;
 - tus mensajes llevan un fondo Solar muy tenue;
 - al pasar el ratón o con el foco aparece «Denunciar» y, para moderadores, «Ocultar» y «Silenciar 1 hora» (en Nova). Cada acción dice en su nombre accesible a quién se hace;
@@ -686,6 +707,9 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **Debajo:** la ayuda «Enter envía y Mayúsculas con Enter salta de línea» y el contador «12 de 280», que se pone en Nova al pasarse.
 - **Si no puedes escribir:** en su lugar, en Solar, «Necesitas nivel 5 para escribir» o «Te han silenciado hasta las 14:05».
 - **Si vas muy deprisa:** «Vas muy deprisa. Espera un poco», sin borrar lo escrito.
+- **Nombrar:** «@» y el principio de un nombre abre encima del campo una lista de hasta 8 jugadores (con su avatar).
+  - Salen primero quienes escribieron en el canal, tu sala y tus amigos; con dos letras, también los del servidor.
+  - Es un combobox de WAI-ARIA: las flechas mueven, Enter o Tab eligen (sin enviar) y Escape la cierra sin cerrar la hoja.
 
 ## 8 quattuordecies. Mercado
 

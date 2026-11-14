@@ -598,7 +598,16 @@ Ver §15.
   - filtro de palabras editable por el admin;
   - botón de denunciar;
   - el admin puede ver y borrar mensajes, silenciar y banear.
-- **Técnica [D]:** WebSocket servido por el contenedor `galaxy` (§18.1).
+- **Sin leer y avisos [U]** (petición del propietario, 2026-11-14):
+  - **Qué cuenta:** cada canal lleva cuánto no has leído (lo de otros desde lo último que leíste, sin quien bloqueaste, 99 como mucho) y cuántas veces te nombran. Lo guarda el servidor, así que vale igual en todos tus dispositivos.
+  - **Con el chat cerrado:** un aviso dice quién escribió y dónde. Se elige por canal; de partida, clan, sala y menciones.
+- **Menciones [U]:** «@nombre» nombra a un jugador.
+  - Cinco como mucho por mensaje, guardadas por cuenta.
+  - Solo para quien puede leer el canal y no ha bloqueado al autor.
+- **Bloquear [U]:** desde el chat o desde un perfil, siempre con confirmación. Quien bloquea deja de ver los mensajes del bloqueado y, si eran amigos, dejan de serlo.
+- **Técnica [D]:**
+  - WebSocket servido por el contenedor `galaxy` (§18.1). Desde el 14/11 los mensajes van por el socket vivo, abierto en todo el juego.
+  - Clan y sala llegan enteros a sus miembros. Comunidad llega entera solo a quien la tiene abierta, a su autor y a quien nombra; el resto recibe cada 3 segundos cuántos llegaron.
 
 ### 14.5 Trueque [U]
 

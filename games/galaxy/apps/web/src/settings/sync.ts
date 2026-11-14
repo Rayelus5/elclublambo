@@ -58,6 +58,7 @@ export function snapshot(): AccountSettings {
     notesSeen: p.notesSeen,
     musicStyle: p.musicStyle,
     probeGlow: p.probeGlow,
+    chatNotify: p.chatNotify,
   };
 }
 
@@ -69,6 +70,7 @@ export function applyRemote(s: AccountSettings): void {
   if (s.colorVision !== undefined) prefs.colorVision = s.colorVision;
   if (s.musicStyle !== undefined) prefs.musicStyle = s.musicStyle;
   if (s.probeGlow !== undefined) prefs.probeGlow = s.probeGlow;
+  if (s.chatNotify !== undefined) prefs.chatNotify = { ...getPrefs().chatNotify, ...s.chatNotify };
   // Seen only moves forward: an older value from the account never brings «Nuevo» back.
   if (s.notesSeen !== undefined) {
     const later = laterNote(getPrefs().notesSeen, s.notesSeen);

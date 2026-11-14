@@ -1,12 +1,16 @@
 import {
   type ChatHistory,
+  type ChatMentionCandidate,
   chatChannelParamSchema,
   chatHistoryQuerySchema,
+  chatMentionQuerySchema,
   type ChatMessage,
   chatMessageParamSchema,
   chatMuteSchema,
+  chatReadSchema,
   chatReportSchema,
   chatSendSchema,
+  type ChatUnread,
 } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AuditActor } from '../audit';
@@ -15,7 +19,7 @@ import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
 import { isAllowedOrigin } from '../security/origin';
-import { type ChatDeps, chatHistory, hideMessage, muteAccount, reportMessage, sendMessage } from './service';
+import { type ChatDeps, chatHistory, chatUnread, hideMessage, markRead, muteAccount, reportMessage, searchMentions, sendMessage } from './service';
 
 // The chats' routes (GDD §14.4; M5b-2). Reading and sending are plain HTTP; the socket only pushes. It opens with the
 // session cookie from one of our own origins, or closes at once: 4401 without a session, 4403 from another origin.
@@ -28,6 +32,26 @@ export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { orig
     if (!isAllowedOrigin(req.headers.origin, deps.origins)) return socket.close(4403, 'origin');
     if (!req.session) return socket.close(4401, 'session');
     deps.hub.add(socket, req.session.accountId);
+  });
+
+  // The owner's chat asks (2026-11-14): what is new in my channels, what I read, and names for the mention box. These
+  // fixed paths go before `/chat/:channel`.
+  api.get('/galaxy/api/chat/unread', async (req): Promise<ChatUnread> => {
+    const s = requireSession(req);
+    return chatUnread(deps, s);
+  });
+
+  api.post('/galaxy/api/chat/read', async (req): Promise<{ id: string }> => {
+    const s = requireSession(req);
+    const { channel, id } = chatReadSchema.parse(req.body);
+    return markRead(deps, s, channel, id);
+  });
+
+  api.get('/galaxy/api/chat/mentions', async (req): Promise<{ players: ChatMentionCandidate[] }> => {
+    const s = requireSession(req);
+    const { q } = chatMentionQuerySchema.parse(req.query);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'chat_mention', 30, 60);
+    return searchMentions(deps, s, q);
   });
 
   api.get('/galaxy/api/chat/:channel', async (req): Promise<ChatHistory> => {

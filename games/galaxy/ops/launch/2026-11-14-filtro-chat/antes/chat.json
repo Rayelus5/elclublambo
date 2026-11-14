@@ -1,0 +1,8 @@
+{
+  "words": [],
+  "history": 50,
+  "minLevel": 2,
+  "hideAfter": 3,
+  "maxLength": 280,
+  "perMinute": 6
+}

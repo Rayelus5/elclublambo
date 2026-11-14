@@ -1,5 +1,6 @@
 import type { HangarView, RoomKind, RoomView } from '@galaxy/shared';
 import { type FormEvent, useId, useState } from 'react';
+import { useChatUnread } from '../../api/chat';
 import { useFriends } from '../../api/friends';
 import { useInvite, useLeaveRoom, useRoomAction, useRooms } from '../../api/rooms';
 import { errorText } from '../../auth/useMe';
@@ -169,6 +170,8 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
   const [invited, setInvited] = useState<string[]>([]);
   const lead = room.leader === me;
   const busy = action.isPending || leave.isPending;
+  // The room's chat lit with what is unread in it (the owner, 2026-11-14).
+  const roomUnread = useChatUnread().data?.room ?? 0;
   const inRoom = new Set(room.members.map((m) => m.username));
   const online = (friends.data?.friends ?? []).filter((f) => f.presence.status === 'online' && !inRoom.has(f.username));
   const sectorName = view.sectors.find((s) => s.id === room.sector)?.name ?? room.sector;
@@ -187,14 +190,25 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
     <div className="lobby-group">
       <div className="lobby-room-head">
         <StepHead>{t.roomTitle}</StepHead>
-        <button type="button" className="lip pill small lobby-leave" disabled={busy} onClick={() => leave.mutate()}>
+        <button type="button" className="lip pill small danger lobby-leave" disabled={busy} onClick={() => leave.mutate()}>
           <Icon name="exit" />
           <span>{t.leave}</span>
         </button>
       </div>
-      <button type="button" className="lip pill small lobby-room-chat" onClick={() => openChat('room')} aria-haspopup="dialog">
+      <button
+        type="button"
+        className={`lip pill small lobby-room-chat${roomUnread > 0 ? ' has-unread' : ''}`}
+        onClick={() => openChat('room')}
+        aria-haspopup="dialog"
+        aria-label={copy.chat.roomChatLabel(roomUnread)}
+      >
         <Icon name="chat" />
         <span>{copy.chat.openRoom}</span>
+        {roomUnread > 0 ? (
+          <span className="chat-unread" aria-hidden="true">
+            {roomUnread > 99 ? '99+' : roomUnread}
+          </span>
+        ) : null}
       </button>
       <button type="button" className="lip lobby-room-code" onClick={() => void copyCode()} aria-label={t.copyCode(room.code)}>
         <span className="lobby-room-code-text">{room.code}</span>
