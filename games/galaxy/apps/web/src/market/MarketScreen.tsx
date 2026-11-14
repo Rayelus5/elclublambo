@@ -126,7 +126,7 @@ function Shop({ gateId }: { gateId: string }) {
   return (
     <>
       {rules ? <Gate rules={rules} id={gateId} /> : null}
-      <div className="market-toolbar" role="search" aria-label={t.search}>
+      <div className="market-toolbar" role="search" aria-label={t.searchArea}>
         <div className="market-chips" role="group" aria-label={t.filterTier}>
           {(['', ...TIERS] as const).map((x) => (
             <button key={x || 'all'} type="button" className="chip" aria-pressed={tier === x} data-tier={x || undefined} onClick={() => setTier(x)}>
