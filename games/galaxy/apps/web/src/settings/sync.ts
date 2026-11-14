@@ -4,6 +4,7 @@ import { createStore } from 'zustand/vanilla';
 import { manualAim, onManualAim, setManualAim } from '../arena/settings';
 import { type AudioSettings, getSettings, onSettings, setSettings } from '../audio/mixer';
 import { CURSOR_COLORS, type CursorSettings, getCursor, onCursor, saveCursor } from '../ui/cursor';
+import { applyKeybinds, getKeybinds, onKeybinds } from './keybinds';
 import { getPrefs, type Prefs, setPrefs, subscribePrefs } from './prefs';
 
 // The settings on the account (plan «ajustes en la cuenta»; the owner: «hay que guardar los ajustes también»). This
@@ -53,6 +54,7 @@ export function snapshot(): AccountSettings {
     cursorSize: c.size,
     cursorColor: c.color,
     manualAim: manualAim(),
+    keybinds: getKeybinds(),
     notesSeen: p.notesSeen,
     musicStyle: p.musicStyle,
     probeGlow: p.probeGlow,
@@ -88,6 +90,7 @@ export function applyRemote(s: AccountSettings): void {
   if (Object.keys(cursor).length > 0) saveCursor(cursor);
 
   if (s.manualAim !== undefined && s.manualAim !== manualAim()) setManualAim(s.manualAim);
+  if (s.keybinds !== undefined) applyKeybinds(s.keybinds);
 }
 
 export interface SyncDeps {
@@ -174,7 +177,8 @@ export function startSync(deps: SyncDeps): () => void {
       let mine = false;
       for (const k of Object.keys(local) as Key[]) {
         if (k === 'notesSeen') continue;
-        if (local[k] !== baseline[k]) {
+        // By value: the controls are an object, rebuilt on every snapshot.
+        if (JSON.stringify(local[k]) !== JSON.stringify(baseline[k])) {
           (merged as Record<Key, unknown>)[k] = local[k];
           mine = true;
         }
@@ -201,7 +205,7 @@ export function startSync(deps: SyncDeps): () => void {
     }
   };
 
-  const unsubscribe = [subscribePrefs(schedule), onSettings(schedule), onCursor(schedule), onManualAim(schedule)];
+  const unsubscribe = [subscribePrefs(schedule), onSettings(schedule), onCursor(schedule), onManualAim(schedule), onKeybinds(schedule)];
   const online = () => {
     if (!loaded) {
       if (loadRetry) clearTimeout(loadRetry);

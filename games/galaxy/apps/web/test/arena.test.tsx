@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type RunEnd } from '../src/arena/ArenaScreen';
 import { arenaZoom, markRadioSeen, setArenaZoom } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
+import { keyLabels } from '../src/settings/keybinds';
 import { useUi } from '../src/state/ui';
 
 // The run in the browser (GDD §5.1–5.2, §15): the level-up choice, pause (also when the tab hides), abandoning with
@@ -116,7 +117,9 @@ test('la vista empieza donde el jugador dejó la rueda', async () => {
   expect(zoomed.level).toBe(2);
 });
 
-test('el diálogo de mejora aparece con la oferta, se elige con 2 y Enter, y la partida sigue', async () => {
+// The owner (2026-11-14): in solo, as in a group run, 1, 2 and 3 take a card at once; Space no longer picks (it was a
+// dash key), and nothing counts in the cards' first moment (a dash or a shot pressed as they open).
+test('el diálogo de mejora aparece con la oferta, 2 la elige al instante, y la partida sigue', async () => {
   await mount();
   clock.frames(2);
   const p = sim.probes[0]!;
@@ -128,9 +131,18 @@ test('el diálogo de mejora aparece con la oferta, se elige con 2 y Enter, y la 
   const options = within(dialog).getAllByRole('radio');
   expect(options).toHaveLength(3);
   const wanted = p.offer[1]!;
+  // Too soon: the cards have just opened.
+  fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
+  clock.frames(2);
+  expect(sim.status).toBe('choosing');
+  tick(400);
+  // Space takes nothing (not even the focused card).
+  fireEvent.keyDown(window, { key: ' ', code: 'Space' });
+  fireEvent.keyUp(window, { key: ' ', code: 'Space' });
+  clock.frames(2);
+  expect(sim.status).toBe('choosing');
   fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
   expect(options[1]).toHaveAttribute('aria-checked', 'true');
-  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   tick(150);
   expect(sim.status).toBe('running');
@@ -298,6 +310,7 @@ test('con mando: la cruceta y el stick mueven la selección de mejora y A la eli
     tick(50);
     expect(options[2]).toHaveAttribute('aria-checked', 'true');
     const wanted = p.offer[2]!;
+    tick(200);
     pad.buttons[0]!.pressed = true;
     tick(50);
     pad.buttons[0]!.pressed = false;
@@ -320,15 +333,16 @@ test('la carta de evolución sale primera, dorada, y deja el arma evolucionada e
   p.pendingLevels = 1;
   p.offer = offerFor(sim, p);
   sim.status = 'choosing';
-  tick(150);
+  tick(500);
   const dialog = screen.getByRole('dialog', { name: copy.arena.levelUp });
   const first = within(dialog).getAllByRole('radio')[0]!;
   expect(first).toHaveClass('evolve');
   expect(first).toHaveTextContent(copy.arena.evolution);
   expect(first).toHaveTextContent('Tormenta de pulsos');
   expect(first).toHaveTextContent(copy.arena.evolves('Pulso láser'));
+  // The cards ignore everything in their first moment.
+  tick(400);
   fireEvent.keyDown(window, { key: '1', code: 'Digit1' });
-  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   tick(150);
   const kit = screen.getByRole('list', { name: copy.arena.weapons });
@@ -343,7 +357,8 @@ test('un Enter rápido en dos subidas seguidas elige de la oferta que está en p
   p.pendingLevels = 2;
   p.offer = offerFor(sim, p);
   sim.status = 'choosing';
-  tick(150);
+  tick(500);
+  tick(400);
   const shown = p.offer;
   fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
@@ -355,7 +370,8 @@ test('un Enter rápido en dos subidas seguidas elige de la oferta que está en p
   clock.frames(2);
   expect(sim.status).toBe('choosing');
   expect(p.offer).toBe(next);
-  tick(150);
+  tick(500);
+  tick(400);
   fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   expect(sim.status).toBe('running');
@@ -380,7 +396,7 @@ test('la primera incursión del tutorial espera tras la tarjeta de controles y P
   clock.frames(5);
   tick(150);
   expect(sim.tick).toBeGreaterThan(t);
-  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.tour.coach.move);
+  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.tour.coach.move(keyLabels()));
   // The pause offers to leave the tutorial and keep playing.
   fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: copy.tour.skip }));

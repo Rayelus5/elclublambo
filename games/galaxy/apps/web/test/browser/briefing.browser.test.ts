@@ -30,7 +30,8 @@ for (const [w, h] of [
     const tips = [...document.querySelectorAll<HTMLElement>('.briefing-tips li')];
     expect(tips).toHaveLength(4);
     expect(tips[3]!.textContent).toContain('Haz un dash');
-    expect(tips[3]!.textContent).toContain('SHIFT o Espacio');
+    // The player's own dash keys (SHIFT and the left click by default).
+    expect(tips[3]!.textContent).toContain('SHIFT o Clic izquierdo');
     // In one row, all within the card and the screen.
     const tops = new Set(tips.map((t) => Math.round(t.getBoundingClientRect().top)));
     expect(tops.size).toBe(1);

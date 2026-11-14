@@ -14,6 +14,15 @@ export type MusicStyleChoice = (typeof SETTINGS_MUSIC_STYLES)[number];
 
 const unit = z.number().min(0).max(1);
 
+/**
+ * The run's rebindable actions (the owner, 2026-11-14) and what a slot may hold: a key's `KeyboardEvent.code` or a
+ * mouse button (`Mouse0`–`Mouse4`). Aiming and the zoom are fixed, and Escape always pauses.
+ */
+export const KEYBIND_ACTIONS = ['up', 'down', 'left', 'right', 'dash', 'pick1', 'pick2', 'pick3', 'confirm', 'pause', 'mark'] as const;
+export type KeybindAction = (typeof KEYBIND_ACTIONS)[number];
+export const KEYBIND_CODE = /^(?:Mouse[0-4]|[A-Za-z][A-Za-z0-9]{1,23})$/;
+const slot = z.string().regex(KEYBIND_CODE).nullable();
+
 export const accountSettingsSchema = z.object({
   v: z.literal(1),
   scannerPro: z.boolean().optional(),
@@ -30,6 +39,8 @@ export const accountSettingsSchema = z.object({
   /** Accesibilidad: a soft white glow behind the player's probe in the runs. */
   probeGlow: z.boolean().optional(),
   musicStyle: z.enum(SETTINGS_MUSIC_STYLES).optional(),
+  /** The run's controls: two slots per action (a key or a mouse button, or none). Each device checks them again. */
+  keybinds: z.partialRecord(z.enum(KEYBIND_ACTIONS), z.tuple([slot, slot])).optional(),
   /** The highest release note («Notas de versión») the player has opened, e.g. `1.4`. */
   notesSeen: z.string().regex(/^\d{1,3}\.\d{1,3}$/).nullable().optional(),
 });

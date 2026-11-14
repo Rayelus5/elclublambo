@@ -20,6 +20,7 @@ import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
 import { ELEMENT_GLYPH } from '../arena/stage/palette';
 import { COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
+import { type Action, ACTIONS, keyCap, keyLabel, resetKeybinds, setBinding, useKeybinds } from './keybinds';
 
 // What each tab of the settings holds (GDD §17.4; open beta; redesigned in the «escáner pro» plan, part A), shared by
 // the Ajustes screen and the run's pause so both are always the same: sound, display, accessibility, the run, and help
@@ -299,35 +300,114 @@ export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean
   );
 }
 
-/** The run's controls (SIM 1.12.0 brought the dash): what each does, with the keyboard and with a pad. */
+/**
+ * The run's controls, rebindable (the owner, 2026-11-14): every action with its two slots (a key or a mouse button).
+ * Pressing a slot waits for the next key or button (Escape cancels, leaving the page or the window too); a key another
+ * action had leaves it, and the line under the title says so. The pad's buttons and what is fixed (aiming, the zoom,
+ * Escape) are shown, not changed. «Restaurar por defecto» brings everything back.
+ */
 function Controls() {
-  const keys = (list: readonly string[]) =>
-    list.length === 0 ? <span className="controls-none">—</span> : list.map((k) => <kbd key={k}>{k}</kbd>);
+  const binds = useKeybinds();
+  const [capture, setCapture] = useState<{ action: Action; slot: 0 | 1 } | null>(null);
+  const [said, setSaid] = useState('');
+  const name = (a: Action) => t.controlActions[a];
+  useEffect(() => {
+    if (!capture) return;
+    const take = (code: string) => {
+      const moved = setBinding(capture.action, capture.slot, code);
+      setSaid(moved ? t.controlsMoved(keyLabel(code), name(moved)) : t.controlsSet(keyLabel(code), name(capture.action)));
+      setCapture(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') setCapture(null);
+      else if (!e.repeat) take(e.code);
+    };
+    const onPointer = (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      take(`Mouse${e.button}`);
+    };
+    const onMenu = (e: MouseEvent) => e.preventDefault();
+    const cancel = () => setCapture(null);
+    // Capturing, ahead of everything else on the page (the pause's own Escape, the dialog's focus trap).
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    window.addEventListener('contextmenu', onMenu, true);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onPointer, true);
+      window.removeEventListener('contextmenu', onMenu, true);
+      window.removeEventListener('blur', cancel);
+    };
+  }, [capture]);
   return (
     <section className="controls" aria-labelledby="controls-title">
-      <h3 className="setting-label" id="controls-title">
-        {t.controls}
-      </h3>
-      <table className="controls-table">
-        <thead>
-          <tr>
-            <th scope="col">
-              <span className="sr-only">{t.controls}</span>
-            </th>
-            <th scope="col">{t.controlsKeyboard}</th>
-            <th scope="col">{t.controlsPad}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {t.controlRows.map((row) => (
-            <tr key={row.what}>
-              <th scope="row">{row.what}</th>
-              <td>{keys(row.keys)}</td>
-              <td>{keys(row.pad)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="controls-head">
+        <h3 className="setting-label" id="controls-title">
+          {t.controls}
+        </h3>
+        <button
+          type="button"
+          className="lip pill small"
+          onClick={() => {
+            resetKeybinds();
+            setSaid(t.controlsResetDone);
+          }}
+        >
+          {t.controlsReset}
+        </button>
+      </div>
+      <p className="setting-hint controls-hint">{t.controlsHint}</p>
+      <p className="controls-said" role="status">
+        {capture ? t.controlsCaptureLive(name(capture.action)) : said}
+      </p>
+      <ul className="controls-grid">
+        {ACTIONS.map((a) => (
+          <li key={a} className="controls-row">
+            <span className="controls-what">{name(a)}</span>
+            <span className="controls-slots">
+              {([0, 1] as const).map((slot) => {
+                const code = binds[a][slot];
+                const waiting = capture?.action === a && capture.slot === slot;
+                return (
+                  <span key={slot} className="controls-slot">
+                    <button
+                      type="button"
+                      className={`controls-key${waiting ? ' waiting' : ''}${code ? '' : ' empty'}`}
+                      aria-label={t.controlsSlot(name(a), slot + 1, keyLabel(code))}
+                      onClick={() => {
+                        setSaid('');
+                        // Started on the release of this click: the press that started it is not the key.
+                        setTimeout(() => setCapture({ action: a, slot }), 0);
+                      }}
+                    >
+                      {waiting ? t.controlsCapture : keyCap(code) || '—'}
+                    </button>
+                    {code && !waiting ? (
+                      <button type="button" className="controls-clear" aria-label={t.controlsClear(name(a), slot + 1)} onClick={() => setBinding(a, slot, null)}>
+                        <Icon name="close" />
+                      </button>
+                    ) : null}
+                  </span>
+                );
+              })}
+            </span>
+          </li>
+        ))}
+        {t.controlFixed.map((row) => (
+          <li key={row.what} className="controls-row locked">
+            <span className="controls-what">{row.what}</span>
+            <span className="controls-slots">
+              <kbd>{row.keys}</kbd>
+              <small>{t.controlsFixed}</small>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="controls-pad">{t.controlsPad}</p>
     </section>
   );
 }

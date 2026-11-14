@@ -1,12 +1,16 @@
 import { angleTo, type ProbeInput } from '@galaxy/sim';
+import { type Action, getKeybinds, isAction, type Keybinds } from '../settings/keybinds';
 
-// Controls (GDD §5.2): WASD or the arrows, a gamepad's left stick with a dead zone, and optional manual aim with the
-// mouse or the right stick. Analog input is quantised (16 directions × 2 speeds, 64 aim directions) so a player's
-// recorded log stays small and replays exactly. The dash (SIM 1.12.0): SHIFT or Space, or the pad's A or RB.
+// Controls (GDD §5.2): the keys the player chose (settings/keybinds.ts; WASD and the arrows by default), a gamepad's
+// left stick with a dead zone, and optional manual aim with the mouse or the right stick. Analog input is quantised
+// (16 directions × 2 speeds, 64 aim directions) so a player's recorded log stays small and replays exactly. The dash
+// (SIM 1.12.0): its keys or mouse buttons (SHIFT and the left click by default), or the pad's A or RB.
 
-/** The keys that ask for a dash (e.code), and the pad's buttons (standard mapping: A, RB). */
-export const DASH_KEYS: readonly string[] = ['ShiftLeft', 'ShiftRight', 'Space'];
+/** The pad's dash buttons (standard mapping: A, RB); the pad is not rebindable. */
 export const DASH_BUTTONS: readonly number[] = [0, 5];
+
+/** A mouse button as a binding's code (`Mouse0` left, `Mouse1` middle, `Mouse2` right). */
+export const mouseCode = (button: number): string => `Mouse${button}`;
 /**
  * A dash asked for during the short pause between two (up to this many ticks before it ends, half a second) waits for
  * it instead of being lost: it goes out on the tick the pause ends.
@@ -32,14 +36,11 @@ export function emptyInput(): InputState {
   return { keys: new Set(), pad: null, mouse: null };
 }
 
-const UP = ['KeyW', 'ArrowUp'];
-const DOWN = ['KeyS', 'ArrowDown'];
-const LEFT = ['KeyA', 'ArrowLeft'];
-const RIGHT = ['KeyD', 'ArrowRight'];
 const DEAD = 0.2;
 const FULL = 0.6;
 
-const any = (keys: Set<string>, list: string[]) => list.some((k) => keys.has(k));
+/** Whether a key or button held now does `action`. */
+const held = (keys: Set<string>, action: Action, binds: Keybinds) => [...keys].some((k) => isAction(action, k, binds));
 
 function quantiseAim(a: number): number {
   return (Math.round(a / 64) * 64) % 4096;
@@ -55,9 +56,9 @@ export function pointerAngle(s: InputState, from?: { x: number; y: number }): nu
   return -1;
 }
 
-export function readInput(s: InputState, settings: { manualAim: boolean }, aimFrom?: { x: number; y: number }): ProbeInput {
-  let mx = (any(s.keys, RIGHT) ? 127 : 0) - (any(s.keys, LEFT) ? 127 : 0);
-  let my = (any(s.keys, DOWN) ? 127 : 0) - (any(s.keys, UP) ? 127 : 0);
+export function readInput(s: InputState, settings: { manualAim: boolean }, aimFrom?: { x: number; y: number }, binds: Keybinds = getKeybinds()): ProbeInput {
+  let mx = (held(s.keys, 'right', binds) ? 127 : 0) - (held(s.keys, 'left', binds) ? 127 : 0);
+  let my = (held(s.keys, 'down', binds) ? 127 : 0) - (held(s.keys, 'up', binds) ? 127 : 0);
   if (mx === 0 && my === 0 && s.pad) {
     const len = Math.hypot(s.pad.x, s.pad.y);
     if (len >= DEAD) {

@@ -162,14 +162,18 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   // The cards listen to the number keys from an effect that runs just after they show: let it run before pressing
   // (a loaded CI machine pressed in between).
   await act(async () => {});
+  // Nothing counts in the cards' first moment (a dash pressed as they open), then 2 takes the second.
+  fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
+  expect(ws.sent.some((m) => (m as { t: string }).t === 'pick')).toBe(false);
+  await act(() => new Promise((r) => setTimeout(r, 380)));
   fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
   expect(ws.sent).toContainEqual({ t: 'pick', i: 1, seq: sim().probes[0]!.offerSeq & 255 });
   await waitFor(() => expect(screen.queryByRole('region', { name: t.cards })).not.toBeInTheDocument());
 });
 
-// The dash (SIM 1.12.0): SHIFT or Space sends it to the referee, once per press (a held key repeats nothing), and the
+// The dash (SIM 1.12.0): its key (SHIFT by default) sends it to the referee, once per press (a held key repeats nothing), and the
 // world plays it on the tick the server sealed it; with SHIFT held the number keys still pick a card.
-test('SHIFT y Espacio mandan un dash, uno por pulsación, y el mundo lo hace en su tick', async () => {
+test('SHIFT manda un dash, uno por pulsación, y el mundo lo hace en su tick', async () => {
   const { clock, ws, sim } = await mount();
   ws.push({ t: 'f', to: 30, ev: [] });
   clock.frames(30);

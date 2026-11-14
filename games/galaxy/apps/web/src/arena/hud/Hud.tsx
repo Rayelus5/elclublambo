@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { spriteDataUrl } from '../sprites';
+import { useKeyLabels } from '../../settings/keybinds';
 
 // The run's HUD (DESIGN_SYSTEM §8 quinquies): experience across the top, life and level on the left, time and layer
 // in the middle, loot and pause on the right, the build along the bottom. Read a few times per second from the
@@ -42,10 +43,11 @@ export function DashMeter({ dash }: { dash: HudSnapshot['dash'] }) {
   const { charges, max, recharge, rechargeTotal, pause } = dash;
   const filling = charges < max && rechargeTotal > 0 ? Math.max(0, Math.min(1, 1 - recharge / rechargeTotal)) : 0;
   const waiting = pause > 0;
-  const label = copy.arena.dash.label(charges, max, charges < max ? Math.max(1, Math.ceil(recharge)) : 0);
+  const keys = useKeyLabels();
+  const label = copy.arena.dash.label(keys.dashAll, charges, max, charges < max ? Math.max(1, Math.ceil(recharge)) : 0);
   return (
     <div className={`hud-dash${charges > 0 && !waiting ? ' ready' : ''}${waiting ? ' waiting' : ''}`} role="img" aria-label={label} title={label}>
-      <kbd aria-hidden="true">{copy.arena.dash.key}</kbd>
+      <kbd aria-hidden="true">{keys.dash}</kbd>
       <span className="hud-dash-charges" aria-hidden="true">
         {Array.from({ length: max }, (_, k) => (
           <i key={k} className={k < charges ? 'on' : k === charges ? 'next' : undefined} style={k === charges ? ({ '--k': filling } as CSSProperties) : undefined} />
