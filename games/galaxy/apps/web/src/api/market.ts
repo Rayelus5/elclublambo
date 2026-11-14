@@ -1,5 +1,5 @@
-import type { GachaView, GalaxySummary, MarketListing, MarketPage, MarketQuery, MyMarket, Wallet } from '@galaxy/shared';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { GachaView, GalaxySummary, MarketListing, MarketPage, MarketQuery, MarketStats, MyMarket, Wallet } from '@galaxy/shared';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
 
@@ -9,18 +9,39 @@ import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
 
 export const MARKET_KEY = ['market'] as const;
 
+/** What the market is searched by (all but the cursor). */
+export type MarketSearch = Omit<Partial<MarketQuery>, 'cursor'>;
+const ORDER = ['tier', 'finish', 'type', 'palette', 'phenomenon', 'minLevel', 'maxLevel', 'minPrice', 'maxPrice', 'q'] as const;
+
 /** `/market?…` with its parameters in a fixed order, so equal searches are equal URLs. */
 export function marketPath(q: Partial<MarketQuery>): string {
   const params = new URLSearchParams();
-  if (q.tier) params.set('tier', q.tier);
+  for (const k of ORDER) {
+    const v = q[k];
+    if (v !== undefined && v !== '') params.set(k, String(v));
+  }
   params.set('sort', q.sort ?? 'new');
-  if (q.q) params.set('q', q.q);
-  params.set('page', String(q.page ?? 1));
+  if (q.cursor) params.set('cursor', q.cursor);
   return `/market?${params.toString()}`;
 }
 
-export function useMarket(q: Partial<MarketQuery>) {
-  return useQuery({ queryKey: [...MARKET_KEY, 'list', q], queryFn: () => api<MarketPage>(marketPath(q)), placeholderData: keepPreviousData });
+/**
+ * The listings that match, a page at a time (the owner, 2026-11-14: «profesional para 100.000 anuncios»): «Cargar
+ * más» goes on from the last page's cursor; what was shown never moves.
+ */
+export function useMarket(q: MarketSearch) {
+  return useInfiniteQuery({
+    queryKey: [...MARKET_KEY, 'list', q],
+    queryFn: ({ pageParam }) => api<MarketPage>(marketPath({ ...q, ...(pageParam ? { cursor: pageParam } : {}) })),
+    initialPageParam: '',
+    getNextPageParam: (last) => last.next ?? undefined,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The market's public numbers (counted every few minutes by the server). */
+export function useMarketStats(enabled = true) {
+  return useQuery({ queryKey: [...MARKET_KEY, 'stats'], queryFn: () => api<MarketStats>('/market/stats'), enabled, staleTime: 60_000 });
 }
 
 export function useMyMarket() {

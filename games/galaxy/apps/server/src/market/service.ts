@@ -9,6 +9,8 @@ import {
   type MarketPage,
   type MarketQuery,
   type MarketRules,
+  type MarketSort,
+  type MarketStats,
   minPriceFor,
   type MyMarket,
   type SoldListing,
@@ -25,6 +27,7 @@ import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { type Notices, noticePlayer, type WithLive } from '../realtime/notices';
 import { accountXp } from '../social/progress';
+import { type CursorValue, decodeCursor, encodeCursor } from './cursor';
 import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 
 // The market (GDD §14.6, §14.7; M5c-1). Listing puts a galaxy in escrow until it is sold, withdrawn or expires. Buying
@@ -90,7 +93,7 @@ function listingsQuery(db: Kysely<DB>) {
     .selectFrom('galaxy.market_listings as m')
     .innerJoin('galaxy.galaxies as g', 'g.id', 'm.galaxy_id')
     .innerJoin('galaxy.accounts as s', 's.id', 'm.seller_id')
-    .select([...GALAXY, 'm.id as listing_id', 'm.price', 'm.listed_at', 'm.expires_at', 's.username as seller']);
+    .select([...GALAXY, 'm.id as listing_id', 'm.price', 'm.listed_at', 'm.expires_at', 's.username as seller', 'm.tier as l_tier', 'm.score as l_score', 'm.level as l_level']);
 }
 type ListingRow = Awaited<ReturnType<ReturnType<typeof listingsQuery>['execute']>>[number];
 
@@ -105,27 +108,136 @@ function listingOf(r: ListingRow): MarketListing {
   };
 }
 
-/** The listings on sale now, filtered, sorted and paged, with what the viewer may do. */
+/**
+ * Each order's columns, all the same way (so the keyset is one row comparison), the listing's id last (the tie-break),
+ * each on its partial index of the listings on sale (20261114130000_galaxy_market_scale).
+ */
+const ORDERS: Record<MarketSort, { cols: readonly ('m.listed_at' | 'm.price' | 'm.tier' | 'm.score' | 'm.expires_at' | 'm.level' | 'm.id')[]; dir: 'asc' | 'desc' }> = {
+  new: { cols: ['m.listed_at', 'm.id'], dir: 'desc' },
+  cheap: { cols: ['m.price', 'm.id'], dir: 'asc' },
+  dear: { cols: ['m.price', 'm.id'], dir: 'desc' },
+  rare: { cols: ['m.tier', 'm.score', 'm.id'], dir: 'desc' },
+  ending: { cols: ['m.expires_at', 'm.id'], dir: 'asc' },
+  level: { cols: ['m.level', 'm.id'], dir: 'desc' },
+};
+
+/** A row's values in its order's columns, for the next page's cursor. */
+function keyOf(sort: MarketSort, r: ListingRow): CursorValue[] {
+  const v: Record<string, CursorValue> = {
+    'm.listed_at': new Date(r.listed_at).toISOString(),
+    'm.price': Number(r.price),
+    'm.tier': Number(r.l_tier ?? 0),
+    'm.score': Number(r.l_score ?? 0),
+    'm.expires_at': new Date(r.expires_at).toISOString(),
+    'm.level': Number(r.l_level ?? 1),
+    'm.id': r.listing_id,
+  };
+  return ORDERS[sort].cols.map((c) => v[c]!);
+}
+
+/** `like` takes these literally. */
+const likeLiteral = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/**
+ * The listings on sale now (the owner, 2026-11-14: «profesional para 100.000 anuncios»), filtered and in an order, a
+ * page at a time from a cursor (nothing is counted; `next` goes on), with what the viewer may do.
+ */
 export async function browseMarket(deps: MarketDeps, accountId: string, q: MarketQuery): Promise<MarketPage> {
   const cfgs = await marketConfigs(deps);
   const now = deps.now();
   let query = listingsQuery(deps.db).where('m.status', '=', 'active').where('m.expires_at', '>', now)
     // Sellers banned right now are hidden (a banned trader is not paid; M5c-1 review).
     .where((eb) => eb.or([eb('s.banned_until', 'is', null), eb('s.banned_until', '<=', sql<Date>`now()`)]));
-  if (q.tier) query = query.where('g.tier', '=', TIERS.indexOf(q.tier));
-  if (q.q) {
-    const like = `%${q.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    query = query.where((eb) => eb.or([eb('g.name', 'ilike', like), eb('g.designation', 'ilike', like)]));
+  if (q.tier) query = query.where('m.tier', '=', TIERS.indexOf(q.tier));
+  if (q.finish) query = query.where('m.finish', '=', q.finish);
+  if (q.type) query = query.where('m.galaxy_type', '=', q.type);
+  if (q.palette) query = query.where('m.palette', '=', q.palette);
+  if (q.phenomenon === 'any') query = query.where('m.phenomenon', '<>', 'none');
+  else if (q.phenomenon) query = query.where('m.phenomenon', '=', q.phenomenon);
+  if (q.minLevel) query = query.where('m.level', '>=', q.minLevel);
+  if (q.maxLevel) query = query.where('m.level', '<=', q.maxLevel);
+  if (q.minPrice) query = query.where('m.price', '>=', String(q.minPrice));
+  if (q.maxPrice) query = query.where('m.price', '<=', String(q.maxPrice));
+  if (q.q) query = query.where('m.search', 'like', `%${likeLiteral(q.q.toLowerCase())}%`);
+  const order = ORDERS[q.sort];
+  if (q.cursor) {
+    const values = decodeCursor(q.sort, q.cursor, order.cols.length);
+    const op = order.dir === 'desc' ? '<' : '>';
+    query = query.where(sql<boolean>`(${sql.join(order.cols.map((c) => sql.ref(c)))}) ${sql.raw(op)} (${sql.join(values.map((v) => sql.val(v)))})`);
   }
-  const { n } = await query.clearSelect().select(sql<number>`count(*)::int`.as('n')).executeTakeFirstOrThrow();
-  query =
-    q.sort === 'cheap'
-      ? query.orderBy('m.price', 'asc').orderBy('m.id')
-      : q.sort === 'dear'
-        ? query.orderBy('m.price', 'desc').orderBy('m.id')
-        : query.orderBy('m.listed_at', 'desc').orderBy('m.id');
-  const rows = await query.limit(PAGE).offset((q.page - 1) * PAGE).execute();
-  return { listings: rows.map(listingOf), page: q.page, pages: Math.max(1, Math.ceil(n / PAGE)), rules: await rulesFor(deps.db, accountId, cfgs, now) };
+  for (const c of order.cols) query = query.orderBy(c, order.dir);
+  const rows = await query.limit(PAGE + 1).execute();
+  const page = rows.slice(0, PAGE);
+  const next = rows.length > PAGE ? encodeCursor(q.sort, keyOf(q.sort, page.at(-1)!)) : null;
+  return { listings: page.map(listingOf), next, rules: await rulesFor(deps.db, accountId, cfgs, now) };
+}
+
+const EMPTY_STATS: MarketStats = { updatedAt: null, day: { sales: 0, gold: 0, commission: 0 }, week: { sales: 0, gold: 0, commission: 0, trades: 0 }, active: 0, byTier: {}, top: null };
+
+/** The market's public numbers as the job last kept them (none yet: counted now). */
+export async function marketStats(deps: Pick<MarketDeps, 'db' | 'now'>): Promise<MarketStats> {
+  const row = await deps.db.selectFrom('galaxy.market_stats').select(['data', 'updated_at']).where('id', '=', 1).executeTakeFirst();
+  if (row) return { ...(row.data as MarketStats), updatedAt: new Date(row.updated_at).toISOString() };
+  return refreshMarketStats(deps.db, deps.now());
+}
+
+/**
+ * Counts the market's public numbers and keeps them: the sales of the last 24 hours and 7 days (gold paid and the
+ * commission that left the economy), the trades done in 7 days, the listings on sale, the week by rarity and its
+ * dearest sale.
+ */
+export async function refreshMarketStats(db: Kysely<DB>, now: Date): Promise<MarketStats> {
+  const day = new Date(now.getTime() - DAY_MS);
+  const week = new Date(now.getTime() - 7 * DAY_MS);
+  const [sold, tiers, top, active, trades] = await Promise.all([
+    db
+      .selectFrom('galaxy.market_listings')
+      .select([
+        sql<number>`(count(*) filter (where sold_at > ${day}))::int`.as('day_sales'),
+        sql<string>`coalesce(sum(price) filter (where sold_at > ${day}), 0)`.as('day_gold'),
+        sql<string>`coalesce(sum(commission) filter (where sold_at > ${day}), 0)`.as('day_commission'),
+        sql<number>`count(*)::int`.as('week_sales'),
+        sql<string>`coalesce(sum(price), 0)`.as('week_gold'),
+        sql<string>`coalesce(sum(commission), 0)`.as('week_commission'),
+      ])
+      .where('status', '=', 'sold')
+      .where('sold_at', '>', week)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom('galaxy.market_listings')
+      .select(['tier', sql<number>`count(*)::int`.as('n'), sql<string>`round(avg(price))`.as('avg')])
+      .where('status', '=', 'sold')
+      .where('sold_at', '>', week)
+      .groupBy('tier')
+      .execute(),
+    db
+      .selectFrom('galaxy.market_listings as m')
+      .innerJoin('galaxy.galaxies as g', 'g.id', 'm.galaxy_id')
+      .select(['g.name', 'g.tier', 'm.price', 'm.sold_at'])
+      .where('m.status', '=', 'sold')
+      .where('m.sold_at', '>', week)
+      .orderBy('m.price', 'desc')
+      .limit(1)
+      .executeTakeFirst(),
+    db.selectFrom('galaxy.market_listings').select(sql<number>`count(*)::int`.as('n')).where('status', '=', 'active').where('expires_at', '>', now).executeTakeFirstOrThrow(),
+    db.selectFrom('galaxy.trades').select(sql<number>`count(*)::int`.as('n')).where('status', '=', 'done').where('closed_at', '>', week).executeTakeFirstOrThrow(),
+  ]);
+  const stats: MarketStats = {
+    ...EMPTY_STATS,
+    updatedAt: now.toISOString(),
+    day: { sales: sold.day_sales, gold: Number(sold.day_gold), commission: Number(sold.day_commission) },
+    week: { sales: sold.week_sales, gold: Number(sold.week_gold), commission: Number(sold.week_commission), trades: trades.n },
+    active: active.n,
+    byTier: Object.fromEntries(tiers.filter((r) => r.tier !== null && TIERS[r.tier]).map((r) => [TIERS[r.tier!]!, { sales: r.n, avg: Number(r.avg) }])),
+    top: top ? { name: top.name, tier: TIERS[top.tier]!, price: Number(top.price), at: new Date(top.sold_at!).toISOString() } : null,
+  };
+  const data = JSON.stringify({ ...stats, updatedAt: undefined });
+  await db
+    .insertInto('galaxy.market_stats')
+    .values({ id: 1, data, updated_at: now })
+    .onConflict((oc) => oc.column('id').doUpdateSet({ data, updated_at: now }))
+    .execute();
+  return stats;
 }
 
 /** One's own listings on sale and the latest sales. */

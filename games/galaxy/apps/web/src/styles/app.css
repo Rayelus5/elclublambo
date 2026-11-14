@@ -2082,6 +2082,46 @@
   .market-filters input:focus-visible { outline: none; border-color: var(--color-ice); }
   .market-search { flex: 1; min-inline-size: 220px; max-inline-size: 360px; }
   .market-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(214px, 1fr)); gap: 18px; }
+  /* The market at scale (the owner, 2026-11-14): the rarities as chips, the search, the order and «Filtros» on one
+     line that wraps; the panel of filters under it; how many are shown; «Cargar más». The wallet in the header. */
+  .market-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
+  .market-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 100%; }
+  .market-toolbar .market-search { flex: 1 1 240px; display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .market-toolbar input[type='search'] { block-size: 44px; padding: 0 14px; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 15px var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .market-toolbar input[type='search']:focus-visible { outline: none; border-color: var(--color-ice); }
+  .market-toolbar .market-filter { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .market-filters-toggle { block-size: 44px; }
+  .market-filters-toggle.on { color: var(--color-ice); }
+  .market-panel { --r: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 12px 16px; align-items: end; padding: 14px 16px; }
+  .market-panel .filter-select { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); min-inline-size: 0; }
+  .market-panel > .pill { justify-self: start; }
+  .market-range { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+  .market-range legend { padding: 0; margin-block-end: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .market-range input { min-inline-size: 0; block-size: 40px; padding: 0 10px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 15px var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .market-range input:focus-visible { outline: none; border-color: var(--color-ice); }
+  .market-shown { margin: 0; font-size: 13.5px; color: var(--color-ink-mute); }
+  .market-tabs a { white-space: nowrap; }
+  .market-more { justify-self: center; }
+  .market-card-see { display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 16px; }
+  .market-card-see:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 4px; }
+  .market-wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-inline-start: auto; }
+  /* The preview's deal: price, seller and until when, over its powers. */
+  .listing-sheet-deal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; margin: 4px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--color-panel-2); }
+  .listing-sheet-deal > div { display: grid; gap: 2px; }
+  .listing-sheet-deal dt { font-size: 12.5px; color: var(--color-ink-mute); }
+  .listing-sheet-deal dd { margin: 0; font-weight: 700; }
+  .listing-sheet-ends { flex: 1 1 100%; margin: 0; font-size: 13px; color: var(--color-ink-mute); }
+  /* The market in numbers. */
+  .market-stats { display: grid; gap: 12px; }
+  .market-stats-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .market-stats-head h2 { margin: 0; font: 400 22px var(--font-display); }
+  .market-stats-head .panel-note { margin: 0; }
+  .market-stats h3 { margin: 8px 0 0; font-size: 15px; font-weight: 800; color: var(--color-ink-soft); }
+  .market-stats .stat-value { display: inline-flex; align-items: center; gap: 6px; }
+  .market-stats-tiers { max-inline-size: 560px; }
+  .market-stats-tiers th[scope='row'] { color: var(--tc, var(--color-ink)); }
+  .market-stats-top { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--color-solar) 10%, var(--color-panel)); color: var(--color-ink); }
+  .market-stats-top .ico { color: var(--color-solar); font-size: 20px; }
   .market-card { --r: 22px; --lip-h: 6px; display: grid; justify-items: center; gap: 12px; padding: 16px 14px 16px; }
   .market-card-body { display: grid; justify-items: center; gap: 6px; text-align: center; inline-size: 100%; }
   .market-tier { margin: 0; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }

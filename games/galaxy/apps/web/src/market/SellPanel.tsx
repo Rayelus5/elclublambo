@@ -119,6 +119,7 @@ export function SellPanel({ rules, preselected, gateId }: { rules: MarketRules; 
             ) : problem === null ? (
               <p className="market-net">{t.net(price - commissionOf(price, rules.commission))}</p>
             ) : null}
+            <p className="market-commission">{t.commission(Math.round(rules.commission * 100))}</p>
             <button type="submit" className="lip pill pill-solar" disabled={!canList} aria-describedby={!rules.canTrade ? gateId : undefined}>
               {t.list}
             </button>

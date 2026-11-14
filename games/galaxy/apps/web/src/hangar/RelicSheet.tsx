@@ -1,5 +1,5 @@
 import type { GalaxySummary } from '@galaxy/shared';
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { useLiveContent } from '../api/content';
 import { copy } from '../copy/es';
 import { InspectorView } from '../inspector/Inspector';
@@ -26,9 +26,18 @@ export function RelicSheet({
   onEquip,
   onBack,
   onClose,
+  extra,
+  actions,
+  heading,
 }: {
   galaxy: GalaxySummary;
   mode: 'equip' | 'view';
+  /** Above its powers (the market's preview: price, seller and until when). */
+  extra?: ReactNode;
+  /** In place of «Cerrar» (the market's preview: «Comprar»), with «Cerrar» before them. */
+  actions?: ReactNode;
+  /** Its title, when it is not a relic of one's own (the market's preview: the galaxy's name). */
+  heading?: string;
   /** The relics equipped now, by slot (to tell what it does among them). */
   loadout?: readonly (GalaxySummary | null)[];
   /** The slot it would go to. */
@@ -42,7 +51,7 @@ export function RelicSheet({
   const content = useLiveContent();
   const model = useMemo(() => relicSheet(galaxy, content, mode === 'equip' ? { loadout, slot } : {}), [galaxy, content, mode, loadout, slot]);
   return (
-    <Dialog title={s.title(galaxy.name)} onClose={onClose} className="relic-sheet">
+    <Dialog title={heading ?? s.title(galaxy.name)} onClose={onClose} className="relic-sheet">
       <div className="relic-sheet-body">
         <section className="relic-sheet-card" aria-label={s.card}>
           <InspectorView galaxy={galaxy} className="relic-sheet-3d" />
@@ -64,6 +73,7 @@ export function RelicSheet({
               </span>
             ) : null}
           </header>
+          {extra}
           <h3 id="relic-sheet-powers">{s.powers}</h3>
           <ul className="skill-list relic-sheet-powers">
             {model.powers.map((p) => (
@@ -119,9 +129,12 @@ export function RelicSheet({
             </button>
           </>
         ) : (
-          <button type="button" className="lip pill" data-autofocus onClick={onClose}>
-            {copy.collection.close}
-          </button>
+          <>
+            <button type="button" className="lip pill" data-autofocus={actions ? undefined : true} onClick={onClose}>
+              {copy.collection.close}
+            </button>
+            {actions}
+          </>
         )}
       </div>
     </Dialog>
