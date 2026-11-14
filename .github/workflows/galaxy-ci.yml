@@ -3,6 +3,11 @@ name: galaxy-ci
 # Galaxy Survivor (games/galaxy): typecheck, lint, unit + integration tests and pgTAP on GitHub-hosted runners.
 # Never runs on the self-hosted PRE runner (fork code must not reach the homelab). The local Supabase stack from
 # `supabase db start` applies every migration (after install: scripts/dev-db-role.mjs needs pg), so the galaxy schema and its pgTAP tests run against the real history.
+#
+# Four jobs side by side (the owner, 2026-11-14: waiting 20–30 minutes for a failure was too long): the quick one
+# (types, lint, unit and web tests, no database) answers in a few minutes; the server's (integration and pgTAP), the
+# browser tests split in three, and the E2E run at the same time. A failing job says so as soon as it fails, without
+# waiting for the others. The repository is public, so the extra runners cost nothing.
 on:
   pull_request:
     paths:
@@ -27,11 +32,10 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  quick:
+    name: Rápido (tipos, lint, unidad y web)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      GALAXY_TEST_DATABASE_URL: postgresql://galaxy_api:galaxy_dev@127.0.0.1:54322/postgres
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -58,6 +62,33 @@ jobs:
           corepack enable
           pnpm -C games/galaxy install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm -C games/galaxy typecheck
+
+      - name: Lint
+        run: pnpm -C games/galaxy lint
+
+      - name: Unit and web tests
+        run: pnpm -C games/galaxy exec vitest run --project unit --project web
+
+  server:
+    name: Servidor (integración y pgTAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GALAXY_TEST_DATABASE_URL: postgresql://galaxy_api:galaxy_dev@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: |
+          corepack enable
+          pnpm -C games/galaxy install --frozen-lockfile
+
       - uses: supabase/setup-cli@v1
         with:
           version: 2.121.0
@@ -69,23 +100,74 @@ jobs:
         if: hashFiles('games/galaxy/scripts/dev-db-role.mjs') != ''
         run: node games/galaxy/scripts/dev-db-role.mjs
 
-      - name: Typecheck
-        run: pnpm -C games/galaxy typecheck
+      - name: Integration tests
+        run: pnpm -C games/galaxy exec vitest run --project integration
 
-      - name: Lint
-        run: pnpm -C games/galaxy lint
+      - name: pgTAP
+        run: supabase test db
 
-      - name: Chromium for the browser tests (WebGL2) and the e2e
+  browser:
+    name: Navegador (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      # One part failing does not stop the others: every failure shows in one run.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: |
+          corepack enable
+          pnpm -C games/galaxy install --frozen-lockfile
+
+      - name: Chromium for the browser tests (WebGL2)
         # The runner image already has Chromium's libraries; when apt cannot reach Ubuntu's mirrors (DNS failures on
         # the runners, which retry for many minutes), after 5 min the browser alone is enough.
         run: |
           timeout 300 pnpm -C games/galaxy exec playwright install --with-deps chromium || pnpm -C games/galaxy exec playwright install chromium
 
-      - name: Tests
-        run: pnpm -C games/galaxy test
+      - name: Browser tests
+        run: pnpm -C games/galaxy exec vitest run --project browser --shard=${{ matrix.shard }}/3
 
-      - name: pgTAP
-        run: supabase test db
+  e2e:
+    name: E2E (servidor real y Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GALAXY_TEST_DATABASE_URL: postgresql://galaxy_api:galaxy_dev@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: |
+          corepack enable
+          pnpm -C games/galaxy install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start Postgres with all migrations
+        run: supabase db start
+
+      - name: Dev password for galaxy_api
+        if: hashFiles('games/galaxy/scripts/dev-db-role.mjs') != ''
+        run: node games/galaxy/scripts/dev-db-role.mjs
+
+      - name: Chromium for the e2e
+        run: |
+          timeout 300 pnpm -C games/galaxy exec playwright install --with-deps chromium || pnpm -C games/galaxy exec playwright install chromium
 
       - name: E2E (real server + local Postgres)
         run: |
