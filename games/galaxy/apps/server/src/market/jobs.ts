@@ -2,6 +2,7 @@ import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { expireOffers } from './offers';
 import { refreshMarketStats } from './service';
+import { expirePosts } from './board';
 import { expireTrades } from './trades';
 
 // The market's job (the owner, 2026-11-14: a market «para 100.000 anuncios»): every few minutes it marks the listings
@@ -49,6 +50,13 @@ export function startMarketJobs(db: Kysely<DB>, log: { info: (o: object, m: stri
         trades += n;
       }
       if (trades > 0) log.info({ trades }, 'trades expired');
+      // Board posts past their time leave the board (their answers go on as trades).
+      let posts = 0;
+      for (let n = BATCH; n === BATCH; ) {
+        n = await expirePosts(db);
+        posts += n;
+      }
+      if (posts > 0) log.info({ posts }, 'trade posts expired');
       await refreshMarketStats(db, new Date());
     } catch (err) {
       log.error({ err }, 'market job failed');

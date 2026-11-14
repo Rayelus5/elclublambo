@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-32-tablon-de-trueques',
+    version: '1.32',
+    date: '2026-11-14',
+    title: 'Tablón de trueques',
+    summary: 'Publica lo que das y lo que buscas, y que los demás te propongan',
+    items: [
+      { kind: 'nuevo', text: 'En Trueques, el Tablón: publicaciones con lo que cada jugador da (galaxias o monedas) y lo que busca (rarezas, tipo, paleta, fenómeno o monedas)' },
+      { kind: 'nuevo', text: 'Publica hasta 3 galaxias con una nota corta. No se reservan hasta que aceptes una respuesta' },
+      { kind: 'nuevo', text: 'Responde a una publicación con lo que das: se abre un trueque con su historial y sus contraofertas' },
+      { kind: 'mejora', text: 'Al aceptar una respuesta, la publicación se cierra y las demás respuestas se cancelan devolviendo lo reservado' },
+      { kind: 'mejora', text: 'No puedes comerciar con quien te ha bloqueado ni con quien has bloqueado, y sus publicaciones no te salen' },
+    ],
+  },
+  {
     id: 'v1-31-trueques-con-oro',
     version: '1.31',
     date: '2026-11-14',

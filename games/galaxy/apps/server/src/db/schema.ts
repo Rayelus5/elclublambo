@@ -611,9 +611,29 @@ export interface TradesTable {
   a_hold: string | null;
   b_hold: string | null;
   commission: ColumnType<string | null, number | string | null | undefined, number | string | null>;
+  /** The board post it answers (2026-11-14), if any. */
+  post_id: ColumnType<string | null, string | null | undefined, string | null>;
   created_at: Timestamp;
   expires_at: TimestampRequired;
   closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** A post on the public trade board (2026-11-14): what its author gives and is after. Nothing of it is held. */
+export interface TradePostsTable {
+  id: Generated<string>;
+  author_id: string;
+  coins: ColumnType<string, number | string | undefined, number | string>;
+  wants: ColumnType<{ tiers: string[]; type?: string; palette?: string; phenomenon?: string; coins: boolean }, string, string>;
+  note: ColumnType<string, string | undefined, string>;
+  status: ColumnType<'open' | 'closed' | 'cancelled' | 'expired', 'open' | undefined, 'closed' | 'cancelled' | 'expired'>;
+  created_at: Timestamp;
+  expires_at: TimestampRequired;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface TradePostItemsTable {
+  post_id: string;
+  galaxy_id: string;
 }
 
 /** A galaxy a side of a trade gives (trades 2.0): held while its owner offers it in the open trade. */
@@ -1044,6 +1064,8 @@ export interface DB {
   'galaxy.trades': TradesTable;
   'galaxy.trade_items': TradeItemsTable;
   'galaxy.trade_events': TradeEventsTable;
+  'galaxy.trade_posts': TradePostsTable;
+  'galaxy.trade_post_items': TradePostItemsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;

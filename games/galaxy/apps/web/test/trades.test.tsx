@@ -47,6 +47,7 @@ const trade = (over: Partial<TradeView> = {}): TradeView => ({
   them: { username: 'vega', galaxies: [pub('v1', 'Suya')], coins: 0, confirmed: true },
   commission: null,
   history: [],
+  post: null,
   ...over,
 });
 const TID = '00000000-0000-4000-8000-0000000000a1';

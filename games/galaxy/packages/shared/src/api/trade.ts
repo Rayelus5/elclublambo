@@ -65,6 +65,8 @@ export interface TradeView {
   commission: number | null;
   /** What happened, oldest first (the latest 30). */
   history: TradeEvent[];
+  /** The board post it answers (2026-11-14), if any. */
+  post: string | null;
 }
 
 export interface MyTrades {
@@ -88,7 +90,8 @@ export type TradeDealInput = z.infer<typeof tradeDealSideSchema>;
 
 export const NO_DEAL: TradeDealInput = { galaxies: [], coins: 0 };
 
-export const tradeProposeSchema = z.object({ username: usernameSchema, give: tradeDealSideSchema, want: tradeDealSideSchema }).strict();
+/** Proposing; with `post`, it answers that board post (its `want` is what the post gives). */
+export const tradeProposeSchema = z.object({ username: usernameSchema, give: tradeDealSideSchema, want: tradeDealSideSchema, post: z.string().uuid().optional() }).strict();
 export type TradePropose = z.infer<typeof tradeProposeSchema>;
 
 export const tradeOfferSchema = z.object({ give: tradeDealSideSchema, want: tradeDealSideSchema, version: z.number().int().min(1) }).strict();

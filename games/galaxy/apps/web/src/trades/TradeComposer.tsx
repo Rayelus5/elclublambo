@@ -1,4 +1,4 @@
-import { commissionOf, type GalaxySummary, type MyTrades, type PublicGalaxy, type TradeDealInput, type TradeView } from '@galaxy/shared';
+import { commissionOf, type GalaxySummary, type MyTrades, type PublicGalaxy, type TradeDealInput, type TradePostView, type TradeView } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { useGacha } from '../api/economy';
 import { useChangeTrade, useProposeTrade } from '../api/trades';
@@ -9,6 +9,7 @@ import { GalaxyPicker } from '../cards/GalaxyPicker';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Wants } from './PostWants';
 
 const t = copy.trades;
 const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));
@@ -61,6 +62,7 @@ const sameDeal = (x: TradeDealInput, y: TradeDealInput) => x.coins === y.coins &
 export function TradeComposer({
   username,
   trade,
+  post,
   rules,
   onDone,
   onClose,
@@ -68,6 +70,8 @@ export function TradeComposer({
   username: string;
   /** The trade being countered, or none to propose a new one. */
   trade?: TradeView;
+  /** The board post this answers (2026-11-14): what it gives is what I want, fixed. */
+  post?: TradePostView;
   rules: Pick<MyTrades['rules'], 'tradeDays' | 'tradeGalaxies' | 'commission'>;
   onDone: (v: TradeView) => void;
   onClose: () => void;
@@ -75,7 +79,10 @@ export function TradeComposer({
   const ids = useId();
   const coins = useGacha().data?.wallet.coins;
   const [give, setGive] = useState<Chosen>({ galaxies: trade?.me.galaxies ?? [], coins: trade?.me.coins ? String(trade.me.coins) : '' });
-  const [want, setWant] = useState<Chosen>({ galaxies: trade?.them.galaxies ?? [], coins: trade?.them.coins ? String(trade.them.coins) : '' });
+  const [want, setWant] = useState<Chosen>(
+    post ? { galaxies: post.galaxies, coins: post.coins ? String(post.coins) : '' } : { galaxies: trade?.them.galaxies ?? [], coins: trade?.them.coins ? String(trade.them.coins) : '' },
+  );
+  const fixed = post !== undefined;
   // The version and the deal as they were when this opened: a newer version that arrives meanwhile is answered with
   // trade_changed instead of being overwritten (M5c-2 review).
   const [seen] = useState(() => (trade ? { version: trade.version, give: toDeal({ galaxies: trade.me.galaxies, coins: String(trade.me.coins) }), want: toDeal({ galaxies: trade.them.galaxies, coins: String(trade.them.coins) }), until: trade.expiresAt } : null));
@@ -96,7 +103,7 @@ export function TradeComposer({
   function submit(): void {
     const d = { give: toDeal(give), want: toDeal(want) };
     if (trade && seen) change.mutate({ id: trade.id, ...d, version: seen.version }, { onSuccess: onDone });
-    else propose.mutate({ username, ...d }, { onSuccess: onDone });
+    else propose.mutate({ username, ...d, ...(post ? { post: post.id } : {}) }, { onSuccess: onDone });
   }
 
   const column = (side: 'give' | 'want') => {
@@ -104,6 +111,8 @@ export function TradeComposer({
     const set = side === 'give' ? setGive : setWant;
     const otherCoins = side === 'give' ? w : g;
     const label = side === 'give' ? t.give : t.want;
+    // Answering a post: what it gives is fixed.
+    const locked = fixed && side === 'want';
     return (
       <section className="trade-slot trade-column" aria-label={label}>
         <h3>{label}</h3>
@@ -111,9 +120,11 @@ export function TradeComposer({
           {p.galaxies.map((x) => (
             <li key={x.id}>
               <GalaxyCard galaxy={x} size={p.galaxies.length > 1 ? 120 : 160} />
-              <button type="button" className="lip pill small trade-remove" aria-label={t.remove(x.name)} onClick={() => set({ ...p, galaxies: p.galaxies.filter((y) => y.id !== x.id) })}>
-                <Icon name="close" />
-              </button>
+              {locked ? null : (
+                <button type="button" className="lip pill small trade-remove" aria-label={t.remove(x.name)} onClick={() => set({ ...p, galaxies: p.galaxies.filter((y) => y.id !== x.id) })}>
+                  <Icon name="close" />
+                </button>
+              )}
             </li>
           ))}
           {p.galaxies.length === 0 ? (
@@ -122,7 +133,9 @@ export function TradeComposer({
             </li>
           ) : null}
         </ul>
-        {p.galaxies.length < max ? (
+        {locked ? (
+          <p className="panel-note">{copy.trades.board.fixed}</p>
+        ) : p.galaxies.length < max ? (
           <button type="button" className="lip pill small" aria-haspopup="dialog" onClick={() => setPicking(side === 'give' ? 'mine' : 'theirs')}>
             <Icon name="plus" />
             <span>{side === 'give' ? t.chooseMine : t.chooseTheirs}</span>
@@ -140,7 +153,7 @@ export function TradeComposer({
               min={0}
               placeholder="0"
               value={p.coins}
-              disabled={otherCoins > 0}
+              disabled={otherCoins > 0 || locked}
               aria-describedby={`${ids}-${side}-hint`}
               aria-invalid={!Number.isFinite(coinsOf(p)) || undefined}
               onChange={(e) => set({ ...p, coins: e.target.value })}
@@ -163,7 +176,14 @@ export function TradeComposer({
   };
 
   return (
-    <Dialog title={trade ? t.changeTitle(username) : t.proposeTitle(username)} onClose={onClose} className="trade-composer">
+    <Dialog title={post ? copy.trades.board.answerTitle(username) : trade ? t.changeTitle(username) : t.proposeTitle(username)} onClose={onClose} className="trade-composer">
+      {post ? (
+        <div className="post-answer-seeks">
+          <span>{copy.trades.board.seeks}</span>
+          <Wants w={post.wants} />
+          {post.note ? <blockquote className="post-note">{post.note}</blockquote> : null}
+        </div>
+      ) : null}
       <div className="trade-sides">
         {column('give')}
         <span className="trade-arrows" aria-hidden="true" />
@@ -182,7 +202,7 @@ export function TradeComposer({
           {t.keep}
         </button>
         <button type="button" className="lip pill pill-solar" disabled={!canSend} aria-busy={busy || undefined} onClick={submit}>
-          {trade ? t.save : t.send}
+          {post ? copy.trades.board.answerSend : trade ? t.save : t.send}
         </button>
       </div>
       {picking === 'mine' ? (

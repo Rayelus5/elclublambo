@@ -1,4 +1,4 @@
-import type { GachaView, MarketRules, MeResponse, MyMarket, MyTrades, PublicGalaxy, TradeView } from '@galaxy/shared';
+import type { GachaView, MarketRules, MeResponse, MyMarket, MyTradePosts, MyTrades, PublicGalaxy, TradeBoardPage, TradePostView, TradeView } from '@galaxy/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -56,6 +56,7 @@ const open: TradeView = {
   me: { galaxies: [pub(3), pub(8)], coins: 0, confirmed: false },
   them: { username: 'lyra', galaxies: [pub(4)], coins: 2500, confirmed: true },
   commission: null,
+  post: null,
   history: [
     { version: 1, kind: 'proposed', byMe: true, at: '2026-11-14T10:00:00.000Z', deal: { me: { galaxies: side([3]), coins: 0 }, them: { galaxies: side([4]), coins: 0 } } },
     { version: 2, kind: 'countered', byMe: false, at: '2026-11-14T11:20:00.000Z', deal: { me: { galaxies: side([3, 8]), coins: 0 }, them: { galaxies: side([4]), coins: 0 } } },
@@ -73,6 +74,31 @@ const second: TradeView = {
   history: [{ version: 1, kind: 'proposed', byMe: false, at: '2026-11-14T09:00:00.000Z', deal: { me: { galaxies: side([11]), coins: 0 }, them: { galaxies: side([12, 13, 14]), coins: 0 } } }],
 };
 const trades: MyTrades = { open: [open, second], closed: [], rules };
+// The public board (2026-11-14): my post on top, then everyone's.
+const boardRules = { canPost: true, openLeft: 2, todayLeft: 4, days: 7, answers: 20 };
+const postOf = (i: number, over: Partial<TradePostView>): TradePostView => ({
+  id: `00000000-0000-4000-8000-0000000000c${i}`,
+  author: ['lyra', 'orion_7', 'deneb', 'vega'][i % 4]!,
+  mine: false,
+  galaxies: [pub(30 + i)],
+  coins: 0,
+  wants: { tiers: ['legendary'], coins: false },
+  note: '',
+  status: 'open',
+  createdAt: '2026-11-14T10:00:00.000Z',
+  expiresAt: '2026-11-21T10:00:00.000Z',
+  answers: i % 3,
+  myAnswer: null,
+  ...over,
+});
+const posts: TradePostView[] = [
+  postOf(1, { galaxies: [pub(31), pub(32)], wants: { tiers: ['epic', 'legendary'], palette: 'ember', coins: true }, note: 'Busco algo rojo para mi colección de nebulosas' }),
+  postOf(2, { galaxies: [], coins: 4000, wants: { tiers: ['legendary'], type: 'spiral', coins: false } }),
+  postOf(3, { wants: { tiers: [], coins: false } }),
+  postOf(4, { galaxies: [pub(34), pub(35), pub(36)], wants: { tiers: ['rare'], phenomenon: 'quasar', coins: true }, myAnswer: '00000000-0000-4000-8000-0000000000a1' }),
+];
+const board: TradeBoardPage = { posts, next: 'c1', rules: boardRules };
+const myPosts: MyTradePosts = { posts: [postOf(5, { mine: true, author: 'sonda_rayo', galaxies: [pub(40)], wants: { tiers: ['mythic'], coins: true }, answers: 3 })], rules: boardRules };
 const mine: MyMarket = { active: [], sold: [], rules };
 
 let root: Root | null = null;
@@ -97,6 +123,12 @@ function mount(path: string) {
               ? { received: [], sent: [], held: 0 }
               : url.endsWith('/trades')
                 ? trades
+                : url.includes('/trades/board')
+                  ? board
+                  : url.endsWith('/trades/posts/mine')
+                    ? myPosts
+                    : url.includes('/galaxies?')
+                      ? { items: [pub(50), pub(51), pub(52)], counts: {}, fusion: { count: 5, dust: [] } }
                 : url.includes('/profiles/lyra/galaxies')
                   ? { items: [pub(4), pub(5), pub(6), pub(7)], counts: {} }
                   : {};
@@ -145,5 +177,29 @@ for (const [w, h] of [
     expect(modal.right).toBeLessThanOrEqual(w);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     if (import.meta.env['VITE_TRADE_SHOTS']) await page.screenshot({ path: `__shots__/trades-composer-${w}.png` });
+  });
+
+  test(`el tablón a ${w}×${h}: publicaciones, publicar y responder`, async () => {
+    await page.viewport(w, h);
+    mount('/mercado?pestana=trueques&vista=tablon');
+    await expect.poll(() => document.querySelectorAll('.post-card').length, { timeout: 8000 }).toBe(5);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    for (const card of document.querySelectorAll('.post-card')) expect(card.getBoundingClientRect().right).toBeLessThanOrEqual(w);
+    await new Promise((r) => setTimeout(r, 600));
+    if (import.meta.env['VITE_TRADE_SHOTS']) await page.screenshot({ path: `__shots__/board-${w}.png` });
+    // Posting.
+    await userEvent.click(document.querySelector<HTMLButtonElement>('.post-bar > button')!);
+    await expect.poll(() => document.querySelector('.post-composer textarea') !== null, { timeout: 8000 }).toBe(true);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.querySelector('.post-composer')!.getBoundingClientRect().right).toBeLessThanOrEqual(w);
+    if (import.meta.env['VITE_TRADE_SHOTS']) await page.screenshot({ path: `__shots__/board-post-${w}.png` });
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.post-composer') === null).toBe(true);
+    // Answering the first one.
+    await userEvent.click(document.querySelector<HTMLButtonElement>('.post-list:last-of-type .post-foot .pill-solar')!);
+    await expect.poll(() => document.querySelector('.trade-composer .post-answer-seeks') !== null, { timeout: 8000 }).toBe(true);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    if (import.meta.env['VITE_TRADE_SHOTS']) await page.screenshot({ path: `__shots__/board-answer-${w}.png` });
   });
 }

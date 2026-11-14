@@ -8,11 +8,11 @@ import { HttpError } from '../errors';
 
 export type CursorValue = string | number;
 
-export function encodeCursor(sort: MarketSort, values: readonly CursorValue[]): string {
+export function encodeCursor(sort: MarketSort | 'board', values: readonly CursorValue[]): string {
   return Buffer.from(JSON.stringify({ s: sort, v: values }), 'utf8').toString('base64url');
 }
 
-export function decodeCursor(sort: MarketSort, cursor: string, length: number): CursorValue[] {
+export function decodeCursor(sort: MarketSort | 'board', cursor: string, length: number): CursorValue[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));

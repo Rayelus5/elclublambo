@@ -1,4 +1,17 @@
-import { type MyTrades, tradeConfirmSchema, tradeIdParamSchema, tradeOfferSchema, tradeProposeSchema, type TradeView } from '@galaxy/shared';
+import {
+  type MyTradePosts,
+  type MyTrades,
+  type TradeBoardPage,
+  tradeBoardQuerySchema,
+  tradeConfirmSchema,
+  tradeIdParamSchema,
+  tradeOfferSchema,
+  tradePostIdParamSchema,
+  tradePostSchema,
+  type TradePostView,
+  tradeProposeSchema,
+  type TradeView,
+} from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { inTransaction } from '../db/tx';
@@ -8,6 +21,7 @@ import { withNotices } from '../realtime/notices';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { type MarketDeps, marketConfigs } from './service';
+import { cancelPost, createPost, myPosts, tradeBoard } from './board';
 import { cancelTrade, changeTrade, confirmTrade, myTrades, proposeTrade } from './trades';
 
 // The swaps' routes (GDD §14.5; M5c-2). Proposing is an idempotent operation; changing and confirming name the version
@@ -23,6 +37,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
     const s = requireSession(req);
     await requireFeature(deps.config, 'trades');
     const body = tradeProposeSchema.parse(req.body);
+    if (body.post) await requireFeature(deps.config, 'board');
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);
@@ -54,5 +69,35 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
     const { id } = tradeIdParamSchema.parse(req.params);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     return cancelTrade(deps, s.accountId, id);
+  });
+
+  // The public trade board (2026-11-14): a page of posts, my posts, posting (idempotent) and withdrawing one.
+  api.get('/galaxy/api/trades/board', async (req): Promise<TradeBoardPage> => {
+    const s = requireSession(req);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade_board', 120, 60);
+    return tradeBoard(deps, s.accountId, tradeBoardQuerySchema.parse(req.query));
+  });
+
+  api.get('/galaxy/api/trades/posts/mine', async (req): Promise<MyTradePosts> => {
+    const s = requireSession(req);
+    return myPosts(deps, s.accountId);
+  });
+
+  api.post('/galaxy/api/trades/posts', async (req): Promise<TradePostView> => {
+    const s = requireSession(req);
+    await requireFeature(deps.config, 'trades');
+    await requireFeature(deps.config, 'board');
+    const body = tradePostSchema.parse(req.body);
+    const key = idempotencyKey(req);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade_post', 20, 60);
+    const cfgs = await marketConfigs(deps);
+    return runOperation(deps.db, s.accountId, key, 'trade.post', requestHash(body), (trx) => createPost(cfgs, trx, s.accountId, body, deps.now()));
+  });
+
+  api.post('/galaxy/api/trades/posts/:id/cancel', async (req): Promise<{ cancelled: true }> => {
+    const s = requireSession(req);
+    const { id } = tradePostIdParamSchema.parse(req.params);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
+    return cancelPost(deps, s.accountId, id);
   });
 }

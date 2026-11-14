@@ -152,6 +152,8 @@ export const configSchemas = {
       trades: z.boolean().default(true),
       /** Offers on market listings (2026-11-14). */
       offers: z.boolean().default(true),
+      /** The public trade board (2026-11-14). */
+      board: z.boolean().default(true),
       chat: z.boolean().default(true),
       /** Plan phase 3: friends, presence and invites. */
       friends: z.boolean().default(true),
@@ -537,6 +539,19 @@ export const configSchemas = {
       tradeAlertTierGap: z.number().int().min(1).max(4).default(3),
       /** How many galaxies a side of a swap gives at most (trades 2.0, the owner, 2026-11-14: «hasta 3 por lado»). */
       tradeGalaxies: z.number().int().min(1).max(TRADE_GALAXIES_MAX).default(3),
+      /**
+       * The public trade board (2026-11-14): how many posts an account keeps open and makes a day, how long one lasts,
+       * and how many open answers a post takes.
+       */
+      board: z
+        .object({
+          open: z.number().int().min(1).max(20).default(3),
+          perDay: z.number().int().min(1).max(100).default(5),
+          days: z.number().int().min(1).max(30).default(7),
+          answers: z.number().int().min(1).max(100).default(20),
+        })
+        .strict()
+        .default({ open: 3, perDay: 5, days: 7, answers: 20 }),
     })
     .strict()
     .refine((m) => m.maxPrice >= Math.max(m.minPrice.legendary, m.minPrice.mythic ?? 0), 'maxPrice is at least the legendary and mythic floors'),

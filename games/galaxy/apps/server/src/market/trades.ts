@@ -18,6 +18,7 @@ import type { DB, TradeEventDeal, TradesTable } from '../db/schema';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { type Notices, noticePlayer, withNotices } from '../realtime/notices';
+import { blockedBetween, checkAnswer, closePost } from './board';
 import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 import { releaseHold } from './offers';
 import { lockTrader, type MarketConfigs, type MarketDeps, marketConfigs, refuse, rulesFor, todayStart } from './service';
@@ -130,6 +131,7 @@ async function viewsOf(db: Kysely<DB>, accountId: string, trades: Trade[], now: 
       them: { username: nameOf.get(cols(t, them).id) ?? '', ...side(them) },
       commission: t.commission === null ? null : Number(t.commission),
       history,
+      post: t.post_id,
     };
   });
 }
@@ -276,6 +278,8 @@ export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
   const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', req.username).executeTakeFirst();
   if (!target) throw new HttpError(404, 'profile_not_found');
   if (target.id === accountId) throw new HttpError(409, 'trade_self');
+  // Blocked pairs do not trade (2026-11-14).
+  if (await blockedBetween(trx, accountId, target.id)) throw new HttpError(403, 'trade_blocked');
   // Both traders, in id order: their counts hold under concurrent proposals (M5c-2 review).
   for (const who of [accountId, target.id].sort()) await lockTrader(trx, who);
   refuse(await rulesFor(trx, accountId, cfgs, now));
@@ -287,12 +291,14 @@ export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
   if (between) throw new HttpError(409, 'trade_exists');
   // What I proposed counts against me; what someone receives, against them: proposals sent to me never stop mine.
   if ((await openCount(trx, accountId, now, 'a')) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit');
-  if ((await openCount(trx, target.id, now, 'b')) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit_them');
+  // An answer to a board post asks what the post gives, and counts against the post (not its author's open trades).
+  if (req.post) await checkAnswer(trx, cfgs, req.post, target.id, req.want, now);
+  else if ((await openCount(trx, target.id, now, 'b')) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit_them');
   if ((await proposalsToday(trx, accountId, now)) >= cfgs.market.perDay.trades) throw new HttpError(429, 'trade_daily_cap');
   await lockGalaxies(trx, [...req.give.galaxies, ...req.want.galaxies]);
   const row = await trx
     .insertInto('galaxy.trades')
-    .values({ a_id: accountId, b_id: target.id, created_at: now, expires_at: new Date(now.getTime() + cfgs.market.tradeDays * DAY_MS) })
+    .values({ a_id: accountId, b_id: target.id, post_id: req.post ?? null, created_at: now, expires_at: new Date(now.getTime() + cfgs.market.tradeDays * DAY_MS) })
     .returning('id')
     .executeTakeFirstOrThrow();
   const fresh = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', row.id).executeTakeFirstOrThrow();
@@ -344,7 +350,7 @@ export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountI
     .execute();
   if (changed) await logEvent(trx, t.id, version, accountId, 'countered');
   // Saving the deal as it stands, after the other side confirmed it, is accepting it.
-  const swapped = complete && !changed && them0.confirmed ? await swap(trx, cfgs, t.id, accountId, now) : false;
+  const swapped = complete && !changed && them0.confirmed ? await swap(trx, cfgs, t.id, accountId, now, out) : false;
   if (!changed && !swapped && complete && !me0.confirmed) await logEvent(trx, t.id, version, accountId, 'confirmed');
   // The other side hears it: the deal done, changed, or confirmed by me (their turn).
   const event = swapped ? 'done' : changed ? 'countered' : complete && !me0.confirmed ? 'confirmed' : null;
@@ -360,7 +366,7 @@ const topTier = (rows: { side: Side; tier: number }[], s: Side) => Math.max(-1, 
  * its giver's, alive and held by nothing else; the galaxies locked in id order. Then they change hands, the held coins
  * pay the other side (less the market's commission), and the trade is done.
  */
-async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, actorId: string, now: Date): Promise<boolean> {
+async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, actorId: string, now: Date, out?: Notices): Promise<boolean> {
   const t = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', id).executeTakeFirstOrThrow();
   if (!t.a_confirmed || !t.b_confirmed) return false;
   const items = await itemsOf(trx, [t.id]);
@@ -393,6 +399,8 @@ async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, actorId: s
   }
   await trx.updateTable('galaxy.trades').set({ status: 'done', closed_at: now, commission }).where('id', '=', t.id).execute();
   await logEvent(trx, t.id, t.version, actorId, 'done');
+  // An answer to a board post: the post closes and its other answers are cancelled.
+  if (t.post_id) await closePost(trx, t.post_id, t.id, actorId, now, out);
   const tiers = items.map((i) => ({ side: i.side, tier: live.find((g) => g.id === i.galaxy_id)!.tier }));
   await alertIfSuspicious(trx, cfgs, { trade: t.id, a: t.a_id, b: t.b_id, tiers, coins: payer ? { side: payer, amount: cols(t, payer).coins } : null }, now);
   return true;
@@ -419,7 +427,7 @@ export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
     out?.add(them.id, { kind: 'trade', event: 'confirmed', trade: t.id, from: await noticePlayer(trx, accountId) });
     return viewOf(trx, accountId, t.id, now);
   }
-  if (await swap(trx, cfgs, t.id, accountId, now)) out?.add(them.id, { kind: 'trade', event: 'done', trade: t.id, from: await noticePlayer(trx, accountId) });
+  if (await swap(trx, cfgs, t.id, accountId, now, out)) out?.add(them.id, { kind: 'trade', event: 'done', trade: t.id, from: await noticePlayer(trx, accountId) });
   return viewOf(trx, accountId, t.id, now);
 }
 
