@@ -216,12 +216,14 @@ function explode(sim: Sim, e: number): void {
   const en = sim.enemies;
   const blast = sim.content.elites.find((x) => x.id === 'volatile')?.explode;
   if (blast) {
+    // It shows and sounds where it goes off (2026-11-14), and leaves `keep` of the life of whoever it reaches.
+    sim.events.push({ t: 'blast', x: en.x[e]!, y: en.y[e]!, radius: blast.radius });
     for (const p of sim.probes) {
       if (!p.alive) continue;
       const r = blast.radius + PROBE_RADIUS;
       const dx = p.x - en.x[e]!;
       const dy = p.y - en.y[e]!;
-      if (dx * dx + dy * dy <= r * r) hurtProbe(sim, p, blast.damage * damageScale(sim, e));
+      if (dx * dx + dy * dy <= r * r) hurtProbe(sim, p, blast.damage * damageScale(sim, e), { keep: blast.keep });
     }
   }
   en.kill(e);

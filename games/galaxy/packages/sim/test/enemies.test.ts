@@ -148,16 +148,64 @@ describe('élites', () => {
     expect(sim.enemies.speed[e]).toBeCloseTo(62 * 1.45, 9);
   });
 
-  test('Inestable: al morir avisa y a los 0,6 s explota dañando a la sonda en su radio', () => {
+  // The owner, 2026-11-14: «hace demasiado daño y puede instant killear … dejarle algo más de tiempo para huir, y que si te
+  // alcanza, que te deje al menos un 40 % de la vida»: 1,2 s of warning, and a blast takes at most 60 % of the life one
+  // has (`explode.keep`), so it never kills on its own; it shows and sounds (a `blast` event).
+  test('Inestable: al morir avisa y a los 1,2 s explota dañando a la sonda en su radio', () => {
     const sim = quietSim();
     const e = spawnEnemy(sim, def(sim, 'mite'), 30, 0, { elite: elite(sim, 'volatile') });
     sim.enemies.speed[e] = 0;
     dealDamage(sim, e, 1000, src);
-    expect(sim.events.some((ev) => ev.t === 'telegraph' && ev.kind === 'explode')).toBe(true);
-    run(sim, 35);
+    const warn = sim.events.find((ev) => ev.t === 'telegraph' && ev.kind === 'explode');
+    expect(warn).toMatchObject({ ticks: 72, radius: 50 });
+    run(sim, 71);
     expect(sim.probes[0]!.hp).toBe(100);
     run(sim, 2);
-    expect(sim.probes[0]!.hp).toBe(100 - 18);
+    expect(sim.probes[0]!.hp).toBe(100 - 12);
     expect(sim.enemies.alive[e]).toBe(0);
+  });
+
+  test('Inestable: nunca mata; se lleva como mucho el 60 % de la vida que tengas, por fuerte que pegue', () => {
+    const sim = quietSim();
+    const e = spawnEnemy(sim, def(sim, 'mite'), 30, 0, { elite: elite(sim, 'volatile') });
+    sim.enemies.speed[e] = 0;
+    // As late in a hard sector: the blast would deal hundreds.
+    sim.enemies.damage[e] = sim.enemies.damage[e]! * 60;
+    sim.probes[0]!.hp = 50;
+    dealDamage(sim, e, 1000, src);
+    run(sim, 74);
+    expect(sim.probes[0]!.alive).toBe(true);
+    expect(sim.probes[0]!.hp).toBeCloseTo(20, 9);
+  });
+
+  test('Inestable: dos explosiones seguidas tampoco matan', () => {
+    const sim = quietSim();
+    const a = spawnEnemy(sim, def(sim, 'mite'), 30, 0, { elite: elite(sim, 'volatile') });
+    const b = spawnEnemy(sim, def(sim, 'mite'), -30, 0, { elite: elite(sim, 'volatile') });
+    for (const e of [a, b]) {
+      sim.enemies.speed[e] = 0;
+      sim.enemies.damage[e] = sim.enemies.damage[e]! * 60;
+    }
+    dealDamage(sim, a, 1000, src);
+    run(sim, 40);
+    dealDamage(sim, b, 1000, src);
+    run(sim, 120);
+    expect(sim.probes[0]!.alive).toBe(true);
+    expect(sim.probes[0]!.hp).toBeCloseTo(100 * 0.4 * 0.4, 9);
+  });
+
+  test('Inestable: al estallar avisa a la pantalla con el sitio y el radio, la toque o no', () => {
+    const sim = quietSim();
+    const e = spawnEnemy(sim, def(sim, 'mite'), 300, 0, { elite: elite(sim, 'volatile') });
+    sim.enemies.speed[e] = 0;
+    dealDamage(sim, e, 1000, src);
+    const [x, y] = [sim.enemies.x[e]!, sim.enemies.y[e]!];
+    let blast: unknown = null;
+    for (let i = 0; i < 80 && !blast; i++) {
+      step(sim, [IDLE]);
+      blast = sim.events.find((ev) => ev.t === 'blast') ?? null;
+    }
+    expect(blast).toEqual({ t: 'blast', x, y, radius: 50 });
+    expect(sim.probes[0]!.hp).toBe(100);
   });
 });

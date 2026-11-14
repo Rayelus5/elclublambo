@@ -273,3 +273,17 @@ describe('el arsenal', () => {
     expect(() => contentSchema.parse(c)).toThrow();
   });
 });
+
+// The volatile elite's blast (the owner, 2026-11-14): how much of the life one has it leaves (`keep`) is new; a content
+// published before it (PRE's) still validates and gets the 40 %.
+describe('la explosión del élite Inestable', () => {
+  test('sin `keep` publicado vale el 40 %, y no se puede dejar por debajo de nada ni quitar del todo', () => {
+    const old = structuredClone(DEFAULT_CONTENT) as unknown as { elites: { id: string; explode: Record<string, number> | null }[] };
+    delete old.elites.find((e) => e.id === 'volatile')!.explode!['keep'];
+    const parsed = contentSchema.parse(old);
+    expect(parsed.elites.find((e) => e.id === 'volatile')!.explode).toEqual({ radius: 50, damage: 12, delay: 1.2, keep: 0.4 });
+    const bad = structuredClone(DEFAULT_CONTENT) as unknown as { elites: { id: string; explode: Record<string, number> | null }[] };
+    bad.elites.find((e) => e.id === 'volatile')!.explode!['keep'] = 0;
+    expect(() => contentSchema.parse(bad)).toThrow();
+  });
+});

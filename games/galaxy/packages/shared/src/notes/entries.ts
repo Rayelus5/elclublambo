@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-33-inestable',
+    version: '1.33',
+    date: '2026-11-14',
+    title: 'Explosiones más justas',
+    summary: 'Los enemigos Inestables avisan antes, se ven y se oyen al estallar, y ya no te matan de un golpe',
+    items: [
+      { kind: 'mejora', text: 'La explosión de un élite Inestable se lleva como mucho el 60 % de la vida que tengas: por sí sola ya no te mata, aunque vayas muy avanzado' },
+      { kind: 'mejora', text: 'Su aviso marca todo su alcance con un borde que parpadea cada vez más rápido, y su mecha pita cada vez más seguido' },
+      { kind: 'nuevo', text: 'Al estallar hay destello, onda expansiva, chispas y un «bum», también en las minas de los Núcleos' },
+    ],
+  },
+  {
     id: 'v1-32-tablon-de-trueques',
     version: '1.32',
     date: '2026-11-14',

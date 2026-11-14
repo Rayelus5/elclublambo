@@ -152,6 +152,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
   - los que curan o corrompen a otros;
   - invocadores.
 - **Élites [D]:** enemigos con **modificadores de Estática** (escudo, prisa, explosión al morir…).
+  - **Inestable** (petición del propietario, 2026-11-14: «puede instant killear al jugador … y es bastante injusto»): al morir avisa durante 1,2 s y estalla en su radio. Su daño crece como el del enemigo, pero se lleva como mucho el 60 % de la vida que tengas (`explode.keep` = 0,4), así que por sí sola nunca mata. Se ve y se oye al estallar.
 - **Jefes [D]:** los Núcleos de la Estática, con fases y patrones anunciados.
 - **Sectores [D]:** cada uno tiene su bioma, terreno, fauna propia y jefe. Los sectores más profundos son la meta de clasificación por profundidad.
 - **Contenido de la beta *(de partida)*:**

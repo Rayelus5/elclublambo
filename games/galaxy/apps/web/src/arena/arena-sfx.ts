@@ -104,6 +104,21 @@ export function playEvents(events: readonly SimEvent[], me = 0): void {
           else blip(a, t + 0.06, 1800, 160, 0.12, 0.035, 'sawtooth');
         });
         break;
+      case 'telegraph':
+        // A blast's fuse (2026-11-14): beeps closer and closer together until it goes off.
+        if (e.kind === 'explode') {
+          const d = e.ticks / 60;
+          tone('fuse', 0.3, (a, t) => [0, 0.4, 0.65, 0.82, 0.93].forEach((f) => blip(a, t + f * d, 1250, 1150, 0.05, 0.028)));
+        }
+        break;
+      case 'blast':
+        // It goes off: a deep thump, a crack and a rumble of debris.
+        tone('blast', 0.08, (a, t) => {
+          blip(a, t, 150, 36, 0.5, 0.16, 'sine');
+          blip(a, t, 95, 30, 0.32, 0.05, 'sawtooth');
+          hiss(a, t, 1600, 110, 0.55, 0.13, 0.7);
+        });
+        break;
       case 'propBreak':
         tone('prop', 0.05, (a, t) => {
           hiss(a, t, 900, 180, 0.16, 0.08, 1.6);
