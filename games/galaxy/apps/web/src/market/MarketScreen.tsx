@@ -2,7 +2,7 @@ import { FINISHES, MARKET_SORTS, type MarketListing, type MarketRules, type Mark
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
-import { type MarketSearch, useMarket, useMyMarket } from '../api/market';
+import { type MarketSearch, useMarket, useMarketOffers, useMyMarket } from '../api/market';
 import { FilterSelect, phenomenonOptions, traitOptions } from '../collection/Filters';
 import { WalletBar } from '../hub/WalletBar';
 import { useTrades } from '../api/trades';
@@ -17,6 +17,8 @@ import { BuyDialog } from './BuyDialog';
 import { ListingCard } from './ListingCard';
 import { ListingSheet } from './ListingSheet';
 import { MarketStatsView } from './MarketStatsView';
+import { OfferDialog } from './OfferDialog';
+import { OffersPanel } from './OffersPanel';
 import { MyListings } from './MyListings';
 import { SellPanel } from './SellPanel';
 import { HomeLink } from '../ui/BackLink';
@@ -25,10 +27,11 @@ import { HomeLink } from '../ui/BackLink';
 // each its own URL (?pestana=vender|mios|trueques). Everyone sees the listings; buying and selling need the trade gates, and a notice says why.
 
 const t = copy.market;
-type Tab = 'buy' | 'sell' | 'mine' | 'trades' | 'stats';
-const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios', trades: 'trueques', stats: 'estadisticas' };
-const tabOf = (slug: string | null): Tab => (slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : slug === 'trueques' ? 'trades' : slug === 'estadisticas' ? 'stats' : 'buy');
-const LABEL: Record<Tab, string> = { buy: t.tabs.buy, sell: t.tabs.sell, mine: t.tabs.mine, trades: copy.trades.tab, stats: t.tabs.stats };
+type Tab = 'buy' | 'sell' | 'mine' | 'offers' | 'trades' | 'stats';
+const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios', offers: 'ofertas', trades: 'trueques', stats: 'estadisticas' };
+const tabOf = (slug: string | null): Tab =>
+  slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : slug === 'ofertas' ? 'offers' : slug === 'trueques' ? 'trades' : slug === 'estadisticas' ? 'stats' : 'buy';
+const LABEL: Record<Tab, string> = { buy: t.tabs.buy, sell: t.tabs.sell, mine: t.tabs.mine, offers: t.tabs.offers, trades: copy.trades.tab, stats: t.tabs.stats };
 
 function Gate({ rules, id }: { rules: MarketRules; id: string }) {
   if (rules.canTrade) return null;
@@ -109,6 +112,7 @@ function Shop({ gateId }: { gateId: string }) {
   const market = useMarket(query);
   const [buying, setBuying] = useState<MarketListing | null>(null);
   const [seeing, setSeeing] = useState<MarketListing | null>(null);
+  const [offering, setOffering] = useState<MarketListing | null>(null);
   const pages = market.data?.pages ?? [];
   const rules = pages[0]?.rules;
   const listings = pages.flatMap((p) => p.listings);
@@ -207,12 +211,25 @@ function Shop({ gateId }: { gateId: string }) {
           own={seeing.seller === me?.username}
           canBuy={canBuy}
           short={shortOf(seeing)}
-          // The purchase opens over the preview; closing it comes back to the preview.
+          // The purchase and the offer open over the preview; closing them comes back to it.
           onBuy={() => setBuying(seeing)}
+          canOffer={!!rules && rules.canTrade && rules.offers.enabled && (rules.offers.openLeft > 0 || !!seeing.myOffer) && rules.offers.todayLeft > 0}
+          onOffer={() => setOffering(seeing)}
           onClose={() => setSeeing(null)}
         />
       ) : null}
       {buying && coins !== undefined ? <BuyDialog l={buying} coins={coins} onClose={() => setBuying(null)} /> : null}
+      {offering && rules && coins !== undefined ? (
+        <OfferDialog
+          l={offering}
+          rules={rules}
+          coins={coins}
+          onClose={() => {
+            setOffering(null);
+            setSeeing(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -224,6 +241,8 @@ export function MarketScreen() {
   const mine = useMyMarket();
   const trades = useTrades();
   const wallet = useGacha().data?.wallet;
+  // The coins held in my open offers, beside what I have.
+  const held = useMarketOffers().data?.held ?? 0;
   return (
     <div className="screen-root market-root">
       <div className="market">
@@ -236,11 +255,17 @@ export function MarketScreen() {
           {/* What one has, where the commission used to be (it says it when selling): the owner, 2026-11-14. */}
           <div className="market-wallet" role="group" aria-label={t.wallet}>
             <WalletBar wallet={wallet} />
+            {held > 0 ? (
+              <Link to="/mercado?pestana=ofertas" className="market-held" aria-label={t.heldLabel(held)}>
+                <Icon name="coin" />
+                <span>{t.held(held)}</span>
+              </Link>
+            ) : null}
           </div>
         </header>
         <div className="market-banner" aria-hidden="true" style={postUrl ? { backgroundImage: `url(${postUrl})` } : undefined} />
         <nav className="tabs market-tabs" aria-label={t.tabsLabel}>
-          {(['buy', 'sell', 'mine', 'trades', 'stats'] as const).map((k) => (
+          {(['buy', 'sell', 'mine', 'offers', 'trades', 'stats'] as const).map((k) => (
             <Link key={k} to={SLUG[k] ? `/mercado?pestana=${SLUG[k]}` : '/mercado'} aria-current={k === tab ? 'page' : undefined}>
               {LABEL[k]}
             </Link>
@@ -250,6 +275,14 @@ export function MarketScreen() {
           <Shop gateId={gateId} />
         ) : tab === 'stats' ? (
           <MarketStatsView />
+        ) : tab === 'offers' ? (
+          mine.data ? (
+            <OffersPanel rules={mine.data.rules} />
+          ) : (
+            <p className="planetarium-wait" role="status" aria-label={copy.loading}>
+              ⠋⠙⠹
+            </p>
+          )
         ) : tab === 'trades' ? (
           trades.data ? (
             <>

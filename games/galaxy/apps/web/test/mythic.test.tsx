@@ -102,6 +102,7 @@ describe('el mercado', () => {
     listingsLeft: 10,
     purchasesLeft: 10,
     days: 7,
+    offers: { enabled: true, hours: 48, openLeft: 10, todayLeft: 30 },
     ...over,
   });
   const mount = (r: Partial<MarketRules> = {}) =>

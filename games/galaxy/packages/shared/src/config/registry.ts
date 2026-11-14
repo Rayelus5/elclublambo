@@ -149,6 +149,8 @@ export const configSchemas = {
       /** M6b: the market, the swaps and the chat can be switched off from the admin panel. */
       market: z.boolean().default(true),
       trades: z.boolean().default(true),
+      /** Offers on market listings (2026-11-14). */
+      offers: z.boolean().default(true),
       chat: z.boolean().default(true),
       /** Plan phase 3: friends, presence and invites. */
       friends: z.boolean().default(true),
@@ -515,6 +517,19 @@ export const configSchemas = {
       minAccountDays: z.number().int().min(0).max(365).default(3),
       alertMultiple: z.number().min(2).max(1000).default(20),
       sharedIpDays: z.number().int().min(1).max(365).default(30),
+      /**
+       * Offers on listings (the owner, 2026-11-14; their coins are held): how long one lasts (never past its listing),
+       * how many a buyer keeps open and makes a day, and how many a listing takes (a new one then beats the lowest).
+       */
+      offers: z
+        .object({
+          hours: z.number().int().min(1).max(168).default(48),
+          open: z.number().int().min(1).max(100).default(10),
+          perDay: z.number().int().min(1).max(500).default(30),
+          perListing: z.number().int().min(1).max(100).default(20),
+        })
+        .strict()
+        .default({ hours: 48, open: 10, perDay: 30, perListing: 20 }),
       /** Swaps (M5c-2): how long one stays open, how many an account keeps open, and the tier gap that warns the admin. */
       tradeDays: z.number().int().min(1).max(30).default(3),
       openTrades: z.number().int().min(1).max(50).default(5),

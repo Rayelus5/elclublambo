@@ -1,7 +1,7 @@
 import type { LiveNotice } from '@galaxy/shared';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { CLANS_KEY } from '../api/clans';
-import { COLLECTION_KEY } from '../api/economy';
+import { COLLECTION_KEY, GACHA_KEY } from '../api/economy';
 import { MAILBOX_KEY } from '../api/mail';
 import { MARKET_KEY } from '../api/market';
 import { MISSIONS_KEY } from '../api/missions';
@@ -32,6 +32,9 @@ export function refreshFor(n: LiveNotice): Refresh[] {
     }
     case 'achievement':
       return [{ key: MISSIONS_KEY, hidden: true }];
+    case 'offer':
+      // The offers, the listings (their counts) and the wallet (coins held or back); a galaxy bought, the collection.
+      return [{ key: [...MARKET_KEY, 'offers'], hidden: true }, { key: MARKET_KEY }, { key: GACHA_KEY }, ...(n.event === 'accepted' ? [{ key: COLLECTION_KEY }] : [])];
   }
 }
 

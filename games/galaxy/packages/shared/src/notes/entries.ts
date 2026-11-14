@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-30-ofertas',
+    version: '1.30',
+    date: '2026-11-14',
+    title: 'Ofertas en el mercado',
+    summary: 'Ofrece lo que quieras pagar por una galaxia en venta, y el vendedor decide',
+    items: [
+      { kind: 'nuevo', text: 'En la vista de cerca de un anuncio, «Hacer oferta»: entre el mínimo de su rareza y su precio. Tus monedas se reservan hasta que la acepten, la rechacen o caduque, y si no se vende vuelven' },
+      { kind: 'nuevo', text: 'Pestaña Ofertas: las que te hacen por lo tuyo, para aceptar o rechazar, y las tuyas, para retirarlas' },
+      { kind: 'nuevo', text: 'Aceptar una oferta vende al momento a ese precio, y las demás se cierran devolviendo sus monedas' },
+      { kind: 'mejora', text: 'Cada carta dice cuántas ofertas tiene y cuál es la tuya, y arriba ves cuántas monedas tienes en ofertas' },
+      { kind: 'mejora', text: 'Un aviso en directo cuando te hacen una oferta, la aceptan, la rechazan o te superan' },
+    ],
+  },
+  {
     id: 'v1-29-mercado-a-lo-grande',
     version: '1.29',
     date: '2026-11-14',

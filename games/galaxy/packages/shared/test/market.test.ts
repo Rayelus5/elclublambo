@@ -16,6 +16,7 @@ describe('la configuración', () => {
       commission: 0.07,
       days: 7,
       perDay: { listings: 10, purchases: 10, trades: 10 },
+      offers: { hours: 48, open: 10, perDay: 30, perListing: 20 },
       minLevel: 10,
       minAccountDays: 3,
       alertMultiple: 20,

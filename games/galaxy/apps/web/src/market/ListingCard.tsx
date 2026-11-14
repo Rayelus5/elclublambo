@@ -50,6 +50,7 @@ export function ListingCard({
         <p className="market-seller">
           <Link to={`/perfil/${encodeURIComponent(l.seller)}`}>{l.seller}</Link>
         </p>
+        {l.myOffer ? <p className="market-my-offer">{t.offerMine(l.myOffer)}</p> : l.offers ? <p className="market-offers-count">{t.offerCount(l.offers)}</p> : null}
         {own ? (
           <span className="market-yours">{t.yours}</span>
         ) : (

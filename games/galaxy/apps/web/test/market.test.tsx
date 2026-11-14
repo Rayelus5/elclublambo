@@ -41,6 +41,7 @@ const rules = (over: Partial<MarketRules> = {}): MarketRules => ({
   listingsLeft: 10,
   purchasesLeft: 10,
   days: 7,
+  offers: { enabled: true, hours: 48, openLeft: 10, todayLeft: 30 },
   ...over,
 });
 const listing = (id: string, price: number, seller = 'lyra', over: Partial<MarketListing> = {}): MarketListing => ({

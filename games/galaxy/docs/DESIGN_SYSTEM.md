@@ -727,7 +727,7 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - Muestra la pared de la estación, un ojo de buey con un planeta anillado, el cartel con una moneda y dos mostradores cuyos emisores proyectan cartas de galaxia. Las cartas flotan y giran, y las luces de la viga se persiguen.
 - Es decorativo, y sin animación con movimiento reducido.
 
-**Las pestañas:** Comprar, Vender, Mis anuncios, Trueques y Estadísticas, cada una con su URL (`?pestana=vender|mios|trueques|estadisticas`). No se parten en dos líneas.
+**Las pestañas:** Comprar, Vender, Mis anuncios, Ofertas, Trueques y Estadísticas, cada una con su URL (`?pestana=vender|mios|ofertas|trueques|estadisticas`). No se parten en dos líneas.
 
 **Arriba, lo que tienes** (petición del propietario, 2026-11-14): polvo, monedas y señales (la barra de recursos de siempre), donde antes decía «El mercado se queda el 7 %». La comisión se dice al vender.
 
@@ -762,6 +762,17 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 **En la colección:**
 - una galaxia en venta lleva la insignia «En venta»;
 - no se desintegra, fusiona ni mejora, y su detalle dice por qué.
+
+**Ofertas** (2026-11-14, GDD §14.6):
+- **En la ficha de un anuncio:** «Hacer oferta» (o «Subir oferta» si ya tienes una) junto a «Comprar», con las ofertas que lleva y la tuya en Solar.
+- **El diálogo:** se abre encima de la ficha, con la carta, el precio y el campo numérico «Tu oferta en monedas». Debajo dice entre cuánto y cuánto, cuánto falta si no llega, que las monedas se reservan y cuánto dura, y las ofertas que quedan. El botón dice «Ofrecer N monedas». Enviada, «Oferta enviada».
+- **Cada carta del escaparate:** «Tu oferta: N» en Solar, o «N ofertas».
+- **La pestaña Ofertas** (`?pestana=ofertas`):
+  - «Ofertas por lo tuyo», con «Aceptar» en Solar y «Rechazar»;
+  - «Tus ofertas», con «Retirar» y el chip de lo reservado;
+  - cada fila con su carta, la cantidad, quién, lo que se pide, el estado en un chip (Abierta en Terminal) y hasta cuándo.
+- **Aceptar** se confirma diciendo lo que cobras tras la comisión y que las demás ofertas se cierran.
+- **Arriba, junto a lo que tienes:** el chip «N en ofertas», que lleva a la pestaña.
 
 ## 8 quindecies. Trueque
 

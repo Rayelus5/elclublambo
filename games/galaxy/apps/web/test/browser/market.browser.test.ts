@@ -1,4 +1,4 @@
-import type { GachaView, GalaxySummary, MarketListing, MarketPage, MarketRules, MarketStats, MeResponse, MyMarket } from '@galaxy/shared';
+import type { GachaView, GalaxySummary, MarketListing, MarketOffer, MarketOffersView, MarketPage, MarketRules, MarketStats, MeResponse, MyMarket } from '@galaxy/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -10,7 +10,8 @@ import '../../src/styles/app.css';
 
 // The market at scale in a real browser (the owner, 2026-11-14): the wallet in the header, the rarities as chips with
 // the search, the order and «Filtros» open, a full page of cards with «Cargar más», the preview of a listing with its 3D
-// card and powers, and the numbers; at 1280×720 and 1920×1080, nothing sideways. Screenshots with VITE_MARKET_SHOTS=1.
+// card and powers, and the numbers; the offer over the preview and the Ofertas tab (2026-11-14); at 1280×720 and
+// 1920×1080, nothing sideways. Screenshots with VITE_MARKET_SHOTS=1.
 
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
 const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 48_210, dust: 1340, signal: 6 } };
@@ -28,8 +29,36 @@ const galaxy = (i: number): GalaxySummary => ({
   level: 1 + (i % 5),
   createdAt: '2026-11-10T10:00:00.000Z',
 });
-const rules: MarketRules = { commission: 0.07, minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 }, mythicListing: false, maxPrice: 10_000_000, canTrade: true, reason: null, minLevel: 10, minAccountDays: 3, listingsLeft: 10, purchasesLeft: 10, days: 7 };
-const listings: MarketListing[] = Array.from({ length: 8 }, (_, i) => ({ id: `l${i}`, galaxy: galaxy(i + 1), seller: ['lyra', 'orion_7', 'deneb'][i % 3]!, price: [600, 1450, 3200, 9800, 15000][i % 5]! + i * 10, listedAt: '2026-11-14T10:00:00.000Z', expiresAt: '2026-11-21T10:00:00.000Z' }));
+const rules: MarketRules = { commission: 0.07, minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 }, mythicListing: false, maxPrice: 10_000_000, canTrade: true, reason: null, minLevel: 10, minAccountDays: 3, listingsLeft: 10, purchasesLeft: 10, days: 7, offers: { enabled: true, hours: 48, openLeft: 10, todayLeft: 30 } };
+const listings: MarketListing[] = Array.from({ length: 8 }, (_, i) => ({
+  id: `l${i}`,
+  galaxy: galaxy(i + 1),
+  seller: ['lyra', 'orion_7', 'deneb'][i % 3]!,
+  price: [600, 1450, 3200, 9800, 15000][i % 5]! + i * 10,
+  listedAt: '2026-11-14T10:00:00.000Z',
+  expiresAt: '2026-11-21T10:00:00.000Z',
+  offers: i % 3,
+  myOffer: i === 2 ? 2400 : null,
+}));
+const offer = (i: number, over: Partial<MarketOffer>): MarketOffer => ({
+  id: `o${i}`,
+  listing: { id: `l${i}`, galaxy: galaxy(i + 20), price: 3200, seller: 'sonda_rayo', active: true },
+  buyer: 'deneb',
+  amount: 2600,
+  status: 'open',
+  createdAt: '2026-11-14T10:00:00.000Z',
+  expiresAt: '2026-11-16T10:00:00.000Z',
+  closedAt: null,
+  ...over,
+});
+const offers: MarketOffersView = {
+  received: [offer(1, {}), offer(2, { buyer: 'lyra', amount: 2350 }), offer(3, { status: 'rejected', buyer: 'orion_7', amount: 1900, closedAt: '2026-11-14T11:00:00.000Z' })],
+  sent: [
+    offer(4, { buyer: 'sonda_rayo', amount: 2400, listing: { id: 'l2', galaxy: galaxy(3), price: 3220, seller: 'deneb', active: true } }),
+    offer(5, { buyer: 'sonda_rayo', amount: 700, status: 'outbid', closedAt: '2026-11-14T12:00:00.000Z', listing: { id: 'l9', galaxy: galaxy(9), price: 900, seller: 'lyra', active: true } }),
+  ],
+  held: 2400,
+};
 const stats: MarketStats = {
   updatedAt: '2026-11-14T10:05:00.000Z',
   day: { sales: 12, gold: 34_000, commission: 2380 },
@@ -60,6 +89,8 @@ function mount(path: string) {
             ? stats
             : url.endsWith('/market/mine')
               ? mine
+              : url.endsWith('/market/offers')
+                ? offers
               : url.includes('/trades')
                 ? { trades: [], rules }
                 : url.includes('/market?')
@@ -103,6 +134,22 @@ for (const [w, h] of [
     await new Promise((r) => setTimeout(r, 1200));
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     if (import.meta.env['VITE_MARKET_SHOTS']) await page.screenshot({ path: `__shots__/market-sheet-${w}.png` });
+    // An offer over the preview.
+    await userEvent.click(document.querySelector<HTMLButtonElement>('.listing-sheet-offer')!);
+    await expect.poll(() => document.querySelector('.market-offer input') !== null, { timeout: 8000 }).toBe(true);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    if (import.meta.env['VITE_MARKET_SHOTS']) await page.screenshot({ path: `__shots__/market-offer-${w}.png` });
+  });
+
+  test(`las ofertas a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount('/mercado?pestana=ofertas');
+    await expect.poll(() => document.querySelectorAll('.market-offer-row').length, { timeout: 8000 }).toBe(5);
+    expect(document.querySelector('.market-held')).not.toBeNull();
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    await new Promise((r) => setTimeout(r, 400));
+    if (import.meta.env['VITE_MARKET_SHOTS']) await page.screenshot({ path: `__shots__/market-offers-${w}.png` });
   });
 
   test(`las cifras del mercado a ${w}×${h}`, async () => {

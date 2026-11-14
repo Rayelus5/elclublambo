@@ -27,6 +27,7 @@ import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { credit, debit } from '../economy/wallet';
 import { releaseHolds } from '../market/escrow';
+import { closeOffersOf } from '../market/offers';
 import { HttpError } from '../errors';
 import { hitRateLimit, RateLimitedError } from '../ratelimit';
 import { invalidateLeaderboard } from '../social/leaderboard';
@@ -409,7 +410,7 @@ export async function closeSessions(deps: AdminDeps, actor: AuditActor, username
   return { closed: true };
 }
 
-/** A ban closes the sessions and ends the player's listings and open trades (GDD §16.2); null minutes is for good. */
+/** A ban closes the sessions and ends the player's listings, offers and open trades (GDD §16.2); null minutes is for good. */
 export async function banPlayer(deps: AdminDeps, actor: AuditActor, username: string, minutes: number | null, reason: string): Promise<{ until: string }> {
   const a = await accountOf(deps.db, username);
   return inTransaction(deps.db, async (trx) => {
@@ -423,11 +424,12 @@ export async function banPlayer(deps: AdminDeps, actor: AuditActor, username: st
       .where('status', '=', 'open')
       .where((eb) => eb.or([eb('a_id', '=', a.id), eb('b_id', '=', a.id)]))
       .executeTakeFirst();
+    const offers = await closeOffersOf(trx, a.id, new Date());
     await writeAudit(trx, {
       actor,
       action: 'player.ban',
       ...target(a.id),
-      after: { until: new Date(until).toISOString(), listingsCancelled: Number(listings.numUpdatedRows), tradesCancelled: Number(trades.numUpdatedRows) },
+      after: { until: new Date(until).toISOString(), listingsCancelled: Number(listings.numUpdatedRows), tradesCancelled: Number(trades.numUpdatedRows), offersClosed: offers },
       reason,
     });
     invalidateLeaderboard();
@@ -518,6 +520,7 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
       .where('status', '=', 'open')
       .where((eb) => eb.or([eb('a_id', '=', a.id), eb('b_id', '=', a.id)]))
       .executeTakeFirst();
+    const offers = await closeOffersOf(trx, a.id, new Date());
     await writeAudit(trx, {
       actor,
       action: 'player.delete',
@@ -529,6 +532,7 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
         clan: clanOut ? (clanOut.dissolved ? 'dissolved' : clanOut.heir ? 'passed' : 'left') : null,
         listingsCancelled: Number(listings.numUpdatedRows),
         tradesCancelled: Number(trades.numUpdatedRows),
+        offersClosed: offers,
       },
       reason: req.reason,
     });
