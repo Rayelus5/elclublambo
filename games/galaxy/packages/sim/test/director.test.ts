@@ -114,6 +114,39 @@ describe('escalado', () => {
     expect(s.speed).toBeCloseTo(1.05, 12);
   });
 
+  // Enemy life plan (2026-11-15): life also follows the players' level, compounding, so a strong build that levels fast
+  // keeps meeting enemies that last.
+  test('la vida sube de forma compuesta con el nivel de la sonda', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 * 1.1, 12);
+    sim.probes[0]!.level = 11;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 10, 9);
+  });
+
+  test('en grupo manda el nivel más alto', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 2;
+    sim.probes[1]!.level = 5;
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 4, 12);
+  });
+
+  test('sin vida por nivel, subir de nivel no cambia la vida (contenido publicado antes)', () => {
+    const sim = quietSim();
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 30;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+  });
+
   test('la probabilidad de élite sube con los minutos sin pasar de su tope', () => {
     const sim = quietSim((c) => {
       c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, eliteBase: 0, elitePerMinute: 0.006, eliteMax: 0.08 };

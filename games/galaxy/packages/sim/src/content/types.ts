@@ -305,6 +305,10 @@ export interface SectorDef {
     eliteBase: number;
     elitePerMinute: number;
     eliteMax: number;
+    /** Extra life per level of the team's highest probe, compounding: × (1 + hpPerLevel)^(level − 1). */
+    hpPerLevel: number;
+    /** Every Núcleo of a run has at least (1 + coreRise) × the life of the one before (0: off). */
+    coreRise: number;
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
   /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */

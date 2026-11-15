@@ -5,11 +5,31 @@ import { coopFactor } from './coop';
 
 // The spawn director (GDD §5.5–5.6): density grows with the run's minutes, species join over the first layer (from
 // layer 2 on, all from the start), fixed waves arrive on schedule in every layer, and life, damage, speed and the
-// elite chance scale with the minute and the layer.
+// elite chance scale with the minute and the layer, and life with the team's level too.
 
 /** Seconds since the current layer began. */
 export function layerSeconds(sim: Sim): number {
   return (sim.tick - (sim.clocks['layerStart'] ?? 0)) / 60;
+}
+
+/** The team's level: the highest any probe of the run has reached (it never goes down, even if that probe falls). */
+export function teamLevel(sim: Sim): number {
+  let level = 1;
+  for (const p of sim.probes) if (p.level > level) level = p.level;
+  return level;
+}
+
+/**
+ * Enemy life plan (2026-11-15): enemies and Núcleos last longer as the team levels up, compounding,
+ * (1 + hpPerLevel)^(level − 1). A strong build levels faster, so the enemies keep its pace while a new player barely
+ * notices. Multiplied in a loop, not with Math.pow, so every engine gets the same bits.
+ */
+export function levelFactor(sim: Sim): number {
+  const r = sim.sector.scaling.hpPerLevel;
+  if (r <= 0) return 1;
+  let f = 1;
+  for (let l = teamLevel(sim); l > 1; l--) f *= 1 + r;
+  return f;
 }
 
 export function scaleAt(sim: Sim): Scale & { elite: number } {
@@ -18,7 +38,7 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   const deeper = sim.layer - 1;
   const elite = Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes);
   const scale = {
-    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper),
+    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper) * levelFactor(sim),
     damage: (1 + s.damagePerMinute * minutes) * (1 + s.damagePerLayer * deeper),
     speed: 1 + s.speedPerLayer * deeper,
     elite,

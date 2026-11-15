@@ -2,7 +2,7 @@ import type { BossDef, BossPattern, SectorDef } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { BossState, Sim } from '../types';
 import { ticks } from '../version';
-import { scaleAt } from './director';
+import { levelFactor, scaleAt } from './director';
 import { angleDiff, fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
 import { hurtProbe, PROBE_RADIUS } from './probes';
 import { coopFactor } from './coop';
@@ -47,6 +47,22 @@ function layerDamage(sim: Sim, def: BossDef): number {
   return (1 + def.scaling.damagePerLayer * (sim.layer - 1)) * sim.sector.coreDamage * coopFactor(sim, 'enemyDamage') * (sim.anomaly?.enemyDamage ?? 1);
 }
 
+/**
+ * The Núcleo's life for one player, before the group and the anomaly: its own, its layer's, the sector's toughness and
+ * the team's level (enemy life plan, 2026-11-15). With `coreRise`, every Núcleo of the run has at least (1 + coreRise)
+ * × the one before, so the form after a deep Núcleo never comes weaker. It is kept per player (`clocks.coreHp`): if
+ * players leave a group, the next Núcleo shrinks with them.
+ */
+function coreLife(sim: Sim, def: BossDef): number {
+  let hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * sim.sector.enemyHp * levelFactor(sim);
+  const rise = sim.sector.scaling.coreRise;
+  if (rise > 0) {
+    hp = Math.max(hp, (sim.clocks['coreHp'] ?? 0) * (1 + rise));
+    sim.clocks['coreHp'] = hp;
+  }
+  return hp;
+}
+
 export function spawnBoss(sim: Sim): void {
   const def = bossDef(sim);
   if (!def) return;
@@ -55,7 +71,7 @@ export function spawnBoss(sim: Sim): void {
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
-  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp') * sim.sector.enemyHp * (sim.anomaly?.enemyHp ?? 1);
+  const hp = coreLife(sim, def) * coopFactor(sim, 'bossHp') * (sim.anomaly?.enemyHp ?? 1);
   en.type[i] = sim.content.bosses.indexOf(def);
   en.boss[i] = 1;
   en.x[i] = c.x + cosA(a) * SPAWN_DISTANCE;

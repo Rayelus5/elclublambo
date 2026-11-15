@@ -239,6 +239,10 @@ const sector = z
         eliteBase: unit,
         elitePerMinute: unit,
         eliteMax: unit,
+        // Enemy life plan (2026-11-15): life × (1 + hpPerLevel)^(level − 1) by the team's highest level, and every Núcleo
+        // has at least (1 + coreRise) × the life of the one before. 0 for content published before: it plays as it did.
+        hpPerLevel: z.number().min(0).max(1).default(0),
+        coreRise: z.number().min(0).max(2).default(0),
       })
       .strict(),
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.

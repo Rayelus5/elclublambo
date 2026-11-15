@@ -42,6 +42,9 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scal
     eliteBase: 0,
     elitePerMinute: 0.006,
     eliteMax: 0.08,
+    hpPerLevel: 0,
+    // Enemy life plan (2026-11-15): every Núcleo of a run has at least 15 % more life than the one before.
+    coreRise: 0.15,
   },
   elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
   drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },

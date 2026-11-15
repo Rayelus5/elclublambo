@@ -10,6 +10,7 @@ import {
   contentSchema,
   cosA,
   dealDamage,
+  DEFAULT_COOP_RULES,
   DEFAULT_CONTENT,
   degToSteps,
   IDLE,
@@ -659,5 +660,87 @@ describe('patrones de las formas nuevas', () => {
       return stateHash(sim);
     };
     expect(play()).toBe(play());
+  });
+});
+
+// Enemy life plan (2026-11-15): the Núcleo follows the players' level like the fauna, and in one run every Núcleo has more
+// life than the one before (before, the form after a deep Núcleo could have half its life).
+describe('vida del Núcleo', () => {
+  /** A sim whose first Núcleo comes after one second, with an unkillable probe. */
+  function bossWorld(over: (c: Content) => void, opts: Parameters<typeof quietSim>[1] = {}): Sim {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.layerSeconds = 1;
+      over(c);
+    }, opts);
+    for (const p of sim.probes) p.hp = 1e9;
+    return sim;
+  }
+  const untilBoss = (sim: Sim) => {
+    for (let i = 0; i < 200 && !sim.boss; i++) step(sim, sim.probes.map(() => IDLE));
+    return sim.enemies.maxHp[sim.boss!.index]!;
+  };
+  /** Kills the Núcleo in play and goes one layer down. */
+  const beat = (sim: Sim) => {
+    dealDamage(sim, sim.boss!.index, 1e12, src);
+    nextLayer(sim);
+  };
+
+  test('el nivel de la sonda sube su vida, de forma compuesta', () => {
+    const at = (level: number) => {
+      const sim = bossWorld((c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      });
+      sim.probes[0]!.level = level;
+      return untilBoss(sim);
+    };
+    expect(at(3)).toBeCloseTo(at(1) * 1.21, 6);
+  });
+
+  test('cada Núcleo tiene al menos `coreRise` más vida que el anterior', () => {
+    const sim = bossWorld((c) => {
+      c.sectors[0]!.scaling.coreRise = 0.15;
+      c.bosses[0]!.scaling.hpPerLayer = 0; // the same raw life every layer: only the rise makes it grow
+    });
+    const first = untilBoss(sim);
+    beat(sim);
+    const second = untilBoss(sim);
+    beat(sim);
+    const third = untilBoss(sim);
+    expect(second).toBeCloseTo(first * 1.15, 6);
+    expect(third).toBeCloseTo(first * 1.15 * 1.15, 6);
+  });
+
+  test('si su vida propia ya es mayor, la subida no la toca', () => {
+    const sim = bossWorld((c) => {
+      c.sectors[0]!.scaling.coreRise = 0.15;
+      c.bosses[0]!.scaling.hpPerLayer = 0.7;
+    });
+    const first = untilBoss(sim);
+    beat(sim);
+    expect(untilBoss(sim)).toBeCloseTo(first * 1.7, 6);
+  });
+
+  test('sin `coreRise` (contenido publicado antes) cada Núcleo tiene su vida de siempre', () => {
+    const sim = bossWorld((c) => {
+      c.bosses[0]!.scaling.hpPerLayer = 0;
+    });
+    const first = untilBoss(sim);
+    beat(sim);
+    expect(untilBoss(sim)).toBe(first);
+  });
+
+  test('en grupo la subida va por jugador: si se van jugadores, el siguiente Núcleo baja con ellos', () => {
+    const sim = bossWorld(
+      (c) => {
+        c.sectors[0]!.scaling.coreRise = 0.15;
+        c.bosses[0]!.scaling.hpPerLayer = 0;
+      },
+      { coop: DEFAULT_COOP_RULES, probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const two = untilBoss(sim);
+    beat(sim);
+    sim.players = 1;
+    const one = untilBoss(sim);
+    expect(one).toBeCloseTo((two / DEFAULT_COOP_RULES.bossHp[1]!) * DEFAULT_COOP_RULES.bossHp[0]! * 1.15, 6);
   });
 });
