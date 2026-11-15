@@ -17,6 +17,7 @@ import { mateMarkers } from './mates';
 import { type Insets, NO_INSETS } from './edge';
 import { type Warning, warningFrom, warningProgress } from './warnings';
 import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
+import { type HitTone, hitboxShapes } from './hitboxes';
 import { type AnomalyMark, drawAnomaly, GLITCH_CYAN, GLITCH_LILAC, GLITCH_MAGENTA, GLITCH_RED, landingAlpha, splitOffset, SPLIT_S, TEAR_GAP } from './anomaly';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
@@ -71,6 +72,8 @@ export interface Stage {
   setColorVision(mode: ColorVisionMode): void;
   /** Ajustes → Accesibilidad → «Brillo detrás de tu sonda» changed while playing: applies from the next frame. */
   setProbeGlow(on: boolean): void;
+  /** The admin debug mode (2026-11-15): outlines every body with the radius the sim tests it with. */
+  setDebug(flags: { hitboxes: boolean }): void;
   destroy(): void;
 }
 
@@ -199,6 +202,20 @@ function dashedArc(g: Graphics, x: number, y: number, r: number, from: number, t
  */
 const BACKDROP_BLUR = 0.6;
 const VEIL = { color: 0x03040e, alpha: 0.28 };
+
+/** The debug mode's collision outlines by kind: the probe and its pickup reach, foes, shots and ground. */
+const HITBOX_COLOR: Record<HitTone, number> = {
+  probe: 0x6dff8e,
+  pickup: 0x3f8f55,
+  enemy: 0xff5a5a,
+  boss: 0xff2fb1,
+  shot: 0x6fe3ff,
+  foe: 0xffa13d,
+  area: 0xffe066,
+  prop: 0xb0a48a,
+  beacon: 0xffffff,
+  blast: 0xff7a1a,
+};
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -336,7 +353,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   glowLayer.addChild(glow);
   // Your probe goes over its own abilities (the owner: shots, beams, blasts and sparks never cover it); only the foes'
   // bullets go over it.
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots);
+  // The admin debug mode's collisions (2026-11-15), over everything in the world.
+  const hitboxes = new Graphics({ label: 'hitboxes' });
+  let showHitboxes = false;
+  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
   const numbers = new Container();
   // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
   const mateArrows = new Graphics();
@@ -1300,6 +1320,21 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     for (; g < mateTexts.length; g++) mateTexts[g]!.visible = false;
   }
 
+  function drawHitboxes(sim: Sim, alpha: number): void {
+    if (!showHitboxes) return;
+    hitboxes.clear();
+    for (const h of hitboxShapes(sim, alpha)) {
+      const color = HITBOX_COLOR[h.tone];
+      if (h.kind === 'circle') {
+        hitboxes.circle(h.x, h.y, h.r).stroke({ width: 1, color, alpha: 0.9 });
+      } else {
+        // A pie slice from its centre (an open arc would need arcFrom).
+        const { x, y } = h;
+        hitboxes.moveTo(x, y).arc(x, y, h.r, h.angle - h.arc / 2, h.angle + h.arc / 2).closePath().stroke({ width: 1, color, alpha: 0.9 });
+      }
+    }
+  }
+
   function drawBars(c: Camera): void {
     bars.clear();
     hurtFlash.clear();
@@ -1539,6 +1574,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       drawProbes(sim, alpha);
       drawParticles();
       drawAnomalies();
+      drawHitboxes(sim, alpha);
       drawNumbers(c, originX + shake.x, originY + shake.y);
       drawMates(sim, c);
       drawBars(c);
@@ -1572,6 +1608,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     },
     setProbeGlow(on) {
       opts.probeGlow = on;
+    },
+    setDebug(flags) {
+      showHitboxes = flags.hitboxes;
+      if (!showHitboxes) hitboxes.clear();
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

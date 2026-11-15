@@ -3,14 +3,14 @@ import { SIM_VERSION } from '@galaxy/sim';
 import { useQueryClient } from '@tanstack/react-query';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
-import type { RunEnd } from '../arena/ArenaScreen';
+import type { ArenaDebug, RunEnd } from '../arena/ArenaScreen';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
 import { ROOMS_KEY, useLeaveRoom, useRooms } from '../api/rooms';
-import { useFinishRun, useHangar, useStartRun } from '../api/runs';
+import { markTestRun, useFinishRun, useHangar, useStartRun } from '../api/runs';
 import { tourActive, useTutorial, useTutorialUpdate } from '../api/tutorial';
-import { errorText } from '../auth/useMe';
+import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { CoopArena } from '../coop/CoopArena';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -73,6 +73,9 @@ export function HangarScreen() {
   const tutorialUpdate = useTutorialUpdate();
   const coached = tourActive(tutorial) && (tutorial?.chapter === 'hangar' || tutorial?.chapter === 'run');
   const finish = useFinishRun();
+  // The admin debug mode (2026-11-15): admins with TOTP, in solo runs, never in the tutorial's.
+  const me = useMe().data;
+  const debugAllowed = isAdmin(me) && !!me?.mfa && !coached;
   const [run, setRun] = useState<RunStart | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
   const [pending, setPending] = useState<PendingRun | null>(() => loadPending());
@@ -130,6 +133,8 @@ export function HangarScreen() {
       loot: s.loot.map((l) => ({ coins: Math.floor(l.coins), dust: Math.floor(l.dust), components: Math.floor(l.components ?? 0), ...(l.signals ? { signals: l.signals } : {}) })),
       hash: s.hash,
       inputs: end.inputs,
+      // A test run gives up its rewards, also when this copy is resent after a reload.
+      ...(end.test ? { test: true as const } : {}),
     };
     const p: PendingRun = { runId: run.id, key: crypto.randomUUID(), body };
     savePending(p);
@@ -146,10 +151,12 @@ export function HangarScreen() {
   }
 
   if (run) {
+    const runId = run.id;
+    const debug: ArenaDebug | undefined = debugAllowed ? { test: false, draft: false, markTest: () => markTestRun(runId).then(() => undefined) } : undefined;
     return (
       <ArenaBoundary>
         <Suspense fallback={<Splash label={copy.arena.loading} />}>
-          <ArenaScreen run={run} onEnd={ended} onSave={keep} coached={coached} onSkipTutorial={() => tutorialUpdate.mutate({ action: 'skip' })} />
+          <ArenaScreen run={run} onEnd={ended} onSave={keep} coached={coached} onSkipTutorial={() => tutorialUpdate.mutate({ action: 'skip' })} debug={debug} />
         </Suspense>
       </ArenaBoundary>
     );

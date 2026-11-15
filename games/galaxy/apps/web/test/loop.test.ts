@@ -90,3 +90,54 @@ test('una pausa antes de arrancar se respeta: la partida no corre detrás del me
   h.frame(1000 / 60);
   expect(h.steps()).toBeGreaterThan(0);
 });
+
+// Speed of the admin debug mode (2026-11-15): the same fixed step, more or fewer of them per second of the wall.
+test('x2 da 2 pasos por fotograma de 60 Hz y x0,25 uno cada 4', () => {
+  const h = harness();
+  h.loop.start();
+  h.loop.setSpeed(2);
+  expect(h.loop.speed).toBe(2);
+  h.frame(1000 / 60);
+  for (let i = 0; i < 60; i++) h.frame(1000 / 60);
+  expect(h.steps()).toBeGreaterThanOrEqual(119);
+  expect(h.steps()).toBeLessThanOrEqual(122);
+  const q = harness();
+  q.loop.start();
+  q.loop.setSpeed(0.25);
+  for (let i = 0; i < 60; i++) q.frame(1000 / 60);
+  expect(q.steps()).toBeGreaterThanOrEqual(14);
+  expect(q.steps()).toBeLessThanOrEqual(15);
+});
+
+test('x8 da 8 pasos por fotograma de 60 Hz', () => {
+  const h = harness();
+  h.loop.start();
+  h.loop.setSpeed(8);
+  for (let i = 0; i < 60; i++) h.frame(1000 / 60);
+  expect(h.steps()).toBeGreaterThanOrEqual(478);
+  expect(h.steps()).toBeLessThanOrEqual(481);
+});
+
+test('x8 no arrastra deuda tras un tirón', () => {
+  const h = harness();
+  h.loop.start();
+  h.loop.setSpeed(8);
+  h.frame(1000 / 60);
+  const before = h.steps();
+  h.frame(1000);
+  expect(h.steps() - before).toBe(40);
+  const after = h.steps();
+  h.frame(1000 / 60);
+  expect(h.steps() - after).toBeLessThanOrEqual(9);
+});
+
+test('cambiar de velocidad no cobra lo que quedaba pendiente', () => {
+  const h = harness();
+  h.loop.start();
+  h.frame(1000 / 120);
+  h.loop.setSpeed(1);
+  const before = h.steps();
+  h.frame(1000 / 120);
+  expect(h.steps() - before).toBe(0);
+});
+
