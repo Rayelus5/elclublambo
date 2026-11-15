@@ -3916,7 +3916,9 @@
   .lobby-top { grid-area: top; display: flex; align-items: center; gap: 12px; min-inline-size: 0; }
   .lobby-top .topbar { flex: 1; min-inline-size: 0; margin-left: 0; }
   .lobby-back { flex: none; }
-  @media (max-width: 1440px) { .lobby-top .me > div { display: none; } .lobby-top .me { padding-right: 4px; } }
+  /* Up to 1440 px the bar's gaps tighten too: an admin's bar carries one more button (the panel), and with a wider
+     fallback font it pushed the mail button 4 px off a 1280 px screen (seen in CI, 2026-11-16). */
+  @media (max-width: 1440px) { .lobby-top .me > div { display: none; } .lobby-top .me { padding-right: 4px; } .lobby-top .topbar { gap: 10px; } .lobby-top .topbar .group { gap: 8px; } }
   /* The lobby's bar also carries «Volver al inicio»: with every name it needs about 1680 px, so up to 1799 px its
      shortcuts keep only their icon (the name stays for screen readers), as the home's do below 1600. */
   @media (max-width: 1799px) {
