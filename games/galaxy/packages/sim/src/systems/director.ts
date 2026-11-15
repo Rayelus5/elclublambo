@@ -20,15 +20,16 @@ export function teamLevel(sim: Sim): number {
 }
 
 /**
- * Enemy life plan (2026-11-15): enemies and Núcleos last longer as the team levels up, compounding,
- * (1 + hpPerLevel)^(level − 1). A strong build levels faster, so the enemies keep its pace while a new player barely
- * notices. Multiplied in a loop, not with Math.pow, so every engine gets the same bits.
+ * Enemy life plan (2026-11-15): enemies and Núcleos last longer as the team levels up past `levelFrom`, compounding,
+ * (1 + hpPerLevel)^(level − levelFrom). The levels a new player reaches count nothing; a long run's keep the enemies
+ * at its build's pace. Multiplied in a loop, not with Math.pow, so every engine gets the same bits. The Núcleos have
+ * their own, linear one (`coreLevelFactor`).
  */
 export function levelFactor(sim: Sim): number {
-  const r = sim.sector.scaling.hpPerLevel;
+  const { hpPerLevel: r, levelFrom } = sim.sector.scaling;
   if (r <= 0) return 1;
   let f = 1;
-  for (let l = teamLevel(sim); l > 1; l--) f *= 1 + r;
+  for (let l = teamLevel(sim); l > levelFrom; l--) f *= 1 + r;
   return f;
 }
 
@@ -60,6 +61,16 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   return scale;
 }
 
+/**
+ * More enemies at once in the deep layers (enemy life plan, 2026-11-15): the alive cap and the spawn rate's ceiling grow
+ * by `density.perLayer` every layer past the first, where only strong players get; a new player's first layers stay.
+ * Not while the Núcleo is up: a horde shielding it made the fight unwinnable.
+ */
+function layerCrowd(sim: Sim): number {
+  if (sim.phase === 'boss') return 1;
+  return 1 + sim.sector.density.perLayer * (sim.layer - 1);
+}
+
 /** The Static signal (curse) of the run: the highest among living probes. */
 export function curseOf(sim: Sim): number {
   let c = 0;
@@ -73,7 +84,7 @@ function aliveFauna(sim: Sim): number {
 
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
+  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
   if (aliveFauna(sim) >= cap) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
@@ -136,7 +147,7 @@ function fireWaves(sim: Sim): void {
 /** One tick of the director. */
 export function direct(sim: Sim): void {
   const d = sim.sector.density;
-  let rate = Math.min(d.max, d.base + (d.perMinute * sim.tick) / 3600);
+  let rate = Math.min(d.max * layerCrowd(sim), d.base + (d.perMinute * sim.tick) / 3600);
   if (sim.phase === 'boss') rate *= d.bossFactor;
   rate *= 1 + curseOf(sim);
   if (sim.anomaly) rate *= sim.anomaly.spawn;

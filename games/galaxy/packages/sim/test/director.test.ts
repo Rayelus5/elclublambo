@@ -58,6 +58,34 @@ describe('qué sale y cuándo', () => {
     expect(sim.enemies.count).toBeGreaterThanOrEqual(20);
   });
 
+  // Enemy life plan (2026-11-15): more enemies at once in the deep layers, where only strong players get.
+  test('con `perLayer`, en las capas profundas caben más enemigos vivos', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(42);
+    expect(sim.enemies.count).toBeLessThanOrEqual(50 + 8);
+  });
+
+  // The fight with the Núcleo keeps the usual crowd: a deep-layer horde shielding it made the fight unwinnable.
+  test('con `perLayer`, mientras hay Núcleo el tope es el de siempre', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5, bossFactor: 1 });
+    sim.layer = 3;
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
+  });
+
+  test('sin `perLayer` (contenido publicado antes) la capa no cambia el tope', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
+  });
+
   test('la densidad crece con los minutos hasta su máximo', () => {
     const slow = spawning({ base: 0.2, perMinute: 0, max: 5, cap: 2000 });
     const fast = spawning({ base: 0.2, perMinute: 1, max: 5, cap: 2000 });
@@ -125,6 +153,18 @@ describe('escalado', () => {
     expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 * 1.1, 12);
     sim.probes[0]!.level = 11;
     expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 10, 9);
+  });
+
+  test('los niveles por debajo de `levelFrom` no cuentan: quien empieza no lo nota', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      c.sectors[0]!.scaling.levelFrom = 20;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 20;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+    sim.probes[0]!.level = 23;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 3, 12);
   });
 
   test('en grupo manda el nivel más alto', () => {

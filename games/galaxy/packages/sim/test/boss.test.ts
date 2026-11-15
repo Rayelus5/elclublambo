@@ -685,15 +685,21 @@ describe('vida del Núcleo', () => {
     nextLayer(sim);
   };
 
-  test('el nivel de la sonda sube su vida, de forma compuesta', () => {
+  // Its own rate (`coreHpPerLevel`), from the same `levelFrom`, and linear: a build stops growing once complete, so a
+  // compounding life made the deep Núcleos of a long run take minutes to fall.
+  test('el nivel de la sonda sube su vida con su propia tasa, en línea recta', () => {
     const at = (level: number) => {
       const sim = bossWorld((c) => {
-        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+        c.sectors[0]!.scaling.hpPerLevel = 0.5;
+        c.sectors[0]!.scaling.coreHpPerLevel = 0.1;
+        c.sectors[0]!.scaling.levelFrom = 2;
       });
       sim.probes[0]!.level = level;
       return untilBoss(sim);
     };
-    expect(at(3)).toBeCloseTo(at(1) * 1.21, 6);
+    expect(at(2)).toBe(at(1));
+    expect(at(4)).toBeCloseTo(at(1) * 1.2, 6);
+    expect(at(12)).toBeCloseTo(at(1) * 2, 6);
   });
 
   test('cada Núcleo tiene al menos `coreRise` más vida que el anterior', () => {

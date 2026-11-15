@@ -108,8 +108,10 @@ test('un contenido publicado antes, sin vida por nivel ni subida de Núcleos, ju
   const old = structuredClone(DEFAULT_CONTENT) as unknown as { sectors: { scaling: Record<string, unknown> }[] };
   for (const s of old.sectors) {
     delete s.scaling['hpPerLevel'];
+    delete s.scaling['levelFrom'];
+    delete s.scaling['coreHpPerLevel'];
     delete s.scaling['coreRise'];
   }
   const parsed = contentSchema.parse(old);
-  expect(parsed.sectors.every((s) => s.scaling.hpPerLevel === 0 && s.scaling.coreRise === 0)).toBe(true);
+  expect(parsed.sectors.every((s) => s.scaling.hpPerLevel === 0 && s.scaling.levelFrom === 1 && s.scaling.coreHpPerLevel === 0 && s.scaling.coreRise === 0)).toBe(true);
 });

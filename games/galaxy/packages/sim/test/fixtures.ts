@@ -36,7 +36,9 @@ export function tinyContent(over?: (c: Content) => void): Content {
   if (s.deepBoss) s.deepBoss = { boss: s.deepBoss.boss, every: s.deepBoss.every };
   c.bosses[0]!.hp = 1800;
   c.bosses[0]!.scaling = { hpPerLayer: 0.7, damagePerLayer: 0.25 };
-  s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05, hpPerLevel: 0, coreRise: 0 };
+  s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05, hpPerLevel: 0, levelFrom: 1, coreHpPerLevel: 0, coreRise: 0 };
+  s.density = { ...s.density, perLayer: 0 };
+  c.hitCap = 1;
   c.weapons.find((w) => w.id === 'pulse')!.levels.forEach((l) => (l.cooldown = 0.9));
   over?.(c);
   return contentSchema.parse(c);

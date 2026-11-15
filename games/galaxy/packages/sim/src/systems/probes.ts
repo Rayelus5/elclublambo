@@ -68,6 +68,8 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number, opts?: { keep
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
   dmg -= absorbed;
+  // Enemy life plan (2026-11-15): no single hit takes more than `hitCap` of the maximum life.
+  dmg = Math.min(dmg, p.stats.maxHp * sim.content.hitCap);
   if (opts?.keep !== undefined) dmg = Math.min(dmg, p.hp * (1 - opts.keep));
   p.hp -= dmg;
   p.invulnT = ticks(INVULN_SECONDS);

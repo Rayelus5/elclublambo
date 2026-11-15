@@ -32,7 +32,8 @@ function levels(row: Row, n = 5): WeaponLevel[] {
 const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scaling' | 'elite' | 'drops'> = {
   layerSeconds: 300,
   beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
-  density: { base: 0.3, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5 },
+  // Enemy life plan (2026-11-15): 0.5, as the owner set it live from the panel (it was 0.3), so calibration measures PRE.
+  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5, perLayer: 0 },
   scaling: {
     hpPerMinute: 0.06,
     damagePerMinute: 0.065,
@@ -43,6 +44,8 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scal
     elitePerMinute: 0.006,
     eliteMax: 0.08,
     hpPerLevel: 0,
+    levelFrom: 1,
+    coreHpPerLevel: 0,
     // Enemy life plan (2026-11-15): every Núcleo of a run has at least 15 % more life than the one before.
     coreRise: 0.15,
   },
@@ -2110,6 +2113,8 @@ export const DEFAULT_CONTENT: Content = {
     movingDamage: 0.35,
   },
   crit: { chance: 0.05, damage: 1.5 },
+  // Enemy life plan (2026-11-15): damage may grow, but no single hit kills a probe on its own.
+  hitCap: 1,
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
   // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.
