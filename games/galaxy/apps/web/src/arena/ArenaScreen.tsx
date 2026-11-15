@@ -1,6 +1,27 @@
 import { simOptions } from './sim-options';
 import type { RunStart } from '@galaxy/shared';
-import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSummary, type RunSummary, type Sim, type SimEvent, step, toBase64 } from '@galaxy/sim';
+import {
+  createSim,
+  debugClear,
+  type DebugGrant,
+  debugGrant,
+  debugHeal,
+  debugLevelUp,
+  type DebugResult,
+  debugSkipLayer,
+  debugSummonCore,
+  encodeLog,
+  hudSnapshot,
+  type HudSnapshot,
+  relicVision,
+  runSummary,
+  type RunSummary,
+  setGod,
+  type Sim,
+  type SimEvent,
+  step,
+  toBase64,
+} from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { musicStinger, setMusicScene, startMusic } from '../audio/music';
 import { deepLayer, runScene } from '../audio/music/state';
@@ -26,6 +47,10 @@ import { typing } from '../ui/keys';
 import { useLive } from '../live/LiveConnection';
 import { createRunStream, type RunStream } from './run-stream';
 import { usePrefs } from '../settings/prefs';
+import { Dialog } from '../ui/Dialog';
+import { DebugInfo } from './debug/DebugInfo';
+import { DebugPanel } from './debug/DebugPanel';
+import { createRates } from './debug/rates';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
@@ -37,6 +62,20 @@ export interface RunEnd {
   summary: RunSummary;
   /** The recorded inputs, base64 (packages/sim encodeLog). */
   inputs: string;
+  /** A test run of the admin debug mode (2026-11-15): the finish says so and nothing is paid. */
+  test?: boolean;
+}
+
+/**
+ * The admin debug mode (2026-11-15), solo runs only: an admin with TOTP gets the side panel (F2 or the pause menu). The
+ * first change to play turns the run into a test run on the server (`markTest`) before it applies.
+ */
+export interface ArenaDebug {
+  /** Already a test run (a content draft starts as one). */
+  test: boolean;
+  /** The run plays a content draft (not published). */
+  draft: boolean;
+  markTest: () => Promise<void>;
 }
 
 interface Clock {
@@ -58,6 +97,7 @@ export function ArenaScreen({
   onSim,
   coached = false,
   onSkipTutorial,
+  debug,
 }: {
   run: RunStart;
   onEnd: (end: RunEnd) => void;
@@ -68,6 +108,8 @@ export function ArenaScreen({
   /** The tutorial's first run (polish phase 3): it waits behind a briefing and PERKINS coaches it. */
   coached?: boolean;
   onSkipTutorial?: () => void;
+  /** The admin debug mode (2026-11-15); absent for everyone else. */
+  debug?: ArenaDebug;
 }) {
   const [sim] = useState(() => createSim(simOptions(run)));
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +167,31 @@ export function ArenaScreen({
     onSim?.(sim);
   }, [onSim, sim]);
 
+  // The admin debug mode (2026-11-15).
+  const debugRef = useRef(debug);
+  useEffect(() => {
+    debugRef.current = debug;
+  });
+  const [debugOpen, setDebugOpen] = useState(false);
+  const isTestRef = useRef(debug?.test ?? false);
+  const [isTest, setIsTest] = useState(debug?.test ?? false);
+  const [speed, setSpeedState] = useState(1);
+  const speedRef = useRef(1);
+  const [hitboxes, setHitboxes] = useState(false);
+  const [info, setInfo] = useState(false);
+  const [god, setGodState] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState<DebugGrant | null>(null);
+  /** The change waiting for the admin to confirm the test run, and whether the run was going when it was asked. */
+  const [asking, setAsking] = useState<{ act: () => void; resume: boolean } | null>(null);
+  const askingRef = useRef(false);
+  useEffect(() => {
+    askingRef.current = asking !== null;
+  }, [asking]);
+  const [rates] = useState(createRates);
+  /** The latest handler of the simulation's events (the world's effect sets it), for what the debug actions push. */
+  const onEventsRef = useRef<((events: readonly SimEvent[]) => void) | null>(null);
+
   useEffect(() => {
     shownOffer.current = hud.offer;
   }, [hud.offer]);
@@ -136,6 +203,8 @@ export function ArenaScreen({
   // Plan «escáner pro», part G: the run streams its log live, for staff to watch; it never gets in the run's way.
   const streamRef = useRef<RunStream | null>(null);
   useEffect(() => {
+    // A test run is not watched live (its clock no longer follows the wall's): a content draft starts as one.
+    if (debug?.test) return;
     const stream = createRunStream({
       runId: run.id,
       log: () => sim.log,
@@ -144,12 +213,14 @@ export function ArenaScreen({
     });
     streamRef.current = stream;
     return () => stream.close();
+    // The debug mode is fixed for the life of the screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.id, sim]);
   /** Builds the result, hands it over to be kept, and ends the screen now or after `delay` ms. */
   const finish = useCallback(
     (outcome: RunEnd['outcome'], delay = 0) => {
       streamRef.current?.end();
-      const end: RunEnd = { outcome, summary: runSummary(sim), inputs: toBase64(encodeLog(sim.log ?? { probes: 1, events: [] })) };
+      const end: RunEnd = { outcome, summary: runSummary(sim), inputs: toBase64(encodeLog(sim.log ?? { probes: 1, events: [] })), ...(isTestRef.current ? { test: true } : {}) };
       handlers.current.onSave?.(end);
       if (delay > 0) setTimeout(() => handlers.current.onEnd(end), delay);
       else handlers.current.onEnd(end);
@@ -182,12 +253,97 @@ export function ArenaScreen({
     setPaused(false);
   }, []);
 
+  // The admin debug mode (2026-11-15). A change to play applies at once in a test run; the first one asks, pauses the
+  // run while it asks, and applies only once the server has made it a test run.
+  const gated = useCallback((act: () => void) => {
+    if (!debugRef.current) return;
+    if (isTestRef.current) {
+      act();
+      return;
+    }
+    const going = !(loopRef.current?.paused ?? false);
+    loopRef.current?.pause();
+    setAsking({ act, resume: going });
+  }, []);
+  const settleAsk = useCallback((a: { resume: boolean }) => {
+    setAsking(null);
+    if (a.resume && !pausedRef.current) loopRef.current?.resume();
+  }, []);
+  const confirmTest = useCallback(async () => {
+    const a = asking;
+    const d = debugRef.current;
+    if (!a || !d) return;
+    try {
+      await d.markTest();
+    } catch {
+      setNotice(copy.arena.debug.failed);
+      settleAsk(a);
+      return;
+    }
+    isTestRef.current = true;
+    setIsTest(true);
+    streamRef.current?.end();
+    a.act();
+    settleAsk(a);
+  }, [asking, settleAsk]);
+  /** Runs a debug helper and hands what it pushed to the stage, the sounds and the HUD at once. */
+  const apply = useCallback(
+    (fn: () => DebugResult): DebugResult => {
+      const from = sim.events.length;
+      const r = fn();
+      if (sim.events.length > from) onEventsRef.current?.(sim.events.slice(from));
+      setHud(hudSnapshot(sim, 0));
+      return r;
+    },
+    [sim],
+  );
+  const report = useCallback((r: DebugResult) => setNotice(r === 'ok' ? null : (copy.arena.debug.results[r] ?? null)), []);
+  const debugActions = {
+    speed: (s: number) => {
+      const set = () => {
+        loopRef.current?.setSpeed(s);
+        speedRef.current = s;
+        setSpeedState(s);
+      };
+      if (s === 1) set();
+      else gated(set);
+    },
+    hitboxes: (on: boolean) => {
+      setHitboxes(on);
+      stageRef.current?.setDebug({ hitboxes: on });
+    },
+    god: (on: boolean) =>
+      gated(() => {
+        setGod(sim, on);
+        setGodState(on);
+      }),
+    level: (n: number) => gated(() => report(apply(() => debugLevelUp(sim, 0, n)))),
+    heal: () => gated(() => report(apply(() => debugHeal(sim, 0)))),
+    clear: () => gated(() => report(apply(() => debugClear(sim)))),
+    core: () => gated(() => report(apply(() => debugSummonCore(sim)))),
+    layer: () => gated(() => report(apply(() => debugSkipLayer(sim)))),
+    grant: (g: DebugGrant) =>
+      gated(() => {
+        const r = apply(() => debugGrant(sim, 0, g));
+        if (r === 'slots_full' && g.replace === undefined) {
+          setReplacing(g);
+          setNotice(null);
+          return;
+        }
+        setReplacing(null);
+        const name = (g.kind === 'passive' ? run.content.passives : run.content.weapons).find((x) => x.id === g.id)?.name ?? g.id;
+        setNotice(r === 'ok' ? copy.arena.debug.given(name) : (copy.arena.debug.results[r] ?? null));
+      }),
+  };
+
   // The world: stage, loop and the simulation's events.
   useEffect(() => {
     let disposed = false;
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events, sim.tick);
-      playEvents(events);
+      // Above x2 the effects would be a din: the debug mode mutes them.
+      if (speedRef.current <= 2) playEvents(events);
+      if (debugRef.current) rates.onEvents(events, sim.tick);
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);
       for (const e of events) {
@@ -203,6 +359,7 @@ export function ArenaScreen({
         else if (e.t === 'layer') say('layer', copy.arena.radio.layer(e.layer));
       }
     };
+    onEventsRef.current = onEvents;
     const loop = createLoop({
       now: clock.now,
       schedule: clock.schedule,
@@ -233,7 +390,10 @@ export function ArenaScreen({
           finish(outcome, END_DELAY_MS);
         }
       },
-      render: (alpha) => stageRef.current?.render(sim, sim.status === 'running' ? alpha : 1),
+      render: (alpha) => {
+        if (debugRef.current) rates.onFrame(clock.now());
+        stageRef.current?.render(sim, sim.status === 'running' ? alpha : 1);
+      },
     });
     loopRef.current = loop;
     const canvas = canvasRef.current!;
@@ -336,9 +496,15 @@ export function ArenaScreen({
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
+      // The admin debug mode's panel (2026-11-15): F2 opens and closes it.
+      if (e.code === 'F2' && debugRef.current) {
+        e.preventDefault();
+        setDebugOpen((o) => !o);
+        return;
+      }
       // Escape always pauses; the player's pause key too (Ajustes › Controles).
       if (e.code === 'Escape' || isAction('pause', e.code)) {
-        if (sim.status === 'choosing' || briefingRef.current) return;
+        if (sim.status === 'choosing' || briefingRef.current || askingRef.current) return;
         if (loopRef.current?.paused) resume();
         else pause();
         return;
@@ -430,6 +596,51 @@ export function ArenaScreen({
     <div className={`arena${reduced ? ' reduced' : ''}`}>
       <canvas ref={canvasRef} className="arena-canvas" aria-label={copy.arena.loading} />
       <Hud hud={hud} content={run.content} onPause={pause} announce={announce} />
+      {isTest ? <span className="arena-test-badge">{copy.arena.debug.badge}</span> : null}
+      {debug && debugOpen ? (
+        <DebugPanel
+          content={run.content}
+          speed={speed}
+          onSpeed={debugActions.speed}
+          hitboxes={hitboxes}
+          onHitboxes={debugActions.hitboxes}
+          info={info}
+          onInfo={setInfo}
+          god={god}
+          onGod={debugActions.god}
+          paused={paused}
+          onPause={pause}
+          onResume={resume}
+          choosing={hud.status === 'choosing'}
+          test={isTest}
+          draft={debug.draft}
+          owned={{ weapons: hud.weapons, passives: hud.passives }}
+          onLevel={debugActions.level}
+          onHeal={debugActions.heal}
+          onClear={debugActions.clear}
+          onCore={debugActions.core}
+          onLayer={debugActions.layer}
+          onGrant={debugActions.grant}
+          replacing={replacing}
+          onCancelReplace={() => setReplacing(null)}
+          notice={notice}
+          onClose={() => setDebugOpen(false)}
+        />
+      ) : null}
+      {debug && info ? <DebugInfo sim={sim} rates={rates} now={clock.now} speed={speed} content={debug.draft ? copy.arena.debug.draft : copy.arena.debug.contentVersion(run.contentVersion)} /> : null}
+      {asking ? (
+        <Dialog title={copy.arena.debug.confirmTitle} role="alertdialog" onClose={() => settleAsk(asking)} className="pause confirm">
+          <p>{copy.arena.debug.confirmBody}</p>
+          <div className="modal-actions">
+            <button type="button" className="lip pill" onClick={() => settleAsk(asking)} data-autofocus>
+              {copy.arena.debug.cancel}
+            </button>
+            <button type="button" className="lip pill pill-solar" onClick={() => void confirmTest()}>
+              {copy.arena.debug.confirm}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
       {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
@@ -459,8 +670,9 @@ export function ArenaScreen({
       {choosing && (
         <LevelUp offer={hud.offer!} content={run.content} onPick={choose} />
       )}
-      {paused && !over && !ending && (
+      {paused && !over && !ending && !debugOpen && (
         <PauseMenu
+          onDebug={debug ? () => setDebugOpen(true) : undefined}
           manualAim={manualAim}
           onManualAim={(on) => {
             aimRef.current = on;

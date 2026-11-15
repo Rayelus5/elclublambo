@@ -88,8 +88,14 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         </div>
       </dl>
       {team}
+      {/* A test run of the admin debug mode (2026-11-15): nothing paid or counted, and it says so instead. */}
+      {r.test ? (
+        <p className="lip panel results-test" role="status">
+          {copy.results.test}
+        </p>
+      ) : null}
       {/* A result kept from before M5a (a pending run resent across the deploy) has no progress. */}
-      {r.progress ? (
+      {r.progress && !r.test ? (
       <section className="lip panel results-progress" aria-label={copy.social.progressTitle}>
         <span className="results-xp">{copy.social.xp(r.progress.xp)}</span>
         <span className={`results-level${r.progress.levelUp ? ' up' : ''}`}>
@@ -106,6 +112,7 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         ) : null}
       </section>
       ) : null}
+      {r.test ? null : (
       <section className="lip panel results-loot" aria-label={copy.results.loot} data-tour="loot">
         <h2>{copy.results.loot}</h2>
         <table>
@@ -161,6 +168,7 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
           {(r.payout.components ?? 0) > 0 && <Paid kind="components" value={r.payout.components ?? 0} />}
         </div>
       </section>
+      )}
       <div className="results-actions">
         <Link to="/" className="lip pill">
           <Icon name="back" />

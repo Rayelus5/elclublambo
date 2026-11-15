@@ -3,7 +3,7 @@ import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
-import type { RunEnd } from '../src/arena/ArenaScreen';
+import type { ArenaDebug, RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
 import userEvent from '@testing-library/user-event';
@@ -14,9 +14,9 @@ import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 // whose result never reached the server is sent again with the same key (Review Focus 2).
 
 // The arena is replaced by a stub that keeps its props (to end a run by hand) and can fail like a chunk that did not load.
-const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }, fail: false }));
+const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug }, fail: false }));
 vi.mock('../src/arena/ArenaScreen', () => {
-  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }) => {
+  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug }) => {
     if (arena.fail) throw new Error('Failed to fetch dynamically imported module');
     arena.props = p;
     return <div data-testid="arena" />;
@@ -227,6 +227,66 @@ test('el resultado se guarda en cuanto acaba la partida y luego se envía con es
   expect(await screen.findByRole('heading', { name: copy.results.died })).toBeInTheDocument();
   const keys = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/runs/r1/finish').map(([, init]) => (init!.headers as Record<string, string>)['idempotency-key']);
   expect(keys).toEqual([kept!.key]);
+});
+
+// The admin debug mode (2026-11-15): only an admin with TOTP gets it, never in the tutorial's run; a test run's finish
+// says so, also when it is kept to resend after a reload.
+describe('modo depuración', () => {
+  const me = (roles: string[], mfa: boolean) => () => jsonResponse(200, { id: 'a1', username: 'admin', roles, mfa });
+
+  test('solo un admin con doble factor lo recibe', async () => {
+    for (const [roles, mfa, gets] of [
+      [['admin'], true, true],
+      [['admin'], false, false],
+      [['moderator'], true, false],
+      [[], false, false],
+    ] as const) {
+      arena.props = null;
+      mockApi({ 'GET /galaxy/api/auth/me': me([...roles], mfa), 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+      const { unmount } = renderAt('/incursion', { '/incursion': <HangarScreen /> });
+      await waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+      await screen.findByTestId('arena');
+      expect(Boolean(arena.props!.debug)).toBe(gets);
+      unmount();
+    }
+  });
+
+  test('marcar la incursión de prueba llama al servidor', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/auth/me': me(['admin'], true),
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+      'POST /galaxy/api/runs/r1/test': () => jsonResponse(200, { id: 'r1', test: true }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    await waitFor(() => expect(arena.props!.debug).toBeTruthy());
+    await act(() => arena.props!.debug!.markTest());
+    expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/runs/r1/test' && init?.method === 'POST')).toBe(true);
+  });
+
+  test('keep guarda test', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+      'POST /galaxy/api/runs/r1/finish': () => jsonResponse(200, { ...result, outcome: 'died', test: true }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    fireEvent.click(await screen.findByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    act(() => arena.props!.onSave!({ ...end, test: true }));
+    expect(loadPending()?.body.test).toBe(true);
+    act(() => arena.props!.onEnd({ ...end, test: true }));
+    await screen.findByText(copy.results.test);
+    const sent = fetch.mock.calls.find(([url]) => url === '/galaxy/api/runs/r1/finish')!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true });
+  });
 });
 
 test.each([

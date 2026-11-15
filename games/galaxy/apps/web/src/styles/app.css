@@ -1461,6 +1461,45 @@
   .pause-actions .pill { justify-content: center; }
   .pause-toggle { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 16px; cursor: pointer; }
   .pause-toggle input { width: 22px; height: 22px; accent-color: var(--color-terminal); }
+  /* The admin debug mode (2026-11-15): a side panel over the field's right side, under the HUD's top row, and the
+     read-out on the left; both scroll inside themselves and never push the page sideways. */
+  .debug-panel { position: absolute; z-index: 30; top: 104px; right: 20px; inline-size: min(312px, calc(100vw - 40px)); max-block-size: calc(100% - 124px); box-sizing: border-box; display: grid; align-content: start; gap: 12px; padding: 14px; overflow-y: auto; overscroll-behavior: contain; border: 2px solid rgb(255 255 255 / .08); border-radius: 18px; background: rgb(24 26 61 / .94); color: var(--color-ink); font: 500 14px var(--font-sans); box-shadow: inset 0 2px 0 rgb(255 255 255 / .06), 0 5px 0 var(--color-panel-lip), 0 18px 40px rgb(0 0 0 / .45); }
+  .debug-head { display: flex; align-items: center; gap: 8px; }
+  .debug-head h2 { margin: 0; flex: 1; font: 400 18px var(--font-display); letter-spacing: .02em; }
+  .debug-badge { padding: 2px 8px; border-radius: 99px; background: var(--color-static); color: #2b0712; font-weight: 700; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  .debug-badge.draft { background: var(--color-uv-soft); color: #120a3a; }
+  .debug-x { inline-size: 32px; block-size: 32px; border: 0; border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink-soft); font: 700 20px/1 var(--font-sans); cursor: pointer; }
+  .debug-x:hover { color: var(--color-ink); }
+  .debug-hint { margin: -6px 0 0; color: var(--color-ink-mute); font-size: 12px; }
+  .debug-section { display: grid; gap: 8px; }
+  .debug-section h3 { margin: 0; color: var(--color-ink-mute); font: 700 11px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
+  .debug-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .debug-row.speeds { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .debug-chip, .debug-btn { min-block-size: 32px; padding: 0 10px; border: 2px solid rgb(255 255 255 / .07); border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink); font: 600 13px var(--font-sans); font-variant-numeric: tabular-nums; cursor: pointer; box-shadow: 0 3px 0 var(--color-panel-lip); transition: background-color .12s, border-color .12s; }
+  .debug-chip:hover, .debug-btn:hover:not(:disabled) { border-color: rgb(255 255 255 / .2); }
+  .debug-chip[aria-pressed='true'] { border-color: var(--color-terminal); background: var(--color-terminal-lip); color: #e9fff6; }
+  .debug-btn.give { background: var(--color-solar); border-color: var(--color-solar-lip); color: var(--color-on-solar); }
+  .debug-btn.ghost { background: transparent; box-shadow: none; }
+  .debug-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .debug-note { margin: 0; color: var(--color-solar); font-size: 12px; }
+  .debug-search { inline-size: 100%; block-size: 36px; box-sizing: border-box; padding: 0 12px; border: 2px solid rgb(255 255 255 / .07); border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
+  .debug-list { margin: 0; padding: 4px; list-style: none; max-block-size: 168px; overflow-y: auto; overscroll-behavior: contain; border-radius: 10px; background: rgb(11 12 36 / .6); }
+  .debug-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+  .debug-list li:hover, .debug-list li:focus-visible { background: var(--color-panel-2); outline: none; }
+  .debug-list li[aria-selected='true'] { background: var(--color-uv-lip); }
+  .debug-list small { color: var(--color-ink-mute); font-size: 11px; }
+  .debug-level { display: flex; align-items: center; gap: 6px; color: var(--color-ink-soft); font-size: 13px; }
+  .debug-level input { inline-size: 56px; block-size: 32px; box-sizing: border-box; padding: 0 6px; border: 2px solid rgb(255 255 255 / .07); border-radius: 10px; background: var(--color-panel-2); color: var(--color-ink); font: 600 14px var(--font-sans); text-align: center; }
+  .debug-replace { display: grid; gap: 6px; }
+  .debug-replace p { margin: 0; color: var(--color-solar); font-size: 13px; }
+  .debug-notice { margin: 0; padding: 8px 10px; border-radius: 10px; background: rgb(11 12 36 / .6); color: var(--color-ink-soft); font-size: 13px; }
+  .debug-info { position: absolute; z-index: 29; top: 104px; left: 20px; inline-size: min(264px, calc(100vw - 40px)); max-block-size: calc(100% - 250px); box-sizing: border-box; padding: 10px 12px; overflow-y: auto; border: 2px solid rgb(255 255 255 / .08); border-radius: 14px; background: rgb(11 12 36 / .82); color: var(--color-ink); font: 500 12px var(--font-sans); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .debug-info dl { margin: 0; display: grid; gap: 3px; }
+  .debug-info dl > div { display: flex; justify-content: space-between; gap: 10px; }
+  .debug-info dt { color: var(--color-ink-mute); }
+  .debug-info dd { margin: 0; text-align: end; }
+  .arena-test-badge { position: absolute; z-index: 28; right: 20px; bottom: 18px; padding: 4px 12px; border-radius: 99px; background: var(--color-static); color: #2b0712; font: 700 13px var(--font-sans); letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 3px 0 var(--color-nova-lip); pointer-events: none; }
+  .results-test { margin: 0; padding: 14px 18px; text-align: center; color: var(--color-solar); font-weight: 700; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px; }
   .arena.reduced .hud-hp.low, .arena.reduced .hud-radio, .arena.reduced .arena-ending { animation: none; }
 

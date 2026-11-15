@@ -1,4 +1,4 @@
-import type { GachaView, HangarView, ProbeTestRequest, ProbeTestResult, RunResult, RunStart, StartRunRequest } from '@galaxy/shared';
+import type { GachaView, HangarView, ProbeTestRequest, ProbeTestResult, RunResult, RunStart, StartRunRequest, TestRunResponse } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
@@ -119,6 +119,11 @@ export function useStartRun() {
     mutationFn: (req: StartRunRequest) => api<RunStart>('/runs', { method: 'POST', body: req, headers: keyFor('run-start') }),
     onSettled: (_data, error) => endIntent('run-start', error),
   });
+}
+
+/** The admin debug mode (2026-11-15): the admin's own open solo run becomes a test run on the server. */
+export function markTestRun(runId: string): Promise<TestRunResponse> {
+  return api<TestRunResponse>(`/runs/${runId}/test`, { method: 'POST', body: {} });
 }
 
 export function finishRun(p: PendingRun): Promise<RunResult> {

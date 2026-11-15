@@ -13,6 +13,7 @@ export function PauseMenu({
   onResume,
   onAbandon,
   onSkipTutorial,
+  onDebug,
   title = copy.arena.pause,
   abandonBody = copy.arena.abandonBody,
 }: {
@@ -22,6 +23,8 @@ export function PauseMenu({
   onAbandon: () => void;
   /** In the tutorial's run: leave the tutorial and keep playing (polish phase 3). */
   onSkipTutorial?: () => void;
+  /** The admin debug mode (2026-11-15), solo runs only: opens its side panel. */
+  onDebug?: () => void;
   /** Co-op (multiplayer plan): the world does not stop, so it is a menu, and abandoning says what it means there. */
   title?: string;
   abandonBody?: string;
@@ -70,6 +73,11 @@ export function PauseMenu({
           <Icon name="gear" />
           <span>{copy.settings.title}</span>
         </button>
+        {onDebug ? (
+          <button type="button" className="lip pill" onClick={onDebug}>
+            {copy.arena.debug.open}
+          </button>
+        ) : null}
         {onSkipTutorial ? (
           <button type="button" className="lip pill" onClick={onSkipTutorial}>
             {copy.tour.skip}
