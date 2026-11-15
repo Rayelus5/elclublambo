@@ -1499,11 +1499,11 @@
   .debug-info dt { color: var(--color-ink-mute); }
   .debug-info dd { margin: 0; text-align: end; }
   .arena-test-badge { position: absolute; z-index: 28; right: 20px; bottom: 18px; padding: 4px 12px; border-radius: 99px; background: var(--color-static); color: #2b0712; font: 700 13px var(--font-sans); letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 3px 0 var(--color-nova-lip); pointer-events: none; }
-  .lobby-draft { display: grid; gap: 6px; padding: 12px 14px; border: 2px solid var(--color-uv-soft); font-size: 14px; }
-  .lobby-draft b { color: var(--color-uv-soft); }
-  .lobby-draft span { color: var(--color-ink-soft); }
-  .lobby-draft .pill { justify-self: start; }
-  .lobby-draft .field-error { margin: 0; }
+  .lobby-draft { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 2px; padding: 8px 10px 8px 12px; border: 2px solid var(--color-uv-soft); font-size: 12.5px; line-height: 1.3; }
+  .lobby-draft b { grid-column: 1; color: var(--color-uv-soft); }
+  .lobby-draft span { grid-column: 1; color: var(--color-ink-soft); }
+  .lobby-draft .pill { grid-column: 2; grid-row: 1 / span 2; }
+  .lobby-draft .field-error { grid-column: 1 / -1; margin: 4px 0 0; }
   .admin-try { display: grid; gap: 8px; margin-top: 12px; }
   .admin-try .hint { margin: 0; }
   .results-test { margin: 0; padding: 14px 18px; text-align: center; color: var(--color-solar); font-weight: 700; }

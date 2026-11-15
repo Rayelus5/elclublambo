@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { HangarView, RoomView } from '@galaxy/shared';
 import { useRoomAction, useRooms } from '../../api/rooms';
 import { errorText } from '../../auth/useMe';
@@ -31,7 +32,26 @@ function Big({ label, onClick, disabled, busy, tour, pressed }: { label: string;
   );
 }
 
-export function LaunchDock({ view, mode, room, me, onLaunch, launching, error }: { view: HangarView; mode: Mode; room: RoomView | null; me: string; onLaunch: () => void; launching: boolean; error: unknown }) {
+export function LaunchDock({
+  view,
+  mode,
+  room,
+  me,
+  onLaunch,
+  launching,
+  error,
+  notice,
+}: {
+  view: HangarView;
+  mode: Mode;
+  room: RoomView | null;
+  me: string;
+  onLaunch: () => void;
+  launching: boolean;
+  error: unknown;
+  /** Over the solo launch only: an admin's content draft about to be tried (admin debug mode, 2026-11-15). */
+  notice?: ReactNode;
+}) {
   const rooms = useRooms();
   const action = useRoomAction();
   let cta;
@@ -61,6 +81,7 @@ export function LaunchDock({ view, mode, room, me, onLaunch, launching, error }:
           {errorText(action.error, copy.errors)}
         </p>
       ) : null}
+      {!room && mode === 'solo' ? notice : null}
       {cta}
       {hint ? <p className="lobby-hint lobby-dock-hint">{hint}</p> : null}
     </div>

@@ -101,8 +101,7 @@ export function Lobby({
         <div className="lobby-foot">
           <TodayMissions d=".3s" className="lobby-missions" />
           <RelicStrip view={view} />
-          {mode === 'solo' && !room ? notice : null}
-          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} />
+          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} notice={notice} />
         </div>
       </div>
       {launching ? <span className="lobby-flash" aria-hidden="true" /> : null}

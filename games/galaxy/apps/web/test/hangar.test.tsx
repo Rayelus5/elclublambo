@@ -306,6 +306,8 @@ describe('borrador de contenido', () => {
     mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
     renderAt('/incursion', { '/incursion': <HangarScreen /> });
     const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    // Inside the launch dock, over the button: never a column of its own in the lobby's foot (review, 2026-11-15).
+    expect(notice.closest('.lobby-dock')).not.toBeNull();
     fireEvent.click(within(notice).getByRole('button', { name: copy.hangar.draft.discard }));
     expect(readContentDraft()).toBeNull();
     expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
