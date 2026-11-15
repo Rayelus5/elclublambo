@@ -84,7 +84,10 @@ function aliveFauna(sim: Sim): number {
 
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
+  // While the Núcleo is up the alive cap drops with `bossFactor`, like the spawn rate: a Núcleo walled in by tough fauna
+  // could not be reached and the fight went on for minutes (enemy life plan, 2026-11-15).
+  const fight = sim.phase === 'boss' ? sector.density.bossFactor : 1;
+  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * fight * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
   if (aliveFauna(sim) >= cap) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);

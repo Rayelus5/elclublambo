@@ -12,7 +12,7 @@ function spawning(over: Partial<typeof sector.density> = {}) {
   return quietSim((c) => {
     const s = c.sectors[0]!;
     s.spawns = structuredClone(sector.spawns);
-    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, ...over };
+    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, perLayer: 0, ...over };
   });
 }
 
@@ -76,6 +76,16 @@ describe('qué sale y cuándo', () => {
     sim.probes[0]!.hp = 1e9;
     run(sim, 30 * 60);
     expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
+  });
+
+  // A Núcleo walled in by tough fauna could not be reached: fights of 20 minutes nobody won (enemy life plan, 2026-11-15).
+  test('mientras hay Núcleo caben menos enemigos vivos: el tope baja con `bossFactor`, como la aparición', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 24, bossFactor: 0.5 });
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(12 + 8);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(8);
   });
 
   test('sin `perLayer` (contenido publicado antes) la capa no cambia el tope', () => {
@@ -204,7 +214,7 @@ describe('Señal de la Estática (maldición)', () => {
     const sim = quietSim((c) => {
       const s = c.sectors[0]!;
       s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
-      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5 };
+      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5, perLayer: 0 };
       if (over.enemies) c.limits.enemies = over.enemies;
       c.probes[0]!.bonus = { curse };
     });
