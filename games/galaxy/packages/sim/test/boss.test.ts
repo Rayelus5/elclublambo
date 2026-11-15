@@ -20,6 +20,7 @@ import {
   type Sim,
   type SimEvent,
   sinA,
+  spawnEnemy,
   stateHash,
   step,
   ticks,
@@ -749,4 +750,26 @@ describe('vida del Núcleo', () => {
     const one = untilBoss(sim);
     expect(one).toBeCloseTo((two / DEFAULT_COOP_RULES.bossHp[1]!) * DEFAULT_COOP_RULES.bossHp[0]! * 1.15, 6);
   });
+});
+
+// A layer must always get its Núcleo: with the enemy pool full when it was due, it never came and the run stayed in its
+// Núcleo phase forever, neither won nor lost (enemy life plan, 2026-11-15; reachable with a high Static signal).
+test('el Núcleo sale aunque la piscina de enemigos esté llena: deja su sitio el enemigo más lejano', () => {
+  const sim = quietSim((c) => {
+    c.sectors[0]!.layerSeconds = 1;
+    c.limits.enemies = 12;
+  });
+  sim.probes[0]!.hp = 1e9;
+  const mite = sim.content.enemies.find((e) => e.id === 'mite')!;
+  for (let k = 0; k < 12; k++) spawnEnemy(sim, mite, 200 + k * 5, 0);
+  const far = spawnEnemy(sim, mite, 0, 0);
+  expect(far).toBe(-1);
+  for (let k = 0; k < 12; k++) sim.enemies.speed[k] = 0;
+  const farthest = 11;
+  expect(sim.enemies.x[farthest]).toBe(255);
+  for (let i = 0; i < 120 && !sim.boss; i++) step(sim, [IDLE]);
+  expect(sim.boss).not.toBeNull();
+  expect(sim.enemies.boss[sim.boss!.index]).toBe(1);
+  expect(sim.enemies.count).toBe(12);
+  expect(sim.boss!.index).toBe(farthest);
 });

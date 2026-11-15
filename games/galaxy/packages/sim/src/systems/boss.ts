@@ -73,11 +73,36 @@ function coreLife(sim: Sim, def: BossDef): number {
   return hp;
 }
 
+/**
+ * A full enemy pool must not keep the Núcleo away: the run would stay in its phase forever, neither won nor lost. The
+ * fauna farthest from the probes leaves (no loot) and the Núcleo takes its slot (enemy life plan, 2026-11-15).
+ */
+function makeRoom(sim: Sim): number {
+  const en = sim.enemies;
+  const c = probesCentre(sim);
+  let far = -1;
+  let best = -1;
+  for (let e = 0; e < en.top; e++) {
+    if (!en.alive[e] || en.boss[e]) continue;
+    const dx = en.x[e]! - c.x;
+    const dy = en.y[e]! - c.y;
+    const d = dx * dx + dy * dy;
+    if (d > best) {
+      best = d;
+      far = e;
+    }
+  }
+  if (far < 0) return -1;
+  en.kill(far);
+  return en.spawn();
+}
+
 export function spawnBoss(sim: Sim): void {
   const def = bossDef(sim);
   if (!def) return;
   const en = sim.enemies;
-  const i = en.spawn();
+  let i = en.spawn();
+  if (i < 0) i = makeRoom(sim);
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
