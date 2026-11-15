@@ -30,7 +30,7 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { curseOf, direct, layerSeconds, levelFactor, relocate, scaleAt, teamLevel } from './systems/director';
+export { aliveCap, curseOf, direct, layerCrowd, layerSeconds, levelFactor, relocate, scaleAt, spawnRate, teamLevel } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
 export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';
@@ -73,3 +73,16 @@ export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
 export { createLiveReplayer, createReplayer, decodeEvents, decodeLog, encodeEvents, encodeLog, fromBase64, type LiveReplayer, logTicks, replay, type Replayer, toBase64 } from './recording';
 export { botInput, botPick } from './bot';
+export {
+  debugClear,
+  debugGrant,
+  debugHeal,
+  debugInfo,
+  debugLevelUp,
+  debugSkipLayer,
+  debugSummonCore,
+  type DebugGrant,
+  type DebugInfo,
+  type DebugResult,
+  setGod,
+} from './debug';
