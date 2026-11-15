@@ -611,6 +611,31 @@ test('el brillo detrás de tu sonda solo se ve si lo activas, y es suave', async
 });
 
 
+// The admin debug mode (2026-11-15): the collisions are thin outlines over the world, only while they are on.
+test('las colisiones de depuración se dibujan solo encendidas, sobre el mundo', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    stage.render(sim, 1);
+    const off = pixels(canvas);
+    stage.setDebug({ hitboxes: true });
+    stage.render(sim, 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/debug-hitboxes.png', element: canvas });
+    expect(changed(off, pixels(canvas))).toBeGreaterThan(0);
+    const world = stage.app.stage.getChildByLabel('world')!;
+    expect(world.getChildIndex(world.getChildByLabel('hitboxes')!)).toBe(world.children.length - 1);
+    stage.setDebug({ hitboxes: false });
+    stage.render(sim, 1);
+    expect(changed(off, pixels(canvas))).toBe(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
 // Plan «rareza Mítica» M2: a mythic's own power in the arena. The singularity is a dark core with an iridescent ring
 // (the mythic's four tones) and motes spiralling in, drawn under the probes; it collapses in a burst. With reduced
 // motion: no motes, a soft ring that stays still, and the burst only fades.
