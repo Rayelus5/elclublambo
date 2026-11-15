@@ -190,6 +190,21 @@ describe('escalado', () => {
     expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 4, 12);
   });
 
+  // Review: a player who left the group no longer sets the enemies' life for those who stay.
+  test('en grupo no cuenta quien se ha ido de la partida', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    sim.probes[1]!.level = 9;
+    sim.probes[1]!.life = 'left';
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 2, 12);
+  });
+
   test('sin vida por nivel, subir de nivel no cambia la vida (contenido publicado antes)', () => {
     const sim = quietSim();
     const atLevel1 = scaleAt(sim).hp;

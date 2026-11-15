@@ -12,10 +12,13 @@ export function layerSeconds(sim: Sim): number {
   return (sim.tick - (sim.clocks['layerStart'] ?? 0)) / 60;
 }
 
-/** The team's level: the highest any probe of the run has reached (it never goes down, even if that probe falls). */
+/**
+ * The team's level: the highest any probe still in the run has reached (a fallen probe still counts; one whose player
+ * left the group does not, so those who stay do not face enemies sized for them).
+ */
 export function teamLevel(sim: Sim): number {
   let level = 1;
-  for (const p of sim.probes) if (p.level > level) level = p.level;
+  for (const p of sim.probes) if (p.life !== 'left' && p.level > level) level = p.level;
   return level;
 }
 

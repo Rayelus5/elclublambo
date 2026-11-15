@@ -49,3 +49,17 @@ test('con `hitCap` 1 no hay tope: un golpe enorme mata', () => {
   hurtProbe(sim, p, 1e6);
   expect(p.alive).toBe(false);
 });
+
+// Review: the cap goes on the raw hit, so armour and shields still count against the biggest hits.
+test('el tope va antes de la armadura y el escudo: siguen protegiendo de los golpes enormes', () => {
+  const sim = quietSim((c) => {
+    c.hitCap = 0.4;
+  });
+  const p = sim.probes[0]!;
+  p.stats.armor = 0.5;
+  p.shield = 10;
+  hurtProbe(sim, p, 1e6);
+  // 40 % of the maximum life, halved by the armour, and the shield takes 10 of it.
+  expect(p.hp).toBeCloseTo(p.stats.maxHp - (p.stats.maxHp * 0.4 * 0.5 - 10), 9);
+  expect(p.shield).toBe(0);
+});

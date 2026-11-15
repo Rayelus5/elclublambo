@@ -717,6 +717,27 @@ describe('vida del Núcleo', () => {
     expect(third).toBeCloseTo(first * 1.15 * 1.15, 6);
   });
 
+  // Review: the rise keeps the Núcleo's own life (without the team's level), so a level that drops (a player who left)
+  // is not frozen into the next Núcleo.
+  test('la subida va sobre la vida propia del Núcleo; el nivel del equipo multiplica después', () => {
+    const sim = bossWorld(
+      (c) => {
+        c.sectors[0]!.scaling.coreRise = 0.15;
+        c.sectors[0]!.scaling.coreHpPerLevel = 0.1;
+        c.bosses[0]!.scaling.hpPerLayer = 0;
+      },
+      { coop: DEFAULT_COOP_RULES, probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    sim.probes[1]!.level = 11;
+    const first = untilBoss(sim);
+    beat(sim);
+    sim.probes[1]!.life = 'left';
+    sim.players = 1;
+    const second = untilBoss(sim);
+    // The first had ×(1 + 0.1 × 10) for the level and ×bossHp[1] for two players; the second neither, and +15 %.
+    expect(second).toBeCloseTo((first / 2 / DEFAULT_COOP_RULES.bossHp[1]!) * DEFAULT_COOP_RULES.bossHp[0]! * 1.15, 6);
+  });
+
   test('si su vida propia ya es mayor, la subida no la toca', () => {
     const sim = bossWorld((c) => {
       c.sectors[0]!.scaling.coreRise = 0.15;

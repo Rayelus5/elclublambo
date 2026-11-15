@@ -64,12 +64,13 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number, opts?: { keep
     sim.events.push({ t: 'evade', probe: p.index });
     return;
   }
-  let dmg = amount * (1 - p.stats.armor);
+  // Enemy life plan (2026-11-15): no single hit takes more than `hitCap` of the maximum life. On the raw hit, so armour
+  // and shields still count against the biggest ones.
+  const cap = sim.content.hitCap;
+  let dmg = (cap < 1 ? Math.min(amount, p.stats.maxHp * cap) : amount) * (1 - p.stats.armor);
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
   dmg -= absorbed;
-  // Enemy life plan (2026-11-15): no single hit takes more than `hitCap` of the maximum life.
-  dmg = Math.min(dmg, p.stats.maxHp * sim.content.hitCap);
   if (opts?.keep !== undefined) dmg = Math.min(dmg, p.hp * (1 - opts.keep));
   p.hp -= dmg;
   p.invulnT = ticks(INVULN_SECONDS);

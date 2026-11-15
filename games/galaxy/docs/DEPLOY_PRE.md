@@ -1127,7 +1127,7 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
 - **El Núcleo siempre aparece.** Con la piscina de enemigos llena cuando tocaba, no salía y la incursión se quedaba en su fase para siempre; ahora deja su sitio el enemigo más lejano.
 - **Mientras hay Núcleo caben menos enemigos vivos:** el tope baja con `density.bossFactor`, como ya bajaba su aparición.
 - **Ningún golpe mata de una vez:** `hitCap` (0,4 por defecto, también para el contenido publicado sin él) limita cada golpe al 40 % de la vida máxima; se sigue muriendo, de varios golpes.
-- **Mandos nuevos en `sectors`, a 0 si el contenido publicado no los trae,** así que el resto juega igual hasta publicar:
+- **Mandos nuevos en `sectors`, neutros si el contenido publicado no los trae** (0, y `levelFrom` 1), así que el resto juega igual hasta publicar:
   - `sectors[].scaling.hpPerLevel` y `levelFrom`: la vida de la fauna crece con el nivel más alto del equipo, de forma compuesta, a partir de `levelFrom`;
   - `sectors[].scaling.coreHpPerLevel`: lo mismo para los Núcleos, en línea recta;
   - `sectors[].scaling.coreRise`: cada Núcleo de la incursión con al menos ese tanto más de vida que el anterior;

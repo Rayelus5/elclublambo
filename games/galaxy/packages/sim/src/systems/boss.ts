@@ -64,13 +64,14 @@ export function coreLevelFactor(sim: Sim): number {
  * players leave a group, the next Núcleo shrinks with them.
  */
 function coreLife(sim: Sim, def: BossDef): number {
-  let hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * sim.sector.enemyHp * coreLevelFactor(sim);
+  let hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * sim.sector.enemyHp;
   const rise = sim.sector.scaling.coreRise;
   if (rise > 0) {
     hp = Math.max(hp, (sim.clocks['coreHp'] ?? 0) * (1 + rise));
     sim.clocks['coreHp'] = hp;
   }
-  return hp;
+  // The team's level multiplies after the rise, so a level that drops (a player who left) is not kept in the floor.
+  return hp * coreLevelFactor(sim);
 }
 
 /**
