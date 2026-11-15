@@ -1328,7 +1328,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       if (h.kind === 'circle') {
         hitboxes.circle(h.x, h.y, h.r).stroke({ width: 1, color, alpha: 0.9 });
       } else {
-        hitboxes.moveTo(h.x, h.y).arc(h.x, h.y, h.r, h.angle - h.arc / 2, h.angle + h.arc / 2).closePath().stroke({ width: 1, color, alpha: 0.9 });
+        // A pie slice from its centre (an open arc would need arcFrom).
+        const { x, y } = h;
+        hitboxes.moveTo(x, y).arc(x, y, h.r, h.angle - h.arc / 2, h.angle + h.arc / 2).closePath().stroke({ width: 1, color, alpha: 0.9 });
       }
     }
   }
