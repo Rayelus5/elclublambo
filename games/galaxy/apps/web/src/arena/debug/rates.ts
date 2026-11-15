@@ -18,15 +18,25 @@ export interface Rates {
   onEvents(events: readonly SimEvent[], tick: number): void;
   onFrame(now: number): void;
   read(now: number, tick: number): RateReading;
+  /** Ticks of damage kept: never more than the window, however long the run (2026-11-15 review). */
+  size(): number;
 }
 
 export function createRates(): Rates {
+  // One sum per tick that hit, the old ones dropped as the run goes: an admin's run feeds this whether or not the
+  // read-out is open, so it must not grow with the run.
   const hits: { tick: number; amount: number }[] = [];
   const frames: number[] = [];
   const samples: { now: number; tick: number }[] = [];
   return {
     onEvents(events, tick) {
-      for (const e of events) if (e.t === 'hit') hits.push({ tick, amount: e.amount });
+      for (const e of events) {
+        if (e.t !== 'hit') continue;
+        const last = hits[hits.length - 1];
+        if (last && last.tick === tick) last.amount += e.amount;
+        else hits.push({ tick, amount: e.amount });
+      }
+      while (hits.length > 0 && hits[0]!.tick <= tick - WINDOW_TICKS) hits.shift();
     },
     onFrame(now) {
       frames.push(now);
@@ -43,6 +53,9 @@ export function createRates(): Rates {
       const wall = (now - first.now) / 1000;
       const speed = wall > 0 ? (tick - first.tick) / 60 / wall : 0;
       return { dps, fps: frames.length, speed };
+    },
+    size() {
+      return hits.length;
     },
   };
 }

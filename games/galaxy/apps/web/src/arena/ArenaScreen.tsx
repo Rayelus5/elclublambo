@@ -183,8 +183,12 @@ export function ArenaScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [replacing, setReplacing] = useState<DebugGrant | null>(null);
   /** The change waiting for the admin to confirm the test run, and whether the run was going when it was asked. */
-  const [asking, setAsking] = useState<{ act: () => void; resume: boolean } | null>(null);
+  const [asking, setAsking] = useState<{ act: () => void; resume: boolean; id: number } | null>(null);
   const askingRef = useRef(false);
+  /** Each question is numbered: a cancelled one's late answer is not applied; a confirm runs once. */
+  const askSeq = useRef(0);
+  const confirmingRef = useRef(false);
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     askingRef.current = asking !== null;
   }, [asking]);
@@ -263,26 +267,43 @@ export function ArenaScreen({
     }
     const going = !(loopRef.current?.paused ?? false);
     loopRef.current?.pause();
-    setAsking({ act, resume: going });
+    askSeq.current++;
+    setAsking({ act, resume: going, id: askSeq.current });
   }, []);
   const settleAsk = useCallback((a: { resume: boolean }) => {
     setAsking(null);
     if (a.resume && !pausedRef.current) loopRef.current?.resume();
   }, []);
+  const cancelAsk = useCallback(
+    (a: { resume: boolean }) => {
+      askSeq.current++;
+      settleAsk(a);
+    },
+    [settleAsk],
+  );
   const confirmTest = useCallback(async () => {
     const a = asking;
     const d = debugRef.current;
-    if (!a || !d) return;
+    if (!a || !d || confirmingRef.current) return;
+    confirmingRef.current = true;
+    setConfirming(true);
     try {
       await d.markTest();
     } catch {
-      setNotice(copy.arena.debug.failed);
-      settleAsk(a);
+      if (askSeq.current === a.id) {
+        setNotice(copy.arena.debug.failed);
+        settleAsk(a);
+      }
       return;
+    } finally {
+      confirmingRef.current = false;
+      setConfirming(false);
     }
+    // The server made it a test run: so is it here, even if the question was cancelled meanwhile.
     isTestRef.current = true;
     setIsTest(true);
     streamRef.current?.end();
+    if (askSeq.current !== a.id) return;
     a.act();
     settleAsk(a);
   }, [asking, settleAsk]);
@@ -629,13 +650,13 @@ export function ArenaScreen({
       ) : null}
       {debug && info ? <DebugInfo sim={sim} rates={rates} now={clock.now} speed={speed} content={debug.draft ? copy.arena.debug.draft : copy.arena.debug.contentVersion(run.contentVersion)} /> : null}
       {asking ? (
-        <Dialog title={copy.arena.debug.confirmTitle} role="alertdialog" onClose={() => settleAsk(asking)} className="pause confirm">
+        <Dialog title={copy.arena.debug.confirmTitle} role="alertdialog" onClose={() => cancelAsk(asking)} className="pause confirm">
           <p>{copy.arena.debug.confirmBody}</p>
           <div className="modal-actions">
-            <button type="button" className="lip pill" onClick={() => settleAsk(asking)} data-autofocus>
+            <button type="button" className="lip pill" onClick={() => cancelAsk(asking)} data-autofocus>
               {copy.arena.debug.cancel}
             </button>
-            <button type="button" className="lip pill pill-solar" onClick={() => void confirmTest()}>
+            <button type="button" className="lip pill pill-solar" disabled={confirming} onClick={() => void confirmTest()}>
               {copy.arena.debug.confirm}
             </button>
           </div>
