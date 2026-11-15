@@ -42,7 +42,7 @@ describe('capas y jefe', () => {
     const sim = layered((c) => {
       const s = c.sectors[0]!;
       s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
-      s.density = { base: 2, perMinute: 0, max: 2, cap: 2000, bossFactor: 0.5 };
+      s.density = { base: 2, perMinute: 0, max: 2, cap: 2000, bossFactor: 0.5, perLayer: 0 };
       s.layerSeconds = 10;
     });
     const dummy = sim.content.enemies.findIndex((e) => e.id === 'dummy');

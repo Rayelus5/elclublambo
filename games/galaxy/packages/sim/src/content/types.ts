@@ -295,7 +295,7 @@ export interface SectorDef {
   spawns: { enemy: string; from: number; weight: number; group: [number, number] }[];
   waves: { at: number; kind: 'ring' | 'burst'; enemy: string; count: number }[];
   /** Groups per second: base + perMinute · minutes, up to max; at most `cap` alive; × bossFactor during the boss. */
-  density: { base: number; perMinute: number; max: number; cap: number; bossFactor: number };
+  density: { base: number; perMinute: number; max: number; cap: number; bossFactor: number; perLayer: number };
   scaling: {
     hpPerMinute: number;
     damagePerMinute: number;
@@ -305,6 +305,14 @@ export interface SectorDef {
     eliteBase: number;
     elitePerMinute: number;
     eliteMax: number;
+    /** Extra life per level of the team's highest probe past `levelFrom`, compounding: × (1 + hpPerLevel)^(level − levelFrom). */
+    hpPerLevel: number;
+    /** The level the life per level starts counting from (1: from the first level up). */
+    levelFrom: number;
+    /** The Núcleos' own, linear: × (1 + coreHpPerLevel × (level − levelFrom)) past `levelFrom`. */
+    coreHpPerLevel: number;
+    /** Every Núcleo of a run has at least (1 + coreRise) × the life of the one before (0: off). */
+    coreRise: number;
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
   /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */
@@ -477,6 +485,8 @@ export interface Content {
   xp: { base: number; linear: number; quad: number };
   caps: Record<StatKey, number>;
   crit: { chance: number; damage: number };
+  /** No single enemy hit takes more than this share of a probe's maximum life (1: no cap). */
+  hitCap: number;
   arena: { viewW: number; viewH: number; margin: number; despawn: number };
   limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number };
   anomalies: AnomalyDef[];

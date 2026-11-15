@@ -157,7 +157,7 @@ describe('repetición con evoluciones', () => {
 
   test.each([false, true])('una partida que evoluciona a mitad se repite con el mismo hash (piscinas pequeñas: %s)', (small) => {
     const sim = createSim(evolving(small));
-    playEvolving(sim, 7000);
+    playEvolving(sim, 15000);
     expect(sim.probes[0]!.weapons.map((w) => w.id)).toContain('pulse-storm');
     const again = replay({ ...evolving(small), record: false }, decodeLog(encodeLog(sim.log!)), sim.tick);
     expect(stateHash(again)).toBe(stateHash(sim));

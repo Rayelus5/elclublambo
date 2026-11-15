@@ -2,7 +2,7 @@ import type { BossDef, BossPattern, SectorDef } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { BossState, Sim } from '../types';
 import { ticks } from '../version';
-import { scaleAt } from './director';
+import { scaleAt, teamLevel } from './director';
 import { angleDiff, fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
 import { hurtProbe, PROBE_RADIUS } from './probes';
 import { coopFactor } from './coop';
@@ -47,15 +47,67 @@ function layerDamage(sim: Sim, def: BossDef): number {
   return (1 + def.scaling.damagePerLayer * (sim.layer - 1)) * sim.sector.coreDamage * coopFactor(sim, 'enemyDamage') * (sim.anomaly?.enemyDamage ?? 1);
 }
 
+/**
+ * The team's level on a Núcleo's life: 1 + coreHpPerLevel × the levels past `levelFrom`. Linear, not compounding like the
+ * fauna's: a build stops growing once complete (≈ level 55), and a compounding life made the deep Núcleos of a long run
+ * take minutes to fall (enemy life plan, 2026-11-15).
+ */
+export function coreLevelFactor(sim: Sim): number {
+  const { coreHpPerLevel, levelFrom } = sim.sector.scaling;
+  return 1 + coreHpPerLevel * Math.max(0, teamLevel(sim) - levelFrom);
+}
+
+/**
+ * The Núcleo's life for one player, before the group and the anomaly: its own, its layer's, the sector's toughness and
+ * the team's level at the Núcleos' own rate (enemy life plan, 2026-11-15). With `coreRise`, every Núcleo of the run has at least (1 + coreRise)
+ * × the one before, so the form after a deep Núcleo never comes weaker. It is kept per player (`clocks.coreHp`): if
+ * players leave a group, the next Núcleo shrinks with them.
+ */
+function coreLife(sim: Sim, def: BossDef): number {
+  let hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * sim.sector.enemyHp;
+  const rise = sim.sector.scaling.coreRise;
+  if (rise > 0) {
+    hp = Math.max(hp, (sim.clocks['coreHp'] ?? 0) * (1 + rise));
+    sim.clocks['coreHp'] = hp;
+  }
+  // The team's level multiplies after the rise, so a level that drops (a player who left) is not kept in the floor.
+  return hp * coreLevelFactor(sim);
+}
+
+/**
+ * A full enemy pool must not keep the Núcleo away: the run would stay in its phase forever, neither won nor lost. The
+ * fauna farthest from the probes leaves (no loot) and the Núcleo takes its slot (enemy life plan, 2026-11-15).
+ */
+function makeRoom(sim: Sim): number {
+  const en = sim.enemies;
+  const c = probesCentre(sim);
+  let far = -1;
+  let best = -1;
+  for (let e = 0; e < en.top; e++) {
+    if (!en.alive[e] || en.boss[e]) continue;
+    const dx = en.x[e]! - c.x;
+    const dy = en.y[e]! - c.y;
+    const d = dx * dx + dy * dy;
+    if (d > best) {
+      best = d;
+      far = e;
+    }
+  }
+  if (far < 0) return -1;
+  en.kill(far);
+  return en.spawn();
+}
+
 export function spawnBoss(sim: Sim): void {
   const def = bossDef(sim);
   if (!def) return;
   const en = sim.enemies;
-  const i = en.spawn();
+  let i = en.spawn();
+  if (i < 0) i = makeRoom(sim);
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
-  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp') * sim.sector.enemyHp * (sim.anomaly?.enemyHp ?? 1);
+  const hp = coreLife(sim, def) * coopFactor(sim, 'bossHp') * (sim.anomaly?.enemyHp ?? 1);
   en.type[i] = sim.content.bosses.indexOf(def);
   en.boss[i] = 1;
   en.x[i] = c.x + cosA(a) * SPAWN_DISTANCE;

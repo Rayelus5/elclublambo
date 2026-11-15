@@ -5,11 +5,35 @@ import { coopFactor } from './coop';
 
 // The spawn director (GDD §5.5–5.6): density grows with the run's minutes, species join over the first layer (from
 // layer 2 on, all from the start), fixed waves arrive on schedule in every layer, and life, damage, speed and the
-// elite chance scale with the minute and the layer.
+// elite chance scale with the minute and the layer, and life with the team's level too.
 
 /** Seconds since the current layer began. */
 export function layerSeconds(sim: Sim): number {
   return (sim.tick - (sim.clocks['layerStart'] ?? 0)) / 60;
+}
+
+/**
+ * The team's level: the highest any probe still in the run has reached (a fallen probe still counts; one whose player
+ * left the group does not, so those who stay do not face enemies sized for them).
+ */
+export function teamLevel(sim: Sim): number {
+  let level = 1;
+  for (const p of sim.probes) if (p.life !== 'left' && p.level > level) level = p.level;
+  return level;
+}
+
+/**
+ * Enemy life plan (2026-11-15): enemies and Núcleos last longer as the team levels up past `levelFrom`, compounding,
+ * (1 + hpPerLevel)^(level − levelFrom). The levels a new player reaches count nothing; a long run's keep the enemies
+ * at its build's pace. Multiplied in a loop, not with Math.pow, so every engine gets the same bits. The Núcleos have
+ * their own, linear one (`coreLevelFactor`).
+ */
+export function levelFactor(sim: Sim): number {
+  const { hpPerLevel: r, levelFrom } = sim.sector.scaling;
+  if (r <= 0) return 1;
+  let f = 1;
+  for (let l = teamLevel(sim); l > levelFrom; l--) f *= 1 + r;
+  return f;
 }
 
 export function scaleAt(sim: Sim): Scale & { elite: number } {
@@ -18,7 +42,7 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   const deeper = sim.layer - 1;
   const elite = Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes);
   const scale = {
-    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper),
+    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper) * levelFactor(sim),
     damage: (1 + s.damagePerMinute * minutes) * (1 + s.damagePerLayer * deeper),
     speed: 1 + s.speedPerLayer * deeper,
     elite,
@@ -40,6 +64,16 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   return scale;
 }
 
+/**
+ * More enemies at once in the deep layers (enemy life plan, 2026-11-15): the alive cap and the spawn rate's ceiling grow
+ * by `density.perLayer` every layer past the first, where only strong players get; a new player's first layers stay.
+ * Not while the Núcleo is up: a horde shielding it made the fight unwinnable.
+ */
+function layerCrowd(sim: Sim): number {
+  if (sim.phase === 'boss') return 1;
+  return 1 + sim.sector.density.perLayer * (sim.layer - 1);
+}
+
 /** The Static signal (curse) of the run: the highest among living probes. */
 export function curseOf(sim: Sim): number {
   let c = 0;
@@ -53,7 +87,10 @@ function aliveFauna(sim: Sim): number {
 
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
+  // While the Núcleo is up the alive cap drops with `bossFactor`, like the spawn rate: a Núcleo walled in by tough fauna
+  // could not be reached and the fight went on for minutes (enemy life plan, 2026-11-15).
+  const fight = sim.phase === 'boss' ? sector.density.bossFactor : 1;
+  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * fight * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
   if (aliveFauna(sim) >= cap) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
@@ -116,7 +153,7 @@ function fireWaves(sim: Sim): void {
 /** One tick of the director. */
 export function direct(sim: Sim): void {
   const d = sim.sector.density;
-  let rate = Math.min(d.max, d.base + (d.perMinute * sim.tick) / 3600);
+  let rate = Math.min(d.max * layerCrowd(sim), d.base + (d.perMinute * sim.tick) / 3600);
   if (sim.phase === 'boss') rate *= d.bossFactor;
   rate *= 1 + curseOf(sim);
   if (sim.anomaly) rate *= sim.anomaly.spawn;

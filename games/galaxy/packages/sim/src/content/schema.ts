@@ -228,7 +228,9 @@ const sector = z
       .min(1)
       .max(32),
     waves: z.array(z.object({ at: n, kind: z.enum(['ring', 'burst']), enemy: id, count: z.number().int().min(1).max(200) }).strict()).max(32),
-    density: z.object({ base: n, perMinute: n, max: n, cap: z.number().int().min(1).max(2000), bossFactor: unit }).strict(),
+    // `perLayer` (enemy life plan, 2026-11-15): the spawn rate's ceiling and the alive cap grow by it every layer past the
+    // first; 0 for content published before.
+    density: z.object({ base: n, perMinute: n, max: n, cap: z.number().int().min(1).max(2000), bossFactor: unit, perLayer: z.number().min(0).max(2).default(0) }).strict(),
     scaling: z
       .object({
         hpPerMinute: n,
@@ -239,6 +241,13 @@ const sector = z
         eliteBase: unit,
         elitePerMinute: unit,
         eliteMax: unit,
+        // Enemy life plan (2026-11-15): life × (1 + hpPerLevel)^(level − levelFrom) by the team's highest level (levels up
+        // to `levelFrom` count nothing), the Núcleos × (1 + coreHpPerLevel × the levels past it), and every Núcleo has at least
+        // (1 + coreRise) × the life of the one before. 0 and 1 for content published before: it plays as it did.
+        hpPerLevel: z.number().min(0).max(1).default(0),
+        levelFrom: z.number().int().min(1).max(200).default(1),
+        coreHpPerLevel: z.number().min(0).max(1).default(0),
+        coreRise: z.number().min(0).max(2).default(0),
       })
       .strict(),
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
@@ -426,6 +435,9 @@ const shape = z
       .strict()
       .default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
+    // Enemy life plan (2026-11-15): no single enemy hit takes more than this share of a probe's maximum life (1: no cap).
+    // Content published before takes the code's value: it only protects the player.
+    hitCap: z.number().min(0.05).max(1).default(D.hitCap),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z

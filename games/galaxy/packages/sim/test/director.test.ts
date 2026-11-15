@@ -12,7 +12,7 @@ function spawning(over: Partial<typeof sector.density> = {}) {
   return quietSim((c) => {
     const s = c.sectors[0]!;
     s.spawns = structuredClone(sector.spawns);
-    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, ...over };
+    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, perLayer: 0, ...over };
   });
 }
 
@@ -56,6 +56,44 @@ describe('qué sale y cuándo', () => {
     run(sim, 30 * 60);
     expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
     expect(sim.enemies.count).toBeGreaterThanOrEqual(20);
+  });
+
+  // Enemy life plan (2026-11-15): more enemies at once in the deep layers, where only strong players get.
+  test('con `perLayer`, en las capas profundas caben más enemigos vivos', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(42);
+    expect(sim.enemies.count).toBeLessThanOrEqual(50 + 8);
+  });
+
+  // The fight with the Núcleo keeps the usual crowd: a deep-layer horde shielding it made the fight unwinnable.
+  test('con `perLayer`, mientras hay Núcleo el tope es el de siempre', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5, bossFactor: 1 });
+    sim.layer = 3;
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
+  });
+
+  // A Núcleo walled in by tough fauna could not be reached: fights of 20 minutes nobody won (enemy life plan, 2026-11-15).
+  test('mientras hay Núcleo caben menos enemigos vivos: el tope baja con `bossFactor`, como la aparición', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 24, bossFactor: 0.5 });
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(12 + 8);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(8);
+  });
+
+  test('sin `perLayer` (contenido publicado antes) la capa no cambia el tope', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
   });
 
   test('la densidad crece con los minutos hasta su máximo', () => {
@@ -114,6 +152,66 @@ describe('escalado', () => {
     expect(s.speed).toBeCloseTo(1.05, 12);
   });
 
+  // Enemy life plan (2026-11-15): life also follows the players' level, compounding, so a strong build that levels fast
+  // keeps meeting enemies that last.
+  test('la vida sube de forma compuesta con el nivel de la sonda', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 * 1.1, 12);
+    sim.probes[0]!.level = 11;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 10, 9);
+  });
+
+  test('los niveles por debajo de `levelFrom` no cuentan: quien empieza no lo nota', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      c.sectors[0]!.scaling.levelFrom = 20;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 20;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+    sim.probes[0]!.level = 23;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 3, 12);
+  });
+
+  test('en grupo manda el nivel más alto', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 2;
+    sim.probes[1]!.level = 5;
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 4, 12);
+  });
+
+  // Review: a player who left the group no longer sets the enemies' life for those who stay.
+  test('en grupo no cuenta quien se ha ido de la partida', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    sim.probes[1]!.level = 9;
+    sim.probes[1]!.life = 'left';
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 2, 12);
+  });
+
+  test('sin vida por nivel, subir de nivel no cambia la vida (contenido publicado antes)', () => {
+    const sim = quietSim();
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 30;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+  });
+
   test('la probabilidad de élite sube con los minutos sin pasar de su tope', () => {
     const sim = quietSim((c) => {
       c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, eliteBase: 0, elitePerMinute: 0.006, eliteMax: 0.08 };
@@ -131,7 +229,7 @@ describe('Señal de la Estática (maldición)', () => {
     const sim = quietSim((c) => {
       const s = c.sectors[0]!;
       s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
-      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5 };
+      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5, perLayer: 0 };
       if (over.enemies) c.limits.enemies = over.enemies;
       c.probes[0]!.bonus = { curse };
     });

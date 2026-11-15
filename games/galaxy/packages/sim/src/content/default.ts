@@ -32,16 +32,23 @@ function levels(row: Row, n = 5): WeaponLevel[] {
 const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scaling' | 'elite' | 'drops'> = {
   layerSeconds: 300,
   beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
-  density: { base: 0.3, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5 },
+  // Enemy life plan (2026-11-15): 0.5, as the owner set it live from the panel (it was 0.3), so calibration measures PRE.
+  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5, perLayer: 0.25 },
   scaling: {
     hpPerMinute: 0.06,
     damagePerMinute: 0.065,
-    hpPerLayer: 0.35,
-    damagePerLayer: 0.15,
+    // Enemy life plan (2026-11-15): calibrated with packages/sim/test/difficulty.test.ts (GALAXY_CALIBRATE=1).
+    hpPerLayer: 0.45,
+    damagePerLayer: 0.25,
     speedPerLayer: 0.05,
     eliteBase: 0,
     elitePerMinute: 0.006,
     eliteMax: 0.08,
+    hpPerLevel: 0.12,
+    levelFrom: 22,
+    coreHpPerLevel: 0.045,
+    // Enemy life plan (2026-11-15): every Núcleo of a run has at least 15 % more life than the one before.
+    coreRise: 0.15,
   },
   elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
   drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },
@@ -609,13 +616,13 @@ export const DEFAULT_CONTENT: Content = {
     { id: 'inertia', name: 'Inercia', icon: 'icon-inertia', description: 'Más daño mientras te mueves', stat: 'movingDamage', levels: [0.06, 0.12, 0.18, 0.24, 0.3] },
   ],
   enemies: [
-    { id: 'mite', name: 'Ácaro de estática', family: 'swarm', sprite: 'mite', hp: 8, speed: 62, damage: 6, radius: 6, xp: 1, behavior: { kind: 'chase' } },
+    { id: 'mite', name: 'Ácaro de estática', family: 'swarm', sprite: 'mite', hp: 8.8, speed: 62, damage: 6, radius: 6, xp: 1, behavior: { kind: 'chase' } },
     {
       id: 'cell',
       name: 'Célula partida',
       family: 'splitter',
       sprite: 'cell',
-      hp: 36,
+      hp: 39.6,
       speed: 46,
       damage: 10,
       radius: 11,
@@ -623,13 +630,13 @@ export const DEFAULT_CONTENT: Content = {
       behavior: { kind: 'chase' },
       split: { into: 'cellet', count: 2 },
     },
-    { id: 'cellet', name: 'Celulita', family: 'swarm', sprite: 'cellet', hp: 10, speed: 70, damage: 5, radius: 6, xp: 1, behavior: { kind: 'chase' } },
+    { id: 'cellet', name: 'Celulita', family: 'swarm', sprite: 'cellet', hp: 11, speed: 70, damage: 5, radius: 6, xp: 1, behavior: { kind: 'chase' } },
     {
       id: 'ray',
       name: 'Manta de vacío',
       family: 'charger',
       sprite: 'ray',
-      hp: 30,
+      hp: 33,
       speed: 40,
       damage: 14,
       radius: 10,
@@ -641,7 +648,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Coral artillero',
       family: 'shooter',
       sprite: 'spitter',
-      hp: 22,
+      hp: 24.2,
       speed: 34,
       damage: 8,
       radius: 9,
@@ -653,7 +660,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Caparazón',
       family: 'armored',
       sprite: 'shell',
-      hp: 70,
+      hp: 77,
       speed: 32,
       damage: 16,
       radius: 13,
@@ -661,13 +668,13 @@ export const DEFAULT_CONTENT: Content = {
       behavior: { kind: 'armored', arc: 120, reduction: 0.75, turnRate: 90 },
     },
     // Anillos de Escarcha (ice)
-    { id: 'splinter', name: 'Esquirla', family: 'swarm', sprite: 'splinter', hp: 7, speed: 74, damage: 8, radius: 5, xp: 1, behavior: { kind: 'chase' } },
+    { id: 'splinter', name: 'Esquirla', family: 'swarm', sprite: 'splinter', hp: 7.7, speed: 74, damage: 8, radius: 5, xp: 1, behavior: { kind: 'chase' } },
     {
       id: 'narwhal',
       name: 'Narval de escarcha',
       family: 'charger',
       sprite: 'narwhal',
-      hp: 34,
+      hp: 37.4,
       speed: 40,
       damage: 15,
       radius: 11,
@@ -679,7 +686,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Faro gélido',
       family: 'shooter',
       sprite: 'beacon',
-      hp: 26,
+      hp: 28.6,
       speed: 28,
       damage: 8,
       radius: 9,
@@ -691,7 +698,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Geoda',
       family: 'splitter',
       sprite: 'geode',
-      hp: 40,
+      hp: 44,
       speed: 40,
       damage: 11,
       radius: 10,
@@ -704,7 +711,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Témpano',
       family: 'armored',
       sprite: 'floe',
-      hp: 80,
+      hp: 88,
       speed: 28,
       damage: 17,
       radius: 13,
@@ -717,7 +724,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Pólipo',
       family: 'swarm',
       sprite: 'polyp',
-      hp: 9,
+      hp: 9.9,
       speed: 66,
       damage: 6,
       radius: 5,
@@ -729,7 +736,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Medusa de bruma',
       family: 'healer',
       sprite: 'jelly',
-      hp: 26,
+      hp: 28.6,
       speed: 36,
       damage: 6,
       radius: 9,
@@ -741,7 +748,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Erizo',
       family: 'armored',
       sprite: 'urchin',
-      hp: 60,
+      hp: 66,
       speed: 30,
       damage: 14,
       radius: 10,
@@ -753,7 +760,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Anguila voltaica',
       family: 'shooter',
       sprite: 'eel',
-      hp: 22,
+      hp: 24.2,
       speed: 44,
       damage: 9,
       radius: 9,
@@ -765,7 +772,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Colonia',
       family: 'summoner',
       sprite: 'colony',
-      hp: 60,
+      hp: 66,
       speed: 22,
       damage: 12,
       radius: 13,
@@ -773,13 +780,13 @@ export const DEFAULT_CONTENT: Content = {
       behavior: { kind: 'summoner', cooldown: 4, minion: 'polyp', count: 3 },
     },
     // Forja Rota (forge)
-    { id: 'ember', name: 'Ascua', family: 'swarm', sprite: 'ember', hp: 8, speed: 70, damage: 7, radius: 5, xp: 1, behavior: { kind: 'chase' } },
+    { id: 'ember', name: 'Ascua', family: 'swarm', sprite: 'ember', hp: 8.8, speed: 70, damage: 7, radius: 5, xp: 1, behavior: { kind: 'chase' } },
     {
       id: 'ram',
       name: 'Ariete',
       family: 'charger',
       sprite: 'ram',
-      hp: 40,
+      hp: 44,
       speed: 38,
       damage: 16,
       radius: 11,
@@ -791,7 +798,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Torreta corrupta',
       family: 'shooter',
       sprite: 'sentry',
-      hp: 30,
+      hp: 33,
       speed: 24,
       damage: 8,
       radius: 9,
@@ -803,7 +810,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Gólem de escoria',
       family: 'armored',
       sprite: 'golem',
-      hp: 90,
+      hp: 99,
       speed: 26,
       damage: 18,
       radius: 14,
@@ -815,7 +822,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Soldadora',
       family: 'healer',
       sprite: 'welder',
-      hp: 28,
+      hp: 30.8,
       speed: 36,
       damage: 6,
       radius: 9,
@@ -827,7 +834,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Crisol',
       family: 'splitter',
       sprite: 'crucible',
-      hp: 44,
+      hp: 48.4,
       speed: 36,
       damage: 12,
       radius: 10,
@@ -841,7 +848,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Glitch',
       family: 'charger',
       sprite: 'glitch',
-      hp: 14,
+      hp: 15.4,
       speed: 58,
       damage: 12,
       radius: 6,
@@ -853,7 +860,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Eco errante',
       family: 'summoner',
       sprite: 'wraith',
-      hp: 54,
+      hp: 59.4,
       speed: 26,
       damage: 10,
       radius: 12,
@@ -865,7 +872,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'Cantor de estática',
       family: 'healer',
       sprite: 'cantor',
-      hp: 26,
+      hp: 28.6,
       speed: 34,
       damage: 6,
       radius: 8,
@@ -927,7 +934,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Colmena (Nov plan B4): its swarm closes in around the probe (new: closing).
@@ -977,7 +984,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Colmena: the queen it never had lays a walking barrage (new: barrage, wall).
@@ -1027,7 +1034,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       id: 'glacier',
@@ -1076,7 +1083,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Madre Glaciar: what it incubates shines a ray of frozen light (new: laser).
@@ -1126,7 +1133,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Madre Glaciar: what hatched, quick and cold (new: closing, blink).
@@ -1176,7 +1183,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       id: 'anemone',
@@ -1225,7 +1232,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Anémona Rey: it opens and sows lines of spores that burst (new: barrage).
@@ -1275,7 +1282,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Anémona Rey: the mouth that drank the reef spits its light back (new: laser).
@@ -1325,7 +1332,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       id: 'anvil',
@@ -1374,7 +1381,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Yunque: a power hammer that walks its blows across the floor (new: barrage).
@@ -1424,7 +1431,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Yunque: the furnace that forged stars cuts with a beam of molten metal (new: laser).
@@ -1474,14 +1481,14 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       id: 'echo-core',
       name: 'El Eco Profundo',
       title: 'Núcleo abisal',
       sprite: 'echo-core',
-      hp: 8800,
+      hp: 3500,
       radius: 32,
       speed: 26,
       damage: 22,
@@ -1523,7 +1530,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Eco Profundo (its second time, layer 8): every echo it keeps closes in on you (new: closing).
@@ -1531,7 +1538,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'El Coro Abisal',
       title: 'Núcleo abisal',
       sprite: 'echo-choir',
-      hp: 8800,
+      hp: 3500,
       radius: 32,
       speed: 26,
       damage: 22,
@@ -1573,7 +1580,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Eco Profundo (layer 12): a mirror of the probes it lost, firing their beams (new: laser, barrage).
@@ -1581,7 +1588,7 @@ export const DEFAULT_CONTENT: Content = {
       name: 'El Reflejo Profundo',
       title: 'Núcleo abisal',
       sprite: 'echo-mirror',
-      hp: 8800,
+      hp: 3500,
       radius: 32,
       speed: 26,
       damage: 22,
@@ -1623,7 +1630,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       id: 'signal',
@@ -1672,7 +1679,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 2 of the Señal: it stops hiding and broadcasts a beam (new: laser).
@@ -1722,7 +1729,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
     {
       // Form 3 of the Señal: what the rift answers, in braille (new: closing, barrage).
@@ -1773,7 +1780,7 @@ export const DEFAULT_CONTENT: Content = {
           ],
         },
       ],
-      scaling: { hpPerLayer: 0.5, damagePerLayer: 0.2 },
+      scaling: { hpPerLayer: 0.35, damagePerLayer: 0.2 },
     },
   ],
   sectors: [
@@ -1802,10 +1809,10 @@ export const DEFAULT_CONTENT: Content = {
       elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
       drops: { coin: 0.04, dust: 0.02, repair: 0.0025, repairHeal: 0.2, bossCoins: 10, bossDust: 3, magnet: 0.0012, eliteMagnet: 0.08 },
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.05,
+      enemyHp: 0.9,
       enemyDamage: 1.65,
       coreDamage: 1.6,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.09, damagePerMinute: 0.1 },
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.06, damagePerMinute: 0.1 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
@@ -1833,10 +1840,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 270, kind: 'burst', enemy: 'geode', count: 10 },
       ],
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.1,
+      enemyHp: 1,
       enemyDamage: 2.4,
       coreDamage: 1.7,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.1 },
+      // Its fauna feeds more experience: the team levels faster here, so each level counts less.
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.1, hpPerLevel: 0.09 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
@@ -1863,10 +1871,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 270, kind: 'burst', enemy: 'urchin', count: 6 },
       ],
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.15,
+      enemyHp: 1.08,
       enemyDamage: 1.15,
       coreDamage: 1.8,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.14, damagePerMinute: 0.18 },
+      // Slow to level and soft-hitting fauna: each level counts more, or a strong build lives longer here than in the Nebula.
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.14, damagePerMinute: 0.18, hpPerLevel: 0.17 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
@@ -1894,7 +1903,7 @@ export const DEFAULT_CONTENT: Content = {
         { at: 270, kind: 'burst', enemy: 'ram', count: 6 },
       ],
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.2,
+      enemyHp: 1.15,
       enemyDamage: 1.6,
       coreDamage: 1.9,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.1, damagePerMinute: 0.14 },
@@ -1928,10 +1937,10 @@ export const DEFAULT_CONTENT: Content = {
         { at: 270, kind: 'burst', enemy: 'ram', count: 6 },
       ],
       // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
-      enemyHp: 1.3,
+      enemyHp: 1.25,
       enemyDamage: 2.4,
       coreDamage: 2.1,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.45, damagePerLayer: 0.3 },
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.55, damagePerLayer: 0.4 },
       density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
     },
   ],
@@ -2107,6 +2116,8 @@ export const DEFAULT_CONTENT: Content = {
     movingDamage: 0.35,
   },
   crit: { chance: 0.05, damage: 1.5 },
+  // Enemy life plan (2026-11-15): damage may grow, but no single hit kills a probe on its own.
+  hitCap: 0.4,
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
   // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.

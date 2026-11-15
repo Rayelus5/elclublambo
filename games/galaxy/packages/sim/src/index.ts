@@ -30,7 +30,7 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
+export { curseOf, direct, layerSeconds, levelFactor, relocate, scaleAt, teamLevel } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
 export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';
@@ -67,7 +67,7 @@ export {
   tickStatuses,
 } from './systems/elements';
 export { describeRelic, relicBonuses, relicSkill, relicVision, updateRelics, type RelicSkill } from './systems/relics';
-export { activeLaser, bossAway, bossDef, bossIdAt, spawnBoss, updateBoss } from './systems/boss';
+export { activeLaser, bossAway, bossDef, bossIdAt, coreLevelFactor, spawnBoss, updateBoss } from './systems/boss';
 export { updateBlasts } from './systems/blasts';
 export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';

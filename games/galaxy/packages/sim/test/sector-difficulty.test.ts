@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { bossIdAt, contentSchema, createSim, DEFAULT_CONTENT, IDLE, scaleAt, type Sim, spawnBoss, step } from '../src/index';
+import { bossIdAt, contentSchema, createSim, dealDamage, DEFAULT_CONTENT, IDLE, scaleAt, type Sim, spawnBoss, step } from '../src/index';
 import { quietSim } from './fixtures';
 
 // Each sector's own toughness (open beta launch): its enemies' life and damage are multiplied, from the first sector
@@ -84,4 +84,34 @@ test('en cada sector la vida del Núcleo sigue creciendo capa a capa, venga la f
       expect(deep[2]!).toBeGreaterThan(deep[1]!);
     }
   }
+});
+
+// Enemy life plan (2026-11-15): in one run every Núcleo has more life than the one before, deep forms included (before,
+// the Núcleo after a deep one could have half its life).
+test('en una incursión cada Núcleo tiene más vida que el anterior, en todos los sectores', () => {
+  const src = { probe: 0, weapon: null, relic: null, element: null };
+  for (const s of DEFAULT_CONTENT.sectors) {
+    const sim = createSim({ seed: '1', content: DEFAULT_CONTENT, sector: s.id, probes: [{ probe: 'lumen', relics: [] }] });
+    let last = 0;
+    for (let layer = 1; layer <= 12; layer++) {
+      sim.layer = layer;
+      spawnBoss(sim);
+      const hp = sim.enemies.maxHp[sim.boss!.index]!;
+      expect(hp, `${s.id} capa ${layer} (${sim.boss!.def})`).toBeGreaterThan(last);
+      last = hp;
+      dealDamage(sim, sim.boss!.index, 1e12, src);
+    }
+  }
+});
+
+test('un contenido publicado antes, sin vida por nivel ni subida de Núcleos, juega con 0', () => {
+  const old = structuredClone(DEFAULT_CONTENT) as unknown as { sectors: { scaling: Record<string, unknown> }[] };
+  for (const s of old.sectors) {
+    delete s.scaling['hpPerLevel'];
+    delete s.scaling['levelFrom'];
+    delete s.scaling['coreHpPerLevel'];
+    delete s.scaling['coreRise'];
+  }
+  const parsed = contentSchema.parse(old);
+  expect(parsed.sectors.every((s) => s.scaling.hpPerLevel === 0 && s.scaling.levelFrom === 1 && s.scaling.coreHpPerLevel === 0 && s.scaling.coreRise === 0)).toBe(true);
 });

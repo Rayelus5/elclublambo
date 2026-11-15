@@ -7,6 +7,23 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-34-la-estatica-crece-contigo',
+    version: '1.34',
+    date: '2026-11-15',
+    title: 'La Estática crece contigo',
+    summary: 'Los enemigos y los Núcleos aguantan más a medida que subes de nivel: quedarse quieto ya no basta para farmear',
+    items: [
+      { kind: 'equilibrio', text: 'Desde mitad de partida, los enemigos ganan vida con cada nivel que subes, además de con el tiempo y la capa' },
+      { kind: 'equilibrio', text: 'Cada Núcleo de una incursión tiene más vida que el anterior, y su vida también crece con tu nivel' },
+      { kind: 'equilibrio', text: 'En las capas profundas llegan más enemigos a la vez y su daño sube poco a poco' },
+      { kind: 'equilibrio', text: 'Enemigos con algo más de vida base, y cada sector un poco más duro que el anterior' },
+      { kind: 'equilibrio', text: 'La Nebulosa Exterior sigue igual de amable para quien empieza' },
+      { kind: 'mejora', text: 'Ningún golpe te quita toda la vida de una vez: se cae de varios golpes, nunca de uno' },
+      { kind: 'mejora', text: 'Mientras hay un Núcleo hay menos enemigos alrededor: siempre puedes llegar hasta él' },
+      { kind: 'arreglo', text: 'El Núcleo siempre aparece, aunque la pantalla esté llena de enemigos: antes la capa podía quedarse sin él y no acabar nunca' },
+    ],
+  },
+  {
     id: 'v1-33-inestable',
     version: '1.33',
     date: '2026-11-14',
