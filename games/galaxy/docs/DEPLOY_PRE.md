@@ -1119,6 +1119,24 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - las señales en el HUD;
   - «N de satélites» en Resultados.
 
+## La Estática crece contigo (SIM 1.14.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.14.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **El Núcleo siempre aparece.** Con la piscina de enemigos llena cuando tocaba, no salía y la incursión se quedaba en su fase para siempre; ahora deja su sitio el enemigo más lejano.
+- **Mientras hay Núcleo caben menos enemigos vivos:** el tope baja con `density.bossFactor`, como ya bajaba su aparición.
+- **Ningún golpe mata de una vez:** `hitCap` (0,4 por defecto, también para el contenido publicado sin él) limita cada golpe al 40 % de la vida máxima; se sigue muriendo, de varios golpes.
+- **Mandos nuevos en `sectors`, a 0 si el contenido publicado no los trae,** así que el resto juega igual hasta publicar:
+  - `sectors[].scaling.hpPerLevel` y `levelFrom`: la vida de la fauna crece con el nivel más alto del equipo, de forma compuesta, a partir de `levelFrom`;
+  - `sectors[].scaling.coreHpPerLevel`: lo mismo para los Núcleos, en línea recta;
+  - `sectors[].scaling.coreRise`: cada Núcleo de la incursión con al menos ese tanto más de vida que el anterior;
+  - `sectors[].density.perLayer`: más enemigos vivos y más aparición por capa, salvo con el Núcleo.
+
+**Lo que hay que publicar después** (el propietario dio su OK el 2026-11-15): `content` con `enemies`, `bosses`, `sectors` y `hitCap` desde el código. La carpeta es `ops/launch/2026-11-15-vida-enemigos`; su `LEEME.md` lleva la tabla de calibración.
+
+**Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
 ## La explosión de Inestable ya no mata (SIM 1.13.0)
 
 **Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.13.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.

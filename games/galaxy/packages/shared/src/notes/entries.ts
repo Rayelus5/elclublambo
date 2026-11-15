@@ -13,10 +13,13 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     title: 'La Estática crece contigo',
     summary: 'Los enemigos y los Núcleos aguantan más a medida que subes de nivel: quedarse quieto ya no basta para farmear',
     items: [
-      { kind: 'equilibrio', text: 'Los enemigos ganan vida a medida que subes de nivel en la incursión, además de con el tiempo y la capa' },
-      { kind: 'equilibrio', text: 'Cada Núcleo de una incursión tiene más vida que el anterior, también el que llega después de un Núcleo profundo' },
-      { kind: 'equilibrio', text: 'Enemigos y Núcleos con algo más de vida base: los combates contra los Núcleos son más intensos' },
-      { kind: 'mejora', text: 'Los primeros minutos dan más aire a quien empieza: llegar a la segunda capa es más asequible' },
+      { kind: 'equilibrio', text: 'Desde mitad de partida, los enemigos ganan vida con cada nivel que subes, además de con el tiempo y la capa' },
+      { kind: 'equilibrio', text: 'Cada Núcleo de una incursión tiene más vida que el anterior, y su vida también crece con tu nivel' },
+      { kind: 'equilibrio', text: 'En las capas profundas llegan más enemigos a la vez y su daño sube poco a poco' },
+      { kind: 'equilibrio', text: 'Enemigos con algo más de vida base. La Nebulosa Exterior sigue igual de amable para quien empieza, y cada sector es un poco más duro que el anterior' },
+      { kind: 'mejora', text: 'Ningún golpe te quita toda la vida de una vez: se cae de varios golpes, nunca de uno' },
+      { kind: 'mejora', text: 'Mientras hay un Núcleo hay menos enemigos alrededor: siempre puedes llegar hasta él' },
+      { kind: 'arreglo', text: 'El Núcleo siempre aparece, aunque la pantalla esté llena de enemigos: antes la capa podía quedarse sin él y no acabar nunca' },
     ],
   },
   {

@@ -120,13 +120,29 @@ Al añadir una entrada, actualiza estos números en el mismo commit:
 | `packages/sim/test/upgrades.test.ts` | 21 armas, cada una con su evolución (y las cinco de noviembre con su pasiva) |
 | `packages/sim/test/content.test.ts` | 25 pasivas, 25 enemigos, listas de sondas, los 18 Núcleos (3 formas por cada uno de los 6), sectores y biomas |
 | `packages/sim/test/passives-nov.test.ts` | las 5 pasivas de noviembre y que el contenido publicado antes sigue validando |
-| `packages/sim/test/difficulty.test.ts` | la curva de dificultad (`GALAXY_CALIBRATE=1`): quien empieza 5, medio 15 y veterano 30 minutos en la Nebulosa, y cada sector más corto que el anterior |
+| `packages/sim/test/difficulty.test.ts` | la curva de dificultad (`GALAXY_CALIBRATE=1`, ver A8 bis): cuánto dura cada perfil en la Nebulosa, que quedarse quieto no compense, cuánto dura cada combate contra un Núcleo, que ninguno se atasque y que cada sector sea más corto que el anterior |
 | `packages/sim/test/variants.test.ts` | 16 variantes, en los niveles 4 y 8 de cada arma inicial |
 | `apps/web/test/weapon-art.test.ts` | 24 tiras de arte del Hangar |
 | `packages/sim/test/anomalies.test.ts`, `quirks.test.ts` | listas exactas de ids |
 | `apps/web/test/sprites.test.ts` | listas de sprites: `engine`, `M3B3_CORES`, `M3B3_ROCKS` |
 | `apps/server/test/integration/hangar.test.ts`, `probes.test.ts`, `sectors.test.ts` | 8 sondas, 5 sectores, fauna de la Nebulosa Exterior |
-| `packages/sim/test/sector-difficulty.test.ts` | `enemyHp` crece por orden de sector; el de temporada es el más duro; como mucho ×1,35 |
+| `packages/sim/test/sector-difficulty.test.ts` | `enemyHp` crece por orden de sector; el de temporada es el más duro; como mucho ×1,35; en una incursión cada Núcleo tiene más vida que el anterior |
+
+### A8 bis. Cómo crece la dificultad en una incursión
+
+Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector y se publica con `content`:
+
+| Campo | Qué hace |
+|---|---|
+| `scaling.hpPerMinute`, `hpPerLayer` | vida de la fauna por minuto de la incursión y por capa |
+| `scaling.hpPerLevel`, `levelFrom` | vida de la fauna × (1 + `hpPerLevel`)^(nivel − `levelFrom`), con el nivel más alto del equipo; los niveles hasta `levelFrom` no cuentan, para que quien empieza no lo note |
+| `scaling.coreHpPerLevel` | vida de los Núcleos × (1 + `coreHpPerLevel` × niveles por encima de `levelFrom`), en línea recta: un build completo deja de crecer y una subida compuesta hacía eternos los Núcleos profundos |
+| `scaling.coreRise` | cada Núcleo de la incursión tiene al menos (1 + `coreRise`) × la vida del anterior, también el que viene tras un Núcleo profundo |
+| `scaling.damagePerMinute`, `damagePerLayer` | el daño crece poco a poco |
+| `density.perLayer` | más enemigos vivos y más aparición en cada capa a partir de la segunda, salvo mientras hay Núcleo |
+| `hitCap` (en la raíz de `content`) | ningún golpe se lleva más de esta parte de la vida máxima de la sonda: se muere de varios golpes, nunca de uno |
+
+**Para calibrar:** `GALAXY_CALIBRATE=1` con `GALAXY_SECTOR`, `GALAXY_PROFILE` y `GALAXY_CURVE_TRY=<json>`, que prueba valores sin tocar el código (sectores, Núcleos, enemigos, `enemyHpScale`, `bossHpScale` y `hitCap`). Cada corrida es lenta: lánzalas de pocas en pocas y con prioridad baja, o el equipo se queda sin CPU.
 
 ### A9. Rasgos de galaxia y `ENGINE_VERSION`
 

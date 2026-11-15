@@ -8,14 +8,20 @@ import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_R
 // the run, a player whose last socket closes stops moving, and one who leaves keeps only the Cores killed until then.
 
 const T0 = 1_000_000;
-function run(n = 2) {
+/** The default content without enemies: for checks that need the run to last, whatever the balance. */
+const CALM = {
+  ...DEFAULT_CONTENT,
+  sectors: DEFAULT_CONTENT.sectors.map((s) => ({ ...s, waves: [], density: { ...s.density, base: 0, perMinute: 0, max: 0 } })),
+};
+
+function run(n = 2, content = DEFAULT_CONTENT) {
   const players = Array.from({ length: n }, (_, i) => ({ username: `p${i}`, probe: 'lumen', relics: [], bonuses: [], variant: null }));
   const base = {
     id: 'r',
     seed: '424242',
     sector: 'outer-nebula',
     anomaly: null,
-    content: DEFAULT_CONTENT,
+    content,
     contentVersion: 0,
     rules: coopRulesOf(parseConfig('coop', {})),
     players,
@@ -158,7 +164,8 @@ test('un aviso rápido llega a todo el grupo con quién lo puso, no se repite si
 });
 
 test('la huella de un cliente se compara con la del árbitro: igual, distinta (pide reconstruir, pocas veces) u olvidada', () => {
-  const r = run();
+  // Without enemies: two idle probes must live through several intervals, whatever the balance.
+  const r = run(2, CALM);
   const [a, b] = [socket(), socket()];
   r.attach(0, a);
   r.attach(1, b);

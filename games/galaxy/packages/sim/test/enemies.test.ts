@@ -98,9 +98,9 @@ describe('comportamientos', () => {
     const e = spawnEnemy(sim, def(sim, 'shell'), 100, 0);
     // It faces the probe (at the origin): a hit coming from the probe's side is frontal.
     dealDamage(sim, e, 20, { ...src, x: 0, y: 0 });
-    expect(sim.enemies.hp[e]).toBeCloseTo(70 - 5, 9);
+    expect(sim.enemies.hp[e]).toBeCloseTo(77 - 5, 9);
     dealDamage(sim, e, 20, { ...src, x: 200, y: 0 });
-    expect(sim.enemies.hp[e]).toBeCloseTo(70 - 5 - 20, 9);
+    expect(sim.enemies.hp[e]).toBeCloseTo(77 - 5 - 20, 9);
   });
 
   test('armored gira despacio hacia la sonda', () => {
@@ -135,11 +135,11 @@ describe('élites', () => {
     const sim = quietSim();
     sim.rng.combat.chance = () => false;
     const e = spawnEnemy(sim, def(sim, 'mite'), 300, 0, { elite: elite(sim, 'shielded') });
-    expect(sim.enemies.hp[e]).toBe(32);
-    expect(sim.enemies.shield[e]).toBeCloseTo(19.2, 9);
+    expect(sim.enemies.hp[e]).toBeCloseTo(35.2, 9);
+    expect(sim.enemies.shield[e]).toBeCloseTo(21.12, 9);
     dealDamage(sim, e, 10, src);
-    expect(sim.enemies.hp[e]).toBe(32);
-    expect(sim.enemies.shield[e]).toBeCloseTo(9.2, 9);
+    expect(sim.enemies.hp[e]).toBeCloseTo(35.2, 9);
+    expect(sim.enemies.shield[e]).toBeCloseTo(11.12, 9);
   });
 
   test('Veloz: corre un 45 % más', () => {

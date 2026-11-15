@@ -98,7 +98,7 @@ export interface Outcome {
   beatBoss: boolean;
   /** Seconds each Núcleo took to fall, by its layer (a fight the probe did not survive is not here). */
   fights: { layer: number; seconds: number }[];
-  /** Reached the time limit in a Núcleo fight neither side could win. */
+  /** Reached the time limit in a Núcleo fight that had lasted over 5 minutes: neither side could win it. */
   stuck: boolean;
 }
 
@@ -131,7 +131,7 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
       }
     }
   }
-  const stuck = sim.status !== 'dead' && sim.phase === 'boss';
+  const stuck = sim.status !== 'dead' && sim.phase === 'boss' && bossAt >= 0 && sim.tick - bossAt > 300 * 60;
   return { minutes: sim.tick / 3600, layer: sim.layer, level: Math.max(...sim.probes.map((q) => q.level)), sawBoss, beatBoss, fights, stuck };
 }
 

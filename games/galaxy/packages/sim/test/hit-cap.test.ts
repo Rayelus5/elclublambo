@@ -37,10 +37,13 @@ test('un golpe por debajo del tope hace su daño de siempre', () => {
   expect(p.hp).toBe(p.stats.maxHp - 10);
 });
 
-test('un contenido publicado antes, sin `hitCap`, no pone tope', () => {
+test('un contenido publicado antes, sin `hitCap`, toma el del código', () => {
   const old = structuredClone(DEFAULT_CONTENT) as unknown as Record<string, unknown>;
   delete old['hitCap'];
-  expect(contentSchema.parse(old).hitCap).toBe(1);
+  expect(contentSchema.parse(old).hitCap).toBe(DEFAULT_CONTENT.hitCap);
+});
+
+test('con `hitCap` 1 no hay tope: un golpe enorme mata', () => {
   const sim = quietSim();
   const p = sim.probes[0]!;
   hurtProbe(sim, p, 1e6);

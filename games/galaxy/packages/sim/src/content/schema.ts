@@ -435,9 +435,9 @@ const shape = z
       .strict()
       .default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
-    // Enemy life plan (2026-11-15): no single enemy hit takes more than this share of a probe's maximum life (1: no cap,
-    // as content published before).
-    hitCap: z.number().min(0.05).max(1).default(1),
+    // Enemy life plan (2026-11-15): no single enemy hit takes more than this share of a probe's maximum life (1: no cap).
+    // Content published before takes the code's value: it only protects the player.
+    hitCap: z.number().min(0.05).max(1).default(D.hitCap),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z
