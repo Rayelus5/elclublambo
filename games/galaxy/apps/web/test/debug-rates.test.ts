@@ -31,3 +31,11 @@ test('FPS y velocidad real con el reloj de la pared', () => {
   expect(out.fps).toBe(30);
   expect(out.speed).toBeCloseTo(2);
 });
+
+test('lo que guarda no crece con la partida: solo los últimos 5 s', () => {
+  const r = createRates();
+  for (let tick = 1; tick <= 100_000; tick++) r.onEvents([hit(1), hit(1)], tick);
+  expect(r.size()).toBeLessThanOrEqual(300);
+  expect(r.read(0, 100_000).dps).toBeCloseTo(120);
+});
+

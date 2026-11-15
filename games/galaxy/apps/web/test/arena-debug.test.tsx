@@ -215,3 +215,46 @@ test('una incursión de prueba lo dice al terminar', async () => {
   fireEvent.click(screen.getByRole('button', { name: copy.arena.abandonConfirm }));
   expect(ended?.test).toBe(true);
 });
+
+test('un doble clic en confirmar aplica la acción una sola vez', async () => {
+  const d = admin();
+  await mount(d);
+  f2();
+  const before = sim.probes[0]!.level;
+  fireEvent.click(screen.getByRole('button', { name: t.levelUp(5) }));
+  const dialog = screen.getByRole('alertdialog', { name: t.confirmTitle });
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole('button', { name: t.confirm }));
+    fireEvent.click(within(dialog).getByRole('button', { name: t.confirm }));
+    await Promise.resolve();
+  });
+  expect(d.markTest).toHaveBeenCalledTimes(1);
+  expect(sim.probes[0]!.level).toBe(before + 5);
+});
+
+test('cancelar mientras el servidor contesta no aplica la acción', async () => {
+  let answer: () => void = () => {};
+  const d = admin({ markTest: vi.fn(() => new Promise<void>((r) => (answer = r))) });
+  await mount(d);
+  f2();
+  const before = sim.probes[0]!.level;
+  fireEvent.click(screen.getByRole('button', { name: t.levelUp(1) }));
+  const dialog = screen.getByRole('alertdialog', { name: t.confirmTitle });
+  fireEvent.click(within(dialog).getByRole('button', { name: t.confirm }));
+  fireEvent.click(within(dialog).getByRole('button', { name: t.cancel }));
+  await act(async () => {
+    answer();
+    await Promise.resolve();
+  });
+  expect(sim.probes[0]!.level).toBe(before);
+});
+
+test('elegir una mejora de la lista no se queda el foco: Espacio sigue siendo el dash', async () => {
+  await mount(admin({ test: true }));
+  f2();
+  const option = screen.getAllByRole('option')[0]!;
+  option.focus();
+  fireEvent.click(option);
+  expect(document.activeElement).not.toBe(option);
+});
+

@@ -184,7 +184,11 @@ export function DebugPanel({
                     role="option"
                     aria-selected={picked === key}
                     tabIndex={0}
-                    onClick={() => choose(key, o.maxLevel)}
+                    onClick={(e) => {
+                      // Let go of the focus, like the buttons: Space must stay the dash.
+                      e.currentTarget.blur();
+                      choose(key, o.maxLevel);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter' && e.key !== ' ') return;
                       e.preventDefault();
