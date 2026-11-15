@@ -1202,6 +1202,11 @@ export const copy = {
       removed: (path: string) => `${path} se quita`,
       moved: (n: number) => `Alguien publicó la versión ${n} mientras editabas`,
       reloadLive: 'Cargar lo publicado',
+      // «Probar en incursión» (admin debug mode, 2026-11-15): the content draft in a test run, before publishing it.
+      tryInRun: 'Probar en incursión',
+      tryInRunHint: 'Juegas tu borrador en una incursión de prueba sin publicarlo. No da recompensas',
+      restoreDraft: 'Recuperar el borrador probado',
+      draftMoved: (n: number) => `Lo probaste sobre la versión ${n} y la publicada ha cambiado desde entonces`,
       publish: 'Publicar',
       published: (n: number) => `Publicada la versión ${n}. Queda en la auditoría`,
       history: 'Historial',
@@ -3078,6 +3083,13 @@ export const copy = {
     dailyHint: (hours: number) => `Tras ${fmt(hours)} ${hours === 1 ? 'hora' : 'horas'} de juego al día, el premio económico baja poco a poco. La experiencia y el progreso nunca bajan`,
     duration: (seconds: number) => `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`,
     launch: 'Lanzar incursión',
+    // «Probar en incursión» (admin debug mode, 2026-11-15): an admin's content draft in a test run.
+    draft: {
+      notice: 'Probando tu borrador de contenido',
+      hint: 'Sin publicar: la incursión será de prueba y no dará recompensas',
+      discard: 'Descartar',
+      missing: 'Tu borrador no tiene el sector, la sonda o el arma elegidos',
+    },
   },
   codex: {
     title: 'Códice',

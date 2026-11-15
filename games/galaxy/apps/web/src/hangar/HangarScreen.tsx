@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
 import type { ArenaDebug, RunEnd } from '../arena/ArenaScreen';
+import { clearContentDraft, readContentDraft } from '../admin/content-draft';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
@@ -76,6 +77,12 @@ export function HangarScreen() {
   // The admin debug mode (2026-11-15): admins with TOTP, in solo runs, never in the tutorial's.
   const me = useMe().data;
   const debugAllowed = isAdmin(me) && !!me?.mfa && !coached;
+  // «Probar en incursión»: the content draft the panel sent here, only for an admin who may play it.
+  const [stored, setStored] = useState(readContentDraft);
+  const draft = debugAllowed ? stored : null;
+  const [draftError, setDraftError] = useState<string | null>(null);
+  /** The run on screen plays the draft (a test run from its start). */
+  const [runDraft, setRunDraft] = useState(false);
   const [run, setRun] = useState<RunStart | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
   const [pending, setPending] = useState<PendingRun | null>(() => loadPending());
@@ -152,7 +159,7 @@ export function HangarScreen() {
 
   if (run) {
     const runId = run.id;
-    const debug: ArenaDebug | undefined = debugAllowed ? { test: false, draft: false, markTest: () => markTestRun(runId).then(() => undefined) } : undefined;
+    const debug: ArenaDebug | undefined = debugAllowed ? { test: runDraft, draft: runDraft, markTest: () => markTestRun(runId).then(() => undefined) } : undefined;
     return (
       <ArenaBoundary>
         <Suspense fallback={<Splash label={copy.arena.loading} />}>
@@ -221,10 +228,60 @@ export function HangarScreen() {
         // The coached first run keeps to one way: alone.
         coached={coached}
         error={start.error ?? sendError}
+        notice={
+          draft ? (
+            <div className="lip panel lobby-draft" role="status" aria-label={copy.hangar.draft.notice}>
+              <b>{copy.hangar.draft.notice}</b>
+              <span>{copy.hangar.draft.hint}</span>
+              <button
+                type="button"
+                className="lip pill small"
+                onClick={() => {
+                  clearContentDraft();
+                  setStored(null);
+                  setDraftError(null);
+                }}
+              >
+                {copy.hangar.draft.discard}
+              </button>
+              {draftError ? <p className="field-error">{draftError}</p> : null}
+            </div>
+          ) : null
+        }
         onLaunch={() => {
           setSendError(null);
+          setDraftError(null);
+          const req = { sector: hangar.data.sector, probe: hangar.data.probe, simVersion: SIM_VERSION };
+          if (draft) {
+            // The draft plays the run: it must have what the run is launched with, or the arena could not start.
+            const c = draft.content;
+            if (!c.sectors.some((s) => s.id === req.sector) || !c.probes.some((p) => p.id === req.probe)) {
+              setDraftError(copy.hangar.draft.missing);
+              return;
+            }
+            playLaunch();
+            start.mutate(
+              { ...req, test: true },
+              {
+                onSuccess: (r) => {
+                  if ((r.variant && !c.weapons.some((w) => w.id === r.variant)) || (r.anomaly && !c.anomalies.some((a) => a.id === r.anomaly))) {
+                    setDraftError(copy.hangar.draft.missing);
+                    return;
+                  }
+                  setRunDraft(true);
+                  setRun({ ...r, content: c });
+                },
+              },
+            );
+            return;
+          }
           playLaunch();
-          start.mutate({ sector: hangar.data.sector, probe: hangar.data.probe, simVersion: SIM_VERSION }, { onSuccess: (r) => setRun(r) });
+          start.mutate(req, {
+            onSuccess: (r) => {
+              setRunDraft(false);
+              setRun(r);
+            },
+          });
         }}
       />
     );
