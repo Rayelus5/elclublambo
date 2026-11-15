@@ -61,11 +61,13 @@ const body = (over: Partial<FinishRunRequest> = {}): FinishRunRequest => ({
 
 /** Everything a paid run would have touched for this account: wallet, the day's run time, experience and the ledger. */
 async function trail(accountId: string, cookie: string, runId: string) {
+  // The wallet first: its first read can credit the welcome signals, which is not the run's doing.
+  const purse = await wallet(cookie);
   const days = await ctx.db.selectFrom('galaxy.run_days').select('seconds').where('account_id', '=', accountId).execute();
   const xp = await ctx.db.selectFrom('galaxy.account_xp').select('xp').where('account_id', '=', accountId).executeTakeFirst();
   const ledger = await ctx.db.selectFrom('galaxy.ledger').select('id').where('account_id', '=', accountId).execute();
   const inputs = await ctx.db.selectFrom('galaxy.run_inputs').select('run_id').where('run_id', '=', runId).execute();
-  return { wallet: await wallet(cookie), days: days.map((d) => Number(d.seconds)), xp: Number(xp?.xp ?? 0), ledger: ledger.length, inputs: inputs.length };
+  return { wallet: purse, days: days.map((d) => Number(d.seconds)), xp: Number(xp?.xp ?? 0), ledger: ledger.length, inputs: inputs.length };
 }
 
 let admin: Awaited<ReturnType<typeof staff>>;
