@@ -32,6 +32,7 @@ export const API_ERROR_CODES = [
   'run_finished',
   'run_expired',
   'run_open',
+  'run_test',
   'galaxy_type_not_found',
   'mission_not_found',
   'mission_not_ready',

@@ -16,11 +16,14 @@ import {
   type ProbeTestResult,
   type RunResult,
   type RunStart,
+  type TestRunResponse,
   activeAnomaly,
 } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireSession } from '../auth/guards';
+import { requireAdmin, requireSession } from '../auth/guards';
+import { inTransaction } from '../db/tx';
+import { clientIp } from '../security/client-ip';
 import { operationExists, runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { withNotices } from '../realtime/notices';
@@ -31,7 +34,7 @@ import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
 import { chooseSkin, chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
-import { finishRun, startRun } from './service';
+import { finishRun, markTestRun, startRun } from './service';
 import { missionConfigs } from '../missions/service';
 import { creditRunExtras } from './extras';
 import { labSeasonId } from '../lab/levels';
@@ -54,7 +57,7 @@ const wornOf = (view: HangarView): string | null => view.probes.find((p) => p.id
 
 export function registerRunRoutes(
   api: FastifyInstance,
-  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'> },
+  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'>; trustCfIp?: boolean },
 ): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
@@ -147,6 +150,9 @@ export function registerRunRoutes(
     const s = requireSession(req);
     const key = idempotencyKey(req);
     const body = startRunRequestSchema.parse(req.body);
+    // A test run with a content draft (debug mode, 2026-11-15): admins with TOTP only, audited.
+    if (body.test) requireAdmin(req);
+    const test = body.test ? { id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp ?? false) } : undefined;
     await requireRuns(deps);
     const runs = await deps.config.get('runs');
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_start', runs.startPerHour, 3600);
@@ -161,8 +167,20 @@ export function registerRunRoutes(
     const labSeason = labSeasonId(lab, season, now);
     const redshift = await deps.config.get('redshift');
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason, test }),
     );
+  });
+
+  // The debug mode (2026-11-15): before its first change to play, the admin's own open solo run becomes a test run. It
+  // stops being watched live (its clock no longer follows the wall's).
+  api.post('/galaxy/api/runs/:id/test', async (req): Promise<TestRunResponse> => {
+    const s = requireAdmin(req);
+    const { id } = idParam.parse(req.params);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_test', 60, 3600);
+    const actor = { id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp ?? false) };
+    await inTransaction(deps.db, (trx) => markTestRun(trx, actor, s.accountId, id));
+    deps.feeds?.end(id);
+    return { id, test: true };
   });
 
   // The global multipliers running now (GDD §16.3; M6d-5), for the hub and the hangar.
@@ -197,7 +215,8 @@ export function registerRunRoutes(
     const result = await withNotices(deps.live, (out) =>
       runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
         const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
-        // The season currency for its points, and the missions for what it did (runs/extras.ts).
+        // The season currency for its points, and the missions for what it did (runs/extras.ts); a test run, nothing.
+        if (r.test) return r;
         await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now }, {}, out);
         return r;
       }),
