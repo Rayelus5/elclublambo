@@ -33,13 +33,13 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scal
   layerSeconds: 300,
   beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
   // Enemy life plan (2026-11-15): 0.5, as the owner set it live from the panel (it was 0.3), so calibration measures PRE.
-  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5, perLayer: 0.25 },
+  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5, perLayer: 0.4 },
   scaling: {
     hpPerMinute: 0.06,
     damagePerMinute: 0.065,
     // Enemy life plan (2026-11-15): calibrated with packages/sim/test/difficulty.test.ts (GALAXY_CALIBRATE=1).
-    hpPerLayer: 0.45,
-    damagePerLayer: 0.25,
+    hpPerLayer: 0.6,
+    damagePerLayer: 0.35,
     speedPerLayer: 0.05,
     eliteBase: 0,
     elitePerMinute: 0.006,
@@ -1940,7 +1940,7 @@ export const DEFAULT_CONTENT: Content = {
       enemyHp: 1.25,
       enemyDamage: 2.4,
       coreDamage: 2.1,
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.55, damagePerLayer: 0.4 },
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.7, damagePerLayer: 0.5 },
       density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
     },
   ],
