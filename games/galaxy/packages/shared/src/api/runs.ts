@@ -40,7 +40,11 @@ export interface LiveContentView {
   content: Content;
 }
 
-export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
+/**
+ * `test`: an admin's test run (debug mode, 2026-11-15), started with a content draft; it pays and counts for nothing.
+ * Only an admin with TOTP may send it.
+ */
+export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20), test: z.literal(true).optional() }).strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
 const count = (max: number) => z.number().int().min(0).max(max);
@@ -63,6 +67,11 @@ export const finishRunRequestSchema = z
     hash: z.string().regex(/^[0-9a-f]{16}$/),
     /** The recorded inputs (packages/sim encodeLog) in base64. */
     inputs: z.string().max(2_800_000).regex(/^[A-Za-z0-9+/]*={0,2}$/),
+    /**
+     * A test run of the debug mode (2026-11-15): it gives up every reward. Anyone may send it (giving up is harmless), so a
+     * finish resent after the admin's TOTP session lapsed still closes the run.
+     */
+    test: z.literal(true).optional(),
   })
   .strict()
   .refine((r) => r.loot.length === r.depth, 'loot_depth');
@@ -224,4 +233,12 @@ export interface RunResult {
    */
   /** `shards`: the season currency the run paid (M7d-1; absent when none). */
   progress: { xp: number; level: number; levelUp: boolean; points: number; shards?: number };
+  /** A test run of the debug mode (2026-11-15): nothing was paid or counted. */
+  test?: true;
+}
+
+/** POST /galaxy/api/runs/:id/test (debug mode, 2026-11-15): the admin's own open solo run is now a test run. */
+export interface TestRunResponse {
+  id: string;
+  test: true;
 }

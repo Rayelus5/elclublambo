@@ -153,7 +153,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     const soloFeeds = new SoloFeeds({ now: () => now().getTime() });
     soloFeeds.start();
     api.addHook('onClose', async () => soloFeeds.close());
-    registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, onProbeChosen: (id, probe, skin) => rooms.memberChanged(id, { probe, skin }) });
+    registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, trustCfIp: deps.env.TRUST_CF_IP, onProbeChosen: (id, probe, skin) => rooms.memberChanged(id, { probe, skin }) });
     registerSoloStreamRoutes(api, { db: deps.db, feeds: soloFeeds, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerStationRoutes(api, { db: deps.db, config, now, live });
     registerLabRoutes(api, { db: deps.db, config, now });

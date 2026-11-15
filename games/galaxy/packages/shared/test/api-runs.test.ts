@@ -48,3 +48,15 @@ describe('inicio y equipo', () => {
     expect(() => loadoutRequestSchema.parse({ relics: [a, null, null, null, null, null, b] })).toThrow();
   });
 });
+
+describe('incursión de prueba (modo depuración, 2026-11-15)', () => {
+  test('el inicio y el fin aceptan test: true y nada más', () => {
+    const start = { sector: 'outer-nebula', probe: 'lumen', simVersion: '1.0.0' };
+    expect(startRunRequestSchema.parse({ ...start, test: true })).toEqual({ ...start, test: true });
+    expect(startRunRequestSchema.parse(start)).toEqual(start);
+    expect(() => startRunRequestSchema.parse({ ...start, test: false })).toThrow();
+    expect(finishRunRequestSchema.parse({ ...finish, test: true })).toEqual({ ...finish, test: true });
+    expect(() => finishRunRequestSchema.parse({ ...finish, test: false })).toThrow();
+    expect(() => finishRunRequestSchema.parse({ ...finish, test: 'si' })).toThrow();
+  });
+});

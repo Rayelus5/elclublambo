@@ -9,7 +9,10 @@ import type { RunsConfig } from './rewards';
 // depth and loot to what those kills drop. A cheating flag also pays only the death share. Replaying the inputs
 // comes later (M5).
 
-export type RunFlag = 'too_fast' | 'depth_vs_time' | 'kills_rate' | 'boss_kills' | 'log_mismatch' | 'loot_cap' | 'payout_cap' | 'coop_idle' | 'satellite_cap';
+export type RunFlag = 'too_fast' | 'depth_vs_time' | 'kills_rate' | 'boss_kills' | 'log_mismatch' | 'loot_cap' | 'payout_cap' | 'coop_idle' | 'satellite_cap' | 'debug';
+
+/** The flag of an admin's test run (debug mode, 2026-11-15): it pays and counts for nothing. */
+export const TEST_FLAG = 'debug' satisfies RunFlag;
 
 /** Flags that point at a forged claim rather than a lucky one: the run pays only the death share. */
 const CHEATING: readonly RunFlag[] = ['too_fast', 'depth_vs_time', 'kills_rate', 'boss_kills', 'log_mismatch'];

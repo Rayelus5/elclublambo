@@ -1,4 +1,4 @@
-import { type AdminStats, expectedTierRates, type StatsPeriod, type StatsSection, TIERS } from '@galaxy/shared';
+import { type AdminStats, expectedTierRates, type StatsPeriod, type StatsSection, TEST_FLAG, TIERS } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -8,6 +8,8 @@ import type { DB } from '../db/schema';
 // (empty ones filled), the ledger's flows in and out by currency and reason, pulls by tier against the live gacha
 // config's expected shares, market and trade volume, and what waits for review. Each section also renders as CSV.
 
+/** Admins' test runs (debug mode, 2026-11-15) are not play: the statistics leave them out. */
+const notTest = sql<boolean>`not (${TEST_FLAG} = any(flags))`;
 export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: { size: () => number }; now: () => Date };
 
 const HOUR = 3_600_000;
@@ -46,8 +48,8 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
   // shifts it.
   const fmt = unit === 'hour' ? sql`to_char(date_trunc('hour', started_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24')` : sql`to_char(date_trunc('day', started_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24')`;
   const [byBucket, outcomes] = await Promise.all([
-    sql<{ b: string; n: number }>`select ${fmt} as b, count(*)::int as n from galaxy.runs where started_at >= ${from} group by 1`.execute(db),
-    db.selectFrom('galaxy.runs').select(['outcome', sql<number>`count(*)::int`.as('n')]).where('started_at', '>=', from).where('outcome', 'is not', null).groupBy('outcome').execute(),
+    sql<{ b: string; n: number }>`select ${fmt} as b, count(*)::int as n from galaxy.runs where started_at >= ${from} and ${notTest} group by 1`.execute(db),
+    db.selectFrom('galaxy.runs').select(['outcome', sql<number>`count(*)::int`.as('n')]).where('started_at', '>=', from).where('outcome', 'is not', null).where(notTest).groupBy('outcome').execute(),
   ]);
   // Not finished: still open while it can finish (runs.expireHours), unfinished for good after that.
   const { expireHours } = await deps.config.get('runs');
@@ -57,6 +59,7 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
     .select([sql<number>`count(*) filter (where started_at > ${expiry})::int`.as('open'), sql<number>`count(*) filter (where started_at <= ${expiry})::int`.as('unfinished')])
     .where('started_at', '>=', from)
     .where('outcome', 'is', null)
+    .where(notTest)
     .executeTakeFirstOrThrow();
   const counts = new Map(byBucket.rows.map((r) => [r.b, r.n]));
   const outcome = (o: string | null) => outcomes.find((r) => r.outcome === o)?.n ?? 0;

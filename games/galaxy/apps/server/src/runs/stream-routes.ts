@@ -1,6 +1,6 @@
-import { type SoloLiveList, soloStreamMessageSchema } from '@galaxy/shared';
+import { type SoloLiveList, soloStreamMessageSchema, TEST_FLAG } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 import { runReplay } from '../admin/runs';
 import { isStaff, requireStaff } from '../auth/guards';
@@ -55,6 +55,8 @@ export function registerSoloStreamRoutes(api: FastifyInstance, deps: { db: Kysel
         .where('account_id', '=', s.accountId)
         .where('finished_at', 'is', null)
         .where('coop_run_id', 'is', null)
+        // A test run of the debug mode is not watched: its clock no longer follows the wall's (2026-11-15).
+        .where(sql<boolean>`not (${TEST_FLAG} = any(flags))`)
         .executeTakeFirst();
       if (socket.readyState !== socket.OPEN) return;
       if (!run) return socket.close(4404, 'run');

@@ -30,6 +30,7 @@ import {
   type BoostsConfig,
   type RunClaim,
   type RunFlag,
+  TEST_FLAG,
 } from '@galaxy/shared';
 import { type Content, decodeLog, fromBase64, logTicks, satelliteSignalsUpTo } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -44,6 +45,8 @@ import { redshiftRank } from '../lab/redshift';
 import { planetariumXp } from '../planetarium/service';
 import { creditRunProgress } from '../social/progress';
 import { grantPortraits } from '../cosmetics/service';
+import { type AuditActor, writeAudit } from '../audit';
+import { accountLevel } from '../social/progress';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -63,6 +66,8 @@ export interface StartContext {
   /** The season whose Laboratorio core counts now (`labSeasonId`), or null. */
   labSeason: string | null;
   now: Date;
+  /** An admin's test run (debug mode, 2026-11-15), started with a content draft: who started it, for the audit. */
+  test?: AuditActor;
 }
 
 /** A run's seed: 64 random bits, in decimal. */
@@ -115,9 +120,11 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sim_version: req.simVersion,
       start_key: key,
       started_at: ctx.now,
+      ...(ctx.test ? { flags: [TEST_FLAG], suspicious: true } : {}),
     })
     .returning(['id', 'started_at'])
     .executeTakeFirstOrThrow();
+  if (ctx.test) await writeAudit(trx, { actor: ctx.test, action: 'run.test', targetType: 'run', targetId: row.id, after: { flags: [TEST_FLAG] }, reason: 'draft' });
   return {
     id: row.id,
     seed,
@@ -169,10 +176,77 @@ function inputsOf(b64: string, probes: number): { bytes: Uint8Array; lastTick: n
   }
 }
 
+/**
+ * The admin's own open solo run becomes a test run (debug mode, 2026-11-15), before the debug menu changes play: it is
+ * flagged and kept out of everything that pays or counts, once, with its audit trace.
+ */
+export async function markTestRun(trx: Kysely<DB>, actor: AuditActor, accountId: string, runId: string): Promise<void> {
+  const run = await trx
+    .selectFrom('galaxy.runs')
+    .select(['id', 'finished_at', 'flags'])
+    .where('id', '=', runId)
+    .where('account_id', '=', accountId)
+    .where('coop_run_id', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+  if (!run) throw new HttpError(404, 'run_not_found');
+  if (run.finished_at) throw new HttpError(409, 'run_finished');
+  if (run.flags.includes(TEST_FLAG)) return;
+  const flags = [...run.flags, TEST_FLAG];
+  await trx.updateTable('galaxy.runs').set({ flags, suspicious: true }).where('id', '=', run.id).execute();
+  await writeAudit(trx, { actor, action: 'run.test', targetType: 'run', targetId: run.id, before: { flags: run.flags }, after: { flags }, reason: 'debug' });
+}
+
+const NO_PAY = { coins: 0, dust: 0, signals: 0, material: 0, components: 0, satellites: 0 };
+
+/**
+ * Closes a test run (debug mode, 2026-11-15) with what the client says it did, and pays and counts nothing: no day's run
+ * time, no currency, no portraits, no inputs kept (the debug actions are not in them), no experience or points.
+ */
+async function finishTestRun(trx: Kysely<DB>, accountId: string, run: { id: string; started_at: Date | string; flags: string[] }, req: FinishRunRequest, ctx: FinishContext): Promise<RunResult> {
+  const { inputs: _inputs, test: _test, ...claimed } = req;
+  const wall = Math.max(0, (ctx.now.getTime() - new Date(run.started_at).getTime()) / 1000);
+  const seconds = Math.max(0, Math.floor(Math.min(claimed.ticks / 60, wall)));
+  const flags = run.flags.includes(TEST_FLAG) ? run.flags : [...run.flags, TEST_FLAG];
+  await trx
+    .updateTable('galaxy.runs')
+    .set({
+      finished_at: ctx.now,
+      outcome: claimed.outcome,
+      ticks: claimed.ticks,
+      depth: claimed.depth,
+      kills: claimed.kills,
+      boss_kills: claimed.bossKills,
+      level: claimed.level,
+      seconds,
+      hash: claimed.hash,
+      payout: JSON.stringify({ ...NO_PAY, layers: [], share: 0, daily: [], claimed: claimed.loot, test: true }),
+      runs_version: ctx.runsVersion,
+      flags,
+      suspicious: true,
+      claim: JSON.stringify({ ticks: claimed.ticks, depth: claimed.depth, kills: claimed.kills, bossKills: claimed.bossKills, level: claimed.level }),
+    })
+    .where('id', '=', run.id)
+    .execute();
+  return {
+    id: run.id,
+    outcome: claimed.outcome,
+    ticks: claimed.ticks,
+    depth: claimed.depth,
+    kills: claimed.kills,
+    level: claimed.level,
+    payout: { ...NO_PAY },
+    breakdown: { layers: [], share: 0, daily: [] },
+    wallet: await getWallet(trx, accountId),
+    progress: { xp: 0, level: await accountLevel(trx, accountId, ctx.account), levelUp: false, points: 0 },
+    test: true,
+  };
+}
+
 export async function finishRun(trx: Kysely<DB>, accountId: string, runId: string, req: FinishRunRequest, key: string, ctx: FinishContext): Promise<RunResult> {
   const run = await trx
     .selectFrom('galaxy.runs')
-    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades', 'seed', 'content_version'])
+    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades', 'seed', 'content_version', 'flags'])
     .where('id', '=', runId)
     .where('account_id', '=', accountId)
     // A co-op player's row is paid by its run (coop/settle.ts), never through the solo finish.
@@ -183,6 +257,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   if (run.finished_at) throw new HttpError(409, 'run_finished');
   const startedAt = new Date(run.started_at).getTime();
   if ((ctx.now.getTime() - startedAt) / 1000 > ctx.runs.expireHours * 3600) throw new HttpError(410, 'run_expired');
+  // A test run (debug mode): flagged on the server, or given up by the client (a resend after its session lapsed too).
+  if (req.test || run.flags.includes(TEST_FLAG)) return finishTestRun(trx, accountId, run, req, ctx);
   // Real time is counted once: a run that overlaps another finished one only has the time since that finish.
   const overlap = await trx
     .selectFrom('galaxy.runs')
@@ -190,12 +266,14 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .where('account_id', '=', accountId)
     .where('id', '<>', run.id)
     .where('finished_at', '>', new Date(startedAt))
+    // A test run's time is not real play: it never shortens another run's.
+    .where(sql<boolean>`not (${TEST_FLAG} = any(flags))`)
     .executeTakeFirst();
   const from = overlap?.last ? Math.max(startedAt, new Date(overlap.last).getTime()) : startedAt;
   const wallSeconds = Math.max(0, (ctx.now.getTime() - from) / 1000);
   const { bytes, lastTick } = inputsOf(req.inputs, 1);
 
-  const { inputs: _inputs, ...claimed } = req;
+  const { inputs: _inputs, test: _test, ...claimed } = req;
   const sector = ctx.content.sectors.find((s) => s.id === run.sector);
   const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick });
   // A solo run is not replayed here: its satellites are bounded by the ones its seed had in the layers it reached and
