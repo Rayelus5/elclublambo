@@ -311,6 +311,8 @@ export interface Sim {
   /** Co-op rules (absent in solo) and the players the current layer is scaled for. */
   coop: CoopRules | null;
   players: number;
+  /** Admin debug mode (2026-11-15), solo test runs only: set by the client between steps, never recorded or hashed. */
+  debug?: { god: boolean };
 }
 
 export interface RunSummary {

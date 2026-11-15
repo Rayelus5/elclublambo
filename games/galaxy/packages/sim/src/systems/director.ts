@@ -69,7 +69,7 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
  * by `density.perLayer` every layer past the first, where only strong players get; a new player's first layers stay.
  * Not while the Núcleo is up: a horde shielding it made the fight unwinnable.
  */
-function layerCrowd(sim: Sim): number {
+export function layerCrowd(sim: Sim): number {
   if (sim.phase === 'boss') return 1;
   return 1 + sim.sector.density.perLayer * (sim.layer - 1);
 }
@@ -85,13 +85,20 @@ function aliveFauna(sim: Sim): number {
   return sim.enemies.count - (sim.boss ? 1 : 0);
 }
 
+/**
+ * How many fauna may be alive at once now. While the Núcleo is up the alive cap drops with `bossFactor`, like the spawn
+ * rate: a Núcleo walled in by tough fauna could not be reached and the fight went on for minutes (enemy life plan,
+ * 2026-11-15).
+ */
+export function aliveCap(sim: Sim): number {
+  const sector = sim.sector;
+  const fight = sim.phase === 'boss' ? sector.density.bossFactor : 1;
+  return Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * fight * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
+}
+
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  // While the Núcleo is up the alive cap drops with `bossFactor`, like the spawn rate: a Núcleo walled in by tough fauna
-  // could not be reached and the fight went on for minutes (enemy life plan, 2026-11-15).
-  const fight = sim.phase === 'boss' ? sector.density.bossFactor : 1;
-  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * fight * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
-  if (aliveFauna(sim) >= cap) return;
+  if (aliveFauna(sim) >= aliveCap(sim)) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
   if (open.length === 0) return;
@@ -150,15 +157,20 @@ function fireWaves(sim: Sim): void {
   });
 }
 
-/** One tick of the director. */
-export function direct(sim: Sim): void {
+/** Groups spawned per second now. */
+export function spawnRate(sim: Sim): number {
   const d = sim.sector.density;
   let rate = Math.min(d.max * layerCrowd(sim), d.base + (d.perMinute * sim.tick) / 3600);
   if (sim.phase === 'boss') rate *= d.bossFactor;
   rate *= 1 + curseOf(sim);
   if (sim.anomaly) rate *= sim.anomaly.spawn;
   rate *= coopFactor(sim, 'density');
-  let acc = (sim.clocks['spawnAcc'] ?? 0) + rate / 60;
+  return rate;
+}
+
+/** One tick of the director. */
+export function direct(sim: Sim): void {
+  let acc = (sim.clocks['spawnAcc'] ?? 0) + spawnRate(sim) / 60;
   while (acc >= 1) {
     acc -= 1;
     spawnGroup(sim);
