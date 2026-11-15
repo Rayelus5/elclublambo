@@ -1,6 +1,6 @@
 import type { HangarView } from '@galaxy/shared';
 import type { BiomeId } from '@galaxy/sim';
-import { type CSSProperties, useLayoutEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useLayoutEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { useGacha } from '../../api/economy';
 import { useRooms } from '../../api/rooms';
@@ -45,7 +45,22 @@ function FarGalaxy({ seed }: { seed: string }) {
   );
 }
 
-export function Lobby({ view, onLaunch, launching, error, coached }: { view: HangarView; onLaunch: () => void; launching: boolean; error: unknown; coached: boolean }) {
+export function Lobby({
+  view,
+  onLaunch,
+  launching,
+  error,
+  coached,
+  notice,
+}: {
+  view: HangarView;
+  onLaunch: () => void;
+  launching: boolean;
+  error: unknown;
+  coached: boolean;
+  /** Over the launch, solo only: an admin's content draft about to be tried (admin debug mode, 2026-11-15). */
+  notice?: ReactNode;
+}) {
   const reduced = useReducedMotion();
   const me = useMe().data;
   const gacha = useGacha().data;
@@ -86,7 +101,7 @@ export function Lobby({ view, onLaunch, launching, error, coached }: { view: Han
         <div className="lobby-foot">
           <TodayMissions d=".3s" className="lobby-missions" />
           <RelicStrip view={view} />
-          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} />
+          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} notice={notice} />
         </div>
       </div>
       {launching ? <span className="lobby-flash" aria-hidden="true" /> : null}

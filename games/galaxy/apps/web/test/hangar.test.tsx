@@ -1,8 +1,9 @@
-import type { CollectionPage, FinishRunRequest, RunResult } from '@galaxy/shared';
+import type { CollectionPage, FinishRunRequest, RunResult, RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
+import { readContentDraft, saveContentDraft } from '../src/admin/content-draft';
 import type { ArenaDebug, RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
@@ -14,9 +15,9 @@ import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 // whose result never reached the server is sent again with the same key (Review Focus 2).
 
 // The arena is replaced by a stub that keeps its props (to end a run by hand) and can fail like a chunk that did not load.
-const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug }, fail: false }));
+const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug; run?: RunStart }, fail: false }));
 vi.mock('../src/arena/ArenaScreen', () => {
-  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug }) => {
+  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug; run?: RunStart }) => {
     if (arena.fail) throw new Error('Failed to fetch dynamically imported module');
     arena.props = p;
     return <div data-testid="arena" />;
@@ -286,6 +287,71 @@ describe('modo depuración', () => {
     await screen.findByText(copy.results.test);
     const sent = fetch.mock.calls.find(([url]) => url === '/galaxy/api/runs/r1/finish')!;
     expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true });
+  });
+});
+
+// «Probar en incursión» (admin debug mode, 2026-11-15): an admin's content draft is played in a test run, unpublished.
+describe('borrador de contenido', () => {
+  const adminMe = () => jsonResponse(200, { id: 'a1', username: 'admin', roles: ['admin'], mfa: true });
+  const draft = () => {
+    const content = structuredClone(DEFAULT_CONTENT);
+    content.sectors[0]!.name = 'Nebulosa de prueba';
+    saveContentDraft({ baseVersion: 12, raw: content, content });
+  };
+  const ready = async () => waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+  afterEach(() => sessionStorage.clear());
+
+  test('un admin con borrador ve el aviso, y «Descartar» lo borra', async () => {
+    draft();
+    mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    // Inside the launch dock, over the button: never a column of its own in the lobby's foot (review, 2026-11-15).
+    expect(notice.closest('.lobby-dock')).not.toBeNull();
+    fireEvent.click(within(notice).getByRole('button', { name: copy.hangar.draft.discard }));
+    expect(readContentDraft()).toBeNull();
+    expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
+  });
+
+  test('el lanzamiento envía test: true y la incursión usa el contenido del borrador', async () => {
+    draft();
+    const fetch = mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true });
+    expect(arena.props!.run!.content.sectors[0]!.name).toBe('Nebulosa de prueba');
+    expect(arena.props!.debug).toMatchObject({ test: true, draft: true });
+  });
+
+  test('borrador sin el sector elegido no lanza', async () => {
+    const content = structuredClone(DEFAULT_CONTENT);
+    content.sectors[0]!.id = 'otro-sector';
+    saveContentDraft({ baseVersion: 12, raw: content, content });
+    const fetch = mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(readContentDraft()).not.toBeNull();
+    await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    expect(await screen.findByText(copy.hangar.draft.missing)).toBeInTheDocument();
+    expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')).toBe(false);
+  });
+
+  test('un no admin ignora el borrador', async () => {
+    draft();
+    const fetch = mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await ready();
+    expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
+    expect(JSON.parse(String(sent[1]!.body)).test).toBeUndefined();
+    expect(arena.props!.run!.content.sectors[0]!.name).not.toBe('Nebulosa de prueba');
   });
 });
 

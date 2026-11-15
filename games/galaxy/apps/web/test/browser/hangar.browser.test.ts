@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { clearContentDraft, saveContentDraft } from '../../src/admin/content-draft';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
 import { WorkshopScreen } from '../../src/workshop/WorkshopScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
@@ -180,6 +181,41 @@ for (const [w, h] of [
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-${w}.png` });
+  }, 60_000);
+}
+
+// «Probar en incursión» (admin debug mode, 2026-11-15): the draft's notice sits in the launch dock, over the button; the
+// lobby keeps its areas apart and the launch button its size (review: it was a column of its own in the foot).
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`hangar con un borrador de contenido a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    saveContentDraft({ baseVersion: 12, raw: DEFAULT_CONTENT, content: DEFAULT_CONTENT });
+    try {
+      mount(createElement(HangarScreen), { '/auth/me': { id: 'a1', username: 'rayelus', roles: ['admin'], mfa: true, level: 30 } });
+      const notice = await vi.waitFor(() => {
+        const el = document.querySelector<HTMLElement>('.lobby-draft');
+        if (!el) throw new Error('sin aviso');
+        return el;
+      }, { timeout: 10_000 });
+      expect(notice.closest('.lobby-dock')).not.toBeNull();
+      const names = ['.lobby-top', '.lobby-rail', '.lobby-stage', '.lobby-side', '.lobby-foot'];
+      const areas = names.map((sel) => document.querySelector(sel)!.getBoundingClientRect());
+      for (let i = 0; i < areas.length; i++)
+        for (let j = i + 1; j < areas.length; j++) {
+          const [a, b] = [areas[i]!, areas[j]!];
+          expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1, `${names[i]} × ${names[j]}`).toBe(false);
+        }
+      const screenRoot = document.querySelector('.screen-root')!;
+      expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+      expect(document.querySelector('.lobby-launch')!.getBoundingClientRect().width).toBeGreaterThan(240);
+      expect(document.querySelector('.lobby-foot')!.getBoundingClientRect().bottom).toBeLessThanOrEqual(h + 1);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-draft-${w}.png` });
+    } finally {
+      clearContentDraft();
+    }
   }, 60_000);
 }
 

@@ -4,6 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ConfigKeyScreen, ConfigScreen } from '../src/admin/ConfigScreen';
+import { readContentDraft, saveContentDraft } from '../src/admin/content-draft';
 import { CATEGORIES, KEY_INFO } from '../src/admin/forms/labels';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -238,3 +239,35 @@ test('el álbum se escribe en su porcentaje de 1 a 100, sin multiplicar', async 
   await user.click(within(list).getAllByRole('button', { expanded: false })[0]!);
   expect(within(list).getByLabelText('Al completar el')).toHaveValue(String(first.percent));
 });
+
+// «Probar en incursión» (admin debug mode, 2026-11-15): a content draft is tried in a test run before it is published.
+test('«Probar en incursión» guarda el borrador del contenido y lleva al hangar', async () => {
+  sessionStorage.clear();
+  api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
+  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen />, '/incursion': <p>hangar</p> });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: t.tryInRun }));
+  expect(await screen.findByText('hangar')).toBeInTheDocument();
+  const kept = readContentDraft();
+  expect(kept?.baseVersion).toBe(0);
+  expect(kept?.content.sectors.map((s) => s.id)).toEqual(DEFAULT_CONTENT.sectors.map((s) => s.id));
+  sessionStorage.clear();
+});
+
+test('otra clave no ofrece probar en incursión', async () => {
+  api();
+  renderAt('/admin/configuracion/chat', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  expect(await screen.findByRole('heading', { level: 1, name: KEY_INFO.chat.title })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: t.tryInRun })).toBeNull();
+});
+
+test('al volver al contenido se puede recuperar el borrador probado, y avisa si lo vivo cambió', async () => {
+  sessionStorage.clear();
+  saveContentDraft({ baseVersion: 5, raw: parseConfig('content', {}), content: DEFAULT_CONTENT });
+  api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
+  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  expect(await screen.findByRole('button', { name: t.restoreDraft })).toBeInTheDocument();
+  expect(screen.getByText(t.draftMoved(5))).toBeInTheDocument();
+  sessionStorage.clear();
+});
+

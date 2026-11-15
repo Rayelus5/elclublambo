@@ -193,6 +193,16 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
   - `notice "<texto>" --tone info|warning --days N --reason "<motivo>"`: aviso en la pantalla de título, **desde ahora** y durante N días (1–365). Para programar un aviso o terminarlo antes, el panel (Admin › Comunicación).
   - Comandos exactos para PRE en `docs/DEPLOY_PRE.md` (sección Operación). Están escritos para Git Bash: en PowerShell, `<` no existe y `>` guarda con BOM, que rompe el JSON.
 
+**Probar antes de publicar (modo depuración, 2026-11-15):**
+- En el panel, la clave `content` tiene «Probar en incursión». Juega el borrador en una incursión de prueba en solitario, sin publicarlo: nadie más lo ve y no da recompensas.
+- Con F2 se abre el menú de depuración, que permite:
+  - cambiar la velocidad (x0,25 a x8) y ver información y colisiones;
+  - subir niveles, ser invulnerable y curar;
+  - matar enemigos, hacer aparecer el Núcleo ya o pasar de capa;
+  - dar cualquier arma, pasiva o evolución.
+- El mismo menú sirve en cualquier incursión en solitario de un admin con TOTP. La primera acción que cambia la partida la convierte en incursión de prueba, con la auditoría `run.test`.
+- Solo cambia el `content` del borrador: las bonificaciones de sonda y laboratorio siguen saliendo del servidor. Los sectores y sondas que se pueden elegir son los del hangar vivo, y el arte nuevo tiene que estar ya desplegado.
+
 ### B2. Carpetas `ops/launch` y plantillas
 
 **`ops/launch/<aaaa-mm-dd>[-slug]/`:**
