@@ -120,3 +120,79 @@ test('una entrada en uso dice dónde y no se quita hasta dejar de usarla', async
   expect(screen.getByRole('button', { name: t.remove('Ácaro nuevo') })).toBeDisabled();
   expect(screen.getByText(t.usedStays)).toBeInTheDocument();
 });
+
+test('los niveles de un arma son una tabla, con lo que su tipo no usa apagado', async () => {
+  const { DESCRIPTORS } = await import('../src/admin/content/descriptors');
+  const pulse = live.weapons.find((w) => w.id === 'pulse')!;
+  const fetch = api({ 'PUT /galaxy/api/admin/config-drafts/d1/field': () => jsonResponse(200, draft({ revision: 2 })) });
+  renderAt('/admin/configuracion/content?borrador=d1&zona=arsenal&id=pulse', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: pulse.name });
+  const table = screen.getByRole('table', { name: DESCRIPTORS['weapons[].levels']!.label });
+  const label = (f: string) => DESCRIPTORS[`weapons[].levels[].${f}`]!.label;
+  expect(within(table).getByRole('columnheader', { name: new RegExp(label('bounces')) })).toHaveClass('off');
+  expect(within(table).getByRole('columnheader', { name: new RegExp(label('damage')) })).not.toHaveClass('off');
+  expect(within(table).getAllByRole('row')).toHaveLength(pulse.levels.length + 1);
+  fireEvent.change(within(table).getByRole('textbox', { name: t.cell(label('damage'), 2) }), { target: { value: '99' } });
+  await waitFor(() => expect(puts(fetch).map((p) => p.field)).toContain('weapons'), { timeout: 3000 });
+  const saved = puts(fetch).find((p) => p.field === 'weapons')!.value as { id: string; levels: { damage: number }[] }[];
+  expect(saved.find((w) => w.id === 'pulse')!.levels[1]!.damage).toBe(99);
+});
+
+test('un tipo se elige sabiendo qué hace, y lo que aún no existe pide programación', async () => {
+  const { DESCRIPTORS, VOCABS } = await import('../src/admin/content/descriptors');
+  api();
+  renderAt('/admin/configuracion/content?borrador=d1&zona=fauna&id=mite', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: mite.name });
+  const explain = VOCABS.behavior![mite.behavior.kind]!.explain;
+  expect(screen.getByText(explain)).toBeInTheDocument();
+  const kind = screen.getByRole('combobox', { name: DESCRIPTORS['enemies[].behavior.kind']!.label });
+  await userEvent.setup().click(kind);
+  expect(screen.getByRole('option', { name: t.needsCode })).toHaveAttribute('aria-disabled', 'true');
+});
+
+test('las fases de un Núcleo se ven sobre su barra de vida, y siguen editándose', async () => {
+  const { VOCABS } = await import('../src/admin/content/descriptors');
+  const hive = live.bosses.find((b) => b.id === 'hive')!;
+  api();
+  renderAt('/admin/configuracion/content?borrador=d1&zona=nucleos&id=hive', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: hive.name });
+  const chart = screen.getByRole('list', { name: t.phasesChart });
+  const phases = within(chart).getAllByRole('listitem');
+  expect(phases).toHaveLength(hive.phases.length);
+  expect(phases[0]).toHaveTextContent(t.phaseSpan(1, 100, Math.round(hive.phases[1]!.below * 100)));
+  expect(phases[0]).toHaveTextContent(VOCABS.bossPattern![hive.phases[0]!.patterns[0]!.kind]!.label);
+  expect(screen.getByRole('button', { name: /Añadir fase/ })).toBeInTheDocument();
+});
+
+test('un sector enseña cuándo sale cada enemigo y cuándo llegan sus oleadas', async () => {
+  const nebula = live.sectors[0]!;
+  api();
+  renderAt(`/admin/configuracion/content?borrador=d1&zona=sectores&id=${nebula.id}`, { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: nebula.name });
+  const chart = screen.getByRole('list', { name: t.spawnsChart });
+  const first = live.enemies.find((e) => e.id === nebula.spawns[0]!.enemy)!;
+  expect(within(chart).getAllByRole('listitem')).toHaveLength(nebula.spawns.length);
+  expect(within(chart).getAllByRole('listitem')[0]).toHaveTextContent(t.spawnFrom(first.name, nebula.spawns[0]!.from));
+  expect(screen.getByRole('list', { name: t.wavesChart })).toBeInTheDocument();
+});
+
+test('los pesos de los eventos se ven como su parte del total', async () => {
+  const { VOCABS } = await import('../src/admin/content/descriptors');
+  api();
+  renderAt('/admin/configuracion/content?borrador=d1&zona=eventos&lista=events', { '/admin/configuracion/content': <ContentScreen /> });
+  const chart = await screen.findByRole('list', { name: t.weightsChart });
+  const w = live.events.weights;
+  const total = Object.values(w).reduce((a, b) => a + b, 0);
+  expect(chart).toHaveTextContent(`${VOCABS.eventKind!.wreck!.label} ${Math.round((w.wreck / total) * 100)} %`);
+});
+
+test('las reacciones se ven en una tabla de parejas de elementos', async () => {
+  const { VOCABS } = await import('../src/admin/content/descriptors');
+  const first = live.elements.reactions[0]!;
+  api();
+  renderAt('/admin/configuracion/content?borrador=d1&zona=elementos', { '/admin/configuracion/content': <ContentScreen /> });
+  const table = await screen.findByRole('table', { name: t.reactionsChart });
+  const [a, b] = first.pair;
+  const cell = within(table).getByRole('cell', { name: t.reactionCell(VOCABS.element![a]!.label, VOCABS.element![b]!.label, first.name) });
+  expect(cell).toHaveTextContent(first.name);
+});

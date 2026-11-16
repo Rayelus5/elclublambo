@@ -210,6 +210,10 @@
   .select-pop [role='option'] { display: flex; align-items: center; gap: 14px; min-block-size: 40px; padding: 6px 10px 6px 12px; border-radius: 9px; color: var(--color-ink-soft); white-space: nowrap; cursor: pointer; }
   .select-pop [role='option'] + [role='option'] { margin-block-start: 2px; }
   .select-option-label { flex: 1; }
+  /* What a choice does, under its name (the content editor's kinds): the list stays readable, never a page wide. */
+  .select-option-hint { display: block; max-inline-size: 46ch; margin-block-start: 2px; white-space: normal; font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--color-ink-mute); }
+  .select-pop [role='option']:has(.select-option-hint) { align-items: flex-start; padding-block: 8px; }
+  .cf-explain { display: block; padding: 6px 10px; border-radius: 8px; background: rgb(255 201 74 / .08); color: var(--color-ink-soft); font-size: 13px; line-height: 1.4; }
   /* A drawing beside the label (the content editor's enemies, Cores, weapons): its own column in the trigger. */
   .select-image { flex: none; inline-size: 24px; block-size: 24px; image-rendering: pixelated; object-fit: contain; }
   .select:has(> .select-image) { grid-template-columns: 24px minmax(0, 1fr) auto; }
@@ -3022,6 +3026,59 @@
   .ce-uses { margin: 0; font-size: 14px; color: var(--color-ink-soft); }
   .ce-uses > summary { cursor: pointer; font-weight: 700; min-block-size: 32px; display: flex; align-items: center; }
   .ce-uses ul { margin: 4px 0 0; padding-inline-start: 18px; display: grid; gap: 2px; }
+  /* A weapon's levels as one table (P6): numbers its kind does not read are dimmed; it scrolls inside, never the page. */
+  .ce-levels { grid-column: 1 / -1; justify-items: start; }
+  .ce-levels-scroll { inline-size: 100%; overflow-x: auto; border-radius: 12px; background: rgb(0 0 0 / .2); }
+  .ce-levels table { border-collapse: separate; border-spacing: 0; inline-size: 100%; font-size: 13.5px; }
+  .ce-levels th, .ce-levels td { padding: 6px 6px; text-align: start; vertical-align: middle; }
+  .ce-levels thead th { position: sticky; top: 0; background: var(--color-panel); font-size: 12.5px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; border-block-end: 1px solid rgb(255 255 255 / .08); }
+  .ce-levels thead th > span:first-child { display: block; }
+  .ce-levels tbody th { font-weight: 700; white-space: nowrap; color: var(--color-ink-soft); }
+  .ce-levels tbody tr + tr > * { border-block-start: 1px solid rgb(255 255 255 / .05); }
+  .ce-levels .off { opacity: .42; }
+  .ce-levels td .cf-number input { inline-size: 76px; min-block-size: 36px; padding: 6px 8px; font-size: 14px; }
+  .ce-spark { display: block; margin-block-start: 3px; fill: none; stroke: var(--color-solar); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .ce-levels .off .ce-spark { stroke: var(--color-ink-mute); }
+  /* Charts drawn above their editors (P6): a Core's life by phases, a sector's timeline, the events' shares. */
+  .ce-chart { grid-column: 1 / -1; gap: 10px; }
+  .ce-chart > .cf-field, .ce-chart > .cf-group, .ce-chart > .cf-list { margin-block-start: 6px; }
+  .ce-lifebar { display: flex; gap: 2px; block-size: 22px; border-radius: 8px; overflow: hidden; }
+  .ce-lifebar > span { display: grid; place-items: center; min-inline-size: 18px; font-size: 12px; font-weight: 800; color: var(--color-void); }
+  .ce-life-0 { --life: var(--color-terminal); }
+  .ce-life-1 { --life: var(--color-solar); }
+  .ce-life-2 { --life: var(--color-nova); }
+  .ce-life-3 { --life: var(--color-uv-soft); }
+  .ce-lifebar > span { background: var(--life); }
+  .ce-phase-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 8px; }
+  .ce-phase-cards li { display: grid; align-content: start; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgb(0 0 0 / .22); box-shadow: inset 3px 0 0 var(--life); }
+  .ce-phase-cards b { font-size: 14px; }
+  .ce-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ce-chip { padding: 2px 8px; border-radius: 99px; background: rgb(255 255 255 / .07); font-size: 12.5px; font-weight: 600; color: var(--color-ink-soft); }
+  .ce-tl { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: rgb(0 0 0 / .22); }
+  .ce-tl-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+  .ce-tl-rows li, .ce-tl-waves-row { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr); gap: 10px; align-items: center; }
+  .ce-tl-name { display: flex; align-items: center; gap: 6px; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .ce-tl-name img { flex: none; image-rendering: pixelated; object-fit: contain; }
+  .ce-tl-track { position: relative; display: flex; block-size: 14px; border-radius: 99px; background: rgb(255 255 255 / .05); }
+  .ce-tl-bar { flex: 1; border-radius: 99px; background: var(--color-terminal); }
+  .ce-tl-waves { list-style: none; margin: 0; padding: 0; block-size: 24px; }
+  .ce-tl-waves li { position: absolute; top: 50%; translate: -50% -50%; display: grid; place-items: center; }
+  .ce-tl-waves img { image-rendering: pixelated; object-fit: contain; filter: drop-shadow(0 0 2px var(--color-nova)); }
+  .ce-tl-dot { inline-size: 10px; block-size: 10px; rotate: 45deg; background: var(--color-nova); }
+  .ce-tl-axis { display: flex; justify-content: space-between; margin-inline-start: calc(clamp(120px, 20%, 200px) + 10px); font-size: 12px; color: var(--color-ink-mute); }
+  .ce-weights { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 6px; border-radius: 12px; background: rgb(0 0 0 / .22); }
+  .ce-weights li { display: grid; grid-template-columns: minmax(150px, 240px) minmax(0, 1fr); gap: 10px; align-items: center; }
+  .ce-w-name { font-size: 13.5px; font-weight: 600; color: var(--color-ink-soft); }
+  .ce-w-track { block-size: 12px; border-radius: 99px; background: rgb(255 255 255 / .05); overflow: hidden; }
+  .ce-w-bar { display: block; block-size: 100%; border-radius: 99px; background: var(--color-solar); }
+  .ce-matrix-scroll { overflow-x: auto; border-radius: 12px; background: rgb(0 0 0 / .22); }
+  .ce-matrix { border-collapse: separate; border-spacing: 2px; font-size: 12.5px; }
+  .ce-matrix caption { padding: 10px 12px 4px; text-align: start; font-weight: 700; font-size: 14px; color: var(--color-ink); }
+  .ce-matrix th { padding: 4px 6px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; text-align: start; }
+  .ce-matrix thead th { writing-mode: vertical-rl; rotate: 180deg; text-align: start; padding: 6px 2px; }
+  .ce-matrix td { min-inline-size: 64px; block-size: 30px; padding: 2px 6px; border-radius: 6px; background: rgb(255 255 255 / .03); text-align: center; white-space: nowrap; }
+  .ce-matrix td.on { background: color-mix(in srgb, var(--color-uv) 35%, transparent); color: var(--color-ink); font-weight: 700; }
+  .ce-matrix td.ce-matrix-off, .ce-matrix thead td { background: transparent; }
   .cf-form { display: grid; gap: 16px; }
   .cf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 14px 16px; align-items: start; }
   .cf-grid > .cf-group, .cf-grid > .cf-list, .cf-grid > .cf-row, .cf-grid > .cf-words { grid-column: 1 / -1; }

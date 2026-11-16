@@ -40,6 +40,7 @@ Todo en `packages/sim/src/content/default.ts`:
 
 **Kind de arma nuevo:**
 - en `content/types.ts`: `WEAPON_KINDS` (y `SPECIALS` si hace falta);
+- en `content/weapon-fields.ts`: qué números del nivel lee el tipo (`WEAPON_FIELDS`; la tabla del panel apaga el resto y `weapon-fields.test.ts` lo prueba), y su nombre y explicación en el vocabulario `weaponKind` de `apps/web/src/admin/content/descriptors/arsenal.ts`;
 - en `content/schema.ts`: su forma, con `.default()` en todo campo nuevo dentro de un objeto existente;
 - el disparo, en `systems/weapons.ts` (constantes `SHOT`/`AREA`, `RADIUS`, `fireOnce`; ahí se declara `weaponHooks`) o en `systems/arsenal.ts` (que rellena `weaponHooks`);
 - `world/pools.ts` si cada disparo necesita estado propio;

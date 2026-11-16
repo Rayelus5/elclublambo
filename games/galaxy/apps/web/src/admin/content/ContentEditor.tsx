@@ -10,6 +10,8 @@ import { issueText } from '../forms/issues';
 import { emptyOf, itemsOf, liveIds, slugOf, unwrap } from '../forms/schema';
 import { artUrl } from './art';
 import { AREAS, type AreaDesc, describeContent as describe, DESCRIPTORS, VOCABS } from './descriptors';
+import { PhaseTimeline, ReactionMatrix, SpawnTimeline, WeightBars } from './Charts';
+import { LevelTable } from './LevelTable';
 import { SpritePicker } from './SpritePicker';
 
 // The content editor (2026-11-16, P4): the run content edited the way an admin thinks of it. Areas (Arsenal, Fauna,
@@ -23,7 +25,14 @@ type Entity = { id: string; name?: string } & Record<string, unknown>;
 type Value = Record<string, unknown>;
 
 /** Fields replaced by the editor's own controls: every drawing is picked from the gallery. */
-const WIDGETS: Widgets = Object.fromEntries(Object.keys(ART_FIELDS).map((p) => [p, SpritePicker]));
+const WIDGETS: Widgets = {
+  ...Object.fromEntries(Object.keys(ART_FIELDS).map((p) => [p, SpritePicker])),
+  'weapons[].levels': LevelTable,
+  'bosses[].phases': PhaseTimeline,
+  'sectors[].spawns': SpawnTimeline,
+  'events.weights': WeightBars,
+  'elements.reactions': ReactionMatrix,
+};
 
 /** The lists whose entries the content names elsewhere (refs): what is used cannot go. */
 const REF_KINDS: Partial<Record<string, RefKind>> = { weapons: 'weapons', passives: 'passives', enemies: 'enemies', bosses: 'bosses' };
@@ -41,10 +50,18 @@ function usesIn(value: Value, field: string, id: string): ContentRef[] {
 
 const isEntityList = (v: unknown): v is Entity[] => Array.isArray(v) && v.length > 0 && v.every((x) => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string');
 
-/** The choices the forms offer: every vocabulary, and the entities the draft has now (by id, with their names). */
+/** Vocabularies of behaviours written in code: a new one is a programmer's job, which the choice says. */
+const CODE_VOCABS = new Set(['weaponKind', 'special', 'quirk', 'behavior', 'bossPattern', 'reactionEffect', 'phenomenon', 'biome', 'eventKind', 'supportEffect']);
+
+/** The choices the forms offer: every vocabulary (named and explained), and the draft's entities (named, drawn). */
 function choicesOf(value: Value): Options {
   const out: Options = {};
-  for (const [name, vocab] of Object.entries(VOCABS)) out[`vocab:${name}`] = Object.entries(vocab ?? {}).map(([v, term]) => ({ value: v, label: term.label }));
+  for (const [name, vocab] of Object.entries(VOCABS)) {
+    out[`vocab:${name}`] = [
+      ...Object.entries(vocab ?? {}).map(([v, term]) => ({ value: v, label: term.label, hint: term.explain })),
+      ...(CODE_VOCABS.has(name) ? [{ value: '__code', label: t.needsCode, disabled: true }] : []),
+    ];
+  }
   for (const key of ['weapons', 'passives', 'enemies', 'bosses', 'sectors', 'probes', 'anomalies']) {
     const list = value[key];
     if (isEntityList(list)) out[key] = list.map((e) => ({ value: e.id, label: e.name ? `${e.name}` : e.id, image: thumbOf(key, e, value) ?? undefined }));
