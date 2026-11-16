@@ -1410,7 +1410,7 @@ Comprueba con `rayelus`:
 ## Buzón v2, P1: el motor de regalos
 
 **Qué cambia.**
-- **Migración** `20261117090000_galaxy_gift_grants.sql`: `season_adjustments.source` acepta también `mail`.
+- **Migración** `20261116190000_galaxy_gift_grants.sql`: `season_adjustments.source` acepta también `mail`.
 - **Sin interfaz todavía**, y sin cambios en la simulación ni configuración que publicar.
 
 **El código ya trae:**
