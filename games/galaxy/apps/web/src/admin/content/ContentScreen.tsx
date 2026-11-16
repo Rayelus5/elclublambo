@@ -1,7 +1,7 @@
 import { companionWarnings, configIssues, configJsonSchema, type DraftConflict, type DraftView, mergeDraft, parseConfig } from '@galaxy/shared';
 import { type Content, contentWarnings, type ContentWarning } from '@galaxy/sim';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Component, type ReactNode, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { DRAFTS_KEY, saveDraftField, useCreateDraft, useDiscardDraft, useDraft, useDrafts, usePublishDraft, useRebaseDraft } from '../../api/config-drafts';
 import { type ConfigKeyRow, useConfigKey, useConfigVersions, useFetchConfigVersion } from '../../api/config';
@@ -168,6 +168,27 @@ function DraftEditor({ id, live, onClose }: { id: string; live: ConfigKeyRow; on
   return <DraftBody id={id} first={draft.data} live={live} onClose={onClose} />;
 }
 
+/** The visual editor of a draft the JSON has left in a shape it cannot show: it says so and offers the JSON. */
+class EditorBoundary extends Component<{ children: ReactNode; onJson: () => void }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override render(): ReactNode {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="admin-warn" role="alert">
+        <p>{copy.admin.content.editorFailed}</p>
+        <button type="button" className="lip pill small" onClick={this.props.onJson}>
+          {copy.admin.content.openJson}
+        </button>
+      </div>
+    );
+  }
+}
+
 /** An open draft: the visual editor (or its JSON), saved as it changes; its checks, its changes, rebasing, trying, publishing. */
 function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView; live: ConfigKeyRow; onClose: (message?: string) => void }) {
   const ids = useId();
@@ -297,7 +318,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           </div>
         ) : null}
         <div className="tabs admin-tabs content-modes" role="tablist" aria-label={copy.admin.content.modes}>
-          <button type="button" role="tab" aria-selected={mode === 'visual'} onClick={() => setMode('visual')}>
+          <button type="button" role="tab" aria-selected={mode === 'visual'} disabled={mode === 'json' && !jsonOk} onClick={() => setMode('visual')}>
             {copy.admin.content.visualTab}
           </button>
           <button
@@ -305,6 +326,8 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
             role="tab"
             aria-selected={mode === 'json'}
             onClick={() => {
+              // Already there: what is typed (maybe half a JSON) stays.
+              if (mode === 'json') return;
               setText(JSON.stringify(doc, null, 2));
               setJsonOk(true);
               setMode('json');
@@ -314,7 +337,15 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           </button>
         </div>
         {mode === 'visual' ? (
-          <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+          <EditorBoundary
+            onJson={() => {
+              setText(JSON.stringify(doc, null, 2));
+              setJsonOk(true);
+              setMode('json');
+            }}
+          >
+            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+          </EditorBoundary>
         ) : (
           <div className="field">
             <label htmlFor={`${ids}-j`}>{t.json}</label>

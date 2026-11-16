@@ -156,7 +156,7 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
       </div>
     );
   }
-  const choices = field.options ? options[field.options] : undefined;
+  const choices = allowed(field.options ? options[field.options] : undefined, n.enum);
   const labelId = `${id}-l`;
   let control: ReactNode;
   let hint = field.hint ?? null;
@@ -262,10 +262,10 @@ function Row({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: s
 
 /** Words, one per line. */
 /** A list of words: one per line, or, when they are ids with a source of choices, picked by name (PickList). */
-function Words({ path, pattern }: { path: Path; pattern: string }) {
+function Words({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
   const { info, options } = useForm();
   const field = info(pattern);
-  const choices = field.options ? options[field.options] : undefined;
+  const choices = allowed(field.options ? options[field.options] : undefined, unwrap(itemsOf(node)).node.enum);
   return choices ? <PickList path={path} field={field} choices={choices} /> : <Lines path={path} field={field} />;
 }
 
@@ -348,6 +348,13 @@ function Lines({ path, field }: { path: Path; field: FieldInfo }) {
       <Problems path={path} />
     </div>
   );
+}
+
+/** The choices a field allows: a source's (a vocabulary is wider than some of its fields) cut to the field's own values. */
+function allowed(choices: Option[] | undefined, values: readonly unknown[] | undefined): Option[] | undefined {
+  if (!choices || !values) return choices;
+  const ok = new Set(values.map(String));
+  return choices.filter((o) => o.disabled || ok.has(o.value));
 }
 
 /**
@@ -658,7 +665,8 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
   const value = (getIn(root, path) as Record<string, unknown> | undefined) ?? {};
   const child = node.additionalProperties as JsonSchema;
   const choices: Option[] =
-    (field.options ? options[field.options] : undefined) ?? (node.propertyNames?.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
+    allowed(field.options ? options[field.options] : undefined, node.propertyNames?.enum)?.filter((o) => !o.disabled) ??
+    (node.propertyNames?.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
   const free = choices.filter((o) => !(o.value in value));
   const [adding, setAdding] = useState('');
   const nameOf = (k: string) => choices.find((o) => o.value === k)?.label ?? valueName(k);
@@ -754,7 +762,7 @@ function Node({ node, path, pattern, optional, bare = false, plain = false }: { 
     case 'choice':
       return <Choice node={n} path={path} pattern={pattern} />;
     case 'words':
-      return <Words path={path} pattern={pattern} />;
+      return <Words node={n} path={path} pattern={pattern} />;
     case 'unknown':
       return null;
     default:

@@ -94,7 +94,7 @@ export function spriteDef(id: string): SpriteDef | undefined {
  * A drawing the arena can draw: `id`, or `fallback` when it has no such drawing (the content editor, 2026-11-16, P5).
  * Publishing refuses unknown ids; this keeps a run alive if one slips through anyway.
  */
-export function drawableId(id: string, fallback: string, has: (id: string) => boolean = (x) => x in SPRITES): string {
+export function drawableId(id: string, fallback: string, has: (id: string) => boolean = (x) => Object.hasOwn(SPRITES, x)): string {
   return has(id) ? id : fallback;
 }
 

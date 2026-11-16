@@ -263,7 +263,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
 
   // The atlas carries the skins this run draws, and no others.
   const atlas = buildAtlas(skinSprites(opts.skins ?? []));
-  const inAtlas = (id: string) => !!atlas.frames[id];
+  const inAtlas = (id: string) => Object.hasOwn(atlas.frames, id);
   /** What probe `i` is drawn as: its skin, or its own drawing (a skin with no art falls back to it). */
   const drawingOf = (i: number, def: { sprite: string }): string => {
     const skin = opts.skins?.[i];

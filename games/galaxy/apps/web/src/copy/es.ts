@@ -1211,6 +1211,8 @@ export const copy = {
       artMissing: 'Este dibujo no existe en el juego',
       keepArt: 'Dejar el que tiene',
       needsCode: 'Otro: necesita programación',
+      editorFailed: 'El editor no puede enseñar este borrador tal como está: arréglalo en el JSON',
+      openJson: 'Abrir el JSON',
       phasesTitle: 'Su vida por fases',
       phasesChart: 'Fases y sus ataques',
       phaseSpan: (n: number, from: number, to: number) => `Fase ${n}, de ${from} % a ${to} %`,

@@ -29,7 +29,7 @@ export const ART_FIELDS = {
 export function contentArtIssues(c: Content): { path: string; message: string }[] {
   const out: { path: string; message: string }[] = [];
   const check = (id: string, path: string) => {
-    if (!ART[id]) out.push({ path, message: `content_art:${id}` });
+    if (!Object.hasOwn(ART, id)) out.push({ path, message: `content_art:${id}` });
   };
   c.weapons.forEach((w, i) => check(w.icon, `weapons.${i}.icon`));
   c.passives.forEach((p, i) => check(p.icon, `passives.${i}.icon`));
