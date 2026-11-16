@@ -495,6 +495,24 @@ const shape = z
       .refine((s) => s.latest >= s.earliest, 'satellites_window')
       .refine((s) => s.chances.every((c, k) => k === 0 || c <= s.chances[k - 1]!), 'satellites_chances')
       .default(D.satellites),
+    // In-run events (2026-11-16): content published before them gets the code's.
+    events: (() => {
+      const loot = { coins: z.number().min(0).max(1000), dust: z.number().min(0).max(1000), components: z.number().min(0).max(100), perLayer: z.number().min(0).max(5) };
+      const weights = z.object({ wreck: z.number().min(0).max(100), capsule: z.number().min(0).max(100), bounty: z.number().min(0).max(100) }).strict();
+      return z
+        .object({
+          slots: z.array(z.object({ from: z.number().min(0).max(1200), to: z.number().min(0).max(1200), chance: unit }).strict().refine((s) => s.to >= s.from, 'events_slot')).max(6),
+          gap: z.number().min(0).max(600),
+          endBy: z.number().min(0).max(600),
+          weights,
+          sectors: z.record(z.string().regex(/^[a-z0-9-]{1,32}$/), weights.partial()),
+          wreck: z.object({ ...loot, distance: z.number().min(0).max(2000), radius: z.number().min(8).max(200), hold: z.number().min(0.5).max(60), life: z.number().min(5).max(300) }).strict(),
+          capsule: z.object({ ...loot, distance: z.number().min(0).max(2000), radius: z.number().min(4).max(100), warn: z.number().min(0).max(30), life: z.number().min(5).max(300) }).strict(),
+          bounty: z.object({ ...loot, distance: z.number().min(0).max(2000), seconds: z.number().min(5).max(300), hp: z.number().min(0.1).max(100), speed: z.number().min(0).max(400) }).strict(),
+        })
+        .strict()
+        .default(D.events);
+    })(),
     // The player's dash (owner's plan 2026-11-13): content published before it gets the default.
     dash: z
       .object({

@@ -1,4 +1,4 @@
-import type { ElementId } from './content/types';
+import type { ElementId, EventKind } from './content/types';
 
 /**
  * What happened during one `step`, for the renderer (effects), the sound and the HUD. The list is emptied at the
@@ -73,4 +73,6 @@ export type SimEvent =
   | { t: 'evade'; probe: number }
   /** «La Estática te alcanza» (2026-11-16): the warning, the start of the harm, leaving the area; and a tick for sound. */
   | { t: 'static'; probe: number; what: 'warn' | 'start' | 'stop' }
-  | { t: 'staticTick'; probe: number };
+  | { t: 'staticTick'; probe: number }
+  /** In-run events (2026-11-16): one comes, is completed (with what it dropped), fails or ends with the Núcleo. */
+  | { t: 'worldEvent'; kind: EventKind; what: 'appear' | 'done' | 'fail' | 'end'; x: number; y: number; coins?: number; dust?: number; components?: number };

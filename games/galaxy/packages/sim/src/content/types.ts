@@ -501,6 +501,8 @@ export interface Content {
   anomalies: AnomalyDef[];
   props: PropsTuning;
   satellites: SatellitesTuning;
+  /** In-run events (2026-11-16): an abandoned ship, a supply capsule, a bounty hunter. */
+  events: EventsTuning;
   dash: DashTuning;
 }
 
@@ -542,6 +544,37 @@ export interface SatellitesTuning {
   hp: number;
   hpPerLayer: number;
   radius: number;
+}
+
+/** The in-run events' kinds (2026-11-16): loot events now, the hazards after. */
+export const EVENT_KINDS = ['wreck', 'capsule', 'bounty'] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+/** What a loot event gives: coins, dust and components, × (1 + perLayer × (layer − 1)), floored. */
+export interface EventLoot {
+  coins: number;
+  dust: number;
+  components: number;
+  perLayer: number;
+}
+
+/**
+ * In-run events (2026-11-16), fixed by the run's seed. Each layer rolls each `slot` once (its chance, a moment between
+ * `from` and `to` seconds, and a kind by `weights`, with each sector's own on top); an event comes `gap` seconds after the
+ * previous one (and the satellite) ends, and ends `endBy` seconds before the Núcleo is due, or does not come.
+ */
+export interface EventsTuning {
+  slots: { from: number; to: number; chance: number }[];
+  gap: number;
+  endBy: number;
+  weights: Record<EventKind, number>;
+  sectors: Record<string, Partial<Record<EventKind, number>>>;
+  /** An abandoned ship: stay `hold` seconds within `radius` to loot it; it stays `life` seconds. */
+  wreck: EventLoot & { distance: number; radius: number; hold: number; life: number };
+  /** A supply capsule: it lands `warn` seconds after it is announced, then waits `life` seconds for a touch. */
+  capsule: EventLoot & { distance: number; radius: number; warn: number; life: number };
+  /** A bounty hunter: a marked enemy (× `hp` the sector's life) that flees at `speed` for `seconds`; kill it. */
+  bounty: EventLoot & { distance: number; seconds: number; hp: number; speed: number };
 }
 
 export interface PropsTuning {

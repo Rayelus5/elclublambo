@@ -1437,10 +1437,14 @@
   .hud-boss-bar i { display: block; height: 100%; width: var(--p); background: linear-gradient(90deg, var(--color-nova-lip), var(--color-static)); transition: width .2s ease; }
   .hud-beacon { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
   /* Plan «skins, perfil y entorno», part E: an abandoned satellite off screen, in the deep scanner's cyan. */
-  .hud-satellite { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
-  .hud-satellite-arrow { width: 0; height: 0; border-left: 14px solid var(--color-static-cyan, #6fe3ff); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px rgb(111 227 255 / .7)); }
-  .hud-satellite-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: rgb(6 30 48 / .9); border: 2px solid #1f7aa8; color: var(--color-ink); font-size: 12px; white-space: nowrap; }
-  .hud-satellite-label b { color: #6fe3ff; font-size: 13px; }
+  /* Something to go for (a satellite, the in-run events): each kind its colour. */
+  .hud-event { --ev: #6fe3ff; --ev-bg: rgb(6 30 48 / .9); --ev-line: #1f7aa8; position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
+  .hud-event.wreck { --ev: var(--color-solar, #ffc94a); --ev-bg: rgb(40 26 4 / .9); --ev-line: #a0661a; }
+  .hud-event.capsule { --ev: var(--color-terminal, #45e3a6); --ev-bg: rgb(4 40 28 / .9); --ev-line: #17b07e; }
+  .hud-event.bounty { --ev: #ff4d6d; --ev-bg: rgb(44 6 16 / .9); --ev-line: #9c2238; }
+  .hud-event-arrow { width: 0; height: 0; border-left: 14px solid var(--ev); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px var(--ev)); }
+  .hud-event-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: var(--ev-bg); border: 2px solid var(--ev-line); color: var(--color-ink); font-size: 12px; white-space: nowrap; }
+  .hud-event-label b { color: var(--ev); font-size: 13px; }
   .result-paid-note { align-self: center; font-size: 13px; color: var(--color-ink-soft); }
   .hud-beacon-arrow { width: 0; height: 0; border-left: 16px solid var(--color-terminal); border-top: 10px solid transparent; border-bottom: 10px solid transparent; filter: drop-shadow(0 0 6px rgb(69 227 166 / .7)); }
   .hud-beacon-label { display: grid; justify-items: center; padding: 6px 10px; border-radius: 12px; background: rgb(4 40 28 / .9); border: 2px solid var(--color-terminal-2); color: var(--color-ink); font-size: 13px; white-space: nowrap; }

@@ -140,6 +140,13 @@ export function playEvents(events: readonly SimEvent[], me = 0): void {
       case 'extracted':
         tone('extract', 1, (a, t) => [523, 784, 1047, 1568].forEach((hz, k) => blip(a, t + k * 0.09, hz, hz, 0.3, 0.06, 'triangle')));
         break;
+      case 'worldEvent':
+        // In-run events (2026-11-16): a radar ping when one comes, a bright cascade when it pays, a falling tone when
+        // it is lost.
+        if (e.what === 'appear') tone('event', 0.5, (a, t) => [0, 0.16].forEach((d) => blip(a, t + d, 1320, 1240, 0.12, 0.04, 'sine')));
+        else if (e.what === 'done') tone('eventDone', 0.4, (a, t) => [659, 880, 1175, 1568, 2093].forEach((hz, k) => blip(a, t + k * 0.05, hz, hz * 1.02, 0.12, 0.045, 'triangle')));
+        else if (e.what === 'fail') tone('eventFail', 0.4, (a, t) => blip(a, t, 520, 220, 0.3, 0.04, 'triangle'));
+        break;
       default:
         break;
     }

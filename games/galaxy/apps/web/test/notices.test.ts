@@ -64,3 +64,20 @@ test('el mismo aviso puede volver más tarde (la Estática avisa otra vez si te 
   expect(q.current(20_000)?.text).toBe('quieto');
 });
 
+// In-run events (2026-11-16): one comes, what it dropped, or that it was lost; the whole group hears them.
+test('los eventos dicen que llegan, lo que sueltan y si se pierden', () => {
+  const events: SimEvent[] = [
+    { t: 'worldEvent', kind: 'wreck', what: 'appear', x: 0, y: 0 },
+    { t: 'worldEvent', kind: 'wreck', what: 'done', x: 0, y: 0, coins: 18, dust: 7, components: 1 },
+    { t: 'worldEvent', kind: 'capsule', what: 'done', x: 0, y: 0, coins: 8, dust: 0, components: 0 },
+    { t: 'worldEvent', kind: 'bounty', what: 'fail', x: 0, y: 0 },
+    { t: 'worldEvent', kind: 'bounty', what: 'end', x: 0, y: 0 },
+  ];
+  expect(noticesFor(events, 1, DEFAULT_CONTENT).map((n) => [n.text, n.tone])).toEqual([
+    [t.event.wreck, 'info'],
+    ['Nave saqueada: +18 monedas · +7 polvo · +1 componente', 'reward'],
+    ['Cápsula abierta: +8 monedas', 'reward'],
+    [t.eventFail.bounty, 'info'],
+  ]);
+});
+

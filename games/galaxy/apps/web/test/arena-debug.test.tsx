@@ -278,3 +278,13 @@ test('con los avisos apagados no sale nada en el centro', async () => {
   setPrefs({ runNotices: true });
 });
 
+// In-run events (2026-11-16): the panel brings any of them now, and the centre of the screen says it came.
+test('el panel trae un evento al momento y lo dice en el centro', async () => {
+  await mount(admin({ test: true }));
+  f2();
+  fireEvent.click(screen.getByRole('button', { name: copy.arena.events.wreck.name }));
+  act(() => vi.advanceTimersByTime(150));
+  expect(sim.world.active.map((e) => e.kind)).toEqual(['wreck']);
+  expect(screen.getByText(copy.arena.notices.event.wreck)).toBeTruthy();
+});
+

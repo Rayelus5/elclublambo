@@ -1,6 +1,6 @@
 import { HScroll } from '../ui/HScroll';
 import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, simulateEconomy } from '@galaxy/shared';
-import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
+import { botInput, botPick, type Content, createSim, DEFAULT_CONTENT, eventLootUpTo, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
 import { copy, fmt } from '../copy/es';
@@ -16,6 +16,8 @@ const CHUNK = 3000;
 const SEEDS = ['20261108', '20261109', '20261110'];
 const PER_DAY = [60, 180, 360];
 const yieldToPage = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+/** The bot's runs without the in-run events: their loot is added from the seed, as if every one was looted. */
+const NO_EVENTS: Content = { ...DEFAULT_CONTENT, events: { ...DEFAULT_CONTENT.events, slots: [] } };
 
 type RunsConfig = ConfigValue<'runs'>;
 
@@ -44,7 +46,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
     const ticks = Math.round(minutes * 60 * 60);
     const samples: EconomySample[] = [];
     for (const [i, seed] of SEEDS.entries()) {
-      const sim = createSim({ seed, content: DEFAULT_CONTENT, sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
+      const sim = createSim({ seed, content: NO_EVENTS, sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
       while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
         for (let n = 0; n < CHUNK && sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing'); n++) {
           if (sim.status === 'choosing') step(sim, sim.probes.map((p) => ({ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer) : -1 })));
@@ -61,8 +63,13 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
       const s = runSummary(sim);
       // The bot never chases the abandoned satellites (SIM 1.10.0): count every one the seed had in the time played, as
       // a player who breaks them all would (the most the economy can get from them).
-      const satellites = satelliteSignalsUpTo(seed, DEFAULT_CONTENT.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds: DEFAULT_CONTENT.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300 });
-      const loot = s.loot.map((l, k) => ({ ...l, signals: k === 0 ? satellites : 0 }));
+      const layerSeconds = DEFAULT_CONTENT.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300;
+      const satellites = satelliteSignalsUpTo(seed, DEFAULT_CONTENT.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      // Nor the in-run events (2026-11-16): the bot plays without them, and every one the seed had is added, looted.
+      const events = eventLootUpTo(seed, DEFAULT_CONTENT, sector, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      const loot = s.loot.map((l, k) =>
+        k === 0 ? { ...l, coins: l.coins + events.coins, dust: l.dust + events.dust, components: l.components + events.components, signals: satellites } : { ...l, signals: 0 },
+      );
       samples.push({ outcome: sim.status === 'dead' ? 'died' : sim.status === 'extracted' ? 'extracted' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot });
     }
     const at = new Date();

@@ -3,11 +3,13 @@ import type { RunStart } from '@galaxy/shared';
 import {
   createSim,
   debugClear,
+  debugEvent,
   type DebugGrant,
   debugGrant,
   debugHeal,
   debugLevelUp,
   type DebugResult,
+  type EventKind,
   debugSkipLayer,
   debugSummonCore,
   encodeLog,
@@ -31,7 +33,7 @@ import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { announceFor } from './announce';
 import { playEvents } from './arena-sfx';
-import { BeaconMarker, BossBar, Radio, SatelliteMarker } from './hud/Overlays';
+import { BeaconMarker, BossBar, EventMarkers, Radio } from './hud/Overlays';
 import { Hud } from './hud/Hud';
 import { LevelUp } from './hud/LevelUp';
 import { PauseMenu } from './hud/PauseMenu';
@@ -349,6 +351,7 @@ export function ArenaScreen({
     clear: () => gated(() => report(apply(() => debugClear(sim)))),
     core: () => gated(() => report(apply(() => debugSummonCore(sim)))),
     layer: () => gated(() => report(apply(() => debugSkipLayer(sim)))),
+    event: (kind: EventKind) => gated(() => report(apply(() => debugEvent(sim, kind)))),
     grant: (g: DebugGrant) =>
       gated(() => {
         const r = apply(() => debugGrant(sim, 0, g));
@@ -384,6 +387,7 @@ export function ArenaScreen({
         }
         else if (e.t === 'beaconOpen') say('beacon', copy.arena.radio.beacon);
         else if (e.t === 'satellite' && e.what === 'appear') say('satellite', copy.arena.radio.satellite);
+        else if (e.t === 'worldEvent' && e.what === 'appear') say(`event:${e.kind}`, copy.arena.radio.events[e.kind]);
         else if (e.t === 'layer') say('layer', copy.arena.radio.layer(e.layer));
       }
     };
@@ -502,7 +506,7 @@ export function ArenaScreen({
       clearInterval(id);
       setMusicScene({ kind: 'menu' });
     };
-  }, [sim, say]);
+  }, [sim, say, notices]);
 
   useEffect(() => {
     if (radio === copy.arena.radio.start) {
@@ -648,6 +652,7 @@ export function ArenaScreen({
           onHeal={debugActions.heal}
           onClear={debugActions.clear}
           onCore={debugActions.core}
+          onEvent={debugActions.event}
           onLayer={debugActions.layer}
           onGrant={debugActions.grant}
           replacing={replacing}
@@ -673,7 +678,7 @@ export function ArenaScreen({
       {hud.boss && <BossBar boss={hud.boss} />}
       {runNotices && hud.status !== 'choosing' ? <RunNotice notice={centre} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
+      <EventMarkers hud={hud} camera={camera} width={size.w} height={size.h} />
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}
       {briefing ? (
         <Briefing

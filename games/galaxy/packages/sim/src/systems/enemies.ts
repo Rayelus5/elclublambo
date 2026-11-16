@@ -508,6 +508,8 @@ export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void)
       dropWindup(en, e);
       continue;
     }
+    // A bounty hunter only flees (systems/run-events.ts): it never attacks, and never comes back around.
+    if (en.bounty[e]) continue;
     const target = nearestProbe(sim, en.x[e]!, en.y[e]!);
     if (!target) continue;
     const ddx = target.x - en.x[e]!;

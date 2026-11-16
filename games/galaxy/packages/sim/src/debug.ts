@@ -13,8 +13,19 @@ import { applyOffer, baseOf } from './systems/upgrades';
 import { persistentFor } from './systems/weapons';
 import { gainXp } from './systems/xp';
 import type { Phase, ProbeState, Sim, Stats } from './types';
+import { EVENT_KINDS, type EventKind } from './content/types';
+import { endRunEvents, startEvent } from './systems/run-events';
 
 export type DebugResult = 'ok' | 'not_running' | 'not_waves' | 'slots_full' | 'family_owned' | 'unknown';
+
+/** Any in-run event now (2026-11-16), in the layer's waves: to try them without waiting for the seed's. */
+export function debugEvent(sim: Sim, kind: EventKind): DebugResult {
+  if (!running(sim)) return 'not_running';
+  if (sim.phase !== 'waves') return 'not_waves';
+  if (!(EVENT_KINDS as readonly string[]).includes(kind)) return 'unknown';
+  startEvent(sim, kind, 100 + sim.world.active.length);
+  return 'ok';
+}
 
 /** An upgrade to grant: `replace` is the slot to swap when the slots are full. */
 export interface DebugGrant {
@@ -85,6 +96,8 @@ export function debugHeal(sim: Sim, probe: number): DebugResult {
 }
 
 function clearFauna(sim: Sim): void {
+  // The events going on end first: a bounty removed silently is not a kill.
+  endRunEvents(sim);
   const en = sim.enemies;
   for (let e = 0; e < en.top; e++) if (en.alive[e] && !en.boss[e]) en.kill(e);
   const fs = sim.foeShots;
@@ -107,6 +120,7 @@ export function debugSummonCore(sim: Sim): DebugResult {
   if (!running(sim)) return 'not_running';
   if (sim.phase !== 'waves') return 'not_waves';
   if (!bossDef(sim)) return 'unknown';
+  endRunEvents(sim);
   sim.phase = 'boss';
   sim.phaseTick = 0;
   spawnBoss(sim);

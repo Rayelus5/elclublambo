@@ -1,5 +1,5 @@
 import { coopRulesOf, parseConfig } from '@galaxy/shared';
-import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, startEvent, step } from '@galaxy/sim';
 import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -637,6 +637,42 @@ test('el anillo de la Estática sale al avisar y cambia al hacer daño', async (
     clock.mockRestore();
   }
 });
+
+// In-run events (2026-11-16): the abandoned ship in its sector's look with its area and the looting in gold, the supply
+// capsule on its target, and the gold mark on the bounty hunter, drawn by the Aseprite art (art/events).
+for (const sector of ['outer-nebula', 'broken-forge']) {
+  test(`los eventos se dibujan en el campo (${sector})`, async () => {
+    const now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector, probes: [{ probe: 'lumen', relics: [] }] });
+      step(sim, [IDLE]);
+      const canvas = await mount(640, 360);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+      stage.resize(640, 360);
+      for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+      stage.render(sim, 1);
+      const calm = pixels(canvas);
+      const p = sim.probes[0]!;
+      const wreck = startEvent(sim, 'wreck', 0);
+      wreck.x = p.x - 80;
+      wreck.y = p.y - 10;
+      wreck.progress = 150;
+      const capsule = startEvent(sim, 'capsule', 1);
+      capsule.x = p.x + 80;
+      capsule.y = p.y + 30;
+      capsule.progress = 0;
+      const bounty = startEvent(sim, 'bounty', 2);
+      sim.enemies.x[bounty.enemy] = sim.enemies.px[bounty.enemy] = p.x + 40;
+      sim.enemies.y[bounty.enemy] = sim.enemies.py[bounty.enemy] = p.y - 50;
+      stage.render(sim, 1);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/events-${sector}.png`, element: canvas });
+      expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.002);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+}
 
 // The admin debug mode (2026-11-15): the collisions are thin outlines over the world, only while they are on.
 test('las colisiones de depuración se dibujan solo encendidas, sobre el mundo', async () => {

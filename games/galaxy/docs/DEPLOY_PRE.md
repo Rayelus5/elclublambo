@@ -1209,3 +1209,22 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - en la arena, el agujero negro con su anillo iridiscente, motas que caen en espiral y un estallido al colapsar (con movimiento reducido, sin motas y quieto);
   - en el Hangar, «Singularidad» en el chip de poderes de la reliquia y en su ficha;
   - en el escáner, clásico y pro, el revelado de una mítica con su silencio, su destello iridiscente, más rayos, más sacudida, su acorde y una capa de música más; el ensayo del escáner deja elegir «Clásica» o «Pro».
+
+## Eventos de la incursión (SIM 1.17.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: `content.events` entra con sus valores por defecto también para el contenido publicado. La simulación pasa a **SIM_VERSION 1.17.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **Eventos que da la semilla**, unos 1,5 por capa (de 5 a 10 en una partida de 25–30 min con el satélite), separados entre sí y del satélite, y nunca durante el Núcleo:
+  - **nave abandonada:** quedarse unos segundos dentro de su zona la saquea (y ahí la Estática no cuenta);
+  - **cápsula de suministros:** aterriza tras un aviso y se abre al tocarla;
+  - **cazarrecompensas:** un enemigo marcado que huye; si cae antes de escapar, suelta su botín.
+- **Botín:** monedas, polvo y componentes que crecen con la capa. El servidor suma a sus topes lo más que pudieron soltar los eventos de la semilla en las capas y el tiempo jugados (`eventLootUpTo`): lo honrado no se recorta y lo inventado sigue dando `loot_cap`.
+- **En pantalla:** cada evento con su dibujo (Aseprite, la nave con el aspecto de cada sector), su indicador en el borde con la distancia y el tiempo que le queda (el satélite también dice su distancia), sus avisos en el centro (llega, lo que suelta, se pierde), sus sonidos y una frase de PERKINS la primera vez.
+- **Modo depuración:** el panel F2 trae cualquier evento al momento.
+- **Simulador de la economía:** el bot juega sin eventos y se suma el botín de todos los de su semilla, como si los saqueara.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae la nave, la cápsula y el cazarrecompensas; completar cada uno da su aviso con lo que suelta; los resultados cobran ese botín sin `loot_cap`.
+

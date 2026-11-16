@@ -89,7 +89,7 @@ function makeRoom(sim: Sim): number {
   let rank = 2;
   for (let e = 0; e < en.top; e++) {
     if (!en.alive[e] || en.boss[e] || en.fuseT[e]! > 0) continue;
-    const r = en.elite[e] === 0 && en.held[e] === 0 ? 0 : 1;
+    const r = en.elite[e] === 0 && en.held[e] === 0 && en.bounty[e] === 0 ? 0 : 1;
     if (r > rank) continue;
     let d = Infinity;
     if (anchors.length === 0) {

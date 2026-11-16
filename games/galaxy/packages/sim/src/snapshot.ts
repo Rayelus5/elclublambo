@@ -1,6 +1,7 @@
 import { dashRules } from './systems/dash';
 import { layerSeconds } from './systems/director';
 import type { Offer, Phase, ProbeState, Sim, SimStatus } from './types';
+import type { EventKind } from './content/types';
 
 /** What the HUD shows for one probe (GDD §5.1): read a few times per second, never every tick. */
 export interface HudSnapshot {
@@ -46,6 +47,8 @@ export interface HudSnapshot {
    * the healing; the area's centre and radius, for the ring.
    */
   still: { level: 0 | 1 | 2; left: number; x: number; y: number; radius: number };
+  /** In-run events going on (2026-11-16): where (from my probe), how far along (0–1) and the seconds left. */
+  events: { kind: EventKind; dx: number; dy: number; progress: number; left: number }[];
 }
 
 function nearestSatellite(sim: Sim, x: number, y: number): HudSnapshot['satellite'] {
@@ -102,6 +105,13 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     beacon: b ? { x: b.x, y: b.y, dx: b.x - p.x, dy: b.y - p.y, hold: b.hold / 60, holdNeeded: b.holdNeeded / 60, left: b.t / 60 } : null,
     satellite: nearestSatellite(sim, p.x, p.y),
     still: stillOf(sim, p),
+    events: sim.world.active.map((ev) => ({
+      kind: ev.kind,
+      dx: ev.x - p.x,
+      dy: ev.y - p.y,
+      progress: ev.kind === 'wreck' ? Math.min(1, ev.progress / (sim.content.events.wreck.hold * 60)) : 0,
+      left: ev.t / 60,
+    })),
     offer: p.offer,
     status: sim.status,
     dash: {

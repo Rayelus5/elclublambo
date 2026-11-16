@@ -9,7 +9,7 @@ import { RunNotice } from '../arena/hud/RunNotice';
 import { playEvents } from '../arena/arena-sfx';
 import { musicStinger, setMusicScene, startMusic } from '../audio/music';
 import { deepLayer, runScene } from '../audio/music/state';
-import { BeaconMarker, BossBar, SatelliteMarker } from '../arena/hud/Overlays';
+import { BeaconMarker, BossBar, EventMarkers } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
 import { DASH_BUTTONS, dashWaits, emptyInput, mouseCode, pointerAngle, readInput } from '../arena/input';
@@ -473,7 +473,7 @@ function CoopWorld({
       clearInterval(id);
       if (!viewer) setMusicScene({ kind: 'menu' });
     };
-  }, [sim, slot, watch, viewer]);
+  }, [sim, slot, watch, viewer, notices]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);
@@ -713,7 +713,7 @@ function CoopWorld({
       {hud.boss && <BossBar boss={hud.boss} />}
       {runNotices ? <RunNotice notice={notice} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
+      <EventMarkers hud={hud} camera={camera} width={size.w} height={size.h} />
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />

@@ -168,3 +168,32 @@ test('las señales de capas a las que no le dio tiempo de llegar se quedan fuera
   expect(r.claim.depth).toBeLessThan(3);
   expect(r.claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0)).toBeLessThan(2);
 });
+
+// In-run events (2026-11-16): their loot is bounded from the run's seed (`eventLootUpTo`), and the server adds that bound
+// to the caps — an honest run that looted its events is never cut, a forged one still is.
+describe('el botín de los eventos', () => {
+  test('con el límite de sus eventos, el botín de más no se recorta', () => {
+    // 600 kills, a Core and 6 minutes allow 185 coins; the run's events dropped 60 more.
+    const heavy = claim({ loot: [{ coins: 200, dust: claim().loot[0]!.dust, components: 0 }] });
+    expect(checkRun(heavy, ctx).flags).toContain('loot_cap');
+    expect(checkRun(heavy, { ...ctx, bonus: () => ({ coins: 60, dust: 20, components: 5 }) }).flags).not.toContain('loot_cap');
+  });
+
+  test('por encima de ese límite sí se recorta', () => {
+    const forged = claim({ loot: [{ coins: claim().loot[0]!.coins + 500, dust: claim().loot[0]!.dust, components: 0 }] });
+    expect(checkRun(forged, { ...ctx, bonus: () => ({ coins: 60, dust: 20, components: 5 }) }).flags).toContain('loot_cap');
+  });
+
+  test('el límite se pide con la profundidad que cabe en el tiempo real, no con la que dice el cliente', () => {
+    const asked: number[] = [];
+    checkRun(claim({ depth: 9, bossKills: 9, loot: Array.from({ length: 9 }, () => ({ coins: 1, dust: 1 })) }), {
+      ...ctx,
+      bonus: (depth) => {
+        asked.push(depth);
+        return { coins: 0, dust: 0, components: 0 };
+      },
+    });
+    expect(asked).toEqual([2]);
+  });
+});
+

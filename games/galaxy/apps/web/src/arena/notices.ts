@@ -2,7 +2,8 @@ import type { Content, SimEvent } from '@galaxy/sim';
 import { copy } from '../copy/es';
 
 // Centre-screen notices in a run (2026-11-16): what happens says so in the middle of the screen, one at a time, so the
-// player knows the run's moments — a new layer, a Núcleo, the beacon, a satellite and its signal, the Static. Only my
+// player knows the run's moments — a new layer, a Núcleo, the beacon, a satellite and its signal, the Static, the
+// in-run events and what they dropped. Only my
 // own pickups and my own Static speak (in a group, the others' are theirs). A player turns them off in the run's
 // settings (`runNotices`); the screen reader's live region keeps reading them either way.
 
@@ -24,6 +25,10 @@ export function noticesFor(events: readonly SimEvent[], me: number, content: Con
     else if (e.t === 'pickup' && e.probe === me && e.kind === 'signal') out.push({ text: t.signal(e.value), tone: 'reward' });
     else if (e.t === 'static' && e.probe === me && e.what === 'warn') out.push({ text: t.staticWarn, tone: 'danger' });
     else if (e.t === 'static' && e.probe === me && e.what === 'start') out.push({ text: t.staticStart, tone: 'danger' });
+    // In-run events (2026-11-16): one comes, what it dropped, or that it was lost. The group shares them.
+    else if (e.t === 'worldEvent' && e.what === 'appear') out.push({ text: t.event[e.kind], tone: 'info' });
+    else if (e.t === 'worldEvent' && e.what === 'done') out.push({ text: t.eventDone(e.kind, { coins: e.coins ?? 0, dust: e.dust ?? 0, components: e.components ?? 0 }), tone: 'reward' });
+    else if (e.t === 'worldEvent' && e.what === 'fail') out.push({ text: t.eventFail[e.kind], tone: 'info' });
   }
   return out;
 }

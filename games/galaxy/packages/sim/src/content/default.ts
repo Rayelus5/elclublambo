@@ -2130,6 +2130,20 @@ export const DEFAULT_CONTENT: Content = {
   props: { perChunk: 2, hp: 28, hpPerLayer: 0.5, radius: 9, componentChance: 0.3, components: 1, dustMin: 0, dustMax: 1 },
   // Abandoned satellites (SIM 1.10.0): about one run in three has one, a few two, rarely three; each gives a signal.
   satellites: { chances: [0.33, 0.12, 0.04], earliest: 40, latest: 240, drift: 45, distance: 300, speed: 26, hp: 60, hpPerLayer: 0.6, radius: 10 },
+  // In-run events (2026-11-16): about 1,5 a layer, 5–10 in a 25–30 minute run with the satellite.
+  events: {
+    slots: [
+      { from: 35, to: 120, chance: 0.85 },
+      { from: 150, to: 240, chance: 0.65 },
+    ],
+    gap: 40,
+    endBy: 20,
+    weights: { wreck: 3, capsule: 3, bounty: 1.5 },
+    sectors: {},
+    wreck: { distance: 420, radius: 44, hold: 4, life: 60, coins: 12, dust: 5, components: 1, perLayer: 0.5 },
+    capsule: { distance: 340, radius: 16, warn: 2, life: 45, coins: 8, dust: 3, components: 1, perLayer: 0.5 },
+    bounty: { distance: 380, seconds: 45, hp: 4, speed: 75, coins: 20, dust: 8, components: 2, perLayer: 0.5 },
+  },
   // The player's dash (owner's plan 2026-11-13; SIM 1.12.0): SHIFT, Space or the pad's A, for every probe.
   dash: { charges: 1, recharge: 6, pause: 0.4, distance: 90, seconds: 0.15, invuln: 0.1, cometCharges: 1, cometMax: 2 },
   // Season anomalies (GDD §13.1; M7d-3): the season chooses one (or none) in the live config `season`.

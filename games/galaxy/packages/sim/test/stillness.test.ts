@@ -78,6 +78,17 @@ describe('quieto', () => {
     expect(p.still.t).toBe(before);
   });
 
+  test('dentro de una nave abandonada que se saquea no cuenta', () => {
+    const sim = world();
+    const p = sim.probes[0]!;
+    // A ship that never finishes, so the probe stays inside the whole time.
+    sim.content.events.wreck.hold = 60;
+    sim.world.active.push({ kind: 'wreck', layer: 1, seq: 0, x: p.x, y: p.y, t: 60 * 60, progress: 0, enemy: -1, enemyGen: 0 });
+    const before = p.still.t;
+    expect(idle(sim, 60 * 13)).toEqual([]);
+    expect(p.still.t).toBe(before);
+  });
+
   test('invulnerable en depuración avisa pero no hace daño', () => {
     const sim = world();
     setGod(sim, true);
