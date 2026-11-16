@@ -2,7 +2,7 @@ import { HScroll } from '../ui/HScroll';
 import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
 import type { Content } from '@galaxy/sim';
 import { useId, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { type ConfigKeyRow, useConfigKey, useConfigKeys, useConfigVersions, useFetchConfigVersion, usePublishConfig } from '../api/config';
 import { useLiveContent } from '../api/content';
 import { errorText } from '../auth/useMe';
@@ -198,7 +198,6 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
   const versions = useConfigVersions(row.key);
   const fetchVersion = useFetchConfigVersion();
   const publish = usePublishConfig(row.key);
-  const navigate = useNavigate();
   let parsed: unknown = draft;
   let jsonOk = true;
   if (mode === 'json') {
