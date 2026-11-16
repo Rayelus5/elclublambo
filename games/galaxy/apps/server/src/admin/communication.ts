@@ -1,4 +1,20 @@
-import { type AdminMailRow, type AdminMailSend, type AdminNoticeRow, hasGifts, inAudience, levelOf, type MailAudience, type MailGifts } from '@galaxy/shared';
+import {
+  type AdminMailRow,
+  type AdminMailSend,
+  type AdminNoticeRow,
+  allGifts,
+  bigGiftReasons,
+  galaxyCount,
+  giftIssues,
+  inAudience,
+  legacyView,
+  levelOf,
+  MAX_GALAXIES,
+  type MailAudience,
+  type MailContents,
+  readContents,
+  seasonOpen,
+} from '@galaxy/shared';
 import type { Kysely } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { SessionInfo } from '../auth/sessions';
@@ -37,20 +53,66 @@ export async function previewMail(deps: CommunicationDeps, audience: MailAudienc
   return { recipients: reached(await accounts(deps), audience, deps.now()).length };
 }
 
-/** Sends a message (the password first when it gives anything), audited with how many it reaches. */
+/**
+ * Sends a message, audited with how many it reaches. Mail v2: its packs are copied in from the library (an edit there
+ * later does not change it); a gift that does not exist or cannot be given stops it (400 gift_invalid, with which and
+ * why); a big one (over `mailLimits`) needs a superadmin (403 gift_needs_superadmin, with why); one that gives anything
+ * needs the password. A gift tied to the season or to an event makes the message expire when that closes.
+ */
 export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: SessionInfo, req: AdminMailSend): Promise<{ id: string; recipients: number }> {
-  if (hasGifts(req.gifts)) {
+  const now = deps.now();
+  const [library, limits, cosmetics, content, events, season] = await Promise.all([
+    deps.config.get('mail'),
+    deps.config.get('mailLimits'),
+    deps.config.get('cosmetics'),
+    deps.config.get('content'),
+    deps.config.get('events'),
+    deps.config.get('season'),
+  ]);
+  const packs = req.gifts.packs.map((id) => library.packs.find((p) => p.id === id && p.enabled));
+  if (packs.some((p) => !p)) throw new HttpError(400, 'pack_unknown');
+  const contents: MailContents = { v: 2, items: req.gifts.items, packs: packs.map((p) => ({ id: p!.id, name: p!.name, art: p!.art, items: p!.items })) };
+  const gifts = allGifts(contents);
+  if (galaxyCount(gifts) > MAX_GALAXIES) throw new HttpError(400, 'galaxy_too_many');
+  // The password before anything costly (finding whether a galaxy can be made takes a moment).
+  if (gifts.length > 0) {
     if (!req.password) throw new HttpError(400, 'invalid_input');
     await confirmPassword(deps.db, s, req.password);
   }
-  const now = deps.now();
+  const open = seasonOpen(season, now);
+  const issues = giftIssues(gifts, {
+    cosmetics,
+    probes: content.probes.map((p) => p.id),
+    events: events.list.map((e) => ({ id: e.id, endsAt: e.endsAt })),
+    season: { id: season.id, open },
+    now,
+  });
+  if (issues.length > 0) throw new HttpError(400, 'gift_invalid', { issues });
   const to = reached(await accounts(deps), req.audience, now);
   const recipients = to.length;
-  const expiresAt = new Date(now.getTime() + req.expiresInDays * 86_400_000);
+  const big = gifts.length > 0 ? bigGiftReasons(gifts, recipients, limits, cosmetics) : [];
+  if (big.length > 0 && !s.roles.includes('superadmin')) throw new HttpError(403, 'gift_needs_superadmin', { reasons: big });
+  let expires = now.getTime() + req.expiresInDays * 86_400_000;
+  for (const g of gifts) {
+    if (g.kind === 'seasonPoints' || (g.kind === 'currency' && g.currency.startsWith('season:'))) expires = Math.min(expires, Date.parse(season.endsAt));
+    const event = g.kind === 'currency' && g.currency.startsWith('signal:') ? events.list.find((e) => `signal:${e.id}` === g.currency) : undefined;
+    if (event) expires = Math.min(expires, Date.parse(event.endsAt));
+  }
+  const expiresAt = new Date(expires);
   const sent = await inTransaction(deps.db, async (trx) => {
     const row = await trx
       .insertInto('galaxy.mailbox_messages')
-      .values({ title: req.title, body: req.body, gifts: JSON.stringify(req.gifts), audience: JSON.stringify(req.audience), created_by: actor.id, created_at: now, expires_at: expiresAt })
+      .values({
+        title: req.title,
+        body: req.body,
+        type: req.type,
+        big: big.length > 0,
+        gifts: JSON.stringify(contents),
+        audience: JSON.stringify(req.audience),
+        created_by: actor.id,
+        created_at: now,
+        expires_at: expiresAt,
+      })
       .returning('id')
       .executeTakeFirstOrThrow();
     for (let i = 0; i < to.length; i += 1000) {
@@ -64,7 +126,7 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
       action: 'mail.send',
       targetType: 'mail',
       targetId: row.id,
-      after: { title: req.title, gifts: req.gifts, audience: req.audience, expiresAt: iso(expiresAt), recipients },
+      after: { title: req.title, type: req.type, contents, audience: req.audience, expiresAt: iso(expiresAt), recipients, ...(big.length > 0 ? { big } : {}) },
       reason: req.reason,
     });
     return { id: row.id, recipients };
@@ -98,6 +160,8 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       'm.title',
       'm.body',
       'm.gifts',
+      'm.type',
+      'm.big',
       'm.audience',
       'm.created_at',
       'm.expires_at',
@@ -111,11 +175,16 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
     .orderBy('m.created_at', 'desc')
     .limit(50)
     .execute();
-  return rows.map((r) => ({
+  return rows.map((r) => {
+    const { contents } = readContents(r.gifts);
+    return {
     id: r.id,
     title: r.title,
     body: r.body,
-    gifts: r.gifts as MailGifts,
+    type: r.type,
+    contents,
+    big: r.big,
+    gifts: legacyView(contents),
     audience: r.audience as MailAudience,
     by: r.by ?? null,
     at: iso(r.created_at),
@@ -124,7 +193,8 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
     recipients: Number(r.recipients ?? 0),
     read: Number(r.read ?? 0),
     claimed: Number(r.claimed ?? 0),
-  }));
+    };
+  });
 }
 
 export async function adminNotices(deps: CommunicationDeps): Promise<AdminNoticeRow[]> {

@@ -1,3 +1,4 @@
+import type { MailType } from '@galaxy/shared';
 import type { ColumnType, Generated } from 'kysely';
 
 /** Kysely types for schema `galaxy` (supabase/migrations/*_galaxy_*.sql). Keys are schema-qualified. */
@@ -716,14 +717,20 @@ export interface MailboxMessagesTable {
   created_at: Timestamp;
   expires_at: ColumnType<Date, Date | string, never>;
   withdrawn_at: ColumnType<Date | null, never, Date | string>;
+  /** Mail v2: its kind, and whether it needed a superadmin. */
+  type: ColumnType<MailType, MailType | undefined, never>;
+  big: ColumnType<boolean, boolean | undefined, never>;
 }
 
-/** A message's receipt by an account (M6d-1): read, and its gift claimed once. */
+/** A message's receipt by an account (M6d-1): read, and its gift claimed once; mail v2: archived, deleted, what it gave. */
 export interface MailboxReceiptsTable {
   message_id: string;
   account_id: string;
   read_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
   claimed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+  archived_at: ColumnType<Date | null, never, Date | string | null>;
+  deleted_at: ColumnType<Date | null, never, Date | string>;
+  granted: ColumnType<unknown, never, string>;
 }
 
 /** A notice of the title screen (M6d-1), shown between two dates unless ended early. */

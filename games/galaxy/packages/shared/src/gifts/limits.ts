@@ -10,6 +10,8 @@ const n = z.number().int().min(0).max(100_000_000);
 
 export const mailLimitsSchema = z
   .object({
+    /** More galaxies than this in one message (the hard cap is MAX_GALAXIES). */
+    galaxies: n.default(3),
     /** A galaxy of this tier or better. */
     galaxyTier: z.enum(TIERS).default('legendary'),
     /** A galaxy with one of these finishes. */

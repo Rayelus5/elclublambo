@@ -140,7 +140,7 @@ describe('el admin', () => {
     await claim(a, id);
     const row = ((await get(ctx.app, A('/mail'), { cookie: admin.cookie })).json() as AdminMailRow[]).find((m) => m.id === id)!;
     expect(row).toMatchObject({ recipients: 2, read: 1, claimed: 1, by: admin.username, withdrawnAt: null, gifts: { dust: 3 } });
-    expect(await audits(id)).toMatchObject([{ action: 'mail.send', actor_label: admin.username, after: { title: 'Novedades de la beta', gifts: { dust: 3 }, recipients: 2 }, reason: 'Prueba del buzón' }]);
+    expect(await audits(id)).toMatchObject([{ action: 'mail.send', actor_label: admin.username, after: { title: 'Novedades de la beta', type: 'announcement', contents: { v: 2, items: [{ kind: 'currency', currency: 'dust', amount: 3 }], packs: [] }, recipients: 2 }, reason: 'Prueba del buzón' }]);
   });
 
   test('un moderador o un jugador no envían ni ven el buzón del panel', async () => {

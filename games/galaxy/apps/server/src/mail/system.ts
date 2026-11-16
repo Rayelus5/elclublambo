@@ -17,7 +17,7 @@ export function cleanGifts(g: MailGifts): MailGifts {
 export async function sendSystemMail(
   trx: Kysely<DB>,
   account: { id: string; username: string },
-  mail: { title: string; body: string; gifts?: MailGifts },
+  mail: { title: string; body: string; gifts?: MailGifts; type?: 'referral' | 'shop' | 'system' },
   out?: Notices,
 ): Promise<string> {
   const m = await trx
@@ -26,6 +26,7 @@ export async function sendSystemMail(
       title: mail.title,
       body: mail.body,
       gifts: JSON.stringify(cleanGifts(mail.gifts ?? {})),
+      type: mail.type ?? 'system',
       audience: JSON.stringify({ kind: 'segment', usernames: [account.username.toLowerCase()] }),
       created_by: null,
       created_at: sql<Date>`now()`,

@@ -1434,3 +1434,25 @@ Comprueba con `rayelus`:
   - Las piezas, galaxias y sondas van a la auditoría.
   - Las galaxias salen de una semilla que depende de la clave, así que la misma recogida da siempre las mismas.
 - **`galaxyValues`**: el escáner, la fusión y la concesión del admin escriben ahora las galaxias igual.
+
+## Buzón v2, P2: el correo en el servidor
+
+**Qué cambia.**
+- **Migración** `20261116190100_galaxy_mail_v2.sql`:
+  - cada mensaje tiene su tipo (`type`), y los que envió antes el juego quedan como `system`;
+  - cada mensaje marca si llevaba un regalo grande (`big`);
+  - cada recibo puede archivarse o borrarse (`archived_at`, `deleted_at`) y guarda lo que dio cada regalo (`granted`).
+- **Claves de configuración nuevas**, que entran con su valor por defecto y no hace falta publicar:
+  - `mail`: la biblioteca de packs y plantillas (vacía) y los días de aviso de caducidad (3);
+  - `mailLimits`: los límites de los regalos grandes. Solo la publica un superadmin.
+- **Sin interfaz nueva todavía.** El panel sigue enviando monedas, polvo y señales, que el servidor lee en el formato nuevo.
+
+**El código ya trae:**
+- **Al enviar:**
+  - los packs se copian de la biblioteca: lo enviado no cambia si después se edita el pack;
+  - un regalo imposible no se envía (`gift_invalid`, con cuál y por qué);
+  - un regalo grande solo lo envía un superadmin (`gift_needs_superadmin`, con los motivos);
+  - un regalo de la temporada o de un evento hace que el mensaje caduque cuando cierran.
+- **Al recoger:** cada regalo pasa por `grantGifts`, la carta guarda qué dio cada uno y la respuesta lo devuelve. Los mensajes de antes pagan con sus claves de siempre (`mail:<id>:<moneda>`).
+- **En el buzón:** «Recoger todo» (`POST /mailbox/claim-all`, hasta 50 mensajes), archivar (`PATCH /mailbox/:id`), borrar (`DELETE /mailbox/:id`, nunca con un regalo sin recoger) y páginas por bandeja, archivo y tipo, con el cursor. Las webs de antes siguen viendo lo mismo.
+- **Tipos automáticos:** la posventa de la tienda escribe `shop` y los referidos, `referral`.

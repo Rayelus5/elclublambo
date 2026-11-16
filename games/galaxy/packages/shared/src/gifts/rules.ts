@@ -61,16 +61,32 @@ export function traitKnown(key: string, value: string): boolean {
   return !!def && def.values.some((v) => v.value === value);
 }
 
+/** At most this many galaxies in one message (each one is made, in the claim's transaction, when it is claimed). */
+export const MAX_GALAXIES = 10;
+
+/** How many galaxies some gifts make. */
+export function galaxyCount(gifts: readonly Gift[]): number {
+  return gifts.reduce((n, g) => n + (g.kind === 'galaxy' ? g.count : 0), 0);
+}
+
+// The generator is deterministic: whether a tier with a trait can be made never changes, so it is found once.
+const REACHABLE = new Map<string, boolean>();
+
 /** Whether a galaxy of that tier with that trait can be made (a plain one of any tier always can). */
 export function galaxyReachable(tier: number, trait: { key: string; value: string } | null): boolean {
   if (!trait && tier < TIERS.indexOf('mythic')) return true;
   if (trait && !traitKnown(trait.key, trait.value)) return false;
+  const key = `${tier}|${trait?.key ?? ''}|${trait?.value ?? ''}`;
+  const known = REACHABLE.get(key);
+  if (known !== undefined) return known;
+  let ok = true;
   try {
     for (const seed of REACH_SEEDS) generateGalaxy(seed, tier, trait ? { trait: trait.key as never, value: trait.value } : undefined);
-    return true;
   } catch {
-    return false;
+    ok = false;
   }
+  REACHABLE.set(key, ok);
+  return ok;
 }
 
 /** What would make each gift fail: a piece, probe or event that does not exist or is over, a galaxy that cannot be made. */
@@ -105,6 +121,7 @@ export function giftIssues(gifts: readonly Gift[], live: GiftLive): GiftIssue[] 
 }
 
 export type BigGiftReason =
+  | 'galaxy_count'
   | 'galaxy_tier'
   | 'galaxy_finish'
   | 'cosmetic_shop'
@@ -147,6 +164,7 @@ export function bigGiftReasons(gifts: readonly Gift[], recipients: number, limit
     } else if (g.kind === 'xp') xp += g.amount;
     else if (g.kind === 'seasonPoints') points += g.amount;
   }
+  if (galaxyCount(gifts) > limits.galaxies) out.add('galaxy_count');
   if (xp > limits.xp) out.add('xp');
   if (points > limits.seasonPoints) out.add('season_points');
   if (gifts.length > 0 && limits.recipients !== null && recipients > limits.recipients) out.add('recipients');

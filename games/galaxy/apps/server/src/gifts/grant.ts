@@ -13,8 +13,10 @@ import { galaxyValues } from '../galaxies/insert';
 // the rest to the audit. Each gift says what it did: given, already owned or not given (and why).
 
 export interface GrantContext {
-  /** The claim's key (`mail:<id>`): the ledger's keys and the galaxies' seeds come from it. */
+  /** The claim's key (`mail:<id>`): the ledger's keys come from it. */
   key: string;
+  /** Where the galaxies' seeds come from (the key by default): a mail's adds the account, so each player gets their own. */
+  seedKey?: string;
   reason: string;
   ref: unknown;
   actor: AuditActor;
@@ -66,7 +68,7 @@ export async function grantGifts(trx: Kysely<DB>, accountId: string, gifts: read
         let g: ReturnType<typeof generateGalaxy> | null = null;
         for (let attempt = 0; attempt < 3 && !g; attempt++) {
           try {
-            g = generateGalaxy(giftSeed(ctx.key, index, n, attempt), tier, gift.trait ? { trait: gift.trait.key, value: gift.trait.value } : undefined);
+            g = generateGalaxy(giftSeed(ctx.seedKey ?? ctx.key, index, n, attempt), tier, gift.trait ? { trait: gift.trait.key, value: gift.trait.value } : undefined);
           } catch {
             g = null;
           }
