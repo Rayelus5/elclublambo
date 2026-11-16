@@ -351,6 +351,7 @@ function EntityPanel({
               )
             ) : null}
             <ConfigForm
+              key={`${field}:${index}`}
               cfgKey="content"
               schema={item}
               value={current}

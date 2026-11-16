@@ -3,7 +3,7 @@ import { useId } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { NumberInput, type WidgetProps } from '../forms/ConfigForm';
-import { getIn } from '../forms/schema';
+import { getIn, pathKey } from '../forms/schema';
 import { describeContent, VOCABS } from './descriptors';
 
 // A weapon's levels as one table (the content editor, 2026-11-16, P6): a row per level, a column per number, each
@@ -28,7 +28,7 @@ function Spark({ values }: { values: number[] }) {
   );
 }
 
-export function LevelTable({ value, path, root, info, set, problems }: WidgetProps) {
+export function LevelTable({ value, path, root, info, set, problems, issues }: WidgetProps) {
   const id = useId();
   const levels = (Array.isArray(value) ? value : []) as WeaponLevel[];
   const weapon = getIn(root, path.slice(0, -1)) as { kind?: WeaponKind; evolution?: unknown } | undefined;
@@ -39,6 +39,8 @@ export function LevelTable({ value, path, root, info, set, problems }: WidgetPro
   // What the kind reads first, the dimmed rest after: the numbers that matter are in sight on narrow screens.
   const order = [...FIELDS.filter((f) => used.has(f)), ...FIELDS.filter((f) => !used.has(f))];
   const col = (f: keyof WeaponLevel) => describeContent(`weapons[].levels[].${f}`) ?? { label: f };
+  const cellProblems = (i: number, f: keyof WeaponLevel) => issues.get(pathKey([...path, i, f]));
+  const listed = levels.flatMap((_, i) => FIELDS.flatMap((f) => (cellProblems(i, f) ?? []).map((m) => `${t.levelRow(i + 1)}, ${col(f).label}: ${m}`)));
   const setCell = (i: number, f: keyof WeaponLevel, v: number | undefined) => set(levels.map((l, k) => (k === i ? { ...l, [f]: v } : l)));
   return (
     <div className="cf-field ce-levels">
@@ -70,7 +72,7 @@ export function LevelTable({ value, path, root, info, set, problems }: WidgetPro
                 <th scope="row">{t.levelRow(i + 1)}</th>
                 {order.map((f) => (
                   <td key={f} className={used.has(f) ? undefined : 'off'}>
-                    <NumberInput id={`${id}-${i}-${f}`} value={l[f]} info={col(f)} label={t.cell(col(f).label, i + 1)} onChange={(v) => setCell(i, f, v)} />
+                    <NumberInput id={`${id}-${i}-${f}`} value={l[f]} info={col(f)} label={t.cell(col(f).label, i + 1)} invalid={!!cellProblems(i, f)?.length} onChange={(v) => setCell(i, f, v)} />
                   </td>
                 ))}
                 <td>
@@ -87,9 +89,9 @@ export function LevelTable({ value, path, root, info, set, problems }: WidgetPro
         <Icon name="plus" />
         <span>{t.addLevel}</span>
       </button>
-      {problems?.length ? (
+      {problems?.length || listed.length ? (
         <ul className="cf-problems" role="alert">
-          {problems.map((m) => (
+          {[...(problems ?? []), ...listed].map((m) => (
             <li key={m}>{m}</li>
           ))}
         </ul>

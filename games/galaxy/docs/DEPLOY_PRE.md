@@ -1394,3 +1394,15 @@ Comprueba con `rayelus`:
 1. En un borrador, «Crear sector» basado en los Anillos: queda antes de la Fisura, y publicar avisa de lo que falte.
 2. «Crear arma» basada en el Pulso: «Revisión» pide su evolución; con ella entran las dos.
 
+
+## Editor de contenido: menores pendientes
+
+**Qué cambia.** Solo cambia la web. La simulación sigue igual: `contentRefs` salta las partes rotas de un borrador, y en un contenido válido da lo mismo que antes. No hay migraciones ni configuración que publicar.
+
+**El código ya trae:**
+- **Publicar espera:** antes de publicar se guarda lo último que se cambió.
+- **«Dónde se usa» con el borrador roto:** sigue contando aunque otra parte del borrador esté rota.
+- **Tabla de niveles:** marca la celda que tiene un problema y dice cuál es.
+- **Al cambiar de entrada:** la ficha empieza cerrada.
+- **Asistentes:** sus pestañas se recorren con las flechas y tienen su panel accesible.
+- **Vida por nivel del equipo:** sus tres campos (cuánto crece, desde qué nivel y el techo) ya no van en «Más ajustes». El techo dice que 1000 es «sin techo».
