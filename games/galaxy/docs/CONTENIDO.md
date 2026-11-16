@@ -400,6 +400,44 @@ La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
 
 ---
 
+### B10. El buzón: packs, plantillas y límites
+
+**Dos claves** (buzón v2, 2026-11-16):
+- **`mail`** (`packages/shared/src/gifts/library.ts`) guarda:
+  - `packs`: la biblioteca de packs;
+  - `templates`: las plantillas de mensaje;
+  - `warnDays`: cuántos días antes de caducar un mensaje dice «Caduca pronto».
+  - Se edita en `/admin/configuracion/mail` (la biblioteca) y desde Comunicación («Guardar como plantilla»), con versión, motivo y contraseña.
+- **`mailLimits`** (`gifts/limits.ts`) dice qué regalo es tan grande que solo lo envía un superadmin:
+  - una galaxia de cierta rareza o con un acabado especial;
+  - una pieza de la tienda o una sonda;
+  - más de una cantidad de cada moneda, experiencia o puntos de temporada **por jugador**;
+  - más de cierto número de galaxias por mensaje (`galaxies`);
+  - más de cierto número de destinatarios.
+  - **Solo la publica un superadmin** (403 `superadmin_only` en el panel); la CLI del contenedor publica como `cli`.
+
+**Un regalo** (`gifts/schema.ts`, `giftSchema`) es uno de estos:
+- una moneda: `coins`, `dust`, `signal`, `material`, `components`, `signal:<evento>` o `season:<id>`;
+- una pieza: `avatar`, `frame`, `title` o `skin`, con su id (el texto, en un título);
+- una galaxia: rareza, acabado, un rasgo opcional (`{ key, value }`) y cuántas, de 1 a 5;
+- una sonda, experiencia o puntos de temporada.
+
+**Un pack** lleva `id` (minúsculas, dígitos y guiones; permanente, porque los mensajes y las plantillas lo nombran), `name`, `art` (`parcel`, `chest`, `capsule`, `star`, `crate` o `gift`), `items` (de 1 a 30) y `enabled`.
+- Como mucho 10 galaxias por pack, igual que por mensaje.
+- Una galaxia que no se puede conseguir (un rasgo que esa rareza nunca lleva) no se publica.
+- Al enviarse, el pack se copia en el mensaje: cambiarlo o apagarlo después no toca lo enviado.
+
+**Una plantilla** lleva `id`, `name`, `type` (anuncio, regalo, compensación, evento, recompensa o personal), `title`, `body`, `items`, `packs` (ids de la biblioteca) y `expiresInDays`.
+
+**Al enviar un mensaje**, el servidor:
+- rechaza un regalo que no existe o ya no se puede dar (`gift_invalid`, con cuál y por qué), más de 10 galaxias (`galaxy_too_many`) o un pack que no está o está apagado (`pack_unknown`);
+- pide al superadmin un regalo grande (`gift_needs_superadmin`);
+- adelanta la caducidad al cierre de la temporada o del evento si un regalo depende de ellos.
+
+Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida da siempre las mismas.
+
+**Un ejemplo para empezar:** `ops/plantillas/buzon/`.
+
 ## C. Entrega y publicación
 
 1. **Rama** `feature/galaxy-<slug>` (o `fix/`, `docs/`) desde `develop`. Commits en español, del estilo `feat(galaxy): …`, con sus trailers.

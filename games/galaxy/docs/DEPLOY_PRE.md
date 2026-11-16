@@ -1539,3 +1539,26 @@ No hay migraciones ni configuración que publicar.
 - **El aviso en directo** dice «Tienes un regalo en el buzón» cuando lo trae, con el icono de su tipo.
 
 **Para probarlo en PRE:** envíate un regalo con una galaxia. En el buzón, «Recoger todo» enseña la revelación; «Ver en la colección» lleva a ella.
+
+## Buzón v2, P7: documentación y lista de comprobación
+
+**Qué cambia.**
+- La documentación del buzón v2:
+  - DESIGN_SYSTEM §8 vicies, con los tipos de mensaje, los regalos y los packs;
+  - CONTENIDO B10, con las claves `mail` y `mailLimits`;
+  - GDD §16.5;
+  - las skills `galaxy-publicar-config` y `galaxy-evento`.
+- Una biblioteca de ejemplo en `ops/plantillas/buzon/`.
+- No hay código ni migraciones.
+
+**Lista de comprobación en PRE** (la prueba el propietario; no se crean cuentas):
+1. **Enviar un regalo de todo tipo:** en Comunicación, un mensaje de tipo Regalo para ti, con monedas, una skin, un pack y una galaxia épica. La carta de la derecha lo enseña igual que lo verá el jugador.
+2. **Regalo grande:**
+   - una galaxia legendaria avisa de que es grande;
+   - con un admin que no sea superadmin, el botón no deja enviarlo;
+   - un superadmin sí puede.
+3. **Envío programado:** prográmalo a dos minutos. No sale en el buzón hasta su hora, y después llega con su aviso en directo.
+4. **Recoger:** «Recoger todo» enseña la revelación, y la galaxia aparece en la colección.
+5. **Archivar y borrar:** archívalo y bórralo. Un mensaje con su regalo sin recoger no se deja borrar.
+6. **Biblioteca de packs:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje.
+7. **Plantilla:** «Guardar como plantilla» y, después, «Empezar con una plantilla».
