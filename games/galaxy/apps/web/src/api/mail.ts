@@ -1,8 +1,11 @@
-import type { AdminMailRow, AdminNoticeRow, MailAudience, MyMailbox, TitleNotice, Wallet } from '@galaxy/shared';
+import type { AdminMailRow, AdminNoticeRow, GrantedItem, MailAudience, MyMailbox, TitleNotice, Wallet } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ADMIN_KEY } from './admin';
 import { api } from './client';
-import { GACHA_KEY } from './economy';
+import { ME_KEY } from '../auth/useMe';
+import { COSMETICS_KEY } from './cosmetics';
+import { COLLECTION_KEY, GACHA_KEY } from './economy';
+import { HANGAR_KEY } from './runs';
 
 // The mailbox and the title notices for players, and communication in the panel (GDD §16.5; M6d-1). Reading and
 // claiming read the mailbox again; a claim also brings the new wallet to the top bar at once.
@@ -24,8 +27,12 @@ export function useReadMail() {
 export function useClaimMail() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api<{ wallet: Wallet }>(`/mailbox/${id}/claim`, { method: 'POST' }),
-    onSuccess: (r) => qc.setQueryData(GACHA_KEY, (old: Record<string, unknown> | undefined) => (old ? { ...old, wallet: r.wallet } : old)),
+    mutationFn: (id: string) => api<{ wallet: Wallet; granted?: GrantedItem[] }>(`/mailbox/${id}/claim`, { method: 'POST' }),
+    onSuccess: (r) => {
+      qc.setQueryData(GACHA_KEY, (old: Record<string, unknown> | undefined) => (old ? { ...old, wallet: r.wallet } : old));
+      // Mail v2: a gift can be a piece, a galaxy, a probe, XP or season points too.
+      for (const key of [COSMETICS_KEY, COLLECTION_KEY, HANGAR_KEY, ME_KEY]) void qc.invalidateQueries({ queryKey: key });
+    },
     onSettled: () => void qc.invalidateQueries({ queryKey: MAILBOX_KEY }),
   });
 }

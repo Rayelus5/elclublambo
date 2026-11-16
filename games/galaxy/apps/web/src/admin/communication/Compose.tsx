@@ -1,4 +1,4 @@
-import { type AdminMailType, allGifts, bigGiftReasons, type Gift, giftIssues, type MailAudience, type MailContents } from '@galaxy/shared';
+import { type AdminMailType, allGifts, bigGiftReasons, galaxyCount, type Gift, giftIssues, type MailAudience, type MailContents, MAX_GALAXIES } from '@galaxy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useMemo, useState } from 'react';
 import { ADMIN_KEY } from '../../api/admin';
@@ -53,11 +53,13 @@ export function Compose() {
     }),
     [items, packs, catalog],
   );
-  const gifts = allGifts(contents);
+  // Once per change of the gift, not per keystroke (whether a galaxy can be made takes a moment).
+  const gifts = useMemo(() => allGifts(contents), [contents]);
   const giving = gifts.length > 0;
-  const issues = catalog ? giftIssues(gifts, catalog.live) : [];
-  const big = catalog && giving ? bigGiftReasons(gifts, recipients ?? 0, catalog.limits, catalog.cosmetics) : [];
-  const blocked = big.length > 0 && !superadmin;
+  const issues = useMemo(() => (catalog ? giftIssues(gifts, catalog.live) : []), [gifts, catalog]);
+  const big = useMemo(() => (catalog && gifts.length > 0 ? bigGiftReasons(gifts, recipients ?? 0, catalog.limits, catalog.cosmetics) : []), [gifts, recipients, catalog]);
+  const tooMany = galaxyCount(gifts) > MAX_GALAXIES;
+  const blocked = (big.length > 0 && !superadmin) || tooMany;
 
   const send = useMutation({
     mutationFn: (body: unknown) => api<{ id: string; recipients: number }>('/admin/mail', { method: 'POST', body }),
@@ -216,6 +218,11 @@ export function Compose() {
             ) : null}
           </section>
           {catalog ? <BigGiftNote reasons={big} superadmin={superadmin} catalog={catalog} /> : null}
+          {tooMany ? (
+            <p className="field-error" role="alert">
+              {String(copy.errors.galaxy_too_many)}
+            </p>
+          ) : null}
           {giving ? field('password', copy.admin.fields.password, { type: 'password', hint: copy.admin.passwordHint }) : null}
           {send.error ? (
             <p className="field-error" role="alert">

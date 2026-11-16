@@ -2730,6 +2730,7 @@ export const copy = {
       needs: 'Solo lo puede enviar un superadmin',
       you: 'Lo puedes enviar porque eres superadmin',
       reasons: {
+        galaxy_count: (n: number) => `Más de ${fmt(n)} galaxias por jugador`,
         galaxy_tier: (tier: string) => `Una galaxia ${tier.toLowerCase()} o mejor`,
         galaxy_finish: 'Una galaxia con acabado especial',
         cosmetic_shop: 'Una pieza de la tienda',
