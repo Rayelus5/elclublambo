@@ -30,7 +30,7 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { aliveCap, curseOf, direct, layerCrowd, layerSeconds, levelFactor, relocate, scaleAt, spawnRate, teamLevel } from './systems/director';
+export { aliveCap, curseOf, direct, layerCrowd, layerSeconds, levelFactor, relocate, scaleAt, spawnRate, swarmWeight, teamLevel } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
 export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';

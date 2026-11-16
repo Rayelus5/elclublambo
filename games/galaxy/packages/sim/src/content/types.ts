@@ -308,6 +308,11 @@ export interface SectorDef {
   waves: { at: number; kind: 'ring' | 'burst'; enemy: string; count: number }[];
   /** Groups per second: base + perMinute · minutes, up to max; at most `cap` alive; × bossFactor during the boss. */
   density: { base: number; perMinute: number; max: number; cap: number; bossFactor: number; perLayer: number };
+  /**
+   * The swarm family kept in check (2026-11-16): its groups stop while `cap` of it are alive (0: no limit) and, from
+   * minute `fadeFrom` of the run, their weight falls by `fadePerMinute` a minute down to `fadeFloor`.
+   */
+  swarm: { cap: number; fadeFrom: number; fadePerMinute: number; fadeFloor: number };
   scaling: {
     hpPerMinute: number;
     damagePerMinute: number;
