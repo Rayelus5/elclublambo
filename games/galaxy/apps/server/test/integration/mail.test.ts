@@ -240,8 +240,8 @@ describe('avisos en tiempo real', () => {
     const [la, lb, lo] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie), await openLive(ctx.app, out.cookie)];
     const { id } = (await send([a.username, b.username])).json() as { id: string };
     await settle();
-    expect(la.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta' }]);
-    expect(lb.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta' }]);
+    expect(la.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta', type: 'announcement', gift: false }]);
+    expect(lb.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta', type: 'announcement', gift: false }]);
     expect(lo.notices()).toEqual([]);
     for (const l of [la, lb, lo]) l.ws.terminate();
   });
