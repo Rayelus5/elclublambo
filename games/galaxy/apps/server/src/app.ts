@@ -33,6 +33,7 @@ import { registerAdminRoutes } from './admin/routes';
 import { registerModerationRoutes } from './admin/moderation-routes';
 import { registerAdminMarketRoutes } from './admin/market-routes';
 import { registerCommunicationRoutes } from './admin/communication-routes';
+import { startMailJobs } from './mail/jobs';
 import { registerNewsRoutes } from './news/routes';
 import { registerStatsRoutes } from './admin/stats-routes';
 import { registerReferralRoutes } from './referrals/routes';
@@ -74,6 +75,8 @@ export type AppDeps = {
   shopGateway?: ShopGateway | null;
   /** The server's disk for «Almacenamiento»: by default the root's (statfs); tests pass a fixed one. */
   disk?: () => Promise<Disk | null>;
+  /** Background jobs that need the live config and socket (mail v2, P5: scheduled mail): only the production entry. */
+  jobs?: { mail?: boolean };
 };
 
 /**
@@ -194,6 +197,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerNotesRoutes(api, { db: deps.db, env: deps.env });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
+    if (deps.jobs?.mail) {
+      const stopMail = startMailJobs({ db: deps.db, config, now, live }, app.log);
+      api.addHook('onClose', async () => stopMail());
+    }
     registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });

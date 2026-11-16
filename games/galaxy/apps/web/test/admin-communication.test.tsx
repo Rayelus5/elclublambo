@@ -1,7 +1,7 @@
 import type { AdminMailRow, AdminNoticeRow, MeResponse } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AdminLayout } from '../src/admin/AdminLayout';
 import { CommunicationScreen } from '../src/admin/communication/CommunicationScreen';
 import { copy } from '../src/copy/es';
@@ -20,7 +20,8 @@ const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'
 const DAY = 86_400_000;
 const around = (days: number) => new Date(Date.now() + days * DAY).toISOString();
 const sent: AdminMailRow[] = [
-  { id: 'm1', title: 'Bienvenida', body: 'Hola', type: 'announcement', contents: { v: 2, items: [{ kind: 'currency', currency: 'coins', amount: 100 }], packs: [] }, big: false, gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: around(-2), expiresAt: around(28), withdrawnAt: null, recipients: 40, read: 12, claimed: 9 },
+  { id: 'm1', title: 'Bienvenida', body: 'Hola', type: 'announcement', contents: { v: 2, items: [{ kind: 'currency', currency: 'coins', amount: 100 }], packs: [] }, big: false, gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: around(-2), expiresAt: around(28), withdrawnAt: null, recipients: 40, read: 12, claimed: 9, scheduledAt: null, sentAt: around(-2), outcomes: { granted: 9, owned: 0, skipped: 0 } },
+  { id: 'm2', title: 'Para el lunes', body: 'Hola', type: 'event', contents: { v: 2, items: [], packs: [] }, big: false, gifts: {}, audience: { kind: 'all' }, by: 'rayelus', at: around(0), expiresAt: around(30), withdrawnAt: null, recipients: 40, read: 0, claimed: 0, scheduledAt: around(2), sentAt: null, outcomes: { granted: 0, owned: 0, skipped: 0 } },
 ];
 const notices: AdminNoticeRow[] = [
   { id: 'n1', text: 'Mantenimiento el domingo', tone: 'warning', startsAt: around(-2), endsAt: around(2), endedAt: null, by: 'rayelus', live: true },
@@ -28,7 +29,8 @@ const notices: AdminNoticeRow[] = [
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
 // The panel's live config (the pack library) and the run content (none here: its default).
-const keys = [{ key: 'mail', version: 1, data: { packs: [{ id: 'bienvenida', name: 'Bienvenida', art: 'chest', items: [{ kind: 'currency', currency: 'dust', amount: 50 }] }] }, createdAt: null, author: null, note: null }];
+const template = { id: 'caida', name: 'Caída del servidor', type: 'compensation', title: 'Perdón por la caída', body: 'Aquí tienes una compensación', items: [{ kind: 'currency', currency: 'coins', amount: 300 }], packs: [], expiresInDays: 14 };
+const keys = [{ key: 'mail', version: 1, data: { packs: [{ id: 'bienvenida', name: 'Bienvenida', art: 'chest', items: [{ kind: 'currency', currency: 'dust', amount: 50 }] }], templates: [template] }, createdAt: null, author: null, note: null }];
 const routes = (extra = {}, me: MeResponse = admin) => ({
   'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
   'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys),
@@ -92,8 +94,9 @@ test('la lista de enviados dice a cuántos llegó, leídos y recogidos, y se ret
   const table = await screen.findByRole('table', { name: t.sentTitle });
   const row = within(table).getByRole('cell', { name: 'Bienvenida' }).closest('tr')!;
   expect(within(row).getByText('40')).toBeInTheDocument();
-  expect(within(row).getByText('12')).toBeInTheDocument();
-  expect(within(row).getByText('9')).toBeInTheDocument();
+  // Read and collected, out of how many it reached, with a bar (mail v2, P5).
+  expect(within(row).getByText(t.readOf(12, 40))).toBeInTheDocument();
+  expect(within(row).getByText(t.readOf(9, 40))).toBeInTheDocument();
   await userEvent.click(within(row).getByRole('button', { name: t.withdrawOf('Bienvenida') }));
   const dialog = await screen.findByRole('dialog', { name: t.withdrawOf('Bienvenida') });
   await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Enviado por error');
@@ -200,4 +203,63 @@ test('un superadmin ve el mismo aviso, pero puede enviarlo', async () => {
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Regalo de prueba');
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.password), 'mi-clave');
   expect(within(form).getByRole('button', { name: t.send(40) })).toBeEnabled();
+});
+
+describe('envío programado, plantillas y duplicar (P5)', () => {
+  test('programarlo manda su hora y lo dice', async () => {
+    const fetch = mockApi(routes({ 'POST /galaxy/api/admin/mail': () => jsonResponse(200, { id: 'm9', recipients: 40 }) }));
+    renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+    const form = await screen.findByRole('form', { name: t.composeTitle });
+    await userEvent.type(within(form).getByLabelText(t.fields.title), 'Para el lunes');
+    await userEvent.type(within(form).getByLabelText(t.fields.body), 'Nuevo evento');
+    await userEvent.click(within(form).getByRole('radio', { name: t.whenLater }));
+    await userEvent.type(within(form).getByLabelText(t.fields.scheduledAt), '2030-01-07T10:00');
+    await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Anuncio del evento');
+    await userEvent.click(within(form).getByRole('button', { name: t.schedule }));
+    await waitFor(() => expect(posted(fetch, '/galaxy/api/admin/mail')[0]).toMatchObject({ title: 'Para el lunes', scheduledAt: new Date('2030-01-07T10:00').toISOString() }));
+  });
+
+  test('una plantilla rellena el mensaje', async () => {
+    mockApi(routes());
+    renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+    const form = await screen.findByRole('form', { name: t.composeTitle });
+    await pickOption(userEvent, await within(form).findByLabelText(t.templates.pick), 'caida');
+    expect(within(form).getByLabelText(t.fields.title)).toHaveValue('Perdón por la caída');
+    expect(within(form).getByRole('radio', { name: copy.mailTypes.compensation.name })).toBeChecked();
+    expect(within(form).getByRole('button', { name: g.remove(g.amount.coins(300)) })).toBeInTheDocument();
+    expect(within(form).getByLabelText(t.fields.expires)).toHaveValue('14');
+  });
+
+  test('guardar como plantilla publica la biblioteca con la plantilla nueva', async () => {
+    const fetch = mockApi(routes({ 'POST /galaxy/api/admin/config/mail': () => jsonResponse(201, { version: 2 }) }));
+    renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+    const form = await screen.findByRole('form', { name: t.composeTitle });
+    await userEvent.type(within(form).getByLabelText(t.fields.title), 'Gracias');
+    await userEvent.type(within(form).getByLabelText(t.fields.body), 'Por jugar');
+    await userEvent.click(within(form).getByRole('button', { name: t.templates.save }));
+    const dialog = await screen.findByRole('dialog', { name: t.templates.save });
+    await userEvent.type(within(dialog).getByLabelText(t.templates.name), 'Agradecimiento');
+    await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Plantilla nueva');
+    await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.password), 'mi-clave');
+    await userEvent.click(within(dialog).getByRole('button', { name: t.templates.save }));
+    await waitFor(() =>
+      expect(posted(fetch, '/galaxy/api/admin/config/mail')[0]).toMatchObject({
+        baseVersion: 1,
+        data: { templates: [{ id: 'caida' }, { id: 'agradecimiento', name: 'Agradecimiento', type: 'announcement', title: 'Gracias', body: 'Por jugar', items: [], packs: [], expiresInDays: 30 }] },
+      }),
+    );
+  });
+
+  test('duplicar un enviado lo copia al formulario, y uno programado dice su hora', async () => {
+    mockApi(routes());
+    renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+    const table = await screen.findByRole('table', { name: t.sentTitle });
+    const later = within(table).getByRole('cell', { name: 'Para el lunes' }).closest('tr')!;
+    expect(within(later).getByText(t.mailStates.scheduled)).toBeInTheDocument();
+    const row = within(table).getByRole('cell', { name: 'Bienvenida' }).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: t.duplicateOf('Bienvenida') }));
+    const form = screen.getByRole('form', { name: t.composeTitle });
+    expect(within(form).getByLabelText(t.fields.title)).toHaveValue('Bienvenida');
+    expect(within(form).getByRole('button', { name: g.remove(g.amount.coins(100)) })).toBeInTheDocument();
+  });
 });
