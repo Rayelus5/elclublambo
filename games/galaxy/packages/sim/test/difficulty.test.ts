@@ -26,6 +26,8 @@ interface Trial {
   enemyHpScale?: number;
   bossHpScale?: number;
   hitCap?: number;
+  healing?: Partial<Content['healing']>;
+  stillness?: Partial<Content['stillness']>;
 }
 function contentToMeasure(): Content {
   if (!TRY) return DEFAULT_CONTENT;
@@ -47,6 +49,9 @@ function contentToMeasure(): Content {
     e.hp *= t.enemyHpScale ?? 1;
   }
   if (t.hitCap !== undefined) c.hitCap = t.hitCap;
+  // The healing budget and «La Estática te alcanza» (2026-11-16), field by field.
+  if (t.healing) c.healing = { ...c.healing, ...t.healing };
+  if (t.stillness) c.stillness = { ...c.stillness, ...t.stillness };
   return c;
 }
 // 16 seeds and the mean of the middle half: 8 seeds and a median moved ±20 % between runs of the same settings.
