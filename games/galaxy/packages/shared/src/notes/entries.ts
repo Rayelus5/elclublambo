@@ -19,6 +19,10 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'Peligros con el sello de cada sector: lluvias de meteoritos, tormentas que te siguen, emboscadas y pozos de gravedad' },
       { kind: 'mejora', text: 'Una flecha en el borde de la pantalla te guía hasta cada evento y te dice a qué distancia está, también hasta los satélites' },
       { kind: 'mejora', text: 'Avisos en el centro de la pantalla: nueva capa, Núcleo, baliza, eventos y el botín que sueltan. Se apagan en los ajustes de la incursión' },
+      { kind: 'equilibrio', text: 'Los enemigos pequeños ya no se amontonan: cuando hay muchos a la vez dejan de llegar más, y según avanza la incursión salen menos y su hueco lo ocupan otros' },
+      { kind: 'equilibrio', text: 'Mientras luchas contra un Núcleo aparecen muchos menos enemigos: la pelea es contra él' },
+      { kind: 'equilibrio', text: 'El Amplificador sube mucho más el daño en sus niveles altos: ahora se nota contra los enemigos con mucha vida' },
+      { kind: 'equilibrio', text: 'El Sifón y la vida robada curan algo más cada segundo' },
     ],
   },
   {

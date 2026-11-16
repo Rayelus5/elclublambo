@@ -183,6 +183,30 @@ export const part: DescriptorPart = {
       items: ['Mínimo', 'Máximo'],
       hint: 'Cuántos llegan juntos cada vez que sale, al azar entre el mínimo y el máximo',
     },
+    'sectors[].swarm': {
+      label: 'Enjambre a raya',
+      section: 'Fauna',
+      hint: 'Que los enemigos pequeños del enjambre no se acumulen: cuántos puede haber a la vez y cómo salen menos según avanza la incursión',
+    },
+    'sectors[].swarm.cap': {
+      label: 'Enjambre vivo a la vez',
+      hint: 'Con tantos del enjambre vivos, sus grupos dejan de salir hasta que bajen y salen los demás enemigos; a cero, sin tope',
+    },
+    'sectors[].swarm.fadeFrom': {
+      label: 'Desde el minuto',
+      unit: 'minutes',
+      hint: 'Minuto de la incursión desde el que el enjambre empieza a salir cada vez menos; su hueco lo ocupan los demás enemigos',
+    },
+    'sectors[].swarm.fadePerMinute': {
+      label: 'Cuánto menos por minuto',
+      unit: 'percent',
+      hint: 'Parte de su peso que pierde el enjambre por cada minuto pasado ese momento',
+    },
+    'sectors[].swarm.fadeFloor': {
+      label: 'Lo mínimo que sale',
+      unit: 'percent',
+      hint: 'Parte de su peso que conserva el enjambre por larga que sea la incursión',
+    },
     'sectors[].density': {
       label: 'Densidad',
       section: 'Fauna',

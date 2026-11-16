@@ -15,7 +15,7 @@ import { VETERAN } from './proving';
 
 const LONG = process.env['GALAXY_CALIBRATE'] === '1';
 // While tuning: GALAXY_CURVE_TRY=<json> merges trial values into the content before measuring:
-// { sectors: { id: {...} }, bosses: { id: {...} }, enemies: { id: {...} }, enemyHpScale: n, bossHpScale: n, hitCap: n }
+// { sectors: { id: {...} }, bosses: { id: {...} }, enemies: { id: {...} }, passives: { id: {...} }, enemyHpScale: n, bossHpScale: n, hitCap: n }
 // (the two scales multiply the life of every enemy and every Núcleo). GALAXY_CURVE_OUT=<file> appends every measurement as a JSON line.
 const TRY = process.env['GALAXY_CURVE_TRY'];
 const OUT = process.env['GALAXY_CURVE_OUT'];
@@ -23,6 +23,8 @@ interface Trial {
   sectors?: Record<string, object>;
   bosses?: Record<string, object>;
   enemies?: Record<string, object>;
+  /** Passives by id (their levels, 2026-11-16: the Amplificador's). */
+  passives?: Record<string, object>;
   enemyHpScale?: number;
   bossHpScale?: number;
   hitCap?: number;
@@ -48,6 +50,7 @@ function contentToMeasure(): Content {
     Object.assign(e, structuredClone(t.enemies?.[e.id] ?? {}));
     e.hp *= t.enemyHpScale ?? 1;
   }
+  for (const pv of c.passives) Object.assign(pv, structuredClone(t.passives?.[pv.id] ?? {}));
   if (t.hitCap !== undefined) c.hitCap = t.hitCap;
   // The healing budget and «La Estática te alcanza» (2026-11-16), field by field.
   if (t.healing) c.healing = { ...c.healing, ...t.healing };
