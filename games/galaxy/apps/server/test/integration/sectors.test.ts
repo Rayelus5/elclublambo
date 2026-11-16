@@ -43,8 +43,22 @@ const start = (cookie: string, sector: string, app = ctx.app) =>
   post(app, '/galaxy/api/runs', { sector, probe: 'lumen', simVersion: SIM_VERSION }, { cookie, headers: { 'idempotency-key': randomUUID() } });
 
 /** A finished run straight in the table (what finishRun would leave). */
-async function finishedRun(account: string, sector: string, over: { boss_kills?: number; suspicious?: boolean; finished?: boolean; seconds?: number } = {}) {
+async function finishedRun(
+  account: string,
+  sector: string,
+  over: { boss_kills?: number; suspicious?: boolean; finished?: boolean; seconds?: number; coop?: boolean; startedAt?: Date } = {},
+) {
   const done = over.finished ?? true;
+  // A group run belongs to its co-op run (the review of 2026-11-16: those do not keep the season sector after its gate).
+  const coop = over.coop
+    ? (
+        await ctx.db
+          .insertInto('galaxy.coop_runs')
+          .values({ room_code: 'FIS234', kind: 'public', leader_id: null, sector, seed: '1', anomaly: null, rules: '{}', players: '[]', content_version: 0, sim_version: SIM_VERSION })
+          .returning('id')
+          .executeTakeFirstOrThrow()
+      ).id
+    : null;
   await ctx.db
     .insertInto('galaxy.runs')
     .values({
@@ -56,8 +70,10 @@ async function finishedRun(account: string, sector: string, over: { boss_kills?:
       content_version: 0,
       sim_version: SIM_VERSION,
       start_key: randomUUID(),
-      started_at: new Date(),
+      started_at: over.startedAt ?? new Date(),
       finished_at: done ? new Date() : null,
+      coop_run_id: coop,
+      slot: coop ? 0 : null,
       outcome: done ? 'died' : null,
       ticks: 18_000,
       depth: 1,
@@ -114,6 +130,17 @@ test('quien ya terminó una incursión en la Fisura la conserva aunque tenga men
   await finishedRun(id, 'signal-rift');
   expect((await hangar(cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: true });
   expect((await choose(cookie, 'signal-rift')).statusCode).toBe(200);
+});
+
+// The review of 2026-11-16: quick join can put a newcomer in a Fisura room; that group run does not open it for good.
+test('una incursión en grupo en la Fisura no la abre; una de antes de la puerta sí', async () => {
+  const late = await player();
+  await finishedRun(late.id, 'signal-rift', { coop: true });
+  expect((await hangar(late.cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: false });
+  expect((await choose(late.cookie, 'signal-rift')).statusCode).toBe(409);
+  const early = await player();
+  await finishedRun(early.id, 'signal-rift', { coop: true, startedAt: new Date('2026-11-15T20:00:00Z') });
+  expect((await hangar(early.cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: true });
 });
 
 test('vencer al Núcleo de la Nebulosa abre la Escarcha; una partida sospechosa o sin terminar no cuenta', async () => {

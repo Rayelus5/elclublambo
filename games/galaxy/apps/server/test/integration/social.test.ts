@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { type FinishRunRequest, generateGalaxy, type Leaderboard, type MeResponse, PROBE_TEST, type Profile, type PublicCollectionPage, type RunResult, type RunStart } from '@galaxy/shared';
+import { type FinishRunRequest, generateGalaxy, parseConfig, type Leaderboard, type MeResponse, PROBE_TEST, type Profile, type PublicCollectionPage, type RunResult, type RunStart } from '@galaxy/shared';
 import { encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { invalidateLeaderboard } from '../../src/social/leaderboard';
@@ -384,6 +384,61 @@ describe('la paga por sector', () => {
     expect(r.breakdown.sector).toEqual({ id: 'outer-nebula', factor: 0.8 });
     expect(r.progress).toMatchObject({ xp: 145, points: 68 });
     expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: 68 });
+  });
+});
+
+// The review of 2026-11-16: `runs.points_factor` is a `real`; the ranking must add a group run's points as its results
+// said (10 points × 0,7 = 7, not 6).
+describe('los puntos de una incursión en grupo', () => {
+  const s = season();
+  const clock = at(s, 24);
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+  });
+  afterAll(() => ctx.close());
+
+  test('de cuatro (×0,7) suma en la clasificación lo mismo que en sus resultados', async () => {
+    const p = await player(ctx);
+    const coop = await ctx.db
+      .insertInto('galaxy.coop_runs')
+      .values({ room_code: 'PTS234', kind: 'public', leader_id: null, sector: 'frost-rings', seed: '1', anomaly: null, rules: '{}', players: '[]', content_version: 0, sim_version: SIM_VERSION })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await ctx.db
+      .insertInto('galaxy.runs')
+      .values({
+        account_id: p.id,
+        seed: '1',
+        sector: 'frost-rings',
+        probe: 'lumen',
+        relics: '[]',
+        content_version: 0,
+        sim_version: SIM_VERSION,
+        start_key: randomUUID(),
+        started_at: clock,
+        finished_at: clock,
+        outcome: 'died',
+        ticks: 18_000,
+        depth: 1,
+        kills: 50,
+        boss_kills: 0,
+        level: 5,
+        seconds: 300,
+        hash: '0123456789abcdef',
+        payout: '{}',
+        runs_version: 0,
+        flags: [],
+        suspicious: false,
+        coop_run_id: coop.id,
+        slot: 0,
+        party_size: 4,
+        points_factor: 0.7,
+        sector_factor: 1,
+      })
+      .execute();
+    const base = parseConfig('season', s).points.layer;
+    expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: Math.floor(base * 0.7) });
   });
 });
 
