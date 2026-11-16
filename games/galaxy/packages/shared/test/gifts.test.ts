@@ -4,6 +4,7 @@ import {
   allGifts,
   bigGiftReasons,
   type Gift,
+  galaxyReachable,
   giftIssues,
   type GiftLive,
   giftSchema,
@@ -12,6 +13,7 @@ import {
   mergeCurrencies,
   parseConfig,
   readContents,
+  traitKnown,
 } from '../src/index';
 
 // Gifts of every kind (mail v2, 2026-11-16): resources, cosmetics, galaxies, probes, XP and season points; what makes
@@ -146,5 +148,15 @@ describe('lo que solo envía un superadmin', () => {
   test('con un tope de destinatarios, enviar a más gente pide superadmin', () => {
     const capped = mailLimitsSchema.parse({ recipients: 50 });
     expect(bigGiftReasons([{ kind: 'currency', currency: 'coins', amount: 10 }], 51, capped, cosmetics)).toEqual(['recipients']);
+  });
+});
+
+describe('rasgos de una galaxia regalada', () => {
+  test('un valor que no existe se descarta al momento, sin buscar semillas', () => {
+    expect(traitKnown('galaxy_type', 'spiral')).toBe(true);
+    expect(traitKnown('galaxy_type', 'no-es-un-tipo')).toBe(false);
+    const t0 = performance.now();
+    expect(galaxyReachable(4, { key: 'galaxy_type', value: 'no-es-un-tipo' })).toBe(false);
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 });

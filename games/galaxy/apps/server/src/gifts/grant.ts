@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { generateGalaxy, type Gift, type GrantedItem, mergeCurrencies, TIERS } from '@galaxy/shared';
+import { generateGalaxy, type Gift, type GrantedItem, mergeCurrencies, TIERS, traitKnown } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import { grantCosmetics } from '../cosmetics/service';
@@ -59,7 +59,9 @@ export async function grantGifts(trx: Kysely<DB>, accountId: string, gifts: read
     } else if (gift.kind === 'galaxy') {
       const tier = TIERS.indexOf(gift.tier);
       const made: NonNullable<GrantedItem['galaxies']> = [];
-      for (let n = 0; n < gift.count; n++) {
+      // A trait value that does not exist never comes out: no seed is tried.
+      const possible = !gift.trait || traitKnown(gift.trait.key, gift.trait.value);
+      for (let n = 0; possible && n < gift.count; n++) {
         // A few seeds before giving up (a trait some tiers rarely carry).
         let g: ReturnType<typeof generateGalaxy> | null = null;
         for (let attempt = 0; attempt < 3 && !g; attempt++) {
