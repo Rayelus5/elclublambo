@@ -138,6 +138,19 @@ describe('el cazarrecompensas', () => {
     expect([...events, ...after].find((x) => x.t === 'worldEvent' && x.what === 'done')).toMatchObject({ kind: 'bounty', coins: T.bounty.coins });
   });
 
+  test('alcanzarlo no hace daño: solo huye', () => {
+    const sim = world();
+    debugEvent(sim, 'bounty');
+    const e = sim.world.active[0]!.enemy;
+    sim.enemies.freezeT[e] = 600;
+    const p = sim.probes[0]!;
+    p.x = sim.enemies.x[e]!;
+    p.y = sim.enemies.y[e]!;
+    const full = p.hp;
+    seen(sim, 30);
+    expect(p.hp).toBe(full);
+  });
+
   test('si se acaba su tiempo se escapa sin premio', () => {
     const sim = world();
     debugEvent(sim, 'bounty');
@@ -233,6 +246,21 @@ describe('los peligros', () => {
       const d = Math.hypot(sim.enemies.x[i]! - p.x, sim.enemies.y[i]! - p.y);
       if (d > T.ambush.distance - 30) expect(d).toBeLessThan(T.ambush.distance + 30);
     }
+  });
+
+  // Review of 2026-11-16: a hazard's harm leaves no breather, or a storm hitting every 0,5 s would keep the probe
+  // invulnerable to every enemy.
+  test('la tormenta hace daño sin dejar a la sonda invulnerable a los demás golpes', () => {
+    const sim = world();
+    debugEvent(sim, 'storm');
+    const s = sim.world.active[0]!;
+    const p = sim.probes[0]!;
+    p.x = s.x;
+    p.y = s.y;
+    const full = p.hp;
+    seen(sim, 31);
+    expect(p.hp).toBeLessThan(full);
+    expect(p.invulnT).toBe(0);
   });
 
   test('el pozo atrae a la sonda y al botín, y su corazón hace daño; se puede salir', () => {

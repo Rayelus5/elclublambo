@@ -7,7 +7,7 @@ import { PICKUP } from '../world/pools';
 import { layerSeconds, scaleAt } from './director';
 import { spawnEnemy, statusHooks } from './enemies';
 import { dropPickup } from './pickups';
-import { hurtProbe, PROBE_RADIUS } from './probes';
+import { hazardHurt, PROBE_RADIUS } from './probes';
 import { worldSchedule } from './world-events';
 
 // In-run events (2026-11-16): besides the satellite, things to go for in each layer — an abandoned ship (stay a few
@@ -283,18 +283,22 @@ export function endRunEvents(sim: Sim): void {
   for (let k = sim.world.active.length - 1; k >= 0; k--) drop(sim, k, 'end');
 }
 
+/** A new layer: the events going on end and its plan comes, from the seed. */
+export function syncEventsLayer(sim: Sim): void {
+  const w = sim.world;
+  if (w.eventsLayer === sim.layer) return;
+  endRunEvents(sim);
+  w.eventsLayer = sim.layer;
+  const sats = w.plan.filter((s) => s.layer === sim.layer).map((s) => s.at);
+  w.events = eventsForLayer(sim.opts.seed, sim.content.events, sim.sector.id, sim.layer, sim.sector.layerSeconds, sats);
+  w.eventNext = 0;
+}
+
 /** The layer's events as they come, and the ones going on. */
 export function updateRunEvents(sim: Sim): void {
   const w = sim.world;
   const T = sim.content.events;
-  // A new layer: its plan, from the seed.
-  if (w.eventsLayer !== sim.layer) {
-    endRunEvents(sim);
-    w.eventsLayer = sim.layer;
-    const sats = w.plan.filter((s) => s.layer === sim.layer).map((s) => s.at);
-    w.events = eventsForLayer(sim.opts.seed, T, sim.sector.id, sim.layer, sim.sector.layerSeconds, sats);
-    w.eventNext = 0;
-  }
+  syncEventsLayer(sim);
   // Only in the waves: the Núcleo ends what is still going.
   if (sim.phase !== 'waves') {
     endRunEvents(sim);
@@ -336,8 +340,11 @@ export function updateRunEvents(sim: Sim): void {
         }
       }
       const d = Math.sqrt(best);
-      // Frozen, it waits; slowed, it flees slower (ice and the like are how to catch it).
-      if (d > 1e-6 && Number.isFinite(d) && en.freezeT[e]! <= 0) {
+      // Frozen, it waits; slowed, it flees slower (ice and the like are how to catch it). Hacked, on a harpoon's line or
+      // thrown by the sling, something else moves it.
+      const h = en.held[e]!;
+      const held = h > 0 && sim.shots.alive[h - 1] && sim.shots.gen[h - 1] === en.heldGen[e];
+      if (d > 1e-6 && Number.isFinite(d) && en.freezeT[e]! <= 0 && en.hackT[e]! <= 0 && !held) {
         const v = (T.bounty.speed * statusHooks.speedFactor(sim, e)) / 60;
         en.x[e] = en.x[e]! + (fx / d) * v;
         en.y[e] = en.y[e]! + (fy / d) * v;
@@ -413,13 +420,13 @@ export function updateRunEvents(sim: Sim): void {
   }
 }
 
-/** Half a second of `rate` × maximum life to the probes standing within `radius` (hurtProbe: armour and the hit cap count). */
+/** Half a second of `rate` × maximum life to the probes standing within `radius` (armour and the hit cap count, no breather). */
 function hurtWithin(sim: Sim, x: number, y: number, radius: number, rate: number): void {
   const r = radius + PROBE_RADIUS;
   for (const p of standing(sim)) {
     const dx = p.x - x;
     const dy = p.y - y;
-    if (dx * dx + dy * dy <= r * r) hurtProbe(sim, p, p.stats.maxHp * rate * 0.5);
+    if (dx * dx + dy * dy <= r * r) hazardHurt(sim, p, p.stats.maxHp * rate * 0.5);
   }
 }
 

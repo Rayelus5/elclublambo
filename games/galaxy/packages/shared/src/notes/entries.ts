@@ -29,7 +29,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     summary: 'Quedarse quieto ya no sale gratis, y el Sifón deja de hacer inmortal a una sonda',
     items: [
       { kind: 'equilibrio', text: 'Si te quedas quieto en una zona pequeña, la Estática te avisa; poco después te hace daño, cada vez más, y no te curas hasta que te muevas' },
-      { kind: 'equilibrio', text: 'La Estática no cuenta mientras defiendes la baliza, reanimas a un compañero o eliges carta en grupo' },
+      { kind: 'equilibrio', text: 'La Estática no cuenta mientras defiendes la baliza o reanimas a un compañero' },
       { kind: 'equilibrio', text: 'El Sifón y la vida robada a los enemigos curan solo del daño que de verdad haces, con un tope por segundo que sube con el nivel del Sifón' },
       { kind: 'mejora', text: 'Un anillo en el suelo marca la zona donde estás parado, y la barra de vida avisa cuando no puedes curarte' },
     ],

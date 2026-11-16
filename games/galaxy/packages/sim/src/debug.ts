@@ -14,7 +14,7 @@ import { persistentFor } from './systems/weapons';
 import { gainXp } from './systems/xp';
 import type { Phase, ProbeState, Sim, Stats } from './types';
 import { EVENT_KINDS, type EventKind } from './content/types';
-import { endRunEvents, startEvent } from './systems/run-events';
+import { endRunEvents, startEvent, syncEventsLayer } from './systems/run-events';
 
 export type DebugResult = 'ok' | 'not_running' | 'not_waves' | 'slots_full' | 'family_owned' | 'unknown';
 
@@ -23,7 +23,9 @@ export function debugEvent(sim: Sim, kind: EventKind): DebugResult {
   if (!running(sim)) return 'not_running';
   if (sim.phase !== 'waves') return 'not_waves';
   if (!(EVENT_KINDS as readonly string[]).includes(kind)) return 'unknown';
-  startEvent(sim, kind, 100 + sim.world.active.length);
+  // The layer's plan first (right after «Capa siguiente» it would end the event at once); its own place from the tick.
+  syncEventsLayer(sim);
+  startEvent(sim, kind, 1000 + sim.tick);
   return 'ok';
 }
 

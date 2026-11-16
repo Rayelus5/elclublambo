@@ -1224,6 +1224,10 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
 - **En pantalla:** cada evento con su dibujo (Aseprite: la nave y el meteorito con el aspecto de cada sector), su indicador en el borde con la distancia y el tiempo que le queda (el satélite también dice su distancia), sus avisos en el centro (llega, lo que suelta, se pierde), sus sonidos y una frase de PERKINS la primera vez.
 - **Modo depuración:** el panel F2 trae cualquier evento al momento.
 - **Simulador de la economía:** el bot juega sin eventos y se suma el botín de todos los de su semilla, como si los saqueara.
+- **Revisión:**
+  - la Estática ya cuenta en grupo con una carta abierta (se puede mover mientras elige; subir de nivel sin parar la tenía apagada);
+  - el cazarrecompensas no hace daño al tocarlo;
+  - el daño de la tormenta y del pozo no deja la ventana de invulnerabilidad de un golpe.
 
 **Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
 

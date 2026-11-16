@@ -159,6 +159,21 @@ describe('en grupo', () => {
     expect(a!.still.t).toBe(before);
   });
 
+  // Review of 2026-11-16: a probe moves while it picks a card in a group, and levelling up nonstop kept a card open; the
+  // Static counts then too.
+  test('con una carta abierta sigue contando: en grupo se puede mover mientras elige', () => {
+    const sim = team();
+    const a = sim.probes[0]!;
+    sim.probes[1]!.x = a.x + 500;
+    a.pendingLevels = 1;
+    step(sim, [IDLE, IDLE]);
+    expect(a.offer).not.toBeNull();
+    const before = a.still.t;
+    for (let k = 0; k < 60; k++) step(sim, [IDLE, IDLE]);
+    expect(a.offer).not.toBeNull();
+    expect(a.still.t).toBe(before + 60);
+  });
+
   test('cada sonda lleva su cuenta', () => {
     const sim = team();
     const [a, b] = sim.probes;

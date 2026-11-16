@@ -89,7 +89,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '2718', content: c, sector: c.sectors[1]!.id, coop: DEFAULT_COOP_RULES, probes: [0, 1, 2, 3].map((i) => ({ probe: c.probes[i]!.id, relics: [], bonuses: STRONG })) };
     },
-    hashes: ['3600:c84ad2cd0288e25a', '7200:93ffe41d1d85fd70', '10800:651dec48522d1fb5', '14400:3d23d5593e740c70', '18000:2b47589278f9b6ee', '21600:f747adf72c393c4a', '25200:26ee2b3bf9021cc1', '28800:16aedab502428fb4', '32400:e0360b8ae567dedf', '36000:adaee1dc2c1acb85'],
+    hashes: ['3600:c84ad2cd0288e25a', '7200:93ffe41d1d85fd70', '10800:651dec48522d1fb5', '14400:0efe4c495db1b0ff', '18000:2b47589278f9b6ee', '21600:f747adf72c393c4a', '25200:f85610139249feda', '28800:42ec6cc498c371fd', '32400:73b2ce8047473c01', '36000:60ffe1a752ea973f'],
   },
 ];
 

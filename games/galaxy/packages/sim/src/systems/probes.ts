@@ -110,6 +110,24 @@ export function staticHurt(sim: Sim, p: ProbeState, amount: number): void {
   loseLife(sim, p);
 }
 
+/**
+ * A hazard's harm (the storm, the well's heart; review of 2026-11-16): armour, the hit cap and the shield count like a
+ * hit, but it leaves no breather — a hazard that hits every 0,5 s would otherwise keep the probe invulnerable to every
+ * enemy. A dash's window still dodges it, and nothing rolls to evade a cloud.
+ */
+export function hazardHurt(sim: Sim, p: ProbeState, amount: number): void {
+  if (!p.alive || p.invulnT > 0 || !(amount > 0) || sim.debug?.god) return;
+  const cap = sim.content.hitCap;
+  let dmg = (cap < 1 ? Math.min(amount, p.stats.maxHp * cap) : amount) * (1 - p.stats.armor);
+  const absorbed = Math.min(p.shield, dmg);
+  p.shield -= absorbed;
+  dmg -= absorbed;
+  p.hp -= dmg;
+  p.fx['lastHurt'] = sim.tick;
+  sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
+  loseLife(sim, p);
+}
+
 const near: number[] = [];
 
 export function contactDamage(sim: Sim, maxRadius: number): void {
@@ -125,6 +143,8 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
       // projectile now and touches nobody (review B, I1).
       const h = en.held[e]!;
       if (h > 0 && sim.shots.alive[h - 1] && sim.shots.gen[h - 1] === en.heldGen[e]) continue;
+      // A bounty hunter only flees (systems/run-events.ts): catching it does not hurt.
+      if (en.bounty[e]) continue;
       const dx = en.x[e]! - p.x;
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;

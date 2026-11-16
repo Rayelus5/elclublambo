@@ -846,7 +846,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     for (const ev of sim.world.active) {
       if (ev.kind === 'bounty') {
         const e = ev.enemy;
-        if (e < 0 || !en.alive[e]) continue;
+        if (e < 0 || !en.alive[e] || en.gen[e] !== ev.enemyGen) continue;
         const s = bountyPool.at(m++);
         s.texture = atlas.frames['event-bounty']![frameOf('event-bounty')]!;
         s.anchor.set(0.5);
