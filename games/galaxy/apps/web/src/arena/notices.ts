@@ -30,7 +30,7 @@ export function noticesFor(events: readonly SimEvent[], me: number, content: Con
     // In-run events (2026-11-16): one comes, what it dropped, or that it was lost. The group shares them.
     else if (e.t === 'worldEvent' && e.what === 'appear') {
       if (isLoot(e.kind)) out.push({ text: t.event[e.kind], tone: 'info' });
-      else out.push({ text: t.hazard[e.kind](eventName(e.kind, sector)), tone: 'danger' });
+      else out.push({ text: t.hazard[e.kind](eventName(e.kind, sector, content)), tone: 'danger' });
     } else if (e.t === 'worldEvent' && e.what === 'done' && isLoot(e.kind))
       out.push({ text: t.eventDone(e.kind, { coins: e.coins ?? 0, dust: e.dust ?? 0, components: e.components ?? 0 }), tone: 'reward' });
     else if (e.t === 'worldEvent' && e.what === 'fail' && isLoot(e.kind)) out.push({ text: t.eventFail[e.kind], tone: 'info' });

@@ -186,6 +186,8 @@ export type Behavior =
 export interface EnemyDef {
   id: string;
   name: string;
+  /** Its Códice text (P8, 2026-11-16); absent: the game's own. */
+  lore?: string;
   family: EnemyFamily;
   sprite: string;
   hp: number;
@@ -251,6 +253,9 @@ export interface BossPhase {
 export interface BossDef {
   id: string;
   name: string;
+  /** Its Códice text and PERKINS's line when it first shows up (P8, 2026-11-16); absent: the game's own. */
+  lore?: string;
+  radio?: string;
   title: string;
   sprite: string;
   hp: number;
@@ -281,6 +286,13 @@ export interface SectorDef {
   deepBoss: { boss: string; every: number; cycle?: string[] } | null;
   /** A season sector (GDD §13.1): open only while it is the live config's season. */
   season: boolean;
+  /**
+   * Its Códice text, PERKINS's line on the first run in it and its own names for the hazards (P8, 2026-11-16); absent:
+   * the game's own.
+   */
+  lore?: string;
+  radio?: string;
+  hazardNames?: { meteors?: string; storm?: string; well?: string };
   /** Open beta: multiplies its enemies' (and its Core's) life and their damage; 1 for content published before. */
   enemyHp: number;
   enemyDamage: number;

@@ -14,6 +14,11 @@ export const part: DescriptorPart = {
       hint: 'Nombre interno que usan los sectores, los Núcleos y el Códice; no lo cambies en un enemigo ya publicado',
     },
     'enemies[].name': { label: 'Nombre', section: 'Identidad', hint: 'Cómo se llama en el juego y en el bestiario del Códice' },
+    'enemies[].lore': {
+      label: 'Texto del bestiario',
+      section: 'Textos',
+      hint: 'Lo que cuenta de él su entrada del Códice; vacío, el texto de siempre del juego (y una especie nueva sin texto no tiene entrada)',
+    },
     'enemies[].family': {
       label: 'Familia',
       section: 'Identidad',

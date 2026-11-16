@@ -1211,6 +1211,8 @@ export const copy = {
       artMissing: 'Este dibujo no existe en el juego',
       keepArt: 'Dejar el que tiene',
       needsCode: 'Otro: necesita programación',
+      usesDefault: 'Vacío: el juego usa el texto de siempre, el que se ve en gris',
+      noDefault: 'Vacío: no tiene texto',
       editorFailed: 'El editor no puede enseñar este borrador tal como está: arréglalo en el JSON',
       openJson: 'Abrir el JSON',
       phasesTitle: 'Su vida por fases',

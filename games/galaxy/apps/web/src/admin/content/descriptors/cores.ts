@@ -17,6 +17,12 @@ export const part: DescriptorPart = {
       hint: 'Nombre interno que usan los sectores, el Códice y la radio; no lo cambies en un Núcleo ya publicado',
     },
     'bosses[].name': { label: 'Nombre', section: 'Identidad', hint: 'Cómo se llama en la barra de vida, en el hangar y en el Códice' },
+    'bosses[].lore': { label: 'Texto del Códice', section: 'Textos', hint: 'Lo que cuenta de él su entrada del Códice; vacío, el texto de siempre del juego' },
+    'bosses[].radio': {
+      label: 'Línea de PERKINS',
+      section: 'Textos',
+      hint: 'Lo que dice PERKINS la primera vez que sale; vacío, la línea de siempre o el aviso general de Núcleo',
+    },
     'bosses[].title': { label: 'Título', section: 'Identidad', hint: 'El rótulo pequeño que sale encima de su nombre en la barra de vida y en el hangar' },
     'bosses[].sprite': {
       label: 'Dibujo',

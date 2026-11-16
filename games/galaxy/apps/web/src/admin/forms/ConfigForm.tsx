@@ -363,14 +363,14 @@ function allowed(choices: Option[] | undefined, values: readonly unknown[] | und
  * has a problem).
  */
 function Fields({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { root, set, info, issues } = useForm();
+  const { root, set, info, issues, widgets } = useForm();
   const value = getIn(root, path) as Record<string, unknown> | undefined;
   const field = (k: string, child: JsonSchema) => {
     const p = [...path, k];
     const pat = pattern ? `${pattern}.${k}` : k;
     const optional = !node.required?.includes(k) && child.default === undefined && unwrap(child).node.default === undefined;
-    // An optional group or date not set: a button adds it.
-    if (optional && value?.[k] === undefined && kindOf(unwrap(child).node) !== 'enum') {
+    // An optional group or date not set: a button adds it (a widget shows its own absence: a text's default, greyed).
+    if (optional && value?.[k] === undefined && kindOf(unwrap(child).node) !== 'enum' && !widgets?.[pat]) {
       return (
         <div key={k} className="cf-field cf-absent">
           <span className="cf-absent-label">{info(pat).label}</span>
