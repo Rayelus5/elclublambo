@@ -65,7 +65,10 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     await pickOption(compose, 'Para', 'Una lista de cuentas');
     await compose.getByLabel('Cuentas').fill(name);
     await expect(compose.getByText('Llega a 1 cuenta')).toBeVisible();
-    await compose.getByLabel('Monedas').fill('100');
+    // Mail v2 (P3): the gift is chosen in the picker and goes into the tray.
+    await compose.getByLabel('Cantidad de monedas').fill('100');
+    await compose.getByRole('button', { name: 'Añadir monedas' }).click();
+    await expect(compose.getByRole('button', { name: 'Quitar 100 monedas' })).toBeVisible();
     await compose.getByLabel('Motivo').fill('Prueba del buzón');
     await compose.getByLabel('Tu contraseña').fill(creds.password);
     await compose.getByRole('button', { name: 'Enviar a 1 cuenta' }).click();
