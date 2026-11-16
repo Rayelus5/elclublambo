@@ -174,3 +174,17 @@ describe('revisión de P3', () => {
     expect(res.json()).toEqual({ error: 'galaxy_too_many' });
   });
 });
+
+describe('el buzón del jugador (P6)', () => {
+  test('lo recogido dice de qué semilla sale cada galaxia, y el buzón trae los nombres que piden sus regalos', async () => {
+    const a = await player();
+    const { id } = (await send([a.username], { gifts: { items: [{ kind: 'galaxy', tier: 'rare', finish: 'normal', trait: null, count: 1 }], packs: [] } })).json() as { id: string };
+    const res = await claim(a, id);
+    const made = (res.json() as { granted: { galaxies?: { id: string; seed?: string; designation?: string }[] }[] }).granted[0]!.galaxies![0]!;
+    expect(made.seed).toMatch(/^\d+$/);
+    expect(made.designation).toMatch(/^GX-/);
+    const row = await ctx.db.selectFrom('galaxy.galaxies').select('seed').where('id', '=', made.id).executeTakeFirstOrThrow();
+    expect(String(row.seed)).toBe(made.seed);
+    expect((await box(a)).names).toMatchObject({ seasonCurrency: expect.any(String) });
+  });
+});

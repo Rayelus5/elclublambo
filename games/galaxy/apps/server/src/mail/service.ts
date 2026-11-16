@@ -53,11 +53,13 @@ export async function myMailbox(deps: MailDeps, accountId: string, q: { box?: 'i
     const c = parseCursor(q.cursor);
     page = page.where((eb) => eb.or([eb('m.created_at', '<', c.at), eb.and([eb('m.created_at', '=', c.at), eb('m.id', '<', c.id)])]));
   }
-  const [rows, all, library] = await Promise.all([
+  const [rows, all, library, events, route] = await Promise.all([
     page.orderBy('m.created_at', 'desc').orderBy('m.id', 'desc').limit(limit + 1).execute(),
     // The counts are the whole mailbox's (inbox and archive), not this page's.
     liveFor(deps, accountId).execute(),
     deps.config.get('mail'),
+    deps.config.get('events'),
+    deps.config.get('seasonRoute'),
   ]);
   const more = rows.length > limit;
   const shown = rows.slice(0, limit);
@@ -88,6 +90,7 @@ export async function myMailbox(deps: MailDeps, accountId: string, q: { box?: 'i
     unread: all.filter((r) => r.read_at === null).length,
     unclaimed: all.filter((r) => r.claimed_at === null && hasAnyGift(readContents(r.gifts).contents)).length,
     next: more && last ? cursorOf(last.created_at, last.id) : null,
+    names: { events: events.list.map((e) => ({ id: e.id, name: e.name })), seasonCurrency: route.currency.name },
   };
 }
 

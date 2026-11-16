@@ -5172,3 +5172,52 @@
   .comms-actions { white-space: nowrap; }
   .comms-actions .pill + .pill { margin-inline-start: 6px; }
 }
+
+/* Mail v2, P6 (2026-11-16): the player's mailbox — its boxes, the kinds with how many, each message in its kind's
+   colour, «Recoger todo», the letter's own actions, and the reveal of what a claim gave. */
+@layer components {
+  .modal.mailbox { inline-size: min(1040px, 100%); }
+  .mailbox-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 48px 10px 0; }
+  .mailbox-boxes { margin: 0; }
+  .mailbox-claim-all { display: inline-flex; align-items: center; gap: 6px; }
+  .mailbox-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .mailbox-type { --k: var(--color-ink-soft); display: inline-flex; align-items: center; gap: 6px; block-size: 32px; padding: 0 10px; border: 0; border-radius: 99px; background: var(--color-panel-2); color: var(--color-ink-soft); font: 700 13px var(--font-sans); cursor: pointer; }
+  .mailbox-type .ico { inline-size: 16px; block-size: 16px; color: var(--k); }
+  .mailbox-type b { min-inline-size: 18px; padding: 0 6px; border-radius: 99px; background: rgb(0 0 0 / .3); font-size: 11.5px; text-align: center; }
+  .mailbox-type[aria-pressed='true'] { background: color-mix(in oklab, var(--k) 22%, var(--color-panel-2)); color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--k); }
+  .mailbox-type:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .mailbox-type.k-sky { --k: var(--color-sky); } .mailbox-type.k-solar { --k: var(--color-solar); } .mailbox-type.k-terminal { --k: var(--color-terminal); }
+  .mailbox-type.k-nova { --k: var(--color-nova); } .mailbox-type.k-uv { --k: var(--color-uv-soft); } .mailbox-type.k-ice { --k: var(--color-ice); }
+  .mailbox-side { display: grid; gap: 8px; align-content: start; min-inline-size: 0; }
+  .mailbox-more { justify-self: center; }
+  .mailbox-item { --k: var(--color-sky); }
+  .mailbox-item.k-solar { --k: var(--color-solar); } .mailbox-item.k-terminal { --k: var(--color-terminal); } .mailbox-item.k-nova { --k: var(--color-nova); }
+  .mailbox-item.k-uv { --k: var(--color-uv-soft); } .mailbox-item.k-ice { --k: var(--color-ice); }
+  .mailbox-item-top { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
+  .mailbox-item-top .ico { flex: none; inline-size: 18px; block-size: 18px; color: var(--k); }
+  .mailbox-item.unread { box-shadow: inset 3px 0 0 var(--k); }
+  .mailbox-warn { padding: 1px 8px; border-radius: 99px; font-weight: 800; background: color-mix(in srgb, var(--color-nova) 18%, transparent); color: var(--color-nova); }
+  .mailbox-warn-note { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-weight: 700; font-size: 13.5px; color: var(--color-nova); }
+  .mailbox-warn-note .ico { inline-size: 18px; block-size: 18px; }
+  .letter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 14px; padding-top: 12px; border-top: 2px solid rgb(255 255 255 / .06); }
+  .letter-actions .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .letter-actions .pill .ico { inline-size: 16px; block-size: 16px; }
+  .letter-actions-note { font-size: 12.5px; color: var(--color-ink-mute); }
+  .letter.k-solar, .letter.k-sky, .letter.k-terminal, .letter.k-nova, .letter.k-uv, .letter.k-ice { padding-top: 2px; }
+
+  .modal.gift-reveal { inline-size: min(720px, 100%); text-align: center; }
+  .gift-reveal-grid { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; text-align: start; }
+  .gift-reveal-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 45%, transparent), 0 0 24px -8px color-mix(in oklab, var(--color-solar) 70%, transparent); font-weight: 700; opacity: 0; animation: gift-pop .5s cubic-bezier(.2, 1.4, .4, 1) forwards; animation-delay: calc(var(--i, 0) * 140ms + 120ms); }
+  .gift-reveal-item.owned { box-shadow: inset 0 0 0 2px rgb(255 255 255 / .12); }
+  .gift-reveal-item.skipped { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-nova) 60%, transparent); }
+  .gift-reveal-words { display: grid; gap: 2px; min-inline-size: 0; overflow-wrap: anywhere; }
+  .gift-reveal-words small { font-weight: 600; font-size: 12.5px; color: var(--color-ink-mute); }
+  .gift-reveal-words small.bad { color: var(--color-nova); }
+  .gift-reveal-galaxies { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 16px; }
+  .gift-reveal-card { opacity: 0; animation: gift-pop .6s cubic-bezier(.2, 1.4, .4, 1) forwards; animation-delay: calc(var(--i, 0) * 140ms + 200ms); }
+  .gift-reveal-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+  @keyframes gift-pop { from { opacity: 0; transform: translateY(10px) scale(.86); } to { opacity: 1; transform: none; } }
+  .gift-reveal.still .gift-reveal-item, .gift-reveal.still .gift-reveal-card { opacity: 1; animation: none; }
+  @media (prefers-reduced-motion: reduce) { .gift-reveal-item, .gift-reveal-card { opacity: 1; animation: none; } }
+  @media (max-width: 720px) { .mailbox-body { grid-template-columns: minmax(0, 1fr); } .mailbox-detail { padding: 12px 0 0; border-inline-start: 0; border-top: 2px solid rgb(255 255 255 / .06); } }
+}

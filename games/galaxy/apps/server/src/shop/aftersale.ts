@@ -60,7 +60,7 @@ async function tellPlayer(trx: Db, account: string, title: string, body: string,
     .returning('id')
     .executeTakeFirstOrThrow();
   await trx.insertInto('galaxy.mailbox_receipts').values({ message_id: m.id, account_id: account }).execute();
-  out.add(account, { kind: 'mail', id: m.id, title });
+  out.add(account, { kind: 'mail', id: m.id, title, type: 'shop', gift: false });
 }
 
 const amounts = (a: ShopAmounts) =>

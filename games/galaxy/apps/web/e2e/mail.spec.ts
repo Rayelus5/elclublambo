@@ -5,10 +5,11 @@ import { Secret, TOTP } from 'otpauth';
 import { type Page, expect, pickOption, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
-// Communication against the real server (GDD §4, §16.5; M6d-1). A new admin (CLI) sends a message with 100 coins to one
-// new e2e player only (never to everyone: the local database is the owner's) and publishes a notice; the player sees
-// the unread count on the mail button, opens the letter, collects the gift (the wallet grows) and sees the notice on
-// the title screen. The notice is always ended at the end. No CSP violations.
+// Communication against the real server (GDD §4, §16.5; M6d-1; mail v2). A new admin (CLI) sends a message with 100
+// coins, a skin and an epic galaxy to one new e2e player only (never to everyone: the local database is the owner's)
+// and publishes a notice; the player sees the unread count on the mail button, opens the letter, collects everything
+// at once, sees the reveal with the galaxy's card (the wallet grows) and finds it in the collection, and sees the notice
+// behind Noticias. The notice is always ended at the end. No CSP violations.
 const cli = fileURLToPath(new URL('../../server/dist/cli.js', import.meta.url));
 const PASS = 'una-clave-larga-e2e';
 
@@ -69,6 +70,13 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     await compose.getByLabel('Cantidad de monedas').fill('100');
     await compose.getByRole('button', { name: 'Añadir monedas' }).click();
     await expect(compose.getByRole('button', { name: 'Quitar 100 monedas' })).toBeVisible();
+    const picker = compose.getByRole('region', { name: 'Qué regalar' });
+    await picker.getByRole('tab', { name: 'Estilo' }).click();
+    await picker.locator('.gift-grid .gift-card').first().click();
+    await picker.getByRole('tab', { name: 'Galaxias' }).click();
+    await picker.getByRole('radio', { name: 'Épica' }).click();
+    await picker.getByRole('button', { name: 'Añadir', exact: true }).click();
+    await expect(compose.locator('.gift-tray .gift-tile')).toHaveCount(3);
     await compose.getByLabel('Motivo').fill('Prueba del buzón');
     await compose.getByLabel('Tu contraseña').fill(creds.password);
     await compose.getByRole('button', { name: 'Enviar a 1 cuenta' }).click();
@@ -99,12 +107,18 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     await expect(box.getByRole('heading', { name: 'Regalo de prueba' })).toBeVisible();
     const gift = box.getByRole('region', { name: 'Regalo' });
     await expect(gift.getByText('100 monedas')).toBeVisible();
-    await gift.getByRole('button', { name: 'Recoger' }).click();
-    await expect(gift.getByRole('status')).toHaveText('Recogido');
+    await expect(gift.getByText('Galaxia épica')).toBeVisible();
+    // Everything at once, and the reveal of what it gave: the galaxy as its card.
+    await box.getByRole('button', { name: 'Recoger todo (1)' }).click();
+    const reveal = player.getByRole('dialog', { name: 'Has recogido' });
+    await expect(reveal.getByText('100 monedas')).toBeVisible();
+    await expect(reveal.locator('.gcard')).toHaveCount(1);
     const coinsAfter = ((await (await player.request.get('/galaxy/api/gacha')).json()) as { wallet: { coins: number } }).wallet.coins;
     expect(coinsAfter - coinsBefore).toBe(100);
-    await player.keyboard.press('Escape');
-    await expect(player.getByRole('button', { name: 'Buzón', exact: true })).toBeVisible();
+    await reveal.getByRole('link', { name: 'Ver en la colección' }).click();
+    await expect(player).toHaveURL(/\/galaxy\/coleccion/);
+    await expect(player.getByRole('dialog', { name: 'Buzón' })).toHaveCount(0);
+    await expect(player.locator('.gcard').first()).toBeVisible();
     expect(playerCsp).toEqual([]);
     expect(csp).toEqual([]);
   } finally {

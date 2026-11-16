@@ -131,3 +131,10 @@ test('se ven tres a la vez, el más nuevo arriba, y el resto espera su turno', a
   await userEvent.click(within(items[2]!).getByRole('button', { name: copy.friends.dismiss }));
   expect(await screen.findByText('cuatro')).toBeInTheDocument();
 });
+
+test('un correo con regalo lo dice en su aviso (buzón v2, P6)', async () => {
+  const { ws } = await connect();
+  act(() => ws.push({ type: 'notice', notice: { kind: 'mail', id: 'm7', title: 'Premio del torneo', type: 'reward', gift: true } }));
+  expect(await screen.findByText(t.mailGift)).toBeInTheDocument();
+  expect(screen.getByText('Premio del torneo')).toBeInTheDocument();
+});

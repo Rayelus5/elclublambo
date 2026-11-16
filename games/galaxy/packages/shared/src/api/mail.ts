@@ -145,6 +145,8 @@ export interface MailMessage {
 
 export interface MyMailbox {
   messages: MailMessage[];
+  /** What a gift's words need (mail v2, P6): the events' names (their signals) and the season's currency. */
+  names?: { events: { id: string; name: string }[]; seasonCurrency: string };
   /** Over the whole mailbox, not just this page. */
   unread: number;
   unclaimed: number;

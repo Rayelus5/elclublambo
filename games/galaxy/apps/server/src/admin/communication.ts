@@ -143,7 +143,7 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
   if (!at)
     deps.live?.sendMany(
       to.map((a) => a.id),
-      { type: 'notice', notice: { kind: 'mail', id: sent.id, title: req.title } },
+      { type: 'notice', notice: { kind: 'mail', id: sent.id, title: req.title, type: req.type, gift: gifts.length > 0 } },
     );
   return sent;
 }
@@ -161,7 +161,7 @@ export async function dispatchDue(deps: CommunicationDeps, max = 50): Promise<nu
       const now = deps.now();
       const m = await trx
         .selectFrom('galaxy.mailbox_messages')
-        .select(['id', 'title', 'gifts', 'audience', 'created_by', 'expires_at'])
+        .select(['id', 'title', 'type', 'gifts', 'audience', 'created_by', 'expires_at'])
         .where('sent_at', 'is', null)
         .where('withdrawn_at', 'is', null)
         .where('scheduled_at', '<=', now)
@@ -175,7 +175,7 @@ export async function dispatchDue(deps: CommunicationDeps, max = 50): Promise<nu
       const refuse = async (why: string, extra: Record<string, unknown> = {}) => {
         await trx.updateTable('galaxy.mailbox_messages').set({ withdrawn_at: now }).where('id', '=', m.id).execute();
         await writeAudit(trx, { actor, action: 'mail.dispatch_refused', targetType: 'mail', targetId: m.id, after: { why, ...extra }, reason: 'Envío programado' });
-        return { id: m.id, title: m.title, to: [] as string[] };
+        return { id: m.id, title: m.title, type: m.type, gift: false, to: [] as string[] };
       };
       if (new Date(m.expires_at) <= now) return refuse('expired');
       const to = reached(await accounts({ ...deps, db: trx }), m.audience as MailAudience, now);
@@ -195,12 +195,12 @@ export async function dispatchDue(deps: CommunicationDeps, max = 50): Promise<nu
       // Its date in the mailbox is when it arrives.
       await trx.updateTable('galaxy.mailbox_messages').set({ sent_at: now, created_at: now }).where('id', '=', m.id).execute();
       await writeAudit(trx, { actor, action: 'mail.dispatch', targetType: 'mail', targetId: m.id, after: { recipients: to.length }, reason: 'Envío programado' });
-      return { id: m.id, title: m.title, to: to.map((a) => a.id) };
+      return { id: m.id, title: m.title, type: m.type, gift: gifts.length > 0, to: to.map((a) => a.id) };
     });
     if (!out) break;
     if (out.to.length > 0) {
       sent++;
-      deps.live?.sendMany(out.to, { type: 'notice', notice: { kind: 'mail', id: out.id, title: out.title } });
+      deps.live?.sendMany(out.to, { type: 'notice', notice: { kind: 'mail', id: out.id, title: out.title, type: out.type, gift: out.gift } });
     }
   }
   return sent;
