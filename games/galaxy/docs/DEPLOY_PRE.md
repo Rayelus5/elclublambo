@@ -1490,3 +1490,27 @@ Comprueba con `rayelus`:
 - **Dibujos:** paquete, cofre, cápsula, estrella, caja de suministros y regalo. Los cinco nuevos los pinta `art/mail/paint-packs.lua` en Aseprite, con el estilo del paquete.
 
 **Para probarlo en PRE:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje desde Comunicación.
+
+## Buzón v2, P5: envío programado, plantillas y estadísticas de lo enviado
+
+**Qué cambia.**
+- **Migración** `20261116200000_galaxy_mail_schedule.sql`: los mensajes tienen `scheduled_at` (cuándo sale) y `sent_at` (cuándo salió). Los de antes quedan como enviados al crearlos.
+- **Un trabajo nuevo en el servidor:** cada minuto envía los mensajes programados cuya hora ha llegado. Solo lo arranca la entrada de producción; las pruebas lo llaman directamente.
+- No hay configuración que publicar.
+
+**El código ya trae, en Comunicación:**
+- **«Ahora» o «Programar»:** como mucho, 90 días después.
+  - A quién llega se calcula al enviarlo, y lo envía una sola vez aunque coincidan dos servidores.
+  - El regalo grande se vuelve a comprobar con el rol de quien lo escribió.
+  - Uno pasado de caducidad no sale y queda en la auditoría.
+  - Retirarlo antes de su hora lo cancela.
+- **Plantillas de la biblioteca:**
+  - «Empezar con una plantilla» rellena el tipo, el texto, los regalos y la caducidad;
+  - «Guardar como plantilla» la publica en la clave `mail`, con versión, motivo y contraseña.
+- **«Duplicar»** copia un mensaje enviado al formulario.
+- **En la lista de enviados:**
+  - barras de leídos y recogidos;
+  - cuántos regalos ya tenían los jugadores y cuántos no se pudieron dar;
+  - el estado Programado, con su hora.
+
+**Para probarlo en PRE:** programa un mensaje para dentro de dos minutos. No sale en el buzón hasta su hora; después llega, con su aviso en directo.

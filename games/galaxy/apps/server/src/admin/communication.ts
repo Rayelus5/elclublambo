@@ -15,9 +15,9 @@ import {
   readContents,
   seasonOpen,
 } from '@galaxy/shared';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
-import type { SessionInfo } from '../auth/sessions';
+import { rolesOf, type SessionInfo } from '../auth/sessions';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
@@ -48,6 +48,7 @@ async function accounts(deps: CommunicationDeps): Promise<Account[]> {
 }
 
 const reached = (all: Account[], audience: MailAudience, at: Date) => all.filter((a) => inAudience(audience, a, at));
+const SCHEDULE_DAYS = 90;
 
 export async function previewMail(deps: CommunicationDeps, audience: MailAudience): Promise<{ recipients: number }> {
   return { recipients: reached(await accounts(deps), audience, deps.now()).length };
@@ -61,6 +62,10 @@ export async function previewMail(deps: CommunicationDeps, audience: MailAudienc
  */
 export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: SessionInfo, req: AdminMailSend): Promise<{ id: string; recipients: number }> {
   const now = deps.now();
+  // Mail v2, P5: a message for later is checked as of its time, and sent then by the dispatcher.
+  const at = req.scheduledAt ? new Date(req.scheduledAt) : null;
+  if (at && (at.getTime() <= now.getTime() || at.getTime() > now.getTime() + SCHEDULE_DAYS * 86_400_000)) throw new HttpError(400, 'invalid_input');
+  const when = at ?? now;
   const [library, limits, cosmetics, content, events, season] = await Promise.all([
     deps.config.get('mail'),
     deps.config.get('mailLimits'),
@@ -79,20 +84,20 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
     if (!req.password) throw new HttpError(400, 'invalid_input');
     await confirmPassword(deps.db, s, req.password);
   }
-  const open = seasonOpen(season, now);
+  const open = seasonOpen(season, when);
   const issues = giftIssues(gifts, {
     cosmetics,
     probes: content.probes.map((p) => p.id),
     events: events.list.map((e) => ({ id: e.id, endsAt: e.endsAt })),
     season: { id: season.id, open },
-    now,
+    now: when,
   });
   if (issues.length > 0) throw new HttpError(400, 'gift_invalid', { issues });
   const to = reached(await accounts(deps), req.audience, now);
   const recipients = to.length;
   const big = gifts.length > 0 ? bigGiftReasons(gifts, recipients, limits, cosmetics) : [];
   if (big.length > 0 && !s.roles.includes('superadmin')) throw new HttpError(403, 'gift_needs_superadmin', { reasons: big });
-  let expires = now.getTime() + req.expiresInDays * 86_400_000;
+  let expires = when.getTime() + req.expiresInDays * 86_400_000;
   for (const g of gifts) {
     if (g.kind === 'seasonPoints' || (g.kind === 'currency' && g.currency.startsWith('season:'))) expires = Math.min(expires, Date.parse(season.endsAt));
     const event = g.kind === 'currency' && g.currency.startsWith('signal:') ? events.list.find((e) => `signal:${e.id}` === g.currency) : undefined;
@@ -112,10 +117,13 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
         created_by: actor.id,
         created_at: now,
         expires_at: expiresAt,
+        scheduled_at: at,
+        sent_at: at ? null : now,
       })
       .returning('id')
       .executeTakeFirstOrThrow();
-    for (let i = 0; i < to.length; i += 1000) {
+    // For later: no mailbox gets it until the dispatcher sends it.
+    for (let i = 0; at === null && i < to.length; i += 1000) {
       await trx
         .insertInto('galaxy.mailbox_receipts')
         .values(to.slice(i, i + 1000).map((a) => ({ message_id: row.id, account_id: a.id })))
@@ -123,19 +131,78 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
     }
     await writeAudit(trx, {
       actor,
-      action: 'mail.send',
+      action: at ? 'mail.schedule' : 'mail.send',
       targetType: 'mail',
       targetId: row.id,
-      after: { title: req.title, type: req.type, contents, audience: req.audience, expiresAt: iso(expiresAt), recipients, ...(big.length > 0 ? { big } : {}) },
+      after: { title: req.title, type: req.type, contents, audience: req.audience, expiresAt: iso(expiresAt), recipients, ...(at ? { scheduledAt: iso(at) } : {}), ...(big.length > 0 ? { big } : {}) },
       reason: req.reason,
     });
     return { id: row.id, recipients };
   });
-  // Saved: every recipient connected now hears of it.
-  deps.live?.sendMany(
-    to.map((a) => a.id),
-    { type: 'notice', notice: { kind: 'mail', id: sent.id, title: req.title } },
-  );
+  // Saved: every recipient connected now hears of it (a scheduled one, when it is sent).
+  if (!at)
+    deps.live?.sendMany(
+      to.map((a) => a.id),
+      { type: 'notice', notice: { kind: 'mail', id: sent.id, title: req.title } },
+    );
+  return sent;
+}
+
+/**
+ * Sends the scheduled messages whose time has come (mail v2, P5), one at a time, each locked so two dispatchers never
+ * send one twice (`for update skip locked`). The audience is taken as it is now; a gift still big is sent only if its
+ * writer is still a superadmin, and one past its expiry is not sent: both are withdrawn, with the reason in the audit.
+ * How many went out.
+ */
+export async function dispatchDue(deps: CommunicationDeps, max = 50): Promise<number> {
+  let sent = 0;
+  for (let i = 0; i < max; i++) {
+    const out = await inTransaction(deps.db, async (trx) => {
+      const now = deps.now();
+      const m = await trx
+        .selectFrom('galaxy.mailbox_messages')
+        .select(['id', 'title', 'gifts', 'audience', 'created_by', 'expires_at'])
+        .where('sent_at', 'is', null)
+        .where('withdrawn_at', 'is', null)
+        .where('scheduled_at', '<=', now)
+        .orderBy('scheduled_at')
+        .limit(1)
+        .forUpdate()
+        .skipLocked()
+        .executeTakeFirst();
+      if (!m) return null;
+      const actor: AuditActor = { id: null, label: 'envío programado' };
+      const refuse = async (why: string, extra: Record<string, unknown> = {}) => {
+        await trx.updateTable('galaxy.mailbox_messages').set({ withdrawn_at: now }).where('id', '=', m.id).execute();
+        await writeAudit(trx, { actor, action: 'mail.dispatch_refused', targetType: 'mail', targetId: m.id, after: { why, ...extra }, reason: 'Envío programado' });
+        return { id: m.id, title: m.title, to: [] as string[] };
+      };
+      if (new Date(m.expires_at) <= now) return refuse('expired');
+      const to = reached(await accounts({ ...deps, db: trx }), m.audience as MailAudience, now);
+      const gifts = allGifts(readContents(m.gifts).contents);
+      if (gifts.length > 0) {
+        const [limits, cosmetics] = await Promise.all([deps.config.get('mailLimits'), deps.config.get('cosmetics')]);
+        const big = bigGiftReasons(gifts, to.length, limits, cosmetics);
+        const roles = m.created_by ? await rolesOf(trx, m.created_by) : [];
+        if (big.length > 0 && !roles.includes('superadmin')) return refuse('big', { big });
+      }
+      for (let k = 0; k < to.length; k += 1000) {
+        await trx
+          .insertInto('galaxy.mailbox_receipts')
+          .values(to.slice(k, k + 1000).map((a) => ({ message_id: m.id, account_id: a.id })))
+          .execute();
+      }
+      // Its date in the mailbox is when it arrives.
+      await trx.updateTable('galaxy.mailbox_messages').set({ sent_at: now, created_at: now }).where('id', '=', m.id).execute();
+      await writeAudit(trx, { actor, action: 'mail.dispatch', targetType: 'mail', targetId: m.id, after: { recipients: to.length }, reason: 'Envío programado' });
+      return { id: m.id, title: m.title, to: to.map((a) => a.id) };
+    });
+    if (!out) break;
+    if (out.to.length > 0) {
+      sent++;
+      deps.live?.sendMany(out.to, { type: 'notice', notice: { kind: 'mail', id: out.id, title: out.title } });
+    }
+  }
   return sent;
 }
 
@@ -162,6 +229,8 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       'm.gifts',
       'm.type',
       'm.big',
+      'm.scheduled_at',
+      'm.sent_at',
       'm.audience',
       'm.created_at',
       'm.expires_at',
@@ -170,6 +239,10 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').as('recipients'),
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.read_at', 'is not', null).as('read'),
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.claimed_at', 'is not', null).as('claimed'),
+      // What the claimed gifts did, over every receipt (mail v2, P5).
+      sql<string>`(select count(*) from galaxy.mailbox_receipts r, jsonb_array_elements(coalesce(r.granted, '[]'::jsonb)) e where r.message_id = m.id and e->>'outcome' = 'granted')`.as('o_granted'),
+      sql<string>`(select count(*) from galaxy.mailbox_receipts r, jsonb_array_elements(coalesce(r.granted, '[]'::jsonb)) e where r.message_id = m.id and e->>'outcome' = 'owned')`.as('o_owned'),
+      sql<string>`(select count(*) from galaxy.mailbox_receipts r, jsonb_array_elements(coalesce(r.granted, '[]'::jsonb)) e where r.message_id = m.id and e->>'outcome' = 'skipped')`.as('o_skipped'),
     ])
     .where('m.created_by', 'is not', null)
     .orderBy('m.created_at', 'desc')
@@ -184,6 +257,9 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
     type: r.type,
     contents,
     big: r.big,
+    scheduledAt: r.scheduled_at ? iso(r.scheduled_at) : null,
+    sentAt: r.sent_at ? iso(r.sent_at) : null,
+    outcomes: { granted: Number(r.o_granted ?? 0), owned: Number(r.o_owned ?? 0), skipped: Number(r.o_skipped ?? 0) },
     gifts: legacyView(contents),
     audience: r.audience as MailAudience,
     by: r.by ?? null,

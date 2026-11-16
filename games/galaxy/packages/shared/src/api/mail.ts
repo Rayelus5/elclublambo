@@ -61,6 +61,8 @@ export const adminMailSendSchema = z
     gifts: mailGiftsInputSchema.default({ items: [], packs: [] }),
     audience: mailAudienceSchema,
     expiresInDays: z.number().int().min(1).max(365).default(30),
+    /** Mail v2, P5: sent at this time instead of now (in the future, within 90 days). */
+    scheduledAt: z.iso.datetime().optional(),
     reason,
     password: z.string().min(1).max(200).optional(),
   })
@@ -158,6 +160,11 @@ export interface AdminMailRow {
   contents: MailContents;
   /** It carried a gift only a superadmin may send. */
   big: boolean;
+  /** Mail v2, P5: when it goes out (null: at once) and when it went (null: still waiting). */
+  scheduledAt: string | null;
+  sentAt: string | null;
+  /** What its claimed gifts did, over every player: given, already owned, not given. */
+  outcomes: { granted: number; owned: number; skipped: number };
   gifts: MailGifts;
   audience: MailAudience;
   by: string | null;

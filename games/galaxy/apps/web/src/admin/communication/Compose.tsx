@@ -1,8 +1,9 @@
-import { type AdminMailType, allGifts, bigGiftReasons, galaxyCount, type Gift, giftIssues, type MailAudience, type MailContents, MAX_GALAXIES } from '@galaxy/shared';
+import { type AdminMailType, allGifts, bigGiftReasons, galaxyCount, type Gift, giftIssues, type MailAudience, type MailContents, MAX_GALAXIES, parseConfig } from '@galaxy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { ADMIN_KEY } from '../../api/admin';
 import { api } from '../../api/client';
+import { useConfigKeys } from '../../api/config';
 import { useMailPreview } from '../../api/mail';
 import { errorText, useMe } from '../../auth/useMe';
 import { copy } from '../../copy/es';
@@ -11,9 +12,11 @@ import { BigGiftNote, GiftTray, MAX_ITEMS, MAX_PACKS } from '../../gifts/GiftTra
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
 import { LetterView } from '../../mail/LetterView';
 import { DateField } from '../../ui/DateField';
+import { Segmented } from '../../ui/Segmented';
 import { Select } from '../../ui/Select';
 import { useSettled } from '../../ui/useSettled';
 import { type AudienceKind, audienceOf } from './audience';
+import { SaveTemplate } from './SaveTemplate';
 import { TypePicker } from './TypePicker';
 
 // Writing a message (GDD §16.5; mail v2, P3): its kind, title and text, who it goes to (with how many it reaches
@@ -23,19 +26,52 @@ import { TypePicker } from './TypePicker';
 
 const t = copy.admin.communication;
 const FRESH = { expiresInDays: '30' };
+const when = (d: Date) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(d);
 
-export function Compose() {
+/** What a duplicated message or a template starts the form with (mail v2, P5). */
+export interface ComposeSeed {
+  type: AdminMailType;
+  title: string;
+  body: string;
+  items: Gift[];
+  packs: string[];
+  expiresInDays: number;
+}
+
+export function Compose({ seed }: { seed?: ComposeSeed }) {
   const ids = useId();
   const qc = useQueryClient();
   const me = useMe().data;
   const superadmin = !!me?.roles.includes('superadmin');
   const { catalog } = useGiftCatalog();
-  const [f, setF] = useState<Record<string, string>>(FRESH);
-  const [type, setType] = useState<AdminMailType>('announcement');
+  const [f, setF] = useState<Record<string, string>>(() => (seed ? { title: seed.title, body: seed.body, expiresInDays: String(seed.expiresInDays) } : FRESH));
+  const [type, setType] = useState<AdminMailType>(seed?.type ?? 'announcement');
   const [kind, setKind] = useState<AudienceKind>('all');
-  const [items, setItems] = useState<Gift[]>([]);
-  const [packs, setPacks] = useState<string[]>([]);
-  const [done, setDone] = useState<number | null>(null);
+  const [items, setItems] = useState<Gift[]>(seed?.items ?? []);
+  const [packs, setPacks] = useState<string[]>(seed?.packs ?? []);
+  const [done, setDone] = useState<string | null>(null);
+  const [later, setLater] = useState(false);
+  const [template, setTemplate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const mailRow = useConfigKeys().data?.find((k) => k.key === 'mail');
+  const templates = useMemo(() => (mailRow ? parseConfig('mail', mailRow.data).templates : []), [mailRow]);
+  const applyTemplate = (id: string) => {
+    setTemplate(id);
+    const tpl = templates.find((x) => x.id === id);
+    if (!tpl) return;
+    setType(tpl.type);
+    setF((x) => ({ ...x, title: tpl.title, body: tpl.body, expiresInDays: String(tpl.expiresInDays) }));
+    setItems(tpl.items);
+    setPacks(tpl.packs.filter((p) => catalog?.packs.some((k) => k.id === p && k.enabled)));
+  };
+  // The clock, a tick every half minute: a time chosen for later stops being valid when it passes.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
+  const scheduledAt = later && f['scheduledAt'] ? new Date(f['scheduledAt']) : null;
+  const lateOk = !later || (!!scheduledAt && !Number.isNaN(scheduledAt.getTime()) && scheduledAt.getTime() > nowMs);
   const set = (k: string, v: string) => setF((x) => ({ ...x, [k]: v }));
   const { audience, problem } = audienceOf(kind, f);
   const settled = useSettled(audience ? JSON.stringify(audience) : '', 400);
@@ -64,10 +100,12 @@ export function Compose() {
   const send = useMutation({
     mutationFn: (body: unknown) => api<{ id: string; recipients: number }>('/admin/mail', { method: 'POST', body }),
     onSuccess: (r) => {
-      setDone(r.recipients);
+      setDone(scheduledAt ? t.scheduledDone : t.sent(r.recipients));
       setF(FRESH);
       setItems([]);
       setPacks([]);
+      setLater(false);
+      setTemplate('');
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: ADMIN_KEY }),
   });
@@ -80,6 +118,7 @@ export function Compose() {
     (!giving || (f['password'] ?? '').length > 0) &&
     issues.length === 0 &&
     !blocked &&
+    lateOk &&
     !send.isPending;
 
   const field = (k: string, label: string, opts: { type?: string; hint?: string; numeric?: boolean } = {}) => (
@@ -104,14 +143,17 @@ export function Compose() {
     </div>
   );
 
-  const now = new Date();
+  const now = new Date(nowMs);
   const expires = new Date(now.getTime() + Math.max(1, Number(f['expiresInDays'] || 30)) * 86_400_000);
   return (
+    <>
     <form
       className="lip panel comms-compose"
       aria-label={t.composeTitle}
       onSubmit={(e) => {
         e.preventDefault();
+        // Only this form's own submit sends: a dialog's (the template's) is not the message (P6 review).
+        if (e.target !== e.currentTarget) return;
         if (!ready || !audience) return;
         setDone(null);
         send.mutate({
@@ -121,6 +163,7 @@ export function Compose() {
           gifts: { items, packs },
           audience,
           expiresInDays: Number(f['expiresInDays'] || 30),
+          ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
           reason: f['reason']!.trim(),
           ...(giving ? { password: f['password'] } : {}),
         });
@@ -129,6 +172,14 @@ export function Compose() {
       <h2>{t.composeTitle}</h2>
       <div className="comms-compose-grid">
         <div className="comms-compose-main">
+          {templates.length > 0 ? (
+            <div className="field comms-template-pick">
+              <label htmlFor={`${ids}-tpl`}>{t.templates.pick}</label>
+              <div className="control">
+                <Select id={`${ids}-tpl`} size="lg" block value={template} options={[{ value: '', label: t.templates.none }, ...templates.map((x) => ({ value: x.id, label: x.name }))]} onChange={applyTemplate} />
+              </div>
+            </div>
+          ) : null}
           <TypePicker value={type} onChange={setType} />
           {field('title', t.fields.title)}
           <div className="field">
@@ -197,6 +248,29 @@ export function Compose() {
               <p className="panel-note">{t.loadingGifts}</p>
             )}
           </fieldset>
+          <div className="field">
+            <span className="field-label" id={`${ids}-when`}>
+              {t.fields.when}
+            </span>
+            <Segmented<'now' | 'later'>
+              aria-labelledby={`${ids}-when`}
+              value={later ? 'later' : 'now'}
+              options={[
+                { value: 'now', label: t.whenNow },
+                { value: 'later', label: t.whenLater },
+              ]}
+              onChange={(v) => setLater(v === 'later')}
+            />
+          </div>
+          {later ? (
+            <div className="field">
+              <label htmlFor={`${ids}-scheduledAt`}>{t.fields.scheduledAt}</label>
+              <div className="control">
+                <DateField id={`${ids}-scheduledAt`} time value={f['scheduledAt'] ?? ''} onChange={(v) => set('scheduledAt', v)} />
+              </div>
+              <p className={f['scheduledAt'] && !lateOk ? 'field-error' : 'hint'}>{f['scheduledAt'] && !lateOk ? t.scheduleLate : t.scheduleHint}</p>
+            </div>
+          ) : null}
           <div className="comms-row">
             {field('expiresInDays', t.fields.expires, { numeric: true, hint: t.expiresHint })}
             {field('reason', copy.admin.fields.reason)}
@@ -231,14 +305,32 @@ export function Compose() {
           ) : null}
           {done !== null ? (
             <p className="admin-done" role="status">
-              {t.sent(done)}
+              {done}
             </p>
           ) : null}
           <button type="submit" className={`lip pill ${giving ? 'danger' : 'pill-solar'}`} disabled={!ready} aria-busy={send.isPending || undefined}>
-            {t.send(recipients ?? 0)}
+            {scheduledAt ? t.schedule : t.send(recipients ?? 0)}
           </button>
+          {later && scheduledAt && lateOk ? <p className="hint comms-when">{t.scheduledFor(when(scheduledAt))}</p> : null}
+          {mailRow ? (
+            <button type="button" className="lip pill small comms-save-template" disabled={!(f['title'] ?? '').trim() || !(f['body'] ?? '').trim()} onClick={() => setSaving(true)}>
+              {t.templates.save}
+            </button>
+          ) : null}
         </aside>
       </div>
     </form>
+    {saving && mailRow ? (
+      <SaveTemplate
+        row={mailRow}
+        draft={{ type, title: (f['title'] ?? '').trim(), body: (f['body'] ?? '').trim(), items, packs, expiresInDays: Math.max(1, Math.min(365, Number(f['expiresInDays'] || 30))) }}
+        onClose={() => setSaving(false)}
+        onSaved={() => {
+          setSaving(false);
+          setDone(t.templates.saved);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { type AdminMailRow, allGifts } from '@galaxy/shared';
+import type { ComposeSeed } from './Compose';
 import { useState } from 'react';
 import { useAdminMail } from '../../api/mail';
 import { copy } from '../../copy/es';
@@ -17,9 +18,23 @@ import { audienceText } from './audience';
 const t = copy.admin.communication;
 const when = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 type Open = { url: string; title: string; submit: string } | null;
-const mailState = (m: AdminMailRow) => (m.withdrawnAt ? 'withdrawn' : new Date(m.expiresAt) <= new Date() ? 'expired' : 'live');
+const mailState = (m: AdminMailRow) => (m.withdrawnAt ? 'withdrawn' : !m.sentAt ? 'scheduled' : new Date(m.expiresAt) <= new Date() ? 'expired' : 'live');
+const ADMIN_TYPES = ['announcement', 'gift', 'compensation', 'event', 'reward', 'personal'] as const;
 
-export function SentList() {
+/** A sent message as the form's starting point (its library packs that still exist go by name). */
+function seedOf(m: AdminMailRow): ComposeSeed {
+  const days = Math.round((Date.parse(m.expiresAt) - Date.parse(m.at)) / 86_400_000);
+  return {
+    type: (ADMIN_TYPES as readonly string[]).includes(m.type) ? (m.type as ComposeSeed['type']) : 'announcement',
+    title: m.title,
+    body: m.body,
+    items: m.contents.items,
+    packs: m.contents.packs.map((p) => p.id),
+    expiresInDays: Math.max(1, Math.min(365, days || 30)),
+  };
+}
+
+export function SentList({ onDuplicate }: { onDuplicate?: (seed: ComposeSeed) => void }) {
   const mail = useAdminMail();
   const { catalog } = useGiftCatalog();
   const [open, setOpen] = useState<Open>(null);
@@ -72,13 +87,33 @@ export function SentList() {
                       <time dateTime={m.at}>{when(m.at)}</time>
                     </td>
                     <td>{m.recipients}</td>
-                    <td>{m.read}</td>
-                    <td>{m.claimed}</td>
                     <td>
-                      <span className={`admin-chip${state === 'live' ? ' ok' : ''}`}>{t.mailStates[state]}</span>
+                      <Meter value={m.read} of={m.recipients} />
                     </td>
                     <td>
-                      {state === 'live' ? (
+                      <Meter value={m.claimed} of={m.recipients} />
+                      {m.outcomes.owned + m.outcomes.skipped > 0 ? (
+                        <small className="comms-outcomes">
+                          {m.outcomes.owned > 0 ? <span>{t.outcomes.owned(m.outcomes.owned)}</span> : null}
+                          {m.outcomes.skipped > 0 ? <span className="bad">{t.outcomes.skipped(m.outcomes.skipped)}</span> : null}
+                        </small>
+                      ) : null}
+                    </td>
+                    <td>
+                      <span className={`admin-chip${state === 'live' ? ' ok' : state === 'scheduled' ? ' staff' : ''}`}>{t.mailStates[state]}</span>
+                      {state === 'scheduled' && m.scheduledAt ? (
+                        <small className="comms-when">
+                          <time dateTime={m.scheduledAt}>{when(m.scheduledAt)}</time>
+                        </small>
+                      ) : null}
+                    </td>
+                    <td className="comms-actions">
+                      {onDuplicate ? (
+                        <button type="button" className="lip pill small" aria-label={t.duplicateOf(m.title)} onClick={() => onDuplicate(seedOf(m))}>
+                          {t.duplicate}
+                        </button>
+                      ) : null}
+                      {state === 'live' || state === 'scheduled' ? (
                         <button
                           type="button"
                           className="lip pill small"
@@ -99,5 +134,18 @@ export function SentList() {
       ) : null}
       {open ? <ActionDialog url={open.url} title={open.title} submit={open.submit} password={() => false} onDone={() => setOpen(null)} onClose={() => setOpen(null)} /> : null}
     </div>
+  );
+}
+
+/** A share of the recipients as a short bar and its numbers. */
+function Meter({ value, of }: { value: number; of: number }) {
+  const p = of > 0 ? Math.round((value / of) * 100) : 0;
+  return (
+    <span className="comms-meter">
+      <span className="comms-meter-bar" aria-hidden="true">
+        <span style={{ inlineSize: `${p}%` }} />
+      </span>
+      <span>{t.readOf(value, of)}</span>
+    </span>
   );
 }

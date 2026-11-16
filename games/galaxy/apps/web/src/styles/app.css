@@ -5154,6 +5154,25 @@
   .pack-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 }
 
+/* Mail v2, P5 (2026-11-16): sending later, templates, and how far each sent message went. */
+@layer components {
+  .comms-compose .field-label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 7px; }
+  .comms-template-pick { margin-bottom: 4px; }
+  .comms-save-template { justify-self: start; }
+  .comms-when { display: block; margin: 0; font-size: 12.5px; color: var(--color-ink-mute); }
+  .comms-compose-aside > .comms-when { text-align: center; }
+  .comms-template form { display: grid; gap: 4px; }
+  .comms-template .hint { margin: 0 0 8px; }
+  .comms-template .pill { justify-self: start; margin-top: 6px; }
+  .comms-meter { display: grid; gap: 4px; min-inline-size: 84px; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--color-ink-soft); }
+  .comms-meter-bar { display: block; block-size: 6px; border-radius: 99px; background: rgb(255 255 255 / .08); overflow: hidden; }
+  .comms-meter-bar > span { display: block; block-size: 100%; border-radius: inherit; background: var(--color-terminal); }
+  .comms-outcomes { display: grid; gap: 1px; margin-top: 4px; font-size: 11.5px; color: var(--color-ink-mute); }
+  .comms-outcomes .bad { color: var(--color-nova); }
+  .comms-actions { white-space: nowrap; }
+  .comms-actions .pill + .pill { margin-inline-start: 6px; }
+}
+
 /* Mail v2, the P6 review: the library's templates, its warning days, and another admin's publish said plainly. */
 @layer components {
   .pack-lib-advanced { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }

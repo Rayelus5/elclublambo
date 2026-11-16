@@ -719,6 +719,9 @@ export interface MailboxMessagesTable {
   withdrawn_at: ColumnType<Date | null, never, Date | string>;
   /** Mail v2: its kind, and whether it needed a superadmin. */
   type: ColumnType<MailType, MailType | undefined, never>;
+  /** Mail v2, P5: when it goes out (null: at once), and when it went (null: still waiting). */
+  scheduled_at: ColumnType<Date | null, Date | string | null | undefined, never>;
+  sent_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
   big: ColumnType<boolean, boolean | undefined, never>;
 }
 

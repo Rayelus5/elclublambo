@@ -46,6 +46,9 @@ const sent: AdminMailRow[] = TYPES.map((type, i) => ({
   recipients: 1200 - i * 100,
   read: 800 - i * 50,
   claimed: 600 - i * 40,
+  scheduledAt: i === 2 ? around(3) : null,
+  sentAt: i === 2 ? null : around(-i),
+  outcomes: { granted: 500 - i * 40, owned: i * 10, skipped: i === 4 ? 3 : 0 },
 }));
 
 function respond(url: string): Response {

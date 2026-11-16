@@ -2,6 +2,7 @@ import { type Gift, giftIssues, type MailPack, PACK_ARTS, type PackArt as Art } 
 import { useEffect, useId, useRef, useState } from 'react';
 import { copy } from '../../copy/es';
 import { GiftPicker } from '../../gifts/GiftPicker';
+import { librarySlug as packSlug } from '../../gifts/slug';
 import { GiftTray } from '../../gifts/GiftTray';
 import { PackArt } from '../../gifts/PackArt';
 import type { GiftCatalog } from '../../gifts/words';
@@ -14,17 +15,6 @@ import { Switch } from '../../ui/Switch';
 const t = copy.admin.packs;
 const MAX = 30;
 
-/** «Veterano del vacío» → «veterano-del-vacio». */
-export function packSlug(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 32)
-    .replace(/-+$/g, '');
-}
 
 export function PackEditor({
   pack,

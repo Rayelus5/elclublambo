@@ -98,3 +98,12 @@ describe('correo v2: tipos y regalos de todo tipo', () => {
     expect(parseConfig('mailLimits', {}).galaxyTier).toBe('legendary');
   });
 });
+
+describe('envío programado (P5)', () => {
+  const base = { title: 'Luego', body: 'Llega luego', audience: { kind: 'all' as const }, reason: 'Una prueba' };
+  test('un mensaje puede llevar su hora de envío', () => {
+    expect(adminMailSendSchema.parse({ ...base, scheduledAt: '2026-11-20T10:00:00.000Z' }).scheduledAt).toBe('2026-11-20T10:00:00.000Z');
+    expect(adminMailSendSchema.parse(base).scheduledAt).toBeUndefined();
+    expect(() => adminMailSendSchema.parse({ ...base, scheduledAt: 'mañana' })).toThrow();
+  });
+});
