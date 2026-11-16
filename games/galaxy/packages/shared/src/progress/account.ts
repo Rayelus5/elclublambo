@@ -20,7 +20,11 @@ export function runCounts(run: Pick<RunProgressInput, 'seconds'>, minRunSeconds:
   return run.seconds >= minRunSeconds;
 }
 
-export function runXp(run: RunProgressInput, cfg: AccountConfig): number {
+/**
+ * `sector`: what the run's sector pays (2026-11-16). Experience follows it after the per-minute cap, but never below ×1:
+ * newcomers live in the easiest sector, and experience is what opens group play.
+ */
+export function runXp(run: RunProgressInput, cfg: AccountConfig, sector = 1): number {
   if (!runCounts(run, cfg.minRunSeconds)) return 0;
   const seconds = Math.max(0, run.seconds);
   const minutes = Math.floor(seconds / 60);
@@ -29,7 +33,7 @@ export function runXp(run: RunProgressInput, cfg: AccountConfig): number {
     Math.max(0, Math.floor(run.depth)) * cfg.xp.perLayer +
     Math.max(0, Math.floor(run.bossKills)) * cfg.xp.perCore +
     (run.outcome === 'extracted' ? cfg.xp.extraction : 0);
-  return Math.min(earned, Math.floor((seconds * cfg.xp.capPerMinute) / 60));
+  return Math.floor(Math.min(earned, Math.floor((seconds * cfg.xp.capPerMinute) / 60)) * Math.max(1, sector));
 }
 
 /** The level of `xp`, what it has into that level and what the next one asks for (null at the top). */

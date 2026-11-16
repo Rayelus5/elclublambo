@@ -5,7 +5,7 @@ import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64, worldSchedule } from
 import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { madridDay } from '../../src/economy/day';
-import { fixedConfig, get, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, NEUTRAL_SECTORS, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // Runs on the server (GDD §5.1, §11.3 bis, §14.7): the server seeds the run and snapshots the relics; the result is
 // sent once, checked for plausibility and paid by depth, death share and the daily yield.
@@ -13,7 +13,7 @@ import { fixedConfig, get, post, put, sessionCookie, testApp, uniqueName } from 
 let clock = new Date('2026-11-07T10:00:00Z');
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
-  ctx = await testApp({ now: () => clock });
+  ctx = await testApp({ now: () => clock, config: fixedConfig({ sectors: NEUTRAL_SECTORS }) });
 });
 afterAll(() => ctx.close());
 

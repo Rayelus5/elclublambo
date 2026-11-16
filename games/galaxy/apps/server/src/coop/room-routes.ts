@@ -20,7 +20,7 @@ import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
 import type { LiveHub } from '../realtime/live-hub';
 import { Buckets } from '../realtime/bucket';
-import { ensureHangar, sectorStats } from '../runs/hangar';
+import { ensureHangar, sectorAccess } from '../runs/hangar';
 import { wornSkin } from '../runs/levels';
 import { clientIp } from '../security/client-ip';
 import { areFriends, blockedBetween, prefsOf } from '../social/friends';
@@ -110,10 +110,11 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
   }
 
   async function sectorOpenTo(accountId: string, sector: string): Promise<boolean> {
-    const [content, sectors] = await Promise.all([deps.config.get('content'), deps.config.get('sectors')]);
+    const [content, sectors, probes] = await Promise.all([deps.config.get('content'), deps.config.get('sectors'), deps.config.get('probes')]);
     const def = content.sectors.find((x) => x.id === sector);
     if (!def) return false;
-    return sectorStatus(def, await sectorStats(db, accountId), sectors).unlocked;
+    const { stats, totals } = await sectorAccess(db, accountId, probes.minRunSeconds);
+    return sectorStatus(def, stats, sectors, totals).unlocked;
   }
 
   async function blockedWithRoom(accountId: string, room: Room): Promise<boolean> {

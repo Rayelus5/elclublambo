@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { type FinishRunRequest, parseConfig, PROBE_TEST, type RunResult, type RunStart, runPayout } from '@galaxy/shared';
 import { encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { fixedConfig, get, post, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, NEUTRAL_SECTORS, post, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // Temporary global multipliers on the server (GDD §16.3; M6d-5): a run that finishes inside a boost's window is paid
 // with it (before the per-run caps), says so in its breakdown, and the boosts running now are public to players.
@@ -17,7 +17,7 @@ const BOOSTS = {
 };
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
-  ctx = await testApp({ now: () => clock, config: fixedConfig({ boosts: BOOSTS }) });
+  ctx = await testApp({ now: () => clock, config: fixedConfig({ boosts: BOOSTS, sectors: NEUTRAL_SECTORS }) });
 });
 afterAll(() => ctx.close());
 

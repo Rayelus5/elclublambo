@@ -90,7 +90,7 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
    - `sprites.test.ts`;
    - `sector-difficulty.test.ts`;
    - de integración: `hangar.test.ts`, `probes.test.ts` y `sectors.test.ts` (los pasa CI).
-3. **Calibración** (`calibration.test.ts` juega todos los sectores: «paga lo mismo ±15 %», capas 2–4) y **partidas de referencia** (juegan los sectores 0 y 2 y las sondas 0 a 3, así que se mueven a menudo).
+3. **Calibración** (`calibration.test.ts` juega todos los sectores: «botín en bruto igual ±15 %»; lo que paga cada sector lo decide `sectors.pay` en el servidor, capas 2–4) y **partidas de referencia** (juegan los sectores 0 y 2 y las sondas 0 a 3, así que se mueven a menudo).
 
 Comandos:
 ```

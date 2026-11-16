@@ -54,6 +54,8 @@ export const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCa
     condition: null,
     progress: 0,
     season: sec.season,
+    // What a run there pays (2026-11-16): the defaults of the live config.
+    pay: ({ 'outer-nebula': 0.8, 'frost-rings': 1, 'hollow-reef': 1.25, 'broken-forge': 1.5, 'signal-rift': 1.8 } as Record<string, number>)[id] ?? 1,
     ...over,
   };
 };
