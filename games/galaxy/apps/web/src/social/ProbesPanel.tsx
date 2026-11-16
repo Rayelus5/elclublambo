@@ -1,6 +1,6 @@
 import { PROBE_SHOWCASE_MAX, type Profile, type ProfileProbe } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useLiveContent } from '../api/content';
 import { useSaveProfileProbes } from '../api/social';
 import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
@@ -15,16 +15,25 @@ import { SpriteLoop } from '../ui/SpriteLoop';
 // On my own profile, «Elegir sondas» picks the showcase.
 
 const t = copy.social.probes;
-const defOf = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id);
-const nameOf = (id: string) => defOf(id)?.name ?? id;
-const spriteOf = (p: ProfileProbe) => probeDrawing(p.skin, defOf(p.id)?.sprite ?? 'probe-lumen');
-const weaponOf = (p: ProfileProbe) => {
-  const id = p.variant ?? defOf(p.id)?.weapon ?? '';
-  return DEFAULT_CONTENT.weapons.find((w) => w.id === id)?.name ?? id;
-};
+/** How a probe reads, from the published content (2026-11-16: a probe created or renamed from the panel reads right). */
+function useProbeLooks() {
+  const content = useLiveContent();
+  return useMemo(() => {
+    const defOf = (id: string) => content.probes.find((p) => p.id === id);
+    return {
+      nameOf: (id: string) => defOf(id)?.name ?? id,
+      spriteOf: (p: ProfileProbe) => probeDrawing(p.skin, defOf(p.id)?.sprite ?? 'probe-lumen'),
+      weaponOf: (p: ProfileProbe) => {
+        const id = p.variant ?? defOf(p.id)?.weapon ?? '';
+        return content.weapons.find((w) => w.id === id)?.name ?? id;
+      },
+    };
+  }, [content]);
+}
 
 export function ProbesPanel({ probes, mine }: { probes: NonNullable<Profile['probes']>; mine: boolean }) {
   const reduced = useReducedMotion();
+  const { nameOf, spriteOf, weaponOf } = useProbeLooks();
   const [choosing, setChoosing] = useState(false);
   return (
     <section className="lip panel profile-panel profile-probes" aria-labelledby="profile-probes-title">
@@ -71,6 +80,7 @@ export function ProbesPanel({ probes, mine }: { probes: NonNullable<Profile['pro
 
 /** Up to three of my probes, in the order they are ticked. */
 function ShowcaseDialog({ probes, onClose }: { probes: NonNullable<Profile['probes']>; onClose: () => void }) {
+  const { nameOf, spriteOf } = useProbeLooks();
   const save = useSaveProfileProbes();
   const [chosen, setChosen] = useState<string[]>(probes.showcase.map((p) => p.id));
   const toggle = (id: string) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : c.length < PROBE_SHOWCASE_MAX ? [...c, id] : c));

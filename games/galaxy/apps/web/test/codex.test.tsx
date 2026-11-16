@@ -66,3 +66,18 @@ test('el Códice muestra las tres formas de cada Núcleo y oculta las que aún n
 test('PERKINS tiene una frase para cada forma nueva de Núcleo', () => {
   for (const b of DEFAULT_CONTENT.bosses) if (b.id !== 'hive') expect(copy.arena.radio.bosses[b.id], b.id).toMatch(/^PERKINS: /);
 });
+
+// The content editor, P1 (2026-11-16): the Códice tells what is published, not what the web was built with — a sector
+// renamed from the admin panel reads with its new name.
+test('el Códice usa el contenido publicado', async () => {
+  const live = structuredClone(DEFAULT_CONTENT);
+  live.sectors[0]!.name = 'Nebulosa Renombrada';
+  mockApi({
+    'GET /galaxy/api/codex': () => jsonResponse(200, { ...fresh, sectors: { [live.sectors[0]!.id]: { maxSeconds: 30, bossKills: 0 } } }),
+    'GET /galaxy/api/content': () => jsonResponse(200, { version: 9, content: live }),
+  });
+  renderAt('/codice', { '/codice': <CodexScreen /> });
+  await userEvent.click(await screen.findByRole('tab', { name: copy.codex.sections.sectors }));
+  expect(await screen.findByRole('button', { name: 'Nebulosa Renombrada' })).toBeInTheDocument();
+});
+

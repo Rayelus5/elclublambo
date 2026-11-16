@@ -44,7 +44,17 @@ export interface LiveContentView {
  * `test`: an admin's test run (debug mode, 2026-11-15), started with a content draft; it pays and counts for nothing.
  * Only an admin with TOTP may send it.
  */
-export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20), test: z.literal(true).optional() }).strict();
+export const startRunRequestSchema = z
+  .object({
+    sector: contentId,
+    probe: contentId,
+    simVersion: z.string().min(1).max(20),
+    test: z.literal(true).optional(),
+    /** A config draft to play (the content editor, 2026-11-16): only in a test run. */
+    draft: z.uuid().optional(),
+  })
+  .strict()
+  .refine((r) => !r.draft || r.test, 'draft_needs_test');
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
 const count = (max: number) => z.number().int().min(0).max(max);

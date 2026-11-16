@@ -13,6 +13,10 @@ import { closeDue } from '../season/close';
 import { seasonConfigs } from '../season/service';
 import type { ConfigService } from './service';
 
+/** The run content is about 180 KB (2026-11-16): the config routes take up to 1 MiB, not the app's 64 KiB. */
+const CONFIG_BODY_LIMIT = 1024 * 1024;
+/** The keys the list leaves out (too big to send every time): the panel asks for them with GET /admin/config/:key. */
+const LAZY_KEYS = new Set<string>(['content']);
 const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200), baseVersion: z.number().int().min(0).optional() });
 const validateBody = z.object({ data: z.unknown() });
 /** The keys a batch may carry (polish phase 4): an event, its scanner, a boost, its missions. The season has its own route (it archives). */
@@ -43,31 +47,56 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
     return deps.config.active();
   });
 
+  const authors = async (ids: (string | null)[]) => {
+    const wanted = [...new Set(ids.filter((id): id is string => !!id))];
+    const names = wanted.length ? await deps.db.selectFrom('galaxy.accounts').select(['id', 'username']).where('id', 'in', wanted).execute() : [];
+    const nameOf = new Map(names.map((n) => [n.id, n.username]));
+    return (id: string | null) => (id ? (nameOf.get(id) ?? null) : null);
+  };
+
+  // Every key with its newest version; the big ones (the run content) without their data, marked `lazy`.
   app.get('/galaxy/api/admin/config/keys', async (req) => {
     requireAdmin(req);
-    const rows = await Promise.all(
+    const latest = new Map((await deps.config.latest()).map((r) => [r.key, r]));
+    const authorOf = await authors([...latest.values()].map((r) => r.createdBy));
+    return Promise.all(
       CONFIG_KEYS.map(async (key) => {
-        const versions = await deps.config.versions(key);
-        const latest = versions.reduce<(typeof versions)[number] | undefined>((a, b) => (!a || b.version > a.version ? b : a), undefined);
-        return { key, version: latest?.version ?? 0, data: await deps.config.get(key), createdAt: latest?.createdAt ?? null, createdBy: latest?.createdBy ?? null, note: latest?.note ?? null };
+        const l = latest.get(key);
+        const meta = { key, version: l?.version ?? 0, createdAt: l?.createdAt ?? null, author: authorOf(l?.createdBy ?? null), note: l?.note ?? null };
+        return LAZY_KEYS.has(key) ? { ...meta, lazy: true } : { ...meta, data: await deps.config.get(key) };
       }),
     );
-    const ids = [...new Set(rows.flatMap((r) => (r.createdBy ? [r.createdBy] : [])))];
-    const names = ids.length ? await deps.db.selectFrom('galaxy.accounts').select(['id', 'username']).where('id', 'in', ids).execute() : [];
-    const nameOf = new Map(names.map((n) => [n.id, n.username]));
-    return rows.map(({ createdBy, ...r }) => ({ ...r, author: createdBy ? (nameOf.get(createdBy) ?? null) : null }));
   });
 
+  // One key with what is live (or its defaults), and its newest version.
+  app.get<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', async (req) => {
+    requireAdmin(req);
+    const key = keyOf(req.params.key);
+    const l = (await deps.config.latest()).find((r) => r.key === key);
+    const authorOf = await authors([l?.createdBy ?? null]);
+    return { key, version: l?.version ?? 0, data: await deps.config.get(key), createdAt: l?.createdAt ?? null, author: authorOf(l?.createdBy ?? null), note: l?.note ?? null };
+  });
+
+  // The history without the data; each version's data on its own.
   app.get<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/versions', async (req) => {
     requireAdmin(req);
-    const versions = await deps.config.versions(keyOf(req.params.key));
-    const ids = [...new Set(versions.flatMap((v) => (v.createdBy ? [v.createdBy] : [])))];
-    const names = ids.length ? await deps.db.selectFrom('galaxy.accounts').select(['id', 'username']).where('id', 'in', ids).execute() : [];
-    const nameOf = new Map(names.map((n) => [n.id, n.username]));
-    return versions.map((v) => ({ ...v, author: v.createdBy ? (nameOf.get(v.createdBy) ?? null) : null }));
+    const versions = await deps.config.summaries(keyOf(req.params.key));
+    const authorOf = await authors(versions.map((v) => v.createdBy));
+    return versions.map(({ createdBy, ...v }) => ({ ...v, author: authorOf(createdBy) }));
   });
 
-  app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/validate', async (req) => {
+  app.get<{ Params: { key: string; version: string } }>('/galaxy/api/admin/config/:key/versions/:version', async (req) => {
+    requireAdmin(req);
+    const key = keyOf(req.params.key);
+    const n = Number(req.params.version);
+    const v = Number.isInteger(n) && n >= 1 ? await deps.config.version(key, n) : null;
+    if (!v) throw new HttpError(404, 'not_found');
+    const authorOf = await authors([v.createdBy]);
+    const { createdBy, ...rest } = v;
+    return { ...rest, author: authorOf(createdBy) };
+  });
+
+  app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/validate', { bodyLimit: CONFIG_BODY_LIMIT }, async (req) => {
     requireAdmin(req);
     const key = keyOf(req.params.key);
     // The draft over what is live, exactly as a publish would see it.
@@ -76,7 +105,7 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
     return { ok: issues.length === 0, issues };
   });
 
-  app.post('/galaxy/api/admin/config/batch', async (req, reply) => {
+  app.post('/galaxy/api/admin/config/batch', { bodyLimit: CONFIG_BODY_LIMIT }, async (req, reply) => {
     const admin = requireAdmin(req);
     const { items, reason, password } = batchBody.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
@@ -85,7 +114,7 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
     return reply.code(201).send({ versions });
   });
 
-  app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', async (req, reply) => {
+  app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', { bodyLimit: CONFIG_BODY_LIMIT }, async (req, reply) => {
     const admin = requireAdmin(req);
     const key = keyOf(req.params.key);
     const { data, reason, password, baseVersion } = publishBody.parse(req.body);

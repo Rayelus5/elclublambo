@@ -74,15 +74,11 @@ En PRE `content` está publicado (también los cambios a mano del propietario de
 - **Las entradas antiguas de `DEPLOY_PRE.md`** que dicen «vuelve a publicarla desde el valor por defecto» son de antes de que el propietario editara `content` en el panel. Hoy manda esta regla.
 - **Se deja constancia** en el `LEEME.md` de la carpeta de `ops/launch/` (C).
 
-### A5. Lo que la web lee de `DEFAULT_CONTENT` y no de lo publicado
+### A5. La web lee lo publicado
 
-Estas pantallas usan el contenido incluido en la web, no el vivo:
-- el Hangar de reliquias (`hangar/lobby/RelicStrip.tsx`, `hangar/SetsPanel.tsx`): «Potencia ×», conjuntos y apilado;
-- el Códice (`codex/entries.ts`);
-- los sprites de sonda de la clasificación (`social/LeaderboardScreen.tsx`);
-- algunas listas del admin.
+Desde el editor de contenido (2026-11-16, P1), la web lee el contenido publicado (`useLiveContent`) en todas sus pantallas: el Códice, el Hangar de reliquias, la clasificación, el perfil y las listas del admin (`api/content-names.ts`). `DEFAULT_CONTENT` solo se ve mientras carga lo publicado o si no se puede leer.
 
-Por eso **todo cambio de contenido se hace en `DEFAULT_CONTENT` y además se publica**. Si solo se publica, esas pantallas mienten.
+Por eso un cambio hecho en el panel se ve en todas partes sin desplegar. `DEFAULT_CONTENT` sigue siendo el punto de partida del código: un cambio en código parte de lo publicado (`draft-config`, A4) y se publica después.
 
 ### A6. Arte
 
@@ -205,15 +201,21 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
   - `notice "<texto>" --tone info|warning --days N --reason "<motivo>"`: aviso en la pantalla de título, **desde ahora** y durante N días (1–365). Para programar un aviso o terminarlo antes, el panel (Admin › Comunicación).
   - Comandos exactos para PRE en `docs/DEPLOY_PRE.md` (sección Operación). Están escritos para Git Bash: en PowerShell, `<` no existe y `>` guarda con BOM, que rompe el JSON.
 
-**Probar antes de publicar (modo depuración, 2026-11-15):**
-- En el panel, la clave `content` tiene «Probar en incursión». Juega el borrador en una incursión de prueba en solitario, sin publicarlo: nadie más lo ve y no da recompensas.
+**Borradores del contenido (editor de contenido, 2026-11-16):**
+- En el panel, `content` se cambia con **borradores en el servidor** (`/admin/configuracion/content`): cada admin los ve, se guardan solos campo a campo y guardan solo los campos de primer nivel que cambian, por clave (`content`, y también `sectors` y `probes` para lo que un sector o una sonda nuevos necesitan).
+- Si se publica otra versión mientras tanto, el borrador queda desfasado: «Juntar con lo publicado» lo fusiona entidad a entidad (por id) y, si los dos lados cambiaron lo mismo, el admin elige qué se queda.
+- Se publica con motivo y contraseña (todas sus claves o ninguna, `publishMany`) o se descarta. Los cerrados se borran a los 30 días.
+- Cualquier versión publicada puede volver como borrador nuevo («Crear un borrador con la versión N»).
+
+**Probar antes de publicar (modo depuración, 2026-11-15; borradores, 2026-11-16):**
+- Un borrador tiene «Probar en incursión»: abre el hangar con `?borrador=<id>`, donde se eligen su sector y su sonda (también los nuevos). El servidor juega el borrador sobre lo publicado en una incursión de prueba en solitario: nadie más lo ve y no da recompensas.
 - Con F2 se abre el menú de depuración, que permite:
   - cambiar la velocidad (x0,25 a x8) y ver información y colisiones;
   - subir niveles, ser invulnerable y curar;
   - matar enemigos, hacer aparecer el Núcleo ya o pasar de capa;
   - dar cualquier arma, pasiva o evolución.
 - El mismo menú sirve en cualquier incursión en solitario de un admin con TOTP. La primera acción que cambia la partida la convierte en incursión de prueba, con la auditoría `run.test`.
-- Solo cambia el `content` del borrador: las bonificaciones de sonda y laboratorio siguen saliendo del servidor. Los sectores y sondas que se pueden elegir son los del hangar vivo, y el arte nuevo tiene que estar ya desplegado.
+- Las bonificaciones de sonda y laboratorio siguen saliendo del servidor, y el arte nuevo tiene que estar ya desplegado.
 
 ### B2. Carpetas `ops/launch` y plantillas
 

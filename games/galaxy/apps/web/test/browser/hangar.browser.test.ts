@@ -7,7 +7,6 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import { clearContentDraft, saveContentDraft } from '../../src/admin/content-draft';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
 import { WorkshopScreen } from '../../src/workshop/WorkshopScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
@@ -134,7 +133,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(el: ReturnType<typeof createElement>, over: Record<string, unknown> = {}): void {
+function mount(el: ReturnType<typeof createElement>, over: Record<string, unknown> = {}, path = '/'): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -157,7 +156,7 @@ function mount(el: ReturnType<typeof createElement>, over: Record<string, unknow
   document.body.appendChild(host);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   root = createRoot(host);
-  root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, el)));
+  root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [path] }, el)));
 }
 
 for (const [w, h] of [
@@ -186,17 +185,31 @@ for (const [w, h] of [
   }, 60_000);
 }
 
-// «Probar en incursión» (admin debug mode, 2026-11-15): the draft's notice sits in the launch dock, over the button; the
-// lobby keeps its areas apart and the launch button its size (review: it was a column of its own in the foot).
+// «Probar en incursión» (the content editor, 2026-11-16): the draft's notice — its title, its sector and probe pickers —
+// sits in the launch dock, over the button; the lobby keeps its areas apart and the launch button its size.
 for (const [w, h] of [
   [1280, 720],
   [1920, 1080],
 ] as const) {
   test(`hangar con un borrador de contenido a ${w}×${h}`, async () => {
     await page.viewport(w, h);
-    saveContentDraft({ baseVersion: 12, raw: DEFAULT_CONTENT, content: DEFAULT_CONTENT });
-    try {
-      mount(createElement(HangarScreen), { '/auth/me': { id: 'a1', username: 'rayelus', roles: ['admin'], mfa: true, level: 30 } });
+    const draft = {
+      id: 'd1',
+      title: 'Sector nuevo',
+      status: 'open',
+      revision: 1,
+      fields: [{ key: 'content', field: 'hitCap' }],
+      createdBy: 'rayelus',
+      updatedBy: 'rayelus',
+      createdAt: '2026-11-16T10:00:00.000Z',
+      updatedAt: '2026-11-16T10:00:00.000Z',
+      stale: false,
+      data: { content: { hitCap: 0.35 } },
+      baseVersions: { content: 12 },
+      publishedVersions: null,
+    };
+    {
+      mount(createElement(HangarScreen), { '/auth/me': { id: 'a1', username: 'rayelus', roles: ['admin'], mfa: true, level: 30 }, '/admin/config-drafts/d1': draft }, '/?borrador=d1');
       const notice = await vi.waitFor(() => {
         const el = document.querySelector<HTMLElement>('.lobby-draft');
         if (!el) throw new Error('sin aviso');
@@ -215,8 +228,6 @@ for (const [w, h] of [
       expect(document.querySelector('.lobby-launch')!.getBoundingClientRect().width).toBeGreaterThan(240);
       expect(document.querySelector('.lobby-foot')!.getBoundingClientRect().bottom).toBeLessThanOrEqual(h + 1);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-draft-${w}.png` });
-    } finally {
-      clearContentDraft();
     }
   }, 60_000);
 }
