@@ -32,8 +32,11 @@ async function staff(role: Role) {
   return { cookie: sessionCookie(res), password, username };
 }
 let admin: Awaited<ReturnType<typeof staff>>;
+// Made before any test moves the clock (their TOTP codes go by the real time).
+let writer: Awaited<ReturnType<typeof staff>>;
 beforeAll(async () => {
   admin = await staff('admin');
+  writer = await staff('admin');
 });
 
 const deps = () => ({ db: ctx.db, config: fixedConfig({}), now });
@@ -108,7 +111,6 @@ describe('estadísticas de lo enviado', () => {
 
 describe('repaso de seguridad', () => {
   test('un programado no sale si a quien lo escribió le quitan el rol de admin, o lo banean', async () => {
-    const writer = await staff('admin');
     const id = (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', writer.username.toLowerCase()).executeTakeFirstOrThrow()).id;
     const a = await player();
     const at = (n: number) => new Date(clock + n * 60_000).toISOString();
