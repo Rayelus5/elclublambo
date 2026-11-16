@@ -176,6 +176,7 @@ export const API_ERROR_CODES = [
   'mail_claimed',
   'mail_gone',
   'gift_invalid',
+  'galaxy_too_many',
   'gift_needs_superadmin',
   'pack_unknown',
   'mail_has_gift',

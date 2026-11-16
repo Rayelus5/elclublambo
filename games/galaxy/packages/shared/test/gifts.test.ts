@@ -4,7 +4,9 @@ import {
   allGifts,
   bigGiftReasons,
   type Gift,
+  galaxyCount,
   galaxyReachable,
+  MAX_GALAXIES,
   giftIssues,
   type GiftLive,
   giftSchema,
@@ -158,5 +160,37 @@ describe('rasgos de una galaxia regalada', () => {
     const t0 = performance.now();
     expect(galaxyReachable(4, { key: 'galaxy_type', value: 'no-es-un-tipo' })).toBe(false);
     expect(performance.now() - t0).toBeLessThan(50);
+  });
+});
+
+describe('cuántas galaxias (revisión de P3)', () => {
+  const epic = (count: number): Gift => ({ kind: 'galaxy', tier: 'epic', finish: 'normal', trait: null, count });
+
+  test('se cuentan las sueltas y las de los packs, y un mensaje lleva como mucho diez', () => {
+    expect(MAX_GALAXIES).toBe(10);
+    expect(galaxyCount([epic(3), { kind: 'xp', amount: 5 }, epic(2)])).toBe(5);
+  });
+
+  test('un pack de la biblioteca tampoco pasa de diez', () => {
+    expect(() => parseConfig('mail', { packs: [{ id: 'muchas', name: 'Muchas', art: 'star', items: [epic(5), epic(5), epic(1)] }] })).toThrow();
+    expect(parseConfig('mail', { packs: [{ id: 'justas', name: 'Justas', art: 'star', items: [epic(5), epic(5)] }] }).packs).toHaveLength(1);
+  });
+
+  test('más galaxias de las que fija mailLimits hacen grande el regalo', () => {
+    const limits = mailLimitsSchema.parse({});
+    expect(limits.galaxies).toBe(3);
+    expect(bigGiftReasons([epic(3)], 1, limits, cosmetics)).toEqual([]);
+    expect(bigGiftReasons([epic(2), epic(2)], 1, limits, cosmetics)).toEqual(['galaxy_count']);
+  });
+
+  test('si una galaxia se puede conseguir se calcula una vez: la segunda pregunta es inmediata', () => {
+    galaxyReachable(5, null);
+    const t0 = performance.now();
+    expect(galaxyReachable(5, null)).toBe(true);
+    expect(performance.now() - t0).toBeLessThan(5);
+  });
+
+  test('un pack con una galaxia que no se puede conseguir no se publica', () => {
+    expect(() => parseConfig('mail', { packs: [{ id: 'imposible', name: 'Imposible', art: 'star', items: [{ kind: 'galaxy', tier: 'legendary', finish: 'normal', trait: { key: 'galaxy_type', value: 'no-es-un-tipo' }, count: 1 }] }] })).toThrow();
   });
 });
