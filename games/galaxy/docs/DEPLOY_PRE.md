@@ -1406,3 +1406,19 @@ Comprueba con `rayelus`:
 - **Al cambiar de entrada:** la ficha empieza cerrada.
 - **Asistentes:** sus pestañas se recorren con las flechas y tienen su panel accesible.
 - **Vida por nivel del equipo:** sus tres campos (cuánto crece, desde qué nivel y el techo) ya no van en «Más ajustes». El techo dice que 1000 es «sin techo».
+
+## Buzón v2, P1: el motor de regalos
+
+**Qué cambia.**
+- **Migración** `20261117090000_galaxy_gift_grants.sql`: `season_adjustments.source` acepta también `mail`.
+- **Sin interfaz todavía**, y sin cambios en la simulación ni configuración que publicar.
+
+**El código ya trae:**
+- **Regalos de todo tipo** (`packages/shared/src/gifts/`): recursos (también material, componentes, señales de un evento y la moneda de la temporada), cosméticos, galaxias (rareza, acabado y un rasgo opcional), sondas, experiencia y puntos de temporada.
+- **Qué impide enviar un regalo:** que no exista o ya no se pueda dar (`giftIssues`).
+- **Qué lo hace grande:** pasar los límites de `mailLimits` (`bigGiftReasons`), y entonces solo lo envía un superadmin.
+- **`grantGifts`**, en el servidor, da cada regalo dentro de la transacción de quien lo llama.
+  - Los recursos van al libro de cuentas, con la clave `<clave>:<moneda>`.
+  - Las piezas, galaxias y sondas van a la auditoría.
+  - Las galaxias salen de una semilla que depende de la clave, así que la misma recogida da siempre las mismas.
+- **`galaxyValues`**: el escáner, la fusión y la concesión del admin escriben ahora las galaxias igual.

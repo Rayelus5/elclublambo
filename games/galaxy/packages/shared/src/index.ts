@@ -75,3 +75,4 @@ export * from './shop/omnibus';
 export * from './api/shop';
 export * from './api/admin-shop';
 export * from './gacha/simulate';
+export * from './gifts/index';

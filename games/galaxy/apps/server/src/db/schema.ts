@@ -225,8 +225,8 @@ export interface SeasonAdjustmentsTable {
   account_id: string;
   season: string;
   points: number;
-  /** M7a: an admin's, a mission's or an achievement's. */
-  source: ColumnType<'admin' | 'mission' | 'achievement', 'admin' | 'mission' | 'achievement' | undefined, never>;
+  /** M7a: an admin's, a mission's or an achievement's; mail v2 (2026-11-16): a gift's. */
+  source: ColumnType<'admin' | 'mission' | 'achievement' | 'mail', 'admin' | 'mission' | 'achievement' | 'mail' | undefined, never>;
   created_at: Timestamp;
 }
 
