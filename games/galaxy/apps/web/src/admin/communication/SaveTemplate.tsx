@@ -25,6 +25,8 @@ export function SaveTemplate({ row, draft, onClose, onSaved }: { row: ConfigKeyR
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          // Never the message's own submit too (P6 review).
+          e.stopPropagation();
           if (!ready) return;
           const template: MailTemplate = { id: uniqueSlug(name, live.templates.map((x) => x.id)), name: name.trim(), ...draft };
           publish.mutate({ data: { ...live, templates: [...live.templates, template] }, baseVersion: row.version, reason: reason.trim(), password }, { onSuccess: onSaved });

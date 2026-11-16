@@ -146,11 +146,14 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
   const now = new Date(nowMs);
   const expires = new Date(now.getTime() + Math.max(1, Number(f['expiresInDays'] || 30)) * 86_400_000);
   return (
+    <>
     <form
       className="lip panel comms-compose"
       aria-label={t.composeTitle}
       onSubmit={(e) => {
         e.preventDefault();
+        // Only this form's own submit sends: a dialog's (the template's) is not the message (P6 review).
+        if (e.target !== e.currentTarget) return;
         if (!ready || !audience) return;
         setDone(null);
         send.mutate({
@@ -314,19 +317,20 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
               {t.templates.save}
             </button>
           ) : null}
-          {saving && mailRow ? (
-            <SaveTemplate
-              row={mailRow}
-              draft={{ type, title: (f['title'] ?? '').trim(), body: (f['body'] ?? '').trim(), items, packs, expiresInDays: Math.max(1, Math.min(365, Number(f['expiresInDays'] || 30))) }}
-              onClose={() => setSaving(false)}
-              onSaved={() => {
-                setSaving(false);
-                setDone(t.templates.saved);
-              }}
-            />
-          ) : null}
         </aside>
       </div>
     </form>
+    {saving && mailRow ? (
+      <SaveTemplate
+        row={mailRow}
+        draft={{ type, title: (f['title'] ?? '').trim(), body: (f['body'] ?? '').trim(), items, packs, expiresInDays: Math.max(1, Math.min(365, Number(f['expiresInDays'] || 30))) }}
+        onClose={() => setSaving(false)}
+        onSaved={() => {
+          setSaving(false);
+          setDone(t.templates.saved);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

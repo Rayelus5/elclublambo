@@ -1,56 +1,69 @@
-import { type MailPack, parseConfig } from '@galaxy/shared';
-import { useMemo, useState } from 'react';
+import { type MailConfig, type MailPack, parseConfig } from '@galaxy/shared';
+import { useId, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { ApiError } from '../../api/client';
 import { useConfigKeys, usePublishConfig } from '../../api/config';
 import { copy } from '../../copy/es';
 import { GiftArt } from '../../gifts/GiftArt';
 import { PackArt } from '../../gifts/PackArt';
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
 import { giftWords } from '../../gifts/words';
+import { MAIL_TYPE_LOOK, mailTypeName } from '../../mail/types';
 import { Icon } from '../../ui/Icon';
 import { PublishFields } from '../PublishFields';
 import { PackEditor } from './PackEditor';
 
-// The mail's pack library (mail v2, P4; the owner: «biblioteca de packs»), the `mail` key's own page in
-// Configuración: every pack drawn with what it gives, made and changed visually, kept as unpublished changes until the
-// whole key is published with its version (another admin's publish in between answers config_conflict), a reason and
-// the password. The templates and the expiry warning travel untouched.
+// The mail's library (mail v2, P4; the owner: «biblioteca de packs»), the `mail` key's own page in Configuración:
+// every pack drawn with what it gives, made and changed visually; the templates (saved from Comunicación), which can
+// be removed; and how many days before expiring a message warns. Changes stay unpublished until the whole key is
+// published with the version they started from (another admin's publish in between answers config_conflict, and this
+// page says so and offers to load what is published), a reason and the password. Its history and rollback are on the
+// key's general page («Historial y edición avanzada»).
 
 const t = copy.admin.packs;
 const g = copy.gifts;
 const EMPTY: MailPack = { id: '', name: '', art: 'parcel', enabled: true, items: [] };
 
-/** How many packs differ from what is live: added, removed or changed. */
-function changes(draft: readonly MailPack[], live: readonly MailPack[]): number {
+/** How many entries differ from what is live: added, removed or changed. */
+function changes<T extends { id: string }>(draft: readonly T[], live: readonly T[]): number {
   const ids = new Set([...draft.map((p) => p.id), ...live.map((p) => p.id)]);
   let n = 0;
-  for (const id of ids) {
-    const a = draft.find((p) => p.id === id);
-    const b = live.find((p) => p.id === id);
-    if (JSON.stringify(a) !== JSON.stringify(b)) n++;
-  }
+  for (const id of ids) if (JSON.stringify(draft.find((p) => p.id === id)) !== JSON.stringify(live.find((p) => p.id === id))) n++;
   return n;
 }
 
 export function PackLibraryScreen() {
+  const ids = useId();
   const keys = useConfigKeys();
   const row = keys.data?.find((k) => k.key === 'mail');
   const live = useMemo(() => (row ? parseConfig('mail', row.data) : null), [row]);
   const { catalog } = useGiftCatalog();
   const publish = usePublishConfig('mail');
-  const [draft, setDraft] = useState<MailPack[] | null>(null);
+  // The draft is the whole key, and the version it started from: a publish carries that version, never a newer one.
+  const [draft, setDraft] = useState<{ base: number; data: MailConfig } | null>(null);
   const [editing, setEditing] = useState<{ index: number | null; pack: MailPack } | null>(null);
   const [done, setDone] = useState<number | null>(null);
-  const packs = draft ?? live?.packs ?? [];
-  const pending = live ? changes(packs, live.packs) : 0;
+  // The warning days as typed (only a valid number, 1 to 30, goes to the draft).
+  const [daysText, setDaysText] = useState<string | null>(null);
+  const data = draft?.data ?? live;
+  const packs = data?.packs ?? [];
+  const pending = live && data ? changes(data.packs, live.packs) + changes(data.templates, live.templates) + (data.warnDays !== live.warnDays ? 1 : 0) : 0;
+  const moved = !!draft && !!row && row.version !== draft.base;
+  const conflict = publish.error instanceof ApiError && publish.error.code === 'config_conflict';
 
-  const save = (pack: MailPack) => {
-    const next = [...packs];
-    if (editing?.index === null || editing?.index === undefined) next.push(pack);
-    else next[editing.index] = pack;
-    setDraft(next);
-    setEditing(null);
+  const change = (fn: (d: MailConfig) => MailConfig) => {
+    if (!live || !row) return;
+    setDraft((d) => ({ base: d?.base ?? row.version, data: fn(d?.data ?? live) }));
     setDone(null);
+  };
+  const save = (pack: MailPack) => {
+    change((d) => {
+      const next = [...d.packs];
+      if (editing?.index === null || editing?.index === undefined) next.push(pack);
+      else next[editing.index] = pack;
+      return { ...d, packs: next };
+    });
+    setEditing(null);
   };
 
   return (
@@ -63,6 +76,10 @@ export function PackLibraryScreen() {
       <p className="panel-note">
         {t.lead}. {row ? copy.admin.config.version(row.version) : null}
       </p>
+      <Link to="/admin/configuracion/mail/avanzado" className="lip pill small pack-lib-advanced">
+        <Icon name="list" />
+        <span>{t.advanced}</span>
+      </Link>
       {keys.error ? (
         <p className="field-error" role="alert">
           {String(copy.errors.internal)}
@@ -79,7 +96,7 @@ export function PackLibraryScreen() {
           onCancel={() => setEditing(null)}
         />
       ) : null}
-      {!editing && live && catalog ? (
+      {!editing && live && data && catalog ? (
         <>
           {packs.length === 0 ? <p className="panel-note">{t.empty}</p> : null}
           <ul className="pack-lib-grid">
@@ -102,7 +119,7 @@ export function PackLibraryScreen() {
                   <button type="button" className="lip pill small" aria-label={t.editOf(p.name)} onClick={() => setEditing({ index: i, pack: p })}>
                     {t.edit}
                   </button>
-                  <button type="button" className="lip iconbtn small" aria-label={t.removeOf(p.name)} title={t.removeOf(p.name)} onClick={() => setDraft(packs.filter((_, k) => k !== i))}>
+                  <button type="button" className="lip iconbtn small" aria-label={t.removeOf(p.name)} title={t.removeOf(p.name)} onClick={() => change((d) => ({ ...d, packs: d.packs.filter((_, k) => k !== i) }))}>
                     <Icon name="trash" />
                   </button>
                 </div>
@@ -115,22 +132,93 @@ export function PackLibraryScreen() {
               </button>
             </li>
           </ul>
-          {pending > 0 || publish.error ? (
+
+          <section className="lip panel pack-lib-more" aria-labelledby={`${ids}-tpl`}>
+            <h2 id={`${ids}-tpl`}>{t.templatesTitle}</h2>
+            {data.templates.length === 0 ? <p className="panel-note">{t.templatesEmpty}</p> : null}
+            <ul className="pack-lib-templates">
+              {data.templates.map((tpl) => (
+                <li key={tpl.id}>
+                  <span className={`mail-type-chip k-${MAIL_TYPE_LOOK[tpl.type].tone}`}>
+                    <Icon name={MAIL_TYPE_LOOK[tpl.type].icon} />
+                    <span>{mailTypeName(tpl.type)}</span>
+                  </span>
+                  <span className="pack-lib-template-text">
+                    <b>{tpl.name}</b>
+                    <small>{tpl.title}</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="lip iconbtn small"
+                    aria-label={t.removeTemplateOf(tpl.name)}
+                    title={t.removeTemplateOf(tpl.name)}
+                    onClick={() => change((d) => ({ ...d, templates: d.templates.filter((x) => x.id !== tpl.id) }))}
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="field pack-lib-days">
+              <label htmlFor={`${ids}-days`}>{t.warnDays}</label>
+              <div className="control">
+                <input
+                  id={`${ids}-days`}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={daysText ?? String(data.warnDays)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setDaysText(v);
+                    const n = Number(v);
+                    if (n >= 1 && n <= 30) change((d) => ({ ...d, warnDays: n }));
+                  }}
+                  onBlur={() => setDaysText(null)}
+                />
+              </div>
+              <p className="hint">{t.warnDaysHint}</p>
+            </div>
+          </section>
+
+          {pending > 0 || publish.error || moved ? (
             <div className="lip panel pack-lib-publish">
+              {moved || conflict ? (
+                <div className="pack-lib-moved" role="alert">
+                  <p>{t.moved}</p>
+                  <button
+                    type="button"
+                    className="lip pill small"
+                    onClick={() => {
+                      setDraft(null);
+                      publish.reset();
+                    }}
+                  >
+                    {t.reload}
+                  </button>
+                </div>
+              ) : null}
               <p className="pack-lib-pending">
                 <b>{t.pending(pending)}</b>
-                <button type="button" className="lip pill small" onClick={() => setDraft(null)}>
+                <button
+                  type="button"
+                  className="lip pill small"
+                  onClick={() => {
+                    setDraft(null);
+                    publish.reset();
+                  }}
+                >
                   {t.discard}
                 </button>
               </p>
               <PublishFields
                 busy={publish.isPending}
-                disabled={pending === 0}
-                error={publish.error}
+                disabled={pending === 0 || !draft}
+                error={conflict ? null : publish.error}
                 label={t.publish}
                 onPublish={(reason, password) =>
+                  draft &&
                   publish.mutate(
-                    { data: { ...live, packs }, baseVersion: row?.version, reason, password },
+                    { data: draft.data, baseVersion: draft.base, reason, password },
                     {
                       onSuccess: (r) => {
                         setDraft(null);
