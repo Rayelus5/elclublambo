@@ -310,6 +310,8 @@ export class CoopService {
         else if (result) this.notify(run.slots[slot]!.accountId, { type: 'coopResult', outcome, result });
       }
       run.tellWatchers({ t: 'end', outcome, result: null });
+      // What the referee cost (2026-11-16): ms per step and the share of a core, to size the homelab.
+      this.deps.log?.info({ run: run.id, players: run.slots.length, ticks: run.referee.tick, ...run.cpu() }, 'coop_cpu');
     } catch (err) {
       this.deps.log?.error({ err: (err as Error).name, run: run.id }, 'coop_settle_failed');
       run.broadcast({ t: 'end', outcome, result: null });

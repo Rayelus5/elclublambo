@@ -75,20 +75,36 @@ function coreLife(sim: Sim, def: BossDef): number {
 }
 
 /**
- * A full enemy pool must not keep the Núcleo away: the run would stay in its phase forever, neither won nor lost. The
- * fauna farthest from the probes leaves (no loot) and the Núcleo takes its slot (enemy life plan, 2026-11-15).
+ * A full enemy pool must not keep the Núcleo away: the run would stay in its phase forever, neither won nor lost. Fauna
+ * leaves (no loot) and the Núcleo takes its slot (enemy life plan, 2026-11-15). Which one (2026-11-16): plain fauna
+ * first — an elite or an enemy held by a harpoon only when there is no other, never a volatile with its fuse lit — and
+ * the one farthest from its NEAREST living probe (in a group, the centre between two players can be right beside one).
  */
 function makeRoom(sim: Sim): number {
   const en = sim.enemies;
-  const c = probesCentre(sim);
+  const anchors = sim.probes.filter((p) => p.alive);
+  const centre = probesCentre(sim);
   let far = -1;
   let best = -1;
+  let rank = 2;
   for (let e = 0; e < en.top; e++) {
-    if (!en.alive[e] || en.boss[e]) continue;
-    const dx = en.x[e]! - c.x;
-    const dy = en.y[e]! - c.y;
-    const d = dx * dx + dy * dy;
-    if (d > best) {
+    if (!en.alive[e] || en.boss[e] || en.fuseT[e]! > 0) continue;
+    const r = en.elite[e] === 0 && en.held[e] === 0 ? 0 : 1;
+    if (r > rank) continue;
+    let d = Infinity;
+    if (anchors.length === 0) {
+      const dx = en.x[e]! - centre.x;
+      const dy = en.y[e]! - centre.y;
+      d = dx * dx + dy * dy;
+    }
+    for (const p of anchors) {
+      const dx = en.x[e]! - p.x;
+      const dy = en.y[e]! - p.y;
+      const q = dx * dx + dy * dy;
+      if (q < d) d = q;
+    }
+    if (r < rank || d > best) {
+      rank = r;
       best = d;
       far = e;
     }

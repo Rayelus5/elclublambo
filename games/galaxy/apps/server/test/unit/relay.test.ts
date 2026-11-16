@@ -236,3 +236,15 @@ test('un dash se sella en el siguiente tick (uno por tick) y la sonda del árbit
   expect(r.referee.probes[0]!.x).toBeGreaterThan(DEFAULT_CONTENT.dash.distance);
   expect(r.referee.probes[0]!.dash.charges).toBe(0);
 });
+
+// What the referee costs (pending minor, 2026-11-16): every step it closes is timed, for a log line when the run ends.
+test('el árbitro cronometra cada paso que cierra', () => {
+  const r = run(2, CALM);
+  r.attach(0, socket() as never);
+  pumpRange(r, T0, T0 + 1000);
+  const cpu = r.cpu();
+  expect(cpu.steps).toBe(r.referee.tick);
+  expect(cpu.steps).toBeGreaterThan(50);
+  expect(cpu.max).toBeGreaterThanOrEqual(cpu.p50);
+});
+

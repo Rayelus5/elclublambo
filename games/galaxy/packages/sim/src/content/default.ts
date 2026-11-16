@@ -49,6 +49,8 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scal
     coreHpPerLevel: 0.045,
     // Enemy life plan (2026-11-15): every Núcleo of a run has at least 15 % more life than the one before.
     coreRise: 0.15,
+    // No ceiling yet for the life per level (2026-11-16): calibration proposes one.
+    hpLevelMax: 1000,
   },
   elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
   drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },

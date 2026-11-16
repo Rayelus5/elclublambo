@@ -248,6 +248,8 @@ const sector = z
         levelFrom: z.number().int().min(1).max(200).default(1),
         coreHpPerLevel: z.number().min(0).max(1).default(0),
         coreRise: z.number().min(0).max(2).default(0),
+        // The most the life per level multiplies (2026-11-16): compounding had no ceiling. 1000 changes nothing.
+        hpLevelMax: z.number().min(1).max(1000).default(1000),
       })
       .strict(),
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.

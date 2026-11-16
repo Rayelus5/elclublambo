@@ -1119,6 +1119,20 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - las señales en el HUD;
   - «N de satélites» en Resultados.
 
+## Pendientes de la simulación (SIM 1.15.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar. La simulación pasa a **SIM_VERSION 1.15.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **El sitio para el Núcleo con la piscina llena** sale de la fauna normal: nunca de un élite o un inestable con la mecha encendida (un élite solo si no hay otra cosa). En grupo, del enemigo más lejano de su sonda viva más cercana, no del centro del grupo.
+- **`sectors[].scaling.hpLevelMax`** (nuevo, 1000 por defecto, sin efecto): el techo de la vida por nivel.
+- **Partidas de referencia profundas** (`DEEP_RUNS`): capas de 30 s y piscina de 30, hasta las capas 5–6 en solitario y en grupo de 4, en Node y en el navegador.
+- **Lo que cuesta el árbitro de grupo:**
+  - cada partida en grupo deja al acabar una línea `coop_cpu` en el log, con la media, p50 y p99 en ms por paso y la parte de un núcleo que ocupa;
+  - `node dist/cli.js bench-referee [--ticks N] [--players 1-4]` lo mide con la piscina de 400 llena, sin tocar la base de datos. **En el servidor de casa, solo con el OK del propietario y en una hora tranquila.**
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
 ## La Estática crece contigo (SIM 1.14.0)
 
 **Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.14.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.

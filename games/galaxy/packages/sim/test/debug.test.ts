@@ -218,6 +218,21 @@ describe('dar mejoras', () => {
     expect(probe(sim).passives.find((s) => s.id === 'capacitor')?.level).toBe(3);
   });
 
+  // Pending minor (2026-11-16): an evolution may come from a variant; granting it while owning its family's other
+  // evolution would put the family twice.
+  test('una evolución hermana (desde una variante) no duplica la familia', () => {
+    const sim = quietSim((c) => {
+      const variant = c.weapons.find((w) => w.variant?.of === 'pulse')!;
+      const evo = c.weapons.find((w) => w.id === 'pulse-storm')!;
+      c.weapons.push({ ...structuredClone(evo), id: 'pulse-storm-v', name: 'Tormenta variante', evolution: { from: variant.id, requires: evo.evolution!.requires } });
+    });
+    run(sim, 1);
+    expect(debugGrant(sim, 0, { kind: 'evolution', id: 'pulse-storm', level: 1 })).toBe('ok');
+    const slots = probe(sim).weapons.length;
+    expect(debugGrant(sim, 0, { kind: 'evolution', id: 'pulse-storm-v', level: 1 })).toBe('family_owned');
+    expect(probe(sim).weapons).toHaveLength(slots);
+  });
+
   test('un id que no existe no hace nada', () => {
     const sim = quietSim();
     run(sim, 1);

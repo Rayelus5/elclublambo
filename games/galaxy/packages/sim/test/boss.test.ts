@@ -9,6 +9,7 @@ import {
   type Content,
   contentSchema,
   cosA,
+  createSim,
   dealDamage,
   DEFAULT_COOP_RULES,
   DEFAULT_CONTENT,
@@ -25,7 +26,7 @@ import {
   step,
   ticks,
 } from '../src/index';
-import { quietSim } from './fixtures';
+import { quietSim, tinyContent } from './fixtures';
 
 // The Static Core (GDD §5.5): phases that change with its life and patterns that are always announced first.
 
@@ -794,3 +795,76 @@ test('el Núcleo sale aunque la piscina de enemigos esté llena: deja su sitio e
   expect(sim.enemies.count).toBe(12);
   expect(sim.boss!.index).toBe(farthest);
 });
+
+// makeRoom (pending minor, 2026-11-16): the slot comes from plain fauna — never an elite, a volatile with its fuse lit
+// or an enemy held by a harpoon — and in a group the one farthest from its NEAREST living probe, not from the centre.
+describe('el sitio para el Núcleo', () => {
+  const full = (n = 12) =>
+    quietSim((c) => {
+      c.sectors[0]!.layerSeconds = 1;
+      c.limits.enemies = n;
+    });
+  const untilBoss = (sim: Sim) => {
+    for (let i = 0; i < 120 && !sim.boss; i++) step(sim, [IDLE]);
+  };
+
+  test('nunca quita un élite ni un inestable con la mecha encendida si hay fauna normal', () => {
+    const sim = full();
+    sim.probes[0]!.hp = 1e9;
+    const mite = sim.content.enemies.find((e) => e.id === 'mite')!;
+    for (let k = 0; k < 12; k++) spawnEnemy(sim, mite, 200 + k * 5, 0);
+    for (let k = 0; k < 12; k++) sim.enemies.speed[k] = 0;
+    // The two farthest are special: an elite and a lit fuse. (A held enemy only exists while a harpoon holds it.)
+    sim.enemies.x[11] = 400;
+    sim.enemies.elite[11] = 1;
+    sim.enemies.x[10] = 390;
+    sim.enemies.fuseT[10] = 600;
+    const plainFarthest = 9;
+    untilBoss(sim);
+    expect(sim.boss).not.toBeNull();
+    expect(sim.boss!.index).toBe(plainFarthest);
+    for (const e of [10, 11]) expect(sim.enemies.alive[e]).toBe(1);
+  });
+
+  test('sin fauna normal deja su sitio un élite, pero nunca uno con la mecha encendida', () => {
+    const sim = full(4);
+    sim.probes[0]!.hp = 1e9;
+    const mite = sim.content.enemies.find((e) => e.id === 'mite')!;
+    for (let k = 0; k < 4; k++) spawnEnemy(sim, mite, 200 + k * 50, 0);
+    for (let k = 0; k < 4; k++) {
+      sim.enemies.speed[k] = 0;
+      sim.enemies.elite[k] = 1;
+    }
+    sim.enemies.fuseT[3] = 600;
+    untilBoss(sim);
+    expect(sim.boss!.index).toBe(2);
+    expect(sim.enemies.alive[3]).toBe(1);
+  });
+
+  test('en grupo quita el más lejano de su sonda más cercana, no del centro del grupo', () => {
+    const content = tinyContent((c) => {
+      c.sectors[0]!.layerSeconds = 1;
+      c.limits.enemies = 3;
+    });
+    const sim = createSim({ seed: '7', content, sector: content.sectors[0]!.id, probes: [0, 1].map(() => ({ probe: content.probes[0]!.id, relics: [] })), coop: DEFAULT_COOP_RULES });
+    step(sim, sim.probes.map(() => IDLE));
+    const [a, b] = sim.probes;
+    a!.x = -400;
+    a!.y = 0;
+    b!.x = 400;
+    b!.y = 0;
+    for (const p of sim.probes) p.hp = 1e9;
+    const mite = sim.content.enemies.find((e) => e.id === 'mite')!;
+    // In the middle: nearest probe 400 away (the one to go). Beside each probe: 20 away, but far from the centre.
+    spawnEnemy(sim, mite, 0, 0);
+    spawnEnemy(sim, mite, 420, 0);
+    spawnEnemy(sim, mite, -420, 0);
+    for (let k = 0; k < 3; k++) sim.enemies.speed[k] = 0;
+    for (let i = 0; i < 120 && !sim.boss; i++) step(sim, sim.probes.map(() => IDLE));
+    expect(sim.boss).not.toBeNull();
+    expect(sim.boss!.index).toBe(0);
+    expect(sim.enemies.alive[1]).toBe(1);
+    expect(sim.enemies.alive[2]).toBe(1);
+  });
+});
+

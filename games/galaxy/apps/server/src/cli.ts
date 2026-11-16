@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { benchReferee } from './coop/bench';
 import { readFileSync } from 'node:fs';
 import {
   type ConfigKey,
@@ -57,6 +58,7 @@ const USAGE = [
   '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
   '  shop-reconcile [--days N]',
   '  shop-unblock <usuario> --reason <motivo>',
+  '  bench-referee [--ticks N] [--players 1-4]',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -534,6 +536,24 @@ async function grantAllCosmetics(args: string[], deps: CliDeps): Promise<number>
   return 0;
 }
 
+/**
+ * `bench-referee [--ticks N] [--players 1-4]` (2026-11-16): how much a co-op referee costs with the enemy pool full, in
+ * ms per step and share of a core. Pure CPU, no database and nothing written: run it on the homelab in a quiet hour.
+ */
+function benchRefereeCli(args: string[], deps: CliDeps): number {
+  const ticks = Number(flag(args, '--ticks') ?? 3600);
+  const players = Number(flag(args, '--players') ?? 4);
+  if (!Number.isInteger(ticks) || ticks < 60 || ticks > 36_000 || !Number.isInteger(players) || players < 1 || players > 4) {
+    return usage(deps.out, 'Uso: bench-referee [--ticks 60-36000] [--players 1-4]');
+  }
+  const r = benchReferee({ ticks, players });
+  const ms = (n: number) => n.toFixed(2);
+  deps.out(`Árbitro con ${r.players} sondas, ${r.ticks} pasos, hasta ${r.maxAlive} enemigos vivos (capa ${r.layer})`);
+  deps.out(`Por paso: media ${ms(r.times.mean)} ms · p50 ${ms(r.times.p50)} ms · p99 ${ms(r.times.p99)} ms · máximo ${ms(r.times.max)} ms`);
+  deps.out(`Una partida así ocupa el ${(r.times.coreShare * 100).toFixed(1)} % de un núcleo de CPU`);
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
@@ -550,5 +570,6 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'shop-unblock') return shopUnblock(args, deps);
   if (command === 'cosmetics-backfill') return cosmeticsBackfill(deps);
   if (command === 'grant-cosmetics') return grantAllCosmetics(args, deps);
+  if (command === 'bench-referee') return benchRefereeCli(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }
