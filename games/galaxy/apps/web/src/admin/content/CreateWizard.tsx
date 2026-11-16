@@ -1,5 +1,5 @@
 import { type ConfigValue, configIssues, configJsonSchema, type JsonSchema } from '@galaxy/shared';
-import { useDeferredValue, useId, useMemo, useState } from 'react';
+import { type KeyboardEvent, useDeferredValue, useId, useMemo, useRef, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
@@ -259,8 +259,19 @@ export function CreateWizard({
     label: e.name ?? e.id,
     image: options[def.path.join('.')]?.find((o) => o.value === e.id)?.image,
   }));
-  const index = steps.findIndex((s) => s.id === step);
+  const index = Math.max(0, steps.findIndex((s) => s.id === step));
   const current = steps[index] ?? steps[0]!;
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const tabId = (i: number) => `${ids}-tab-${i}`;
+  // The steps' tabs (WAI-ARIA APG): the arrows, Home and End move and choose; the focus follows.
+  function onTabKey(e: KeyboardEvent<HTMLButtonElement>) {
+    const to = e.key === 'ArrowRight' ? index + 1 : e.key === 'ArrowLeft' ? index - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? steps.length - 1 : null;
+    if (to === null) return;
+    e.preventDefault();
+    const n = (to + steps.length) % steps.length;
+    setStep(steps[n]!.id);
+    tabs.current[n]?.focus();
+  }
   const num = (v: string, min = 0) => Math.max(min, Number(v.replace(',', '.')) || 0);
 
   return (
@@ -273,10 +284,23 @@ export function CreateWizard({
         </button>
       </header>
       <div className="tabs admin-tabs ce-wizard-steps" role="tablist" aria-label={w.steps}>
-        {steps.map((s) => {
+        {steps.map((s, i) => {
           const n = countFor(s);
           return (
-            <button key={s.id} type="button" role="tab" aria-selected={s.id === current.id} onClick={() => setStep(s.id)}>
+            <button
+              key={s.id}
+              ref={(el) => {
+                tabs.current[i] = el;
+              }}
+              id={tabId(i)}
+              type="button"
+              role="tab"
+              aria-selected={s.id === current.id}
+              aria-controls={`${ids}-panel`}
+              tabIndex={s.id === current.id ? 0 : -1}
+              onKeyDown={onTabKey}
+              onClick={() => setStep(s.id)}
+            >
               {s.label}
               {n > 0 ? <span className="admin-chip bad">{n}</span> : null}
             </button>
@@ -284,6 +308,7 @@ export function CreateWizard({
         })}
       </div>
 
+      <div role="tabpanel" id={`${ids}-panel`} aria-labelledby={tabId(index)} className="ce-wizard-panel">
       {current.id === 'base' ? (
         <div className="cf-grid">
           <div className="cf-field">
@@ -462,6 +487,7 @@ export function CreateWizard({
           </button>
         </div>
       )}
+      </div>
     </section>
   );
 }

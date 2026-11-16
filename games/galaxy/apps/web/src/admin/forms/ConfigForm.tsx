@@ -33,6 +33,8 @@ export interface WidgetProps {
   root: unknown;
   /** The form's sources of choices (names and drawings of the content's entries…). */
   options: Options;
+  /** Every problem of the form, by path («levels.1.damage»), for a widget with fields of its own. */
+  issues: Map<string, string[]>;
 }
 /** Widgets by the pattern they replace («sectors[].spawns», «bosses[].phases»): components made once, never per render. */
 export type Widgets = Partial<Record<string, ComponentType<WidgetProps>>>;
@@ -751,7 +753,7 @@ function Node({ node, path, pattern, optional, bare = false, plain = false }: { 
   const n = unwrap(node).node;
   // A widget made for this field replaces the generic control (the content editor's level tables, timelines…).
   const widget = plain ? undefined : (widgets?.[pattern] ?? (pattern.includes('<') ? widgets?.[pattern.replace(/<[^>]*>/g, '')] : undefined));
-  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v), problems: issues.get(pathKey(path)), root, options });
+  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v), problems: issues.get(pathKey(path)), root, options, issues });
   switch (kindOf(n)) {
     case 'object':
       return bare ? <Fields node={n} path={path} pattern={pattern} /> : <Group node={n} path={path} pattern={pattern} optional={optional} />;

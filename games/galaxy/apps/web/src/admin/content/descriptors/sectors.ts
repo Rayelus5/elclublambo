@@ -113,12 +113,10 @@ export const part: DescriptorPart = {
     'sectors[].scaling.hpPerLevel': {
       label: 'Vida por nivel del equipo',
       unit: 'percent',
-      advanced: true,
       hint: 'Vida que gana la fauna por cada nivel del equipo por encima del nivel de inicio, acumulada nivel a nivel',
     },
     'sectors[].scaling.levelFrom': {
       label: 'Nivel de inicio',
-      advanced: true,
       hint: 'Desde qué nivel de la sonda más alta del equipo cuenta la vida por nivel; los niveles de antes no endurecen nada',
     },
     'sectors[].scaling.coreHpPerLevel': {
@@ -135,8 +133,7 @@ export const part: DescriptorPart = {
     'sectors[].scaling.hpLevelMax': {
       label: 'Tope de la vida por nivel',
       unit: 'factor',
-      advanced: true,
-      hint: 'Lo más que puede multiplicar la vida por nivel a la fauna, por alto que sea el nivel del equipo',
+      hint: 'Lo más que puede multiplicar la vida por nivel a la fauna, por alto que sea el nivel del equipo; con el valor más alto, 1000, no tiene techo',
     },
 
     // Layers and the extraction beacon.
