@@ -203,3 +203,27 @@ test('la tabla de reacciones a 1280×720', async () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1281);
   if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-chart-reacciones.png', element: document.querySelector('.ce-matrix-scroll')! });
 });
+
+test('la simulación rápida juega en su propio worker y responde', async () => {
+  const { runQuickSim } = await import('../../src/admin/content/quicksim');
+  const content = parseConfig('content', {});
+  const steps: number[] = [];
+  const job = runQuickSim({ live: content, draft: content, sector: content.sectors[0]!.id, probe: content.probes[0]!.id, seeds: ['101'], maxMinutes: 0.2 }, (done) => steps.push(done));
+  const result = await job.promise;
+  expect(result.draft).toHaveLength(1);
+  expect(result.live).toEqual(result.draft);
+  expect(steps).toEqual([1, 2]);
+});
+
+test('el lateral con avisos y la simulación rápida a 1600×900', async () => {
+  await page.viewport(1600, 900);
+  mount('/admin/configuracion/content?borrador=d1&zona=fauna&id=mite');
+  await vi.waitFor(
+    () => {
+      if (!document.querySelector('.ce-quicksim button')) throw new Error('sin lateral');
+    },
+    { timeout: 8000 },
+  );
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
+  if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-review-1600.png', element: document.querySelector('.cf-aside')! });
+});

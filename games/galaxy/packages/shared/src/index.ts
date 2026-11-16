@@ -2,6 +2,7 @@ export * from './account';
 export * from './errors';
 export * from './config/registry';
 export * from './config/art';
+export * from './config/content-companions';
 export * from './config/ops-checks';
 export * from './config/drafts';
 export * from './config/form-schema';

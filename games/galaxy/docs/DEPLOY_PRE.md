@@ -1325,3 +1325,24 @@ Comprueba con `rayelus`:
 2. Fauna → un enemigo: el tipo de comportamiento explica lo que hace.
 3. Núcleos, Sectores, Eventos y Elementos: sus gráficos.
 
+## Editor de contenido, P7: avisos, dónde se notará y simulación rápida
+
+**Qué cambia.** No hay migraciones ni configuración que publicar. La simulación gana dos funciones que no tocan las incursiones:
+- `contentWarnings`, los avisos del contenido;
+- `playBot`, una incursión jugada por el bot de la calibración.
+
+**El código ya trae:**
+- **Avisos.** No impiden publicar, pero hay que marcar «He leído los avisos» para hacerlo.
+  - Un sector que no es más difícil que el anterior, o uno de temporada que no es el más duro.
+  - Un sector con menos de 5 familias de enemigos.
+  - Un arma base sin evolución.
+  - Un enemigo o un Núcleo que no se usan en ningún sitio.
+  - Pesos de evento para un sector que no existe.
+  - Avisos entre claves (`companionWarnings`): un sector nuevo sin desbloqueo ni paga en `sectors`, una sonda nueva sin desbloqueo en `probes`, o un sector de temporada que no es el de la temporada viva.
+- **Dónde se notará:** las incursiones, el hangar, el Códice o el taller, según lo que cambie. Las incursiones en marcha siguen con la versión con la que empezaron.
+- **Simulación rápida.** En un worker propio, el bot juega 3 incursiones de hasta 8 minutos con lo publicado y otras 3 con el borrador, con las mismas semillas. Después compara los minutos, la capa, cuántas vencen al primer Núcleo y cuántas mueren.
+
+Comprueba con `rayelus`:
+1. En un borrador, duplica un enemigo: sale el aviso «No sale en ningún sector…», y publicar pide marcar que lo has leído.
+2. «Comparar con el bot»: al cabo de un rato sale la tabla de lo publicado frente al borrador.
+
