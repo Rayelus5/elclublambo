@@ -11,7 +11,10 @@ export interface JsonSchema {
   required?: string[];
   additionalProperties?: JsonSchema | boolean;
   propertyNames?: JsonSchema;
-  items?: JsonSchema;
+  /** Arrays: the items' shape, or `false` after a tuple's `prefixItems` (nothing else allowed). */
+  items?: JsonSchema | false;
+  /** A tuple's items, one shape each ([min, max], a pair of elements; the content editor, 2026-11-16). */
+  prefixItems?: JsonSchema[];
   minItems?: number;
   maxItems?: number;
   minimum?: number;
