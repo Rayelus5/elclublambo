@@ -263,3 +263,26 @@ describe('envío programado, plantillas y duplicar (P5)', () => {
     expect(within(form).getByRole('button', { name: g.remove(g.amount.coins(100)) })).toBeInTheDocument();
   });
 });
+
+test('guardar una plantilla no envía el mensaje, aunque el formulario esté listo (revisión de P6)', async () => {
+  const fetch = mockApi(
+    routes({
+      'POST /galaxy/api/admin/config/mail': () => jsonResponse(201, { version: 2 }),
+      'POST /galaxy/api/admin/mail': () => jsonResponse(200, { id: 'm9', recipients: 40 }),
+    }),
+  );
+  renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  await userEvent.type(within(form).getByLabelText(t.fields.title), 'Listo para enviar');
+  await userEvent.type(within(form).getByLabelText(t.fields.body), 'Sin regalo');
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Una prueba');
+  expect(await within(form).findByRole('button', { name: t.send(40) })).toBeEnabled();
+  await userEvent.click(within(form).getByRole('button', { name: t.templates.save }));
+  const dialog = await screen.findByRole('dialog', { name: t.templates.save });
+  await userEvent.type(within(dialog).getByLabelText(t.templates.name), 'Lista');
+  await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Plantilla nueva');
+  await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.password), 'mi-clave');
+  await userEvent.click(within(dialog).getByRole('button', { name: t.templates.save }));
+  await waitFor(() => expect(posted(fetch, '/galaxy/api/admin/config/mail')).toHaveLength(1));
+  expect(posted(fetch, '/galaxy/api/admin/mail')).toEqual([]);
+});
