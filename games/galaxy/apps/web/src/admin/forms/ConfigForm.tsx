@@ -13,7 +13,7 @@ import { discriminatorOf, emptyOf, getIn, itemsOf, kindOf, liveIds, optionOf, pa
 // and the kind of an effect choosing its fields. Each field shows its own problems; the checks across fields show on
 // their group.
 
-export type Option = { value: string; label: string };
+export type Option = { value: string; label: string; image?: string };
 /** Named lists of choices (the live sectors, anomalies and probes; the content editor adds its own sources). */
 export type Options = Partial<Record<string, Option[]>>;
 /** A form's own description of a field (the content editor's descriptors), or none: the key's labels then. */
@@ -27,6 +27,8 @@ export interface WidgetProps {
   pattern: string;
   info: FieldInfo;
   set: (value: unknown) => void;
+  /** Its problems, in words. */
+  problems?: string[];
 }
 /** Widgets by the pattern they replace («sectors[].spawns», «bosses[].phases»): components made once, never per render. */
 export type Widgets = Partial<Record<string, ComponentType<WidgetProps>>>;
@@ -254,10 +256,67 @@ function Row({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: s
 }
 
 /** Words, one per line. */
+/** A list of words: one per line, or, when they are ids with a source of choices, picked by name (PickList). */
 function Words({ path, pattern }: { path: Path; pattern: string }) {
-  const { root, set, info } = useForm();
-  const id = useId();
+  const { info, options } = useForm();
   const field = info(pattern);
+  const choices = field.options ? options[field.options] : undefined;
+  return choices ? <PickList path={path} field={field} choices={choices} /> : <Lines path={path} field={field} />;
+}
+
+/**
+ * Ids picked by name, in order (the content editor, 2026-11-16, P5: a Core's forms): each with its drawing, moved up
+ * and down or removed, and «Añadir <noun>» from the choices. An id the choices do not know stays, marked.
+ */
+function PickList({ path, field, choices }: { path: Path; field: FieldInfo; choices: Option[] }) {
+  const { root, set } = useForm();
+  const id = useId();
+  const value = (getIn(root, path) as string[] | undefined) ?? [];
+  const noun = field.noun ?? 'elemento';
+  const move = (i: number, d: number) => {
+    const next = [...value];
+    [next[i], next[i + d]] = [next[i + d]!, next[i]!];
+    set(path, next);
+  };
+  return (
+    <div className="cf-field cf-words cf-picks">
+      <span id={`${id}-l`} className="cf-absent-label">
+        {field.label}
+      </span>
+      {field.hint ? <small className="cf-hint">{field.hint}</small> : null}
+      <ol className="cf-pick-list" aria-labelledby={`${id}-l`}>
+        {value.map((v, i) => {
+          const o = choices.find((c) => c.value === v);
+          const name = o?.label ?? v;
+          return (
+            <li key={`${v}-${i}`} className={o ? undefined : 'bad'}>
+              <span className="cf-pick-pos" aria-hidden="true">
+                {i + 1}
+              </span>
+              {o?.image ? <img src={o.image} alt="" width={28} height={28} /> : <span className="cf-pick-blank" aria-hidden="true" />}
+              <b>{name}</b>
+              <button type="button" className="cf-icon-btn" aria-label={`Subir ${name}`} disabled={i === 0} onClick={() => move(i, -1)}>
+                <Icon name="up" />
+              </button>
+              <button type="button" className="cf-icon-btn" aria-label={`Bajar ${name}`} disabled={i === value.length - 1} onClick={() => move(i, 1)}>
+                <Icon name="down" />
+              </button>
+              <button type="button" className="cf-icon-btn danger" aria-label={`Quitar ${name}`} onClick={() => set(path, value.filter((_, k) => k !== i))}>
+                <Icon name="trash" />
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <Select size="sm" aria-label={`Añadir ${noun}`} value="" placeholder={`Añadir ${noun}`} options={choices} onChange={(v) => set(path, [...value, v])} />
+      <Problems path={path} />
+    </div>
+  );
+}
+
+function Lines({ path, field }: { path: Path; field: FieldInfo }) {
+  const { root, set } = useForm();
+  const id = useId();
   const value = (getIn(root, path) as string[] | undefined) ?? [];
   const [text, setText] = useState(value.join('\n'));
   const [seen, setSeen] = useState(value.join('\n'));
@@ -659,11 +718,11 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
 
 /** Any node: the right control for its kind. `bare` draws an object's fields without its own frame (inside a card). */
 function Node({ node, path, pattern, optional, bare = false }: { node: JsonSchema; path: Path; pattern: string; optional: boolean; bare?: boolean }) {
-  const { root, set, widgets, info } = useForm();
+  const { root, set, widgets, info, issues } = useForm();
   const n = unwrap(node).node;
   // A widget made for this field replaces the generic control (the content editor's level tables, timelines…).
   const widget = widgets?.[pattern] ?? (pattern.includes('<') ? widgets?.[pattern.replace(/<[^>]*>/g, '')] : undefined);
-  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v) });
+  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v), problems: issues.get(pathKey(path)) });
   switch (kindOf(n)) {
     case 'object':
       return bare ? <Fields node={n} path={path} pattern={pattern} /> : <Group node={n} path={path} pattern={pattern} optional={optional} />;

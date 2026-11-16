@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DEFAULT_CONTENT } from './default';
+import { contentRefs, type RefKind } from './refs';
 import {
   BIOMES,
   type Content,
@@ -567,25 +568,21 @@ function ref(ctx: Ctx, known: ReadonlySet<string>, value: string, path: (string 
 
 type Shape = z.output<typeof shape>;
 
-/** Evolutions: from an existing base weapon of the same kind, one per weapon, one level, a known passive. */
+/** Evolutions: from a base weapon of the same kind, one per weapon, one level (that the base and the passive exist, refs). */
 function evolutions(c: Shape, ctx: Ctx): void {
-  const passives = new Set(c.passives.map((p) => p.id));
   const byId = new Map(c.weapons.map((w) => [w.id, w]));
   const taken = new Set<string>();
   c.weapons.forEach((w, i) => {
     if (!w.evolution) return;
     const bad = () => ctx.addIssue({ code: 'custom', message: `content_evolution:weapons.${i}`, path: ['weapons', i, 'evolution'] });
     const base = byId.get(w.evolution.from);
-    if (!base) ref(ctx, new Set(), w.evolution.from, ['weapons', i, 'evolution', 'from']);
-    else if (base.evolution || base.kind !== w.kind || taken.has(base.id)) bad();
+    if (base && (base.evolution || base.kind !== w.kind || taken.has(base.id))) bad();
     if (w.levels.length !== 1) bad();
     taken.add(w.evolution.from);
-    const req = w.evolution.requires;
-    if ('passive' in req) ref(ctx, passives, req.passive, ['weapons', i, 'evolution', 'requires', 'passive']);
   });
 }
 
-/** Variants: of a base weapon of the same kind (not an evolution, not a variant), at most one per base and level. */
+/** Variants: of a base weapon of the same kind (not an evolution, not a variant), at most one per base and level (refs: it exists). */
 function variants(c: Shape, ctx: Ctx): void {
   const byId = new Map(c.weapons.map((w) => [w.id, w]));
   const taken = new Set<string>();
@@ -593,8 +590,7 @@ function variants(c: Shape, ctx: Ctx): void {
     if (!w.variant) return;
     const bad = () => ctx.addIssue({ code: 'custom', message: `content_variant:weapons.${i}`, path: ['weapons', i, 'variant'] });
     const base = byId.get(w.variant.of);
-    if (!base) ref(ctx, new Set(), w.variant.of, ['weapons', i, 'variant', 'of']);
-    else if (base.evolution || base.variant || base.kind !== w.kind) bad();
+    if (base && (base.evolution || base.variant || base.kind !== w.kind)) bad();
     if (w.evolution) bad();
     const slot = `${w.variant.of}@${w.variant.unlockAt}`;
     if (taken.has(slot)) bad();
@@ -637,20 +633,15 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   ] as const) {
     unique(ctx, catalog, list.map((x) => x.id));
   }
-  const weapons = new Set(c.weapons.map((w) => w.id));
-  const enemies = new Set(c.enemies.map((e) => e.id));
-  const bosses = new Set(c.bosses.map((b) => b.id));
-  c.probes.forEach((p, i) => ref(ctx, weapons, p.weapon, ['probes', i, 'weapon']));
-  c.enemies.forEach((e, i) => {
-    if (e.split) ref(ctx, enemies, e.split.into, ['enemies', i, 'split', 'into']);
-    if (e.behavior.kind === 'summoner') ref(ctx, enemies, e.behavior.minion, ['enemies', i, 'behavior', 'minion']);
-  });
+  // Every entry the content names exists (refs.ts, the one list of them).
+  const known: Record<RefKind, Set<string>> = {
+    weapons: new Set(c.weapons.map((w) => w.id)),
+    passives: new Set(c.passives.map((p) => p.id)),
+    enemies: new Set(c.enemies.map((e) => e.id)),
+    bosses: new Set(c.bosses.map((b) => b.id)),
+  };
+  for (const r of contentRefs(c)) ref(ctx, known[r.kind], r.id, r.path);
   c.bosses.forEach((b, i) => {
-    b.phases.forEach((ph, j) =>
-      ph.patterns.forEach((p, k) => {
-        if (p.kind === 'summon') ref(ctx, enemies, p.enemy, ['bosses', i, 'phases', j, 'patterns', k, 'enemy']);
-      }),
-    );
     const ordered = b.phases[0]?.below === 1 && b.phases.every((ph, j) => j === 0 || ph.below < b.phases[j - 1]!.below);
     if (!ordered) ctx.addIssue({ code: 'custom', message: `content_phases:bosses.${i}`, path: ['bosses', i, 'phases'] });
   });
@@ -659,18 +650,13 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   reactions(c, ctx);
   sets(c, ctx);
   c.sectors.forEach((s, i) => {
-    ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
-    if (s.deepBoss) ref(ctx, bosses, s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
-    // Nov plan B4: every form exists, and each cycle starts with its Core (the one the hangar shows as form 1).
+    // Nov plan B4: each cycle starts with its Core (the one the hangar shows as form 1); its forms exist (refs).
     const cycles: [string, string[] | undefined, (string | number)[]][] = [[s.boss, s.bossCycle, ['sectors', i, 'bossCycle']]];
     if (s.deepBoss) cycles.push([s.deepBoss.boss, s.deepBoss.cycle, ['sectors', i, 'deepBoss', 'cycle']]);
     for (const [first, cycle, path] of cycles) {
       if (!cycle) continue;
-      cycle.forEach((b, j) => ref(ctx, bosses, b, [...path, j]));
       if (cycle[0] !== first) ctx.addIssue({ code: 'custom', message: `content_cycle:${path.join('.')}`, path });
     }
-    s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
-    s.waves.forEach((w, j) => ref(ctx, enemies, w.enemy, ['sectors', i, 'waves', j, 'enemy']));
   });
 });
 

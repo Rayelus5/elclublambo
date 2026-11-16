@@ -90,6 +90,14 @@ export function spriteDef(id: string): SpriteDef | undefined {
   return SPRITES[id] ?? SKIN_ART[id];
 }
 
+/**
+ * A drawing the arena can draw: `id`, or `fallback` when it has no such drawing (the content editor, 2026-11-16, P5).
+ * Publishing refuses unknown ids; this keeps a run alive if one slips through anyway.
+ */
+export function drawableId(id: string, fallback: string, has: (id: string) => boolean = (x) => x in SPRITES): string {
+  return has(id) ? id : fallback;
+}
+
 const urls = new Map<string, string>();
 
 /** A sprite as an image URL for the HUD and the hangar (`data:` URLs are allowed by the CSP). */

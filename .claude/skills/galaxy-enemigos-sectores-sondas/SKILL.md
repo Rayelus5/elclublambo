@@ -38,7 +38,7 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 **Enemigo:**
 1. En `enemies`: `family` de `ENEMY_FAMILIES`, `behavior` y `split` opcional.
 2. En los sectores: entradas en `spawns` (`from`, `weight`, `group`) y/o `waves`.
-3. Sprite en `apps/web/src/arena/sprites/fauna2.ts` (`FAUNA2`, 2 fotogramas o más).
+3. Sprite en `apps/web/src/arena/sprites/fauna2.ts` (`FAUNA2`, 2 fotogramas o más). Después regenera el catálogo de arte (CONTENIDO A6: `GALAXY_WRITE_ART=1 … art-catalog.test.ts`), o el panel no deja publicarlo.
 4. `BEAST_TEXT[id]` en `apps/web/src/codex/entries.ts`. Es obligatorio: sin él no sale en el bestiario.
 5. **Si el comportamiento es nuevo:**
    - `Behavior` en `types.ts`, la unión en `schema.ts` y el `switch` de `systems/enemies.ts`;

@@ -28,6 +28,7 @@ test('cada código del contenido tiene su frase en español', () => {
     'satellites_chances',
     'events_slot',
     'dash_too_fast',
+    'content_art:icon-zz',
   ]) {
     const text = issueText(code, DEFAULT_CONTENT);
     expect(text, code).not.toBe(code);

@@ -82,7 +82,8 @@ Por eso un cambio hecho en el panel se ve en todas partes sin desplegar. `DEFAUL
 
 ### A6. Arte
 
-- **El sprite va antes que el contenido.** La arena dibuja lo que manda el servidor: `atlas.frames[id]!` revienta si falta el sprite. El arte debe estar desplegado antes o a la vez que el contenido que lo usa; `apps/web/test/sprites.test.ts` lo comprueba para `DEFAULT_CONTENT`.
+- **El sprite va antes que el contenido.** El arte debe estar desplegado antes o a la vez que el contenido que lo usa; `apps/web/test/sprites.test.ts` lo comprueba para `DEFAULT_CONTENT`. Si aun así falta, la arena pinta uno conocido en vez de romper (`drawableId`).
+- **El catálogo de arte** (`packages/shared/src/config/art-catalog.ts`, generado): el panel, el servidor y la CLI rechazan publicar un `sprite` o un `icon` que la arena no tiene, y la galería del editor lo lee. **Tras añadir o cambiar un dibujo, regenéralo:** `GALAXY_WRITE_ART=1 pnpm exec vitest run --project web apps/web/test/art-catalog.test.ts`; sin hacerlo, ese test falla.
 - **Sprites de la arena:** rejillas pintadas en código (`apps/web/src/arena/sprites/*`).
   - Paleta `P`, contorno de 1 px `#0b0c24`, luz desde arriba a la izquierda.
   - Reglas en `docs/DESIGN_SYSTEM.md` §8 quater.

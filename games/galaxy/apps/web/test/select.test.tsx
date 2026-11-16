@@ -304,3 +304,13 @@ test('los atajos del juego no saltan con las letras que se escriben en el desple
   window.removeEventListener('keydown', listen);
   expect(typed).toBe(true);
 });
+
+test('una opción con dibujo lo enseña en la lista y en el elegido (el editor de contenido)', async () => {
+  const withArt = PLANETS.map((p) => ({ ...p, image: `data:image/png;base64,${p.value}` }));
+  render(<Planet options={withArt} aria-label="Planeta" />);
+  const trigger = screen.getByRole('combobox', { name: 'Planeta' });
+  expect(trigger.querySelector('img')).toHaveAttribute('src', 'data:image/png;base64,tierra');
+  await userEvent.setup().click(trigger);
+  const marte = screen.getByRole('option', { name: 'Marte' });
+  expect(marte.querySelector('img')).toHaveAttribute('src', 'data:image/png;base64,marte');
+});

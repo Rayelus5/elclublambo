@@ -126,3 +126,27 @@ for (const [w, h] of [
     });
   }
 }
+
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`la galería de dibujos a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount('/admin/configuracion/content?borrador=d1&zona=nucleos&id=hive');
+    await vi.waitFor(
+      () => {
+        if (!document.querySelector('.ce-art button')) throw new Error('sin dibujo');
+      },
+      { timeout: 8000 },
+    );
+    (document.querySelector('.ce-art button') as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      if (!document.querySelector('.ce-gallery-item img')) throw new Error('sin galería');
+    });
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    // The dialog's entrance ends before the picture.
+    await new Promise((r) => setTimeout(r, 500));
+    if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-gallery-${w}.png` });
+  });
+}

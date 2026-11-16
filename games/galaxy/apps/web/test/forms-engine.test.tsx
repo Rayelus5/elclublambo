@@ -133,3 +133,20 @@ test('«Más ajustes» se abre solo cuando un campo avanzado tiene un problema',
   render(<ConfigForm cfgKey="content" schema={enemy} value={mite} onChange={() => {}} issues={new Map([['sprite', ['No existe']]])} options={{}} prefix="enemies[]" describe={describe} />);
   expect(screen.getByText(/Más ajustes/).closest('details')).toHaveAttribute('open');
 });
+
+test('una lista de ids con opciones se elige por nombre, en orden, sin escribir ids', async () => {
+  const nebula = DEFAULT_CONTENT.sectors[0]!;
+  const start = { ...nebula, bossCycle: ['hive', 'hive-swarm'] };
+  const describe = (p: string) => (p === 'sectors[].bossCycle' ? { label: 'Formas del Núcleo', hint: 'h', options: 'bosses', noun: 'forma' } : undefined);
+  const bosses = DEFAULT_CONTENT.bosses.map((b) => ({ value: b.id, label: b.name }));
+  render(<Harness schema={sector} start={start} prefix="sectors[]" describe={describe} options={{ bosses }} />);
+  const list = screen.getByRole('list', { name: 'Formas del Núcleo' });
+  const names = () => within(list).getAllByRole('listitem').map((li) => li.querySelector('b')!.textContent);
+  expect(names()).toEqual(['La Colmena Rota', 'El Nido Voraz']);
+  const user = userEvent.setup();
+  await pickOption(user, screen.getByRole('combobox', { name: 'Añadir forma' }), 'La Reina Falsa');
+  expect(names()).toEqual(['La Colmena Rota', 'El Nido Voraz', 'La Reina Falsa']);
+  await user.click(within(list).getByRole('button', { name: 'Subir La Reina Falsa' }));
+  await user.click(within(list).getByRole('button', { name: 'Quitar El Nido Voraz' }));
+  expect(JSON.parse(screen.getByTestId('value').textContent!).bossCycle).toEqual(['hive', 'hive-queen']);
+});

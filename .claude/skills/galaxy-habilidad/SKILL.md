@@ -55,7 +55,7 @@ Ambos casos suben `SIM_VERSION` (`CONTENIDO.md` A3).
 
 ## 4. Arte
 
-- **Icono de 12×12:** `ICONS['icon-<id>']` en `apps/web/src/arena/sprites/icons.ts`.
+- **Icono de 12×12:** `ICONS['icon-<id>']` en `apps/web/src/arena/sprites/icons.ts`. Después regenera el catálogo de arte (CONTENIDO A6: `GALAXY_WRITE_ART=1 … art-catalog.test.ts`), o el panel no deja publicarlo.
   - El arma base va además en la lista `EVOLVING`, que genera el icono dorado `-evo`.
   - Las variantes van en la tabla `VARIANTS` del mismo archivo (marca `twin|wide|chain|rapid`, o elemento).
 - **Arte del Hangar** (solo armas iniciales y sus variantes): un pintor en `art/weapons/paint-weapons.lua`, que se ejecuta con el MCP de Aseprite o con el comando de `CONTENIDO.md` A6. Genera la tira de 128×32 en `apps/web/src/hangar/weapons/<id>.png`.

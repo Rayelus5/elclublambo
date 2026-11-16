@@ -1291,3 +1291,18 @@ Comprueba con `rayelus`:
 2. Cambia su vida: sale «Guardado» y «Qué cambia» lo dice con su nombre.
 3. Duplica una entrada y quítala; una publicada no deja quitarse.
 
+## Editor de contenido, P5: galería de dibujos, selectores y «dónde se usa»
+
+**Qué cambia.** Sin migraciones ni configuración que publicar. La simulación no cambia de comportamiento: el esquema comprueba las referencias desde una sola lista (`contentRefs`), con los mismos mensajes.
+
+**El código ya trae:**
+- **Catálogo de arte** (`ART`, generado de la arena): publicar `content` con un `sprite` o un `icon` que no existe se rechaza en el panel, el servidor y la CLI («El dibujo «x» no existe en el juego»). La arena, si aun así le llega uno, pinta otro conocido.
+- **Galería de dibujos:** el dibujo de un enemigo, un Núcleo, una sonda o el icono de un arma o pasiva se elige de una galería por grupos, con búsqueda y el elegido animado.
+- **Selectores con dibujo:** elegir un enemigo, un Núcleo o un arma enseña su dibujo; las formas de un Núcleo se ponen en orden por nombre, sin escribir ids.
+- **Dónde se usa:** la ficha de un arma, pasiva, enemigo o Núcleo dice dónde se usa; lo nuevo que ya se usa no se quita hasta dejar de usarlo.
+
+Comprueba con `rayelus`:
+1. En un borrador, Fauna → un enemigo → «Cambiar dibujo»: elige otro y mira que cambia.
+2. Sectores → un sector → «Formas del Núcleo»: añade, sube y quita formas.
+3. Núcleos → La Colmena Rota: dice «Se usa en N sitios» y los nombra.
+
