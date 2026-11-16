@@ -1407,6 +1407,18 @@ Comprueba con `rayelus`:
 - **Asistentes:** sus pestañas se recorren con las flechas y tienen su panel accesible.
 - **Vida por nivel del equipo:** sus tres campos (cuánto crece, desde qué nivel y el techo) ya no van en «Más ajustes». El techo dice que 1000 es «sin techo».
 
+## Menos enjambre, Núcleos más despejados y un Amplificador que se nota (SIM 1.19.0)
+
+**Por qué.** Los jugadores contaban que «se me siguen acumulando exageradas cantidades de enemigos pequeños y me cuesta muchas veces matar a los núcleos». Medido con el bot: una sonda que no despega llega al tope de 240 enemigos vivos, y entre el 60 % y el 90 % son del enjambre; un combate contra el Núcleo que se alarga acaba rodeado.
+
+**Qué cambia:**
+- **Enjambre a raya** (`sectors[].swarm`, campo nuevo con valor por defecto). Con 60 del enjambre vivos (Ácaro, Celulita, Esquirla, Pólipo y Ascua), sus grupos dejan de salir y salen los demás. Desde el minuto 8 de la incursión salen un 10 % menos por minuto, hasta quedarse en la mitad, y su hueco lo ocupan otros. La mitad, y no el 30 %, porque calibrado (16 semillas, Nebulosa) es la única variante en la que ni el bot avanzado ni el Sifón tienen incursiones eternas. Lo publicado antes toma estos valores al desplegar.
+- **Contra el Núcleo:** aparece una cuarta parte de lo de siempre (`density.bossFactor` 0,25; antes, la mitad).
+- **Amplificador:** +10, +20, +35, +60 y +100 % (antes +10, +20, +30, +40 y +50 %).
+- **Curación del Sifón al 1,5 %** (`healing.base`, antes 1 %), por decisión del propietario. Calibrado, 2 de cada 16 incursiones del bot avanzado vuelven a ser eternas, y él lo acepta.
+
+**Después de desplegar:** `bossFactor`, el Amplificador y la curación ya están publicados en PRE con sus valores antiguos, así que hay que publicarlos (`sectors`, `passives` y `healing`) partiendo de lo vivo. El enjambre no hay que publicarlo: entra con su valor por defecto.
+
 ## Buzón v2, P1: el motor de regalos
 
 **Qué cambia.**

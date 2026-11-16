@@ -90,7 +90,8 @@ describe('Onda de choque (nova)', () => {
     refreshStats(sim, p);
     const e = target(sim, 80, 0);
     step(sim, [IDLE]);
-    expect(lost(sim, e)).toBeCloseTo(14 * 1.5, 9);
+    // At its last level it doubles the damage (the owner, 2026-11-16; it was +50 %).
+    expect(lost(sim, e)).toBeCloseTo(14 * 2, 9);
   });
 });
 

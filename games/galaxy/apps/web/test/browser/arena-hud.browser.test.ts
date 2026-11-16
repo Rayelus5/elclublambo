@@ -37,8 +37,13 @@ afterEach(() => {
 /** A busy CI browser may lose the window's focus, which pauses the run (by design): back to it. */
 const unpause = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === copy.arena.resume)?.click();
 
-/** Plays `ticks` with the bot before the screen starts its own loop. */
+/**
+ * Plays `ticks` with the bot before the screen starts its own loop. The probe cannot fall: these tests look at the
+ * screen at a moment of the run (the Núcleo's bar at 5:02), not at whether the bot survives, which any balance change
+ * moves (SIM 1.19.0: this seed's bot fell at 4:05).
+ */
 function advance(sim: Sim, ticks: number): void {
+  sim.debug = { god: true };
   while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
     const p = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);

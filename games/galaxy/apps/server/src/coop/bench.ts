@@ -17,7 +17,11 @@ export interface BenchResult {
 export function benchReferee(opts: { ticks: number; players: number }): BenchResult {
   const c = structuredClone(DEFAULT_CONTENT);
   // Crowded on purpose: the pool fills within seconds and stays full.
-  for (const s of c.sectors) s.density = { ...s.density, base: 60, max: 60, perMinute: 0, cap: c.limits.enemies, perLayer: 0 };
+  // Without the swarm's cap and fade (SIM 1.19.0): the bench measures the worst crowd, a full pool.
+  for (const s of c.sectors) {
+    s.density = { ...s.density, base: 60, max: 60, perMinute: 0, cap: c.limits.enemies, perLayer: 0 };
+    s.swarm = { cap: 0, fadeFrom: 120, fadePerMinute: 0, fadeFloor: 1 };
+  }
   const sim = createSim({
     seed: '20261116',
     content: c,

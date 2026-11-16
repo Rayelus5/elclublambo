@@ -100,18 +100,45 @@ export function aliveCap(sim: Sim): number {
   return Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * layerCrowd(sim) * fight * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
 }
 
+/**
+ * How much of its weight a swarm species keeps now (2026-11-16): all of it until minute `fadeFrom` of the run, then a
+ * `fadePerMinute` less each minute down to `fadeFloor`.
+ */
+export function swarmWeight(sim: Sim): number {
+  const { fadeFrom, fadePerMinute, fadeFloor } = sim.sector.swarm;
+  const past = sim.tick / 3600 - fadeFrom;
+  return past <= 0 ? 1 : Math.max(fadeFloor, 1 - fadePerMinute * past);
+}
+
+/** How many of the swarm family are alive (any of them: from groups, waves, splits or summons). */
+function aliveSwarm(sim: Sim): number {
+  const en = sim.enemies;
+  const defs = sim.content.enemies;
+  let n = 0;
+  for (let e = 0; e < en.top; e++) if (en.alive[e] && !en.boss[e] && defs[en.type[e]!]?.family === 'swarm') n++;
+  return n;
+}
+
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
   if (aliveFauna(sim) >= aliveCap(sim)) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
   if (open.length === 0) return;
+  // The swarm kept in check: none while too many of it are alive (the cap grows with a group like the rest of the
+  // crowd), and less of it as the run goes on; the other species take its share.
+  const { cap } = sector.swarm;
+  const full = cap > 0 && aliveSwarm(sim) >= Math.round(cap * coopFactor(sim, 'density'));
+  const fade = swarmWeight(sim);
+  const isSwarm = (id: string) => sim.content.enemies.find((e) => e.id === id)?.family === 'swarm';
+  const weightOf = (s: (typeof open)[number]) => (isSwarm(s.enemy) ? (full ? 0 : s.weight * fade) : s.weight);
+  const total = open.reduce((a, s) => a + weightOf(s), 0);
+  if (!(total > 0)) return;
   const rng = sim.rng.spawn;
-  const total = open.reduce((a, s) => a + s.weight, 0);
   let r = rng.float() * total;
-  let entry = open[open.length - 1]!;
+  let entry = open.findLast((s) => weightOf(s) > 0)!;
   for (const s of open) {
-    r -= s.weight;
+    r -= weightOf(s);
     if (r < 0) {
       entry = s;
       break;
