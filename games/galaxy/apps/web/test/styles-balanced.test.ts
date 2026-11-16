@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
 
 // The stylesheet parses (mail v2, 2026-11-16): a merge once dropped a block's closing brace, and only the browser tests
-// (which load the CSS) noticed. Every block opened is closed, outside comments and strings.
+// (which load the CSS) noticed. Every block opened is closed (comments aside).
 test('app.css cierra cada bloque que abre', () => {
-  const css = readFileSync(new URL('../src/styles/app.css', import.meta.url), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  const css = readFileSync(resolve(process.cwd(), 'apps/web/src/styles/app.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
   let depth = 0;
   let lowest = 0;
   for (const ch of css) {
