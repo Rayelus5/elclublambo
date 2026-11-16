@@ -436,9 +436,18 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           disabled={issues.length > 0 || d.fields.length === 0 || !acked}
           error={publish.error}
           label={t.publish}
-          onPublish={(reason, password) =>
-            publish.mutate({ reason, password }, { onSuccess: (r) => onClose(r.versions.content ? t.published(r.versions.content) : undefined) })
-          }
+          onPublish={(reason, password) => {
+            // What was changed a moment ago is saved first (no waiting for the pause), and the publish goes after every
+            // save in the queue: what is published is what the admin sees.
+            if (timer.current) {
+              clearTimeout(timer.current);
+              timer.current = null;
+              save(doc);
+            }
+            void queue.current.then(() =>
+              publish.mutate({ reason, password }, { onSuccess: (r) => onClose(r.versions.content ? t.published(r.versions.content) : undefined) }),
+            );
+          }}
         />
         <button type="button" className="lip pill small danger" onClick={() => setAsking(true)}>
           {t.discard}

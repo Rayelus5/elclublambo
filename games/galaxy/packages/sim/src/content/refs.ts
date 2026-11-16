@@ -11,38 +11,51 @@ export interface ContentRef {
   path: (string | number)[];
 }
 
-export function contentRefs(c: Content): ContentRef[] {
+/** The entries of a list, skipping what is not one (a content being edited may hold anything while it is wrong). */
+type Loose = Record<string, unknown> & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+const each = (v: unknown, f: (x: Loose, i: number) => void) => {
+  if (Array.isArray(v)) v.forEach((x, i) => x && typeof x === 'object' && f(x as Loose, i));
+};
+
+/**
+ * Every place the content names one of its entries. A part that is broken (the panel's draft while its JSON is being
+ * written) is skipped, and the rest still counts; for a valid content it is exactly what the schema checks.
+ */
+export function contentRefs(content: Content): ContentRef[] {
+  const c = content as unknown as Loose;
   const out: ContentRef[] = [];
-  const add = (kind: RefKind, id: string, path: (string | number)[]) => out.push({ kind, id, path });
-  c.probes.forEach((p, i) => add('weapons', p.weapon, ['probes', i, 'weapon']));
-  c.weapons.forEach((w, i) => {
-    if (w.evolution) {
+  const add = (kind: RefKind, id: unknown, path: (string | number)[]) => {
+    if (typeof id === 'string') out.push({ kind, id, path });
+  };
+  each(c.probes, (p, i) => add('weapons', p.weapon, ['probes', i, 'weapon']));
+  each(c.weapons, (w, i) => {
+    if (w.evolution && typeof w.evolution === 'object') {
       add('weapons', w.evolution.from, ['weapons', i, 'evolution', 'from']);
       const req = w.evolution.requires;
-      if ('passive' in req) add('passives', req.passive, ['weapons', i, 'evolution', 'requires', 'passive']);
+      if (req && typeof req === 'object' && 'passive' in req) add('passives', req.passive, ['weapons', i, 'evolution', 'requires', 'passive']);
     }
-    if (w.variant) add('weapons', w.variant.of, ['weapons', i, 'variant', 'of']);
+    if (w.variant && typeof w.variant === 'object') add('weapons', w.variant.of, ['weapons', i, 'variant', 'of']);
   });
-  c.enemies.forEach((e, i) => {
-    if (e.split) add('enemies', e.split.into, ['enemies', i, 'split', 'into']);
-    if (e.behavior.kind === 'summoner') add('enemies', e.behavior.minion, ['enemies', i, 'behavior', 'minion']);
+  each(c.enemies, (e, i) => {
+    if (e.split && typeof e.split === 'object') add('enemies', e.split.into, ['enemies', i, 'split', 'into']);
+    if (e.behavior?.kind === 'summoner') add('enemies', e.behavior.minion, ['enemies', i, 'behavior', 'minion']);
   });
-  c.bosses.forEach((b, i) =>
-    b.phases.forEach((ph, j) =>
-      ph.patterns.forEach((p, k) => {
+  each(c.bosses, (b, i) =>
+    each(b.phases, (ph, j) =>
+      each(ph.patterns, (p, k) => {
         if (p.kind === 'summon') add('enemies', p.enemy, ['bosses', i, 'phases', j, 'patterns', k, 'enemy']);
       }),
     ),
   );
-  c.sectors.forEach((s, i) => {
+  each(c.sectors, (s, i) => {
     add('bosses', s.boss, ['sectors', i, 'boss']);
-    s.bossCycle?.forEach((b, j) => add('bosses', b, ['sectors', i, 'bossCycle', j]));
-    if (s.deepBoss) {
+    if (Array.isArray(s.bossCycle)) s.bossCycle.forEach((b: unknown, j: number) => add('bosses', b, ['sectors', i, 'bossCycle', j]));
+    if (s.deepBoss && typeof s.deepBoss === 'object') {
       add('bosses', s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
-      s.deepBoss.cycle?.forEach((b, j) => add('bosses', b, ['sectors', i, 'deepBoss', 'cycle', j]));
+      if (Array.isArray(s.deepBoss.cycle)) s.deepBoss.cycle.forEach((b: unknown, j: number) => add('bosses', b, ['sectors', i, 'deepBoss', 'cycle', j]));
     }
-    s.spawns.forEach((sp, j) => add('enemies', sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
-    s.waves.forEach((w, j) => add('enemies', w.enemy, ['sectors', i, 'waves', j, 'enemy']));
+    each(s.spawns, (sp, j) => add('enemies', sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
+    each(s.waves, (w, j) => add('enemies', w.enemy, ['sectors', i, 'waves', j, 'enemy']));
   });
   return out;
 }
