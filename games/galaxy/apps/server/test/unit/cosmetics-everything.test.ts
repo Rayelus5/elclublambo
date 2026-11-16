@@ -28,3 +28,10 @@ test('--all: también lo que se gana jugando, en eventos y en la temporada; nunc
   // Each piece once.
   expect(new Set(got.titles).size).toBe(got.titles.length);
 });
+
+test('--shop: también las piezas de los packs de la tienda (2026-11-17)', () => {
+  const set = { ...shop.products.find((p) => p.id === 'style-skin-lumen')!, id: 'skins-prueba', kind: 'set' as const, cosmetic: null, pieces: [{ kind: 'frame' as const, id: 'abyss' }, { kind: 'skin' as const, id: 'skin-lumen-coral' }] };
+  const got = cosmeticsToGrant({ ...sources, shopProducts: [...shop.products, set] }, 'shop');
+  expect(got.frames).toContain('abyss');
+  expect(got.skins).toContain('skin-lumen-coral');
+});
