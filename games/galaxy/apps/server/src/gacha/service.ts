@@ -20,6 +20,7 @@ import {
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
+import { galaxyValues } from '../galaxies/insert';
 import { inTransaction } from '../db/tx';
 import { madridDay } from '../economy/day';
 import { credit, debit, getWallet } from '../economy/wallet';
@@ -176,22 +177,8 @@ export async function pull(
     const g = generateGalaxy(pullSeed, outcome.tier, outcome.featured ? banner.featured : undefined);
     const row = await trx
       .insertInto('galaxy.galaxies')
-      .values({
-        owner_id: accountId,
-        seed: g.seed.toString(),
-        engine_version: ENGINE_VERSION,
-        traits: JSON.stringify(g.traits),
-        dna: g.dna,
-        name: g.name,
-        designation: g.designation,
-        tier: outcome.tier,
-        score: g.score,
-        finish: outcome.finish,
-        featured: outcome.featured,
-        origin: 'pull',
-        // The origin seal (GDD §8.4): the season it was born in.
-        season: season?.id ?? null,
-      })
+      // The origin seal (GDD §8.4): the season it was born in.
+      .values(galaxyValues(g, { owner: accountId, tier: outcome.tier, finish: outcome.finish, featured: outcome.featured, origin: 'pull', season: season?.id ?? null }))
       .returning('id')
       .executeTakeFirstOrThrow();
     await trx

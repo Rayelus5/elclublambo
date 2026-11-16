@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { ENGINE_VERSION } from '@galaxy/engine';
 import {
   type AutoFusionCandidate,
   type AutoFusionCriteria,
@@ -35,6 +34,7 @@ import { type Kysely, type RawBuilder, type Selectable, sql } from 'kysely';
 import { z } from 'zod';
 import type { ConfigReader } from '../config/reader';
 import type { DB, GalaxiesTable } from '../db/schema';
+import { galaxyValues } from '../galaxies/insert';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import type { WithLive } from '../realtime/notices';
@@ -393,20 +393,7 @@ async function fuseLocked(
   const finish = drawFinish(fusionSeed, gacha);
   const row = await trx
     .insertInto('galaxy.galaxies')
-    .values({
-      owner_id: ownerId,
-      seed: g.seed.toString(),
-      engine_version: ENGINE_VERSION,
-      traits: JSON.stringify(g.traits),
-      dna: g.dna,
-      name: g.name,
-      designation: g.designation,
-      tier: recipe.tier,
-      score: g.score,
-      finish,
-      origin: 'fusion',
-      lineage: ids,
-    })
+    .values(galaxyValues(g, { owner: ownerId, tier: recipe.tier, finish, origin: 'fusion', lineage: ids }))
     .returning([...SUMMARY])
     .executeTakeFirstOrThrow();
   return { galaxy: summary(row), score: row.score };

@@ -1418,3 +1418,19 @@ Comprueba con `rayelus`:
 - **Curación del Sifón al 1,5 %** (`healing.base`, antes 1 %), por decisión del propietario. Calibrado, 2 de cada 16 incursiones del bot avanzado vuelven a ser eternas, y él lo acepta.
 
 **Después de desplegar:** `bossFactor`, el Amplificador y la curación ya están publicados en PRE con sus valores antiguos, así que hay que publicarlos (`sectors`, `passives` y `healing`) partiendo de lo vivo. El enjambre no hay que publicarlo: entra con su valor por defecto.
+
+## Buzón v2, P1: el motor de regalos
+
+**Qué cambia.**
+- **Migración** `20261116190000_galaxy_gift_grants.sql`: `season_adjustments.source` acepta también `mail`.
+- **Sin interfaz todavía**, y sin cambios en la simulación ni configuración que publicar.
+
+**El código ya trae:**
+- **Regalos de todo tipo** (`packages/shared/src/gifts/`): recursos (también material, componentes, señales de un evento y la moneda de la temporada), cosméticos, galaxias (rareza, acabado y un rasgo opcional), sondas, experiencia y puntos de temporada.
+- **Qué impide enviar un regalo:** que no exista o ya no se pueda dar (`giftIssues`).
+- **Qué lo hace grande:** pasar los límites de `mailLimits` (`bigGiftReasons`), y entonces solo lo envía un superadmin.
+- **`grantGifts`**, en el servidor, da cada regalo dentro de la transacción de quien lo llama.
+  - Los recursos van al libro de cuentas, con la clave `<clave>:<moneda>`.
+  - Las piezas, galaxias y sondas van a la auditoría.
+  - Las galaxias salen de una semilla que depende de la clave, así que la misma recogida da siempre las mismas.
+- **`galaxyValues`**: el escáner, la fusión y la concesión del admin escriben ahora las galaxias igual.

@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { ENGINE_VERSION } from '@galaxy/engine';
 import {
   ADMIN_CURRENCIES,
   ADMIN_PLAYERS_PAGE,
@@ -24,6 +23,7 @@ import { hashPassword, verifyPassword } from '../auth/password';
 import { lockClan, removeMember } from '../clans/service';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
+import { galaxyValues } from '../galaxies/insert';
 import { inTransaction } from '../db/tx';
 import { credit, debit } from '../economy/wallet';
 import { releaseHolds } from '../market/escrow';
@@ -358,7 +358,7 @@ export async function grantGalaxy(deps: AdminDeps, actor: AuditActor, username: 
   return inTransaction(deps.db, async (trx) => {
     const row = await trx
       .insertInto('galaxy.galaxies')
-      .values({ owner_id: a.id, seed: g.seed.toString(), engine_version: ENGINE_VERSION, traits: JSON.stringify(g.traits), dna: g.dna, name: g.name, designation: g.designation, tier, score: g.score, finish: req.finish, origin: 'grant' })
+      .values(galaxyValues(g, { owner: a.id, tier, finish: req.finish, origin: 'grant' }))
       .returning('id')
       .executeTakeFirstOrThrow();
     await writeAudit(trx, { actor, action: 'player.galaxy_grant', ...target(a.id), after: { galaxy: row.id, name: g.name, tier: req.tier, finish: req.finish, type: g.traits.galaxy_type, seed: g.seed.toString() }, reason: req.reason });
