@@ -60,16 +60,16 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     await page.goto('/galaxy/admin/comunicacion');
     // The message, to this player only, with 100 coins (the password, since it gives something).
     const compose = page.getByRole('form', { name: 'Enviar un mensaje' });
-    await compose.getByLabel('Título').fill('Regalo de prueba');
+    await compose.getByLabel('Título', { exact: true }).fill('Regalo de prueba');
     await compose.getByLabel('Mensaje', { exact: true }).fill('Gracias por probar el buzón');
     await pickOption(compose, 'Para', 'Una lista de cuentas');
-    await compose.getByLabel('Cuentas').fill(name);
+    await compose.getByLabel('Cuentas', { exact: true }).fill(name);
     await expect(compose.getByText('Llega a 1 cuenta')).toBeVisible();
     // Mail v2 (P3): the gift is chosen in the picker and goes into the tray.
     await compose.getByLabel('Cantidad de monedas').fill('100');
     await compose.getByRole('button', { name: 'Añadir monedas' }).click();
     await expect(compose.getByRole('button', { name: 'Quitar 100 monedas' })).toBeVisible();
-    await compose.getByLabel('Motivo').fill('Prueba del buzón');
+    await compose.getByLabel('Motivo', { exact: true }).fill('Prueba del buzón');
     await compose.getByLabel('Tu contraseña').fill(creds.password);
     await compose.getByRole('button', { name: 'Enviar a 1 cuenta' }).click();
     await expect(page.getByRole('status')).toHaveText('Enviado a 1 cuenta. Queda en la auditoría');
