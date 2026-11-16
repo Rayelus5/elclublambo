@@ -1233,3 +1233,17 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
 
 Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae cada evento y cada peligro; completar cada uno da su aviso con lo que suelta; los resultados cobran ese botín sin `loot_cap`.
 
+## Peligros más grandes (SIM 1.18.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: cambian los valores por defecto de `content.events`, que el contenido publicado no fija. La simulación pasa a **SIM_VERSION 1.18.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae**, a petición del propietario («las áreas de daño… deberían de ser mucho mayores»):
+- cada meteorito: radio de 24 a 52, repartidos en 220;
+- la tormenta: radio de 70 a 130, y sale a 300;
+- el pozo: corazón que daña de 18 a 48, atracción de 150 a 220, y sale a 260;
+- la tormenta pinta sus chispas según su tamaño.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae la lluvia de meteoritos, la tormenta y el pozo con sus áreas grandes.
+
