@@ -348,6 +348,16 @@ R.auroraV = { '#5a43d6', '#b39dff', '#f0e6ff' }
 R.obsidian = { '#0e0b1c', '#241c3a', '#3e3260' }
 R.royal = { '#4a0f6a', '#8e2bb3', '#e05cff' }
 R.gold = { '#a0661a', '#ffc94a', '#fff2b8' }
+-- The shop's skin packs (2026-11-17): Navidad and Fuego.
+R.xmasRed = { '#7a0f22', '#d8283c', '#ff7a8a' }
+R.candy = { '#b9bfe6', '#f3f5ff', '#ffffff' }
+R.pine = { '#0b5a3a', '#17a05e', '#6fe3a0' }
+R.snow = { '#8fa4dc', '#e6ecff', '#ffffff' }
+R.star = { '#c27a10', '#ffc94a', '#fff6c8' }
+R.holly = { '#08402a', '#127a46', '#3cb86c' }
+R.char = { '#1a0a08', '#3a140c', '#5e2414' }
+R.lava = { '#b0220c', '#ff6a1c', '#ffd24a' }
+R.ember = { '#8a2a0c', '#e8561c', '#ffa04a' }
 
 local function hullBox(M)
   local x0, y0, x1, y1 = W, H, -1, -1
@@ -560,6 +570,157 @@ local SKINS = {
       polyOver(M, { { fx + 0.5, b.cy - 1.5 }, { fx + 0.5, b.cy + 2.5 }, { fx + 3.5, b.cy + 0.5 } }, 'prow')
     end,
   },
+  -- Navidad (the shop's Christmas pack, 2026-11-17): Santa's red with white plating in candy-cane stripes, a Santa hat
+  -- on top whose pompom bobs, a garland of bulbs along the body that light up one after another, and snowflakes
+  -- drifting down round it. Eight frames.
+  {
+    line = 'navidad',
+    look = {
+      hull = R.holly, hull2 = R.holly, trim = R.candy, trim2 = R.candy, glass = R.ice, core = R.star, lights = R.xmasRed, engine = R.star,
+      hat = R.xmasRed, brim = R.snow, garland = R.star, bulb = R.star,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The plating in candy-cane stripes: red over every other pair of diagonals, with the plating's own edges.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            local m = M[y][x]
+            if (m == 'trim' or m == 'trim2') and (x + y) % 4 < 2 then casco[y][x] = R.xmasRed[toneOf(M, x, y)] end
+          end
+        end
+        -- The bulbs light up in turn, red, gold, blue and green, a step every frame.
+        local BULBS = { '#ff4a5e', '#ffc94a', '#6fb7ff', '#6fe3a0' }
+        local k = 0
+        for x = 0, W - 1 do
+          for y = 0, H - 1 do
+            if M[y][x] == 'bulb' then
+              luces[y][x] = (k + f) % 4 == 0 and '#fff6c8' or BULBS[(k % 4) + 1]
+              k = k + 1
+            end
+          end
+        end
+        -- The pompom at the hat's tip, bobbing a pixel.
+        if b.pom then
+          local dy = (f % 4 < 2) and 0 or 1
+          for _, d in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+            local x, y = b.pom[1] + d[1], b.pom[2] + d[2] + dy
+            if inside(x, y) and not casco[y][x] and not luces[y][x] then casco[y][x] = R.snow[(d[1] == 0 and d[2] == 0) and 3 or 2] end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Three snowflakes falling at their own pace, a plus every other frame.
+        for k, at in ipairs({ { 2, 0 }, { 21, 9 }, { 11, 15 } }) do
+          local x = at[1] + ((f + k) % 4 < 2 and 0 or 1)
+          local y = (at[2] + f * 3) % H
+          if inside(x, y) and not merged[y][x] then
+            merged[y][x], luces[y][x] = '#ffffff', '#ffffff'
+            if (f + k) % 2 == 0 then
+              for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                local qx, qy = x + d[1], y + d[2]
+                if inside(qx, qy) and not merged[qy][qx] then merged[qy][qx], luces[qy][qx] = '#bfe3ff', '#bfe3ff' end
+              end
+            end
+          end
+        end
+      end,
+    },
+    shape = function(M, look)
+      local b = hullBox(M)
+      -- A garland sagging along the lower half of the body, a bulb every third pixel.
+      local x0, x1 = b.x0 + 2, b.x1 - 2
+      for x = x0, x1 do
+        local t = (x - x0) / math.max(x1 - x0, 1)
+        local y = math.floor(b.cy + 2 + math.sin(t * math.pi) * 2 + 0.5)
+        local m = inside(x, y) and M[y][x]
+        if m == 'hull' or m == 'hull2' or m == 'trim' or m == 'trim2' then
+          M[y][x] = ((x - x0) % 3 == 1) and 'bulb' or 'garland'
+        end
+      end
+      -- A Santa hat on top: a band of white fur, a red cone that bends back, the pompom at its tip (drawn by frame).
+      local cx = b.cx
+      local top = topAt(M, cx) or b.y0
+      block(M, cx - 3, top - 1, cx + 3, top, 'brim')
+      local tip = math.max(top - 6, 1)
+      polyOver(M, { { cx - 2.5, top - 1 }, { cx + 3.5, top - 1 }, { cx, tip + 0.5 }, { cx - 2, tip + 0.5 } }, 'hat')
+      thick(M, cx - 2, tip + 1, cx - 4, tip + 2, 'hat')
+      look.box.pom = { cx - 6, tip + 2 }
+    end,
+  },
+  -- Fuego (the shop's fire pack): a body of charred rock split by cracks of lava that pulse, ember plating, tongues of
+  -- fire that flicker on its back and stream behind it, and embers rising off it. Eight frames.
+  {
+    line = 'fuego',
+    look = {
+      hull = R.char, hull2 = R.char, trim = R.ember, trim2 = R.ember, glass = R.lava, core = R.lava, lights = R.lava, engine = R.lava,
+      crack = R.lava,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The cracks: a glow running along them.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if M[y][x] == 'crack' then
+              local p = (x - f) % 4
+              luces[y][x] = R.lava[p == 0 and 3 or (p == 1 and 2 or 1)]
+            end
+          end
+        end
+        local function free(x, y) return inside(x, y) and not casco[y][x] and not luces[y][x] end
+        -- Three tongues of fire on its back, leaning back, each flickering to its own height.
+        local function topOf(x)
+          for y = 0, H - 1 do if M[y][x] then return y end end
+        end
+        for k, x0 in ipairs({ b.x0 + 2, b.cx - 1, b.cx + 3 }) do
+          local base = topOf(x0)
+          if base then
+            local h = 3 + math.floor(math.sin(f / n * math.pi * 2 + k * 2.1) * 1.5 + 0.5)
+            for i = 0, h do
+              local y = base - 1 - i
+              local x = x0 - math.floor(i / 2)
+              local tip = i >= h - 1
+              if free(x, y) then luces[y][x] = tip and R.lava[1] or (i < 2 and R.lava[3] or R.lava[2]) end
+              if not tip and free(x + 1, y) then luces[y][x + 1] = i < 1 and R.lava[2] or R.lava[1] end
+            end
+          end
+        end
+        -- Two streams of fire behind it, licking back.
+        for k, dy in ipairs({ -3, 3 }) do
+          local y0 = b.cy + dy
+          local x0 = backAt(M, y0) or b.x0
+          local len = 3 + (f + k * 3) % 3
+          for i = 1, len do
+            local x = x0 - i
+            local y = y0 + math.floor(math.sin(f / n * math.pi * 2 + i * 0.8 + k) * 0.8 + 0.5)
+            if free(x, y) then luces[y][x] = i <= 1 and R.lava[3] or (i < len and R.lava[2] or R.lava[1]) end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Embers rising off it and fading as they go.
+        for k, x0 in ipairs({ 7, 13, 18 }) do
+          local t = ((f + k * 3) % n) / n
+          local x = math.floor(x0 - t * 3 + 0.5)
+          local y = math.floor(16 - t * 16 + 0.5)
+          if inside(x, y) and not merged[y][x] then
+            local c = t < 0.4 and R.lava[3] or (t < 0.75 and R.lava[2] or R.ember[1])
+            merged[y][x], luces[y][x] = c, c
+          end
+        end
+      end,
+    },
+    shape = function(M)
+      local b = hullBox(M)
+      -- A crack of lava zigzagging along the body and a branch off it.
+      local y = b.cy - 1
+      for x = b.x0 + 1, b.x1 - 1 do
+        if (x % 3) == 0 then y = y + ((x % 6 == 0) and 1 or -1) end
+        if inside(x, y) and isHull(M[y][x]) then M[y][x] = 'crack' end
+      end
+      for i = 0, 2 do
+        local x, yy = b.cx - 1 - i, b.cy + 1 + i
+        if inside(x, yy) and isHull(M[yy][x]) then M[yy][x] = 'crack' end
+      end
+    end,
+  },
 }
 
 for _, id in ipairs(ORDER) do
@@ -573,7 +734,7 @@ for _, id in ipairs(ORDER) do
       for k, v in pairs(PROBES[id](S)) do look[k] = v end
       for k, v in pairs(skin.look) do look[k] = v end
       look.box = hullBox(S)
-      skin.shape(S)
+      skin.shape(S, look)
       build('skin-' .. probe .. '-' .. skin.line, S, look, 'skins/' .. probe .. '-' .. skin.line, skin.line)
     end
   end
