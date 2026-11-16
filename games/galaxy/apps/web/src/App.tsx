@@ -163,6 +163,7 @@ export function App() {
             {/* The run content's own page (the content editor, 2026-11-16): drafts on the server. */}
             <Route path="configuracion/content" element={<ContentScreen />} />
             <Route path="configuracion/mail" element={<PackLibraryScreen />} />
+            <Route path="configuracion/mail/avanzado" element={<ConfigKeyScreen keyName="mail" />} />
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
             <Route path="eventos" element={<EventsScreen />} />
             <Route path="eventos/:id" element={<EventWizardScreen />} />

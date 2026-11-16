@@ -359,8 +359,10 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
 }
 
 /** One key: its draft with live checks and the diff, publishing, its history and, for the gacha, the simulator. */
-export function ConfigKeyScreen() {
-  const { key = '' } = useParams();
+/** `keyName`: a key with its own page (the mail library) still has this one, for its history and the general editor. */
+export function ConfigKeyScreen({ keyName }: { keyName?: string } = {}) {
+  const params = useParams();
+  const key = keyName ?? params.key ?? '';
   const keys = useConfigKeys();
   const listed = isConfigKey(key) ? keys.data?.find((k) => k.key === (key as ConfigKey)) : undefined;
   // A big key (the run content) comes without its data in the list: its page asks for it.
