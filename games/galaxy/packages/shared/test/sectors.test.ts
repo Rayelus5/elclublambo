@@ -33,7 +33,7 @@ describe('sectores normales', () => {
 
 describe('la temporada', () => {
   test('abierta mientras es la de la configuración; cerrada y sin condición si no', () => {
-    expect(sectorStatus(rift, {}, cfg)).toEqual({ unlocked: true, condition: null, progress: 1, season: true });
+    expect(sectorStatus(rift, {}, cfg, { runs: 15 })).toEqual({ unlocked: true, condition: null, progress: 1, season: true });
     expect(sectorStatus(rift, {}, parseConfig('sectors', { season: null }))).toEqual({ unlocked: false, condition: null, progress: 0, season: true });
     expect(sectorStatus(rift, {}, parseConfig('sectors', { season: 'otra-temporada' }))).toMatchObject({ unlocked: false });
   });
@@ -69,3 +69,29 @@ describe('la clave `sectors`', () => {
     );
   });
 });
+
+// The season sector opens with 15 runs (2026-11-16), while its season is open; whoever already played it keeps it.
+describe('la Fisura a las 15 incursiones', () => {
+  test('con 14 incursiones está cerrada y dice cuánto falta; con 15 se abre', () => {
+    expect(sectorStatus(rift, {}, cfg, { runs: 14 })).toEqual({
+      unlocked: false,
+      condition: { sector: null, stat: 'runs', value: 15 },
+      progress: 14 / 15,
+      season: true,
+    });
+    expect(sectorStatus(rift, {}, cfg, { runs: 15 })).toMatchObject({ unlocked: true, progress: 1, season: true });
+  });
+
+  test('quien ya terminó una incursión en ella la conserva aunque tenga menos de 15', () => {
+    expect(sectorStatus(rift, { 'signal-rift': { ...zero, maxDepth: 1 } }, cfg, { runs: 3 })).toMatchObject({ unlocked: true });
+  });
+
+  test('fuera de temporada sigue cerrada aunque tenga las incursiones', () => {
+    expect(sectorStatus(rift, {}, { ...cfg, season: null }, { runs: 99 })).toMatchObject({ unlocked: false, condition: null, season: true });
+  });
+
+  test('sin condición de temporada (null) vuelve a abrirse para todos', () => {
+    expect(sectorStatus(rift, {}, { ...cfg, seasonUnlock: null }, { runs: 0 })).toMatchObject({ unlocked: true, condition: null });
+  });
+});
+

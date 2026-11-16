@@ -136,6 +136,7 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
           </tbody>
         </table>
         {r.breakdown.share < 1 && <p className="results-note static">{copy.results.share(Math.round(r.breakdown.share * 100), r.outcome === 'extracted')}</p>}
+        {r.breakdown.sector && r.breakdown.sector.factor !== 1 ? <p className="results-note static results-sector">{copy.results.sectorPay(r.breakdown.sector.factor)}</p> : null}
         {(r.breakdown.boosts ?? []).length > 0 && (
           <div className="results-daily results-boosts">
             <h3>{copy.boosts.resultsTitle}</h3>

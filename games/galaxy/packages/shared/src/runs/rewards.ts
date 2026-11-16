@@ -72,27 +72,31 @@ export interface RunPayout {
 /** Raw material a run brings (GDD §10.3): from its depth, Cores and kills, paid like the loot (share, daily yield, cap). */
 /** The run's raw material; the Laboratorio's `boost` (a fraction added, M4b-2) applies before the cap. */
 /** `global`: the boosts' multiplier on material (M6d-5), applied before the per-run cap like the Laboratorio's push. */
-export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost = 0, global = 1): number {
+/** `sector`: what the run's sector pays (2026-11-16); the per-run ceiling grows with it. */
+export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost = 0, global = 1, sector = 1): number {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   const m = cfg.material;
   const raw = claim.depth * m.perLayer + claim.bossKills * m.perBoss + (claim.kills / 100) * m.perHundredKills;
-  return Math.min(Math.floor(raw * share * factor * (1 + boost) * global + 1e-9), cfg.caps.runMaterial);
+  return Math.min(Math.floor(raw * share * factor * (1 + boost) * global * sector + 1e-9), Math.floor(cfg.caps.runMaterial * sector));
 }
 
 /**
  * Components from the run's breakable props (SIM 1.7.0): what was picked up, paid like the material (share, daily
  * yield, global boosts) and capped per run. Depth does not multiply them.
  */
-export function runComponents(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, global = 1): number {
+export function runComponents(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, global = 1, sector = 1): number {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   const raw = claim.loot.reduce((a, l) => a + (l.components ?? 0), 0);
-  return Math.min(Math.floor(raw * share * factor * global + 1e-9), cfg.caps.runComponents);
+  return Math.min(Math.floor(raw * share * factor * global * sector + 1e-9), Math.floor(cfg.caps.runComponents * sector));
 }
 
 /** The Laboratorio's push on a run's coins and dust (fractions added, M4b-2), applied before the per-run caps. */
 export type PayoutBoost = { coins: number; dust: number };
 
-/** `global`: the boosts' multipliers (M6d-5), applied before the per-run caps. */
+/**
+ * `global`: the boosts' multipliers (M6d-5), applied before the per-run caps. `sector`: what the run's sector pays
+ * (2026-11-16), applied the same way; the per-run ceilings grow with it, so an honest run is never cut for its sector.
+ */
 export function runPayout(
   claim: RunClaim,
   cfg: RunsConfig,
@@ -100,6 +104,7 @@ export function runPayout(
   penalized = false,
   boost: PayoutBoost = { coins: 0, dust: 0 },
   global: { coins: number; dust: number } = { coins: 1, dust: 1 },
+  sector = 1,
 ): RunPayout {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   let coins = 0;
@@ -111,13 +116,15 @@ export function runPayout(
     return { layer: i + 1, coins: l.coins, dust: l.dust, multiplier };
   });
   const k = share * factor;
-  const paidCoins = Math.floor(coins * k * (1 + boost.coins) * global.coins + 1e-9);
-  const paidDust = Math.floor(dust * k * (1 + boost.dust) * global.dust + 1e-9);
+  const paidCoins = Math.floor(coins * k * (1 + boost.coins) * global.coins * sector + 1e-9);
+  const paidDust = Math.floor(dust * k * (1 + boost.dust) * global.dust * sector + 1e-9);
+  const capCoins = Math.floor(cfg.caps.runCoins * sector);
+  const capDust = Math.floor(cfg.caps.runDust * sector);
   return {
-    coins: Math.min(paidCoins, cfg.caps.runCoins),
-    dust: Math.min(paidDust, cfg.caps.runDust),
+    coins: Math.min(paidCoins, capCoins),
+    dust: Math.min(paidDust, capDust),
     layers,
     share,
-    capped: paidCoins > cfg.caps.runCoins || paidDust > cfg.caps.runDust,
+    capped: paidCoins > capCoins || paidDust > capDust,
   };
 }

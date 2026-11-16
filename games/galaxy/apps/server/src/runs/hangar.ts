@@ -8,6 +8,8 @@ import {
   probeStatus,
   type RunStats,
   type SectorCard,
+  type AccountTotals,
+  sectorPay,
   type SectorsConfig,
   type SectorStats,
   sectorStatus,
@@ -93,7 +95,16 @@ export async function sectorStats(db: Kysely<DB>, accountId: string): Promise<Re
   return out;
 }
 
-function sectorCards(content: Content, stats: Record<string, SectorStats>, cfg: SectorsConfig): SectorCard[] {
+/**
+ * What decides whether a sector is open to the account: its stats in each sector and its runs in all of them (the season
+ * sector asks for `sectors.seasonUnlock` runs, 2026-11-16), counted like the probes' (`minSeconds` or more).
+ */
+export async function sectorAccess(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<{ stats: Record<string, SectorStats>; totals: AccountTotals }> {
+  const [stats, runs] = await Promise.all([sectorStats(db, accountId), runStats(db, accountId, minSeconds)]);
+  return { stats, totals: { runs: runs.runs } };
+}
+
+function sectorCards(content: Content, access: { stats: Record<string, SectorStats>; totals: AccountTotals }, cfg: SectorsConfig): SectorCard[] {
   return content.sectors.map((s) => {
     const boss = content.bosses.find((b) => b.id === s.boss);
     const fauna: SectorCard['fauna'] = [];
@@ -109,7 +120,8 @@ function sectorCards(content: Content, stats: Record<string, SectorStats>, cfg: 
       fauna,
       layerSeconds: s.layerSeconds,
       biome: s.biome,
-      ...sectorStatus(s, stats, cfg),
+      pay: sectorPay(cfg, s.id),
+      ...sectorStatus(s, access.stats, cfg, access.totals),
     };
   });
 }
@@ -237,7 +249,7 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
   const h = await ensureHangar(db, accountId);
   const now = deps.now();
   const assigned = await testedProbe(db, accountId);
-  const sectors = sectorCards(content, await sectorStats(db, accountId), sectorsCfg);
+  const sectors = sectorCards(content, await sectorAccess(db, accountId, probes.minRunSeconds), sectorsCfg);
   // A chosen sector that closed (the season ended, a condition was raised) falls back to the first open one.
   const chosen = sectors.find((s) => s.id === h.sector && s.unlocked) ?? sectors.find((s) => s.unlocked);
   const stats = await runStats(db, accountId, probes.minRunSeconds);

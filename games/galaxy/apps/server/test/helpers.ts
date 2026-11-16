@@ -129,6 +129,12 @@ export async function testApp(
 }
 
 /**
+ * The live config `sectors` with every sector paying ×1 and the season sector open to everyone (2026-11-16): for the
+ * tests whose figures were written before pay by sector; integration/sector-pay.test.ts checks the real defaults.
+ */
+export const NEUTRAL_SECTORS = { pay: {}, seasonUnlock: null };
+
+/**
  * A ConfigService that serves fixed values (schema defaults merged with `overrides`) without touching the shared DB,
  * so a test can close a banner or switch the gacha off without affecting other tests.
  */

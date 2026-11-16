@@ -684,6 +684,19 @@ export const configSchemas = {
           'broken-forge': { sector: 'hollow-reef', stat: 'bossKills', value: 1 },
         }),
       season: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('signal-rift'),
+      /**
+       * What a run in each sector pays (2026-11-16): coins, dust, material, components and season points, × this factor
+       * (experience never below ×1). The harder the sector, the more it pays; a sector not listed pays ×1.
+       */
+      pay: z
+        .record(z.string().regex(/^[a-z0-9-]{1,32}$/), z.number().min(0.1).max(3))
+        .default({ 'outer-nebula': 0.8, 'frost-rings': 1, 'hollow-reef': 1.25, 'broken-forge': 1.5, 'signal-rift': 1.8 }),
+      /** The season sector also asks for this many runs (any sector; null: open to everyone while its season is). */
+      seasonUnlock: z
+        .object({ stat: z.literal('runs'), value: z.number().int().min(1).max(10_000) })
+        .strict()
+        .nullable()
+        .default({ stat: 'runs', value: 15 }),
     })
     .strict(),
   /**
