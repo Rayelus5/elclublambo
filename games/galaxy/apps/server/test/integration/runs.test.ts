@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { generateGalaxy, type FinishRunRequest, PROBE_TEST, type RunResult, type RunStart, type Wallet } from '@galaxy/shared';
-import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64, worldSchedule } from '@galaxy/sim';
+import { DEFAULT_CONTENT, encodeLog, eventLootUpTo, SIM_VERSION, toBase64, worldSchedule } from '@galaxy/sim';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { madridDay } from '../../src/economy/day';
@@ -186,8 +186,11 @@ test('botín imposible: se paga recortado y la partida queda como sospechosa', a
   const { cookie } = await player();
   const run = await played(cookie, 7);
   const r = (await finish(cookie, run.id, body({ kills: 100, loot: [{ coins: 99_999, dust: 99_999 }] }))).json() as RunResult;
-  // Topes: 100 × 0,25 + 30 + 5 = 60 monedas; 100 × 0,12 + 10 + 6 min × 30 (objetos rotos) + 5 = 207 de polvo.
-  expect(r.payout).toMatchObject({ coins: 60, dust: 207 });
+  // Topes: 100 × 0,25 + 30 + 5 = 60 monedas; 100 × 0,12 + 10 + 6 min × 30 (objetos rotos) + 5 = 207 de polvo; y encima,
+  // lo más que pudieron soltar los eventos que su semilla tenía en esos 6 minutos (2026-11-16).
+  const layerSeconds = DEFAULT_CONTENT.sectors.find((s) => s.id === 'outer-nebula')!.layerSeconds;
+  const events = eventLootUpTo(run.seed, DEFAULT_CONTENT, 'outer-nebula', { depth: 1, ticks: 6 * 3600, layerSeconds });
+  expect(r.payout).toMatchObject({ coins: 60 + events.coins, dust: 207 + events.dust });
   const row = await ctx.db.selectFrom('galaxy.runs').select(['suspicious', 'flags', 'outcome']).where('id', '=', run.id).executeTakeFirstOrThrow();
   expect(row).toMatchObject({ suspicious: true, outcome: 'extracted' });
   expect(row.flags).toContain('loot_cap');
