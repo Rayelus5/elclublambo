@@ -48,6 +48,21 @@ function usesIn(value: Value, field: string, id: string): ContentRef[] {
   }
 }
 
+/** An entry of a list of things with ids (a draft's JSON may hold anything else, which is left out). */
+const isEntity = (x: unknown): x is Entity => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string';
+const entitiesOf = (v: unknown): Entity[] => (Array.isArray(v) ? v.filter(isEntity) : []);
+
+/** A free id from `base`: itself, else «base-2», «base-3»… cut so it never passes 32 letters. */
+export function uniqueId(base: string, taken: (id: string) => boolean): string {
+  const root = (base || 'nueva-entrada').slice(0, 32);
+  if (!taken(root)) return root;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const id = `${root.slice(0, 32 - suffix.length)}${suffix}`;
+    if (!taken(id)) return id;
+  }
+}
+
 const isEntityList = (v: unknown): v is Entity[] => Array.isArray(v) && v.length > 0 && v.every((x) => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string');
 
 /** Vocabularies of behaviours written in code: a new one is a programmer's job, which the choice says. */
@@ -72,23 +87,23 @@ function choicesOf(value: Value): Options {
 /** An entity's picture in the lists: its sprite or icon, or none. */
 function thumbOf(key: string, e: Entity, value: Value): string | null {
   let id: unknown = e.sprite ?? e.icon;
-  if (key === 'sectors') id = (value.bosses as Entity[] | undefined)?.find((b) => b.id === e.boss)?.sprite;
+  if (key === 'sectors') id = entitiesOf(value.bosses).find((b) => b.id === e.boss)?.sprite;
   return typeof id === 'string' ? artUrl(id, 2) : null;
 }
 
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-/** The areas, and «Otros» for top-level fields no area names yet. */
-function areasFor(value: Value): AreaDesc[] {
+/** The areas, and «Otros» for fields of the content no area names yet (never a key the content does not have). */
+function areasFor(): AreaDesc[] {
   const placed = new Set(AREAS.flatMap((a) => a.keys as string[]));
-  const rest = Object.keys(value).filter((k) => !placed.has(k));
+  const rest = Object.keys(configJsonSchema('content').properties ?? {}).filter((k) => !placed.has(k));
   return rest.length ? [...AREAS, { id: 'otros', title: t.others, summary: t.othersSummary, icon: 'list', keys: rest as AreaDesc['keys'] }] : [...AREAS];
 }
 
 export function ContentEditor({ value, live, onChange, issues }: { value: Value; live: Value; onChange: (next: Value) => void; issues: { path: string; message: string }[] }) {
   const [params, setParams] = useSearchParams();
   const schema = configJsonSchema('content');
-  const areas = useMemo(() => areasFor(value), [value]);
+  const areas = useMemo(() => areasFor(), []);
   const area = areas.find((a) => a.id === params.get('zona')) ?? areas[0]!;
   const keys = area.keys as string[];
   const wanted = params.get('id');
@@ -190,9 +205,11 @@ function EntityPanel({
   onSelect: (id: string) => void;
   onChange: (list: Entity[]) => void;
 }) {
-  const list = (value[field] as Entity[] | undefined) ?? [];
+  const list = entitiesOf(value[field]);
   const item = unwrap(itemsOf(node)).node;
   const [query, setQuery] = useState('');
+  // The ids this editor made (a new entry, a copy): they follow the entry's name until someone writes one by hand.
+  const [autoIds] = useState(() => new Set<string>());
   const published = useMemo(() => liveIds(live), [live]);
   const isPublished = (id: string) => published.has(`${field}[]|${id}`);
   const noun = DESCRIPTORS[`${field}[]`]?.noun ?? DESCRIPTORS[`${field}[]`]?.label?.toLowerCase() ?? t.entry;
@@ -202,8 +219,8 @@ function EntityPanel({
   const uses = current ? usesIn(value, field, current.id) : [];
   const schema = configJsonSchema('content');
   const unique = (base: string) => {
-    let id = base || 'nueva-entrada';
-    for (let n = 2; list.some((e) => e.id === id); n++) id = `${base}-${n}`.slice(0, 32);
+    const id = uniqueId(base, (x) => list.some((e) => e.id === x));
+    autoIds.add(id);
     return id;
   };
   const withIssues = new Set(issues.filter((i) => i.path.startsWith(`${field}.`)).map((i) => Number(i.path.split('.')[1])));
@@ -299,7 +316,13 @@ function EntityPanel({
               cfgKey="content"
               schema={item}
               value={current}
-              onChange={(next) => onChange(list.map((e, k) => (k === index ? (next as Entity) : e)))}
+              onChange={(next) => {
+                const entity = next as Entity;
+                onChange(list.map((e, k) => (k === index ? entity : e)));
+                // A new entry's id follows its name, or is written by hand: the panel follows it.
+                if (entity.id !== current.id) onSelect(entity.id);
+              }}
+              autoIds={autoIds}
               issues={issuesUnder(issues, `${field}.${index}`, value)}
               options={options}
               prefix={`${field}[]`}

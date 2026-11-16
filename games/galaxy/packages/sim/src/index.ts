@@ -76,6 +76,7 @@ export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
 export { createLiveReplayer, createReplayer, decodeEvents, decodeLog, encodeEvents, encodeLog, fromBase64, type LiveReplayer, logTicks, replay, type Replayer, toBase64 } from './recording';
 export { botInput, botPick } from './bot';
+export { type BotRun, type BotRunOptions, playBot } from './bot-run';
 export {
   debugClear,
   debugEvent,

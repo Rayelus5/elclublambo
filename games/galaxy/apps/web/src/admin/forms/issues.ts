@@ -1,3 +1,5 @@
+import { MIN_FAMILIES } from '@galaxy/sim';
+
 // What a config draft has wrong, said for an admin (polish phase 4). Zod's own messages arrive in Spanish already; the
 // checks the schemas add across fields arrive as codes, translated here.
 
@@ -64,6 +66,26 @@ const PREFIXED: Record<string, (rest: string, root: unknown) => string> = {
   lab_cycle: (id) => `El nodo «${id}» se necesita a sí mismo en cadena`,
   lab_payout_cap: (c) => `Las mejoras de pago de ${c === 'coins' ? 'monedas' : c === 'dust' ? 'polvo' : 'material'} suman más de la mitad`,
 };
+
+/** The run content's warnings (P7): allowed, probably not wanted; `arg` names what they are about. */
+const WARNINGS: Record<string, (arg: string) => string> = {
+  sector_hp_order: (prev) => `Sus enemigos no aguantan más que en ${prev}, el sector anterior: los sectores van de más fácil a más difícil`,
+  sector_core_order: (prev) => `Su Núcleo no hace más daño que en ${prev}, el sector anterior`,
+  season_not_hardest: () => 'El sector de temporada debería ser el más duro de todos',
+  sector_families: (n) => `Solo mezcla ${n} familias de enemigos; un sector normal debería tener al menos ${MIN_FAMILIES}`,
+  weapon_no_evolution: () => 'Esta arma no evoluciona en ninguna',
+  enemy_unused: () => 'No sale en ningún sector ni la invoca o la suelta nadie',
+  boss_unused: () => 'Ningún sector lo usa',
+  events_sector_unknown: (id) => `Tiene pesos para el sector «${id}», que no existe`,
+  sector_no_unlock: (name) => `${name} no tiene condición de desbloqueo: estará abierto para todos desde el principio`,
+  sector_no_pay: (name) => `${name} no tiene paga propia: pagará como un sector normal`,
+  season_sector_not_live: (name) => `${name} es de temporada, pero la temporada viva usa otro sector: nadie podrá jugarlo`,
+  probe_no_unlock: (name) => `${name} no tiene condición de desbloqueo: la tendrán todos desde el principio`,
+};
+
+export function warningText(w: { code: string; arg?: string }): string {
+  return WARNINGS[w.code]?.(w.arg ?? '') ?? w.code;
+}
 
 /** `root`: the value being checked, so a wrong reference can be named (the run content). */
 export function issueText(message: string, root?: unknown): string {

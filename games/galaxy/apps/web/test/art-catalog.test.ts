@@ -42,6 +42,8 @@ test('el catálogo de arte es el de la arena', () => {
       '',
     ].join('\n');
     writeFileSync(resolve(__dirname, '../../../packages/shared/src/config/art-catalog.ts'), file);
+    // This run imported the old catalog: the next run checks the new one.
+    return;
   }
   expect(ART).toEqual(now);
 });

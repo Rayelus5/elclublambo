@@ -31,7 +31,7 @@ export function SpritePicker({ value, pattern, info, set, problems }: WidgetProp
   const id = useId();
   const [open, setOpen] = useState(false);
   const current = typeof value === 'string' ? value : '';
-  const art = ART[current];
+  const art = Object.hasOwn(ART, current) ? ART[current] : undefined;
   const group: ArtGroup = ART_FIELDS[pattern as keyof typeof ART_FIELDS] ?? 'otros';
   return (
     <div className="cf-field ce-art">

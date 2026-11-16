@@ -51,7 +51,11 @@ export function PhaseTimeline({ value, node, path, pattern }: WidgetProps) {
   );
 }
 
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+/** Seconds as «m:ss», rounded to the second first (so never «0:60»). */
+export function clock(s: number): string {
+  const total = Math.round(s);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
 
 /** A sector's first layer: from when each species comes (and how often, by its weight), and its waves. */
 export function SpawnTimeline({ value, node, path, pattern, root, options }: WidgetProps) {

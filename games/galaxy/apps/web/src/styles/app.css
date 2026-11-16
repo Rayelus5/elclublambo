@@ -211,6 +211,7 @@
   .select-pop [role='option'] + [role='option'] { margin-block-start: 2px; }
   .select-option-label { flex: 1; }
   /* What a choice does, under its name (the content editor's kinds): the list stays readable, never a page wide. */
+  .select-option-text { flex: 1; display: grid; }
   .select-option-hint { display: block; max-inline-size: 46ch; margin-block-start: 2px; white-space: normal; font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--color-ink-mute); }
   .select-pop [role='option']:has(.select-option-hint) { align-items: flex-start; padding-block: 8px; }
   .cf-explain { display: block; padding: 6px 10px; border-radius: 8px; background: rgb(255 201 74 / .08); color: var(--color-ink-soft); font-size: 13px; line-height: 1.4; }
@@ -3079,6 +3080,21 @@
   .ce-matrix td { min-inline-size: 64px; block-size: 30px; padding: 2px 6px; border-radius: 6px; background: rgb(255 255 255 / .03); text-align: center; white-space: nowrap; }
   .ce-matrix td.on { background: color-mix(in srgb, var(--color-uv) 35%, transparent); color: var(--color-ink); font-weight: 700; }
   .ce-matrix td.ce-matrix-off, .ce-matrix thead td { background: transparent; }
+  /* Reviewing a draft (P7): its warnings, where it shows, the bot's quick check. */
+  .ce-warnings b { margin-right: 4px; color: var(--color-solar); }
+  .ce-ack { display: flex; align-items: flex-start; gap: 8px; min-block-size: 44px; padding-block-start: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .ce-ack input { inline-size: 20px; block-size: 20px; margin: 1px 0 0; accent-color: var(--color-solar); }
+  .ce-impact { display: grid; gap: 4px; font-size: 14px; }
+  .ce-impact p { margin: 0; }
+  .ce-quicksim { --r: 14px; padding: 12px 14px; display: grid; gap: 8px; justify-items: start; }
+  .ce-quicksim h3 { margin: 0; font-size: 15px; }
+  .ce-quicksim > .panel-note { margin: 0; }
+  .ce-quicksim-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: center; inline-size: 100%; font-size: 13.5px; font-weight: 700; }
+  .ce-quicksim-run { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .ce-quicksim-table { inline-size: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ce-quicksim-table caption { text-align: start; font-weight: 700; padding-block-end: 4px; }
+  .ce-quicksim-table th, .ce-quicksim-table td { padding: 5px 6px; text-align: start; border-block-start: 1px solid rgb(255 255 255 / .06); }
+  .ce-quicksim-table tbody th { font-weight: 600; color: var(--color-ink-soft); }
   .cf-form { display: grid; gap: 16px; }
   .cf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 14px 16px; align-items: start; }
   .cf-grid > .cf-group, .cf-grid > .cf-list, .cf-grid > .cf-row, .cf-grid > .cf-words { grid-column: 1 / -1; }

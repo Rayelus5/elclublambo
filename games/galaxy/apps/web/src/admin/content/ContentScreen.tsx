@@ -1,6 +1,7 @@
-import { configIssues, configJsonSchema, type DraftConflict, type DraftView, mergeDraft } from '@galaxy/shared';
+import { companionWarnings, configIssues, configJsonSchema, type DraftConflict, type DraftView, mergeDraft, parseConfig } from '@galaxy/shared';
+import { type Content, contentWarnings, type ContentWarning } from '@galaxy/sim';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Component, type ReactNode, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { DRAFTS_KEY, saveDraftField, useCreateDraft, useDiscardDraft, useDraft, useDrafts, usePublishDraft, useRebaseDraft } from '../../api/config-drafts';
 import { type ConfigKeyRow, useConfigKey, useConfigVersions, useFetchConfigVersion } from '../../api/config';
@@ -16,6 +17,7 @@ import { PublishFields } from '../PublishFields';
 import { ContentEditor } from './ContentEditor';
 import { describeContent } from './descriptors';
 import { changedFields } from './drafts';
+import { Impact, QuickSim, Warnings } from './Review';
 
 // The run content's page (the content editor, 2026-11-16, P2): changes go through server-side drafts. The list of open
 // drafts, a new one, the published versions (any can come back as a new draft); an open draft (?borrador=<id>) is
@@ -166,6 +168,27 @@ function DraftEditor({ id, live, onClose }: { id: string; live: ConfigKeyRow; on
   return <DraftBody id={id} first={draft.data} live={live} onClose={onClose} />;
 }
 
+/** The visual editor of a draft the JSON has left in a shape it cannot show: it says so and offers the JSON. */
+class EditorBoundary extends Component<{ children: ReactNode; onJson: () => void }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override render(): ReactNode {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="admin-warn" role="alert">
+        <p>{copy.admin.content.editorFailed}</p>
+        <button type="button" className="lip pill small" onClick={this.props.onJson}>
+          {copy.admin.content.openJson}
+        </button>
+      </div>
+    );
+  }
+}
+
 /** An open draft: the visual editor (or its JSON), saved as it changes; its checks, its changes, rebasing, trying, publishing. */
 function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView; live: ConfigKeyRow; onClose: (message?: string) => void }) {
   const ids = useId();
@@ -193,6 +216,28 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
   const checked = useDeferredValue(doc);
   const issues = useMemo(() => configIssues('content', checked), [checked]);
   const changes = useMemo(() => humanDiff('content', schema, live.data, checked, {}, describeContent), [schema, live.data, checked]);
+  // What is allowed but probably not wanted (P7): the content's own warnings, and what a new sector or probe needs from
+  // the sectors and probes keys (live, or the draft's own when it carries them).
+  const liveSectors = useConfigKey('sectors');
+  const liveProbes = useConfigKey('probes');
+  const d0 = draft.data ?? first;
+  const warnings = useMemo((): ContentWarning[] => {
+    if (issues.length > 0) return [];
+    try {
+      const content = parseConfig('content', checked) as Content;
+      const own = contentWarnings(content);
+      if (!liveSectors.data || !liveProbes.data) return own;
+      const sectors = parseConfig('sectors', mergeDraft('sectors', liveSectors.data.data, d0.data.sectors ?? {}));
+      const probes = parseConfig('probes', mergeDraft('probes', liveProbes.data.data, d0.data.probes ?? {}));
+      return [...own, ...companionWarnings({ content, live: live.data as unknown as Content, sectors, probes })];
+    } catch {
+      return [];
+    }
+  }, [issues, checked, liveSectors.data, liveProbes.data, d0.data.sectors, d0.data.probes, live.data]);
+  const warningsKey = warnings.map((w) => `${w.code}@${w.path}`).join('|');
+  const [ackFor, setAckFor] = useState<string | null>(null);
+  const acked = warnings.length === 0 || ackFor === warningsKey;
+  const touched = useMemo(() => Object.keys(checked).filter((k) => JSON.stringify(checked[k]) !== JSON.stringify(live.data[k])), [checked, live.data]);
 
   function save(next: Record<string, unknown>) {
     queue.current = queue.current.then(async () => {
@@ -273,7 +318,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           </div>
         ) : null}
         <div className="tabs admin-tabs content-modes" role="tablist" aria-label={copy.admin.content.modes}>
-          <button type="button" role="tab" aria-selected={mode === 'visual'} onClick={() => setMode('visual')}>
+          <button type="button" role="tab" aria-selected={mode === 'visual'} disabled={mode === 'json' && !jsonOk} onClick={() => setMode('visual')}>
             {copy.admin.content.visualTab}
           </button>
           <button
@@ -281,6 +326,8 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
             role="tab"
             aria-selected={mode === 'json'}
             onClick={() => {
+              // Already there: what is typed (maybe half a JSON) stays.
+              if (mode === 'json') return;
               setText(JSON.stringify(doc, null, 2));
               setJsonOk(true);
               setMode('json');
@@ -290,7 +337,15 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           </button>
         </div>
         {mode === 'visual' ? (
-          <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+          <EditorBoundary
+            onJson={() => {
+              setText(JSON.stringify(doc, null, 2));
+              setJsonOk(true);
+              setMode('json');
+            }}
+          >
+            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+          </EditorBoundary>
         ) : (
           <div className="field">
             <label htmlFor={`${ids}-j`}>{t.json}</label>
@@ -315,6 +370,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
             </ul>
           )}
         </section>
+        <Warnings warnings={warnings} content={checked} acked={acked} onAck={(on) => setAckFor(on ? warningsKey : null)} />
         <section className="lip panel" aria-label={t.changesTitle}>
           <h3>{t.changesTitle}</h3>
           {changes.length === 0 ? (
@@ -333,9 +389,11 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           </Link>
           <p className="panel-note">{t.tryInRunHint}</p>
         </section>
+        <QuickSim live={live.data as unknown as Content} doc={checked} ready={issues.length === 0} />
+        <Impact fields={touched} />
         <PublishFields
           busy={publish.isPending}
-          disabled={issues.length > 0 || d.fields.length === 0}
+          disabled={issues.length > 0 || d.fields.length === 0 || !acked}
           error={publish.error}
           label={t.publish}
           onPublish={(reason, password) =>

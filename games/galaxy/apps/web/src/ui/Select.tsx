@@ -293,6 +293,7 @@ export function Select<V extends string>({
                   aria-selected={i === selected}
                   aria-disabled={o.disabled || undefined}
                   data-value={o.value}
+                  aria-labelledby={o.hint ? `${optionId(i)}-l` : undefined}
                   aria-describedby={o.hint ? `${optionId(i)}-h` : undefined}
                   data-active={i === at || undefined}
                   onClick={() => !o.disabled && choose(i)}
@@ -304,14 +305,18 @@ export function Select<V extends string>({
                   }}
                 >
                   {o.image ? <img className="select-image" src={o.image} alt="" width={24} height={24} /> : null}
-                  <span className="select-option-label">
-                    {o.label}
-                    {o.hint ? (
+                  {o.hint ? (
+                    <span className="select-option-text">
+                      <span id={`${optionId(i)}-l`} className="select-option-label">
+                        {o.label}
+                      </span>
                       <small id={`${optionId(i)}-h`} className="select-option-hint">
                         {o.hint}
                       </small>
-                    ) : null}
-                  </span>
+                    </span>
+                  ) : (
+                    <span className="select-option-label">{o.label}</span>
+                  )}
                   <Icon name="tick" className="ico select-check" />
                 </li>
               ))}

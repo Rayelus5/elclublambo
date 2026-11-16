@@ -12,6 +12,23 @@ import { jsonResponse, mockApi, renderAt } from './render';
 // removed (its id is permanent); what the draft added can.
 afterEach(() => vi.unstubAllGlobals());
 
+// The quick check plays the bot in a worker; here it answers at once.
+vi.mock('../src/admin/content/quicksim', () => ({
+  runQuickSim: vi.fn(() => ({
+    promise: Promise.resolve({
+      live: [
+        { minutes: 6, layer: 2, level: 10, beatBoss: true, end: 'died' },
+        { minutes: 8, layer: 3, level: 12, beatBoss: true, end: 'time' },
+      ],
+      draft: [
+        { minutes: 3, layer: 1, level: 6, beatBoss: false, end: 'died' },
+        { minutes: 4, layer: 1, level: 7, beatBoss: false, end: 'died' },
+      ],
+    }),
+    cancel: () => {},
+  })),
+}));
+
 const t = copy.admin.content;
 const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'], mfa: true, level: 30 };
 const live = parseConfig('content', {});
@@ -37,6 +54,8 @@ function api(routes: Record<string, (b: unknown) => Response> = {}) {
     'GET /galaxy/api/admin/config/content': () => jsonResponse(200, { key: 'content', version: 4, data: live, createdAt: null, author: null, note: null }),
     'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []),
     'GET /galaxy/api/admin/config-drafts/d1': () => jsonResponse(200, draft()),
+    'GET /galaxy/api/admin/config/sectors': () => jsonResponse(200, { key: 'sectors', version: 2, data: parseConfig('sectors', {}), createdAt: null, author: null, note: null }),
+    'GET /galaxy/api/admin/config/probes': () => jsonResponse(200, { key: 'probes', version: 2, data: parseConfig('probes', {}), createdAt: null, author: null, note: null }),
     ...routes,
   });
 }
@@ -195,4 +214,31 @@ test('las reacciones se ven en una tabla de parejas de elementos', async () => {
   const [a, b] = first.pair;
   const cell = within(table).getByRole('cell', { name: t.reactionCell(VOCABS.element![a]!.label, VOCABS.element![b]!.label, first.name) });
   expect(cell).toHaveTextContent(first.name);
+});
+
+test('los avisos se ven y hay que leerlos antes de publicar', async () => {
+  const fresh = { ...structuredClone(mite), id: 'zz-solo', name: 'Ácaro suelto' };
+  api({ 'GET /galaxy/api/admin/config-drafts/d1': () => jsonResponse(200, draft({ fields: [{ key: 'content', field: 'enemies' }], data: { content: { enemies: [...live.enemies, fresh] } } })) });
+  renderAt('/admin/configuracion/content?borrador=d1', { '/admin/configuracion/content': <ContentScreen /> });
+  const warnings = await screen.findByRole('region', { name: t.warnings });
+  await waitFor(() => expect(within(warnings).getByText(/No sale en ningún sector/)).toBeInTheDocument());
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText(copy.admin.fields.reason), 'Un ácaro nuevo');
+  await user.type(screen.getByLabelText(copy.admin.fields.password), 'secreto');
+  const publish = screen.getByRole('button', { name: copy.admin.drafts.publish });
+  expect(publish).toBeDisabled();
+  await user.click(screen.getByRole('checkbox', { name: t.ackWarnings }));
+  expect(publish).toBeEnabled();
+});
+
+test('la simulación rápida compara lo publicado con el borrador', async () => {
+  api();
+  renderAt('/admin/configuracion/content?borrador=d1', { '/admin/configuracion/content': <ContentScreen /> });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: t.quickSimRun }));
+  const table = await screen.findByRole('table', { name: t.quickSimTable });
+  const minutes = within(table).getByRole('row', { name: new RegExp(t.quickSimRows.minutes) });
+  expect(minutes).toHaveTextContent('7');
+  expect(minutes).toHaveTextContent('3,5');
+  expect(within(table).getByRole('row', { name: new RegExp(t.quickSimRows.boss) })).toHaveTextContent('2 de 2');
 });
