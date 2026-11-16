@@ -1,4 +1,5 @@
 import { COOP_SUM_EVERY, type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
+import { createStepTimes, type StepSummary } from './step-times';
 import { CoopFeed, createSim, DASH, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
 
 // One co-op run as the server plays it (multiplayer plan, phase 6). Inputs arrive from the players' sockets and are
@@ -96,6 +97,8 @@ export class CoopRun {
   private abandoning = false;
   /** The clock's origin, moved forward by every pause. */
   private origin: number;
+  /** What each step of the referee costs (2026-11-16): logged when the run ends (`coop_cpu`). */
+  private readonly stepTimes = createStepTimes();
 
   constructor(
     readonly id: string,
@@ -119,6 +122,11 @@ export class CoopRun {
     this.stillTicks = slots.map(() => 0);
     this.origin = t0;
     this.noteLayer();
+  }
+
+  /** What the referee's steps have cost so far (mean, p50, p99, max, share of a core). */
+  cpu(): StepSummary {
+    return this.stepTimes.summary();
   }
 
   slotOf(accountId: string): number {
@@ -306,7 +314,9 @@ export class CoopRun {
       for (let i = 0; i + 5 < sealed.length; i += 6) if (sealed[i + 2] === MOVE) this.move[sealed[i + 1]!] = [sealed[i + 3]!, sealed[i + 4]!, sealed[i + 5]!];
       this.feed.push(sealed);
       this.closed = tick;
+      const t0 = performance.now();
       step(sim, this.feed.inputsFor(tick));
+      this.stepTimes.record(performance.now() - t0);
       for (const e of sim.events) {
         if (e.t === 'presence' && e.life === 'left') {
           const p = sim.probes[e.probe]!;

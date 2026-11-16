@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { curseOf, dealDamage, DEFAULT_CONTENT, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
+import { curseOf, dealDamage, DEFAULT_CONTENT, levelFactor, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
 import { quietSim, run } from './fixtures';
 
 // The spawn director (GDD §5.5–5.6): species join the sector over the first layer, density grows with time, waves
@@ -283,3 +283,32 @@ describe('Señal de la Estática (maldición)', () => {
     expect(drops(0.5)).toBeGreaterThan(drops(0) + 30);
   });
 });
+
+// A ceiling for the life per level (pending minor, 2026-11-16): compounding had none (×42 at level 55). `hpLevelMax`
+// stops it there; 1000, the default, changes nothing for content published before.
+describe('techo de la vida por nivel', () => {
+  test('con hpLevelMax 4 el factor no pasa de ×4, por alto que sea el nivel', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.12;
+      c.sectors[0]!.scaling.levelFrom = 1;
+      c.sectors[0]!.scaling.hpLevelMax = 4;
+    });
+    sim.probes[0]!.level = 13;
+    expect(levelFactor(sim)).toBeCloseTo(1.12 ** 12, 9);
+    sim.probes[0]!.level = 60;
+    expect(levelFactor(sim)).toBe(4);
+  });
+
+  test('por defecto (1000) sigue igual que antes', () => {
+    expect(DEFAULT_CONTENT.sectors.every((s) => s.scaling.hpLevelMax === 1000)).toBe(true);
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.12;
+      c.sectors[0]!.scaling.levelFrom = 22;
+    });
+    sim.probes[0]!.level = 55;
+    let f = 1;
+    for (let l = 55; l > 22; l--) f *= 1.12;
+    expect(levelFactor(sim)).toBe(f);
+  });
+});
+

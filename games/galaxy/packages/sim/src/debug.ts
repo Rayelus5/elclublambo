@@ -125,6 +125,18 @@ export function debugSkipLayer(sim: Sim): DebugResult {
   return 'ok';
 }
 
+/** A weapon's family root: through its evolution's `from` and its variant's `of`, down to the base (2026-11-16). */
+function rootOf(c: Sim['content'], id: string): string {
+  let at = id;
+  for (let guard = 0; guard < 8; guard++) {
+    const def = c.weapons.find((w) => w.id === at);
+    const next = def?.evolution?.from ?? def?.variant?.of;
+    if (!next) return at;
+    at = next;
+  }
+  return at;
+}
+
 function clampLevel(level: number, max: number): number {
   return Math.max(1, Math.min(max, Math.floor(level)));
 }
@@ -173,12 +185,14 @@ export function debugGrant(sim: Sim, probe: number, g: DebugGrant): DebugResult 
       applyOffer(sim, p, { kind: 'weapon', id: def.id, level });
       return 'ok';
     }
-    const family = p.weapons.some((w) => baseOf(c, w.id) === def.id || c.weapons.find((d) => d.id === w.id)?.evolution?.from === def.id);
-    if (family) return 'family_owned';
+    if (p.weapons.some((w) => rootOf(c, w.id) === def.id)) return 'family_owned';
     return place(sim, p, def.id, level, g.replace);
   }
   if (p.weapons.some((w) => w.id === def.id)) return 'family_owned';
   const from = def.evolution!.from;
+  // Another evolution of the same family already owned (an evolution may come from a variant): one per family.
+  const root = rootOf(c, def.id);
+  if (p.weapons.some((w) => rootOf(c, w.id) === root && baseOf(c, w.id) !== from)) return 'family_owned';
   if (!p.weapons.some((w) => baseOf(c, w.id) === from)) {
     const base = c.weapons.find((w) => w.id === from);
     if (!base) return 'unknown';

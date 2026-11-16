@@ -313,6 +313,8 @@ export interface SectorDef {
     coreHpPerLevel: number;
     /** Every Núcleo of a run has at least (1 + coreRise) × the life of the one before (0: off). */
     coreRise: number;
+    /** The most the life per level multiplies, however high the level (1000: no ceiling in practice). */
+    hpLevelMax: number;
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
   /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */

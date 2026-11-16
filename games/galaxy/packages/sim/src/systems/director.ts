@@ -29,10 +29,14 @@ export function teamLevel(sim: Sim): number {
  * their own, linear one (`coreLevelFactor`).
  */
 export function levelFactor(sim: Sim): number {
-  const { hpPerLevel: r, levelFrom } = sim.sector.scaling;
+  const { hpPerLevel: r, levelFrom, hpLevelMax } = sim.sector.scaling;
   if (r <= 0) return 1;
   let f = 1;
-  for (let l = teamLevel(sim); l > levelFrom; l--) f *= 1 + r;
+  for (let l = teamLevel(sim); l > levelFrom; l--) {
+    f *= 1 + r;
+    // Its ceiling (2026-11-16): a very long run's enemies stop growing there.
+    if (f >= hpLevelMax) return hpLevelMax;
+  }
   return f;
 }
 
