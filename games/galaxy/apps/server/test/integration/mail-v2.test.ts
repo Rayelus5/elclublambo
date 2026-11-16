@@ -188,3 +188,14 @@ describe('el buzón del jugador (P6)', () => {
     expect((await box(a)).names).toMatchObject({ seasonCurrency: expect.any(String) });
   });
 });
+
+describe('repaso de seguridad (buzón)', () => {
+  test('el buzón solo nombra los eventos que ya han empezado', async () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    const later = new Date(Date.now() + 9 * 86_400_000).toISOString();
+    live.events = { list: [{ id: 'secreto', name: 'Evento secreto', description: 'x', startsAt: soon, endsAt: later, goals: [{ id: 'g', name: 'Meta', stat: 'kills', target: 1, reward: {} }] }] };
+    const a = await player();
+    expect((await box(a)).names?.events.map((e) => e.id)).not.toContain('secreto');
+    delete live.events;
+  });
+});

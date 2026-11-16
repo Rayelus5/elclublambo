@@ -103,6 +103,11 @@ En el `LEEME.md` de la carpeta, anota la fecha y hora de publicación, las versi
 
 Si algo sale mal, con el OK del propietario, se vuelve a publicar `<carpeta>/antes/<clave>.json` tal cual: son los datos completos de antes, así que restauran todos los campos. Sigue los mismos pasos: comprobación (`publish-config <clave> - --dry-run` para una clave suelta), OK y `publish-config`, con el motivo «Vuelta atrás: …».
 
+**El buzón (claves `mail` y `mailLimits`, buzón v2):**
+- `mail` va entera: los packs, las plantillas y `warnDays` que ya haya se copian de lo vivo y se juntan con los nuevos. Lo cómodo es el panel: la biblioteca de packs de Configuración y «Guardar como plantilla» en Comunicación.
+- **`mailLimits` decide qué regalo solo puede enviar un superadmin.** En el panel solo la publica un superadmin. Con la CLI, publícala únicamente si el propietario lo pide en esta conversación, con los valores que dé.
+- Ninguna de las dos se rompe hacia atrás: un pack quitado sigue copiado en los mensajes ya enviados.
+
 **Lo que no vuelve atrás** (díselo al propietario antes de publicar, si aplica):
 - **Temporada:** volver atrás una `season` no deshace el archivo de la anterior.
 - **Eventos quitados:** si un evento en curso desapareció, sus señales ya se convirtieron en polvo en las carteras de los jugadores y su progreso no vuelve; el libro de movimientos es de solo añadir.

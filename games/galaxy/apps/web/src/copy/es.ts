@@ -2794,7 +2794,7 @@ export const copy = {
       sample: 'Muestra de cómo puede salir',
       another: 'Otra muestra',
       sampleNote: 'Cada jugador recibe la suya, hecha al recogerla. Esta es solo un ejemplo',
-      unreachable: 'Con ese rasgo no sale ninguna galaxia de esta rareza',
+      unreachable: 'Esa combinación no se puede regalar: no sale con esa rareza, o es tan rara que tarda demasiado en hacerse',
       mythicFinish: 'Una mítica lleva siempre un acabado especial',
       making: 'Buscando una muestra',
     },
@@ -2834,7 +2834,7 @@ export const copy = {
       probe_unknown: 'Esa sonda ya no existe',
       event_closed: 'Su evento ya ha terminado',
       season_closed: 'La temporada no está abierta',
-      galaxy_unreachable: 'Esa galaxia no se puede conseguir',
+      galaxy_unreachable: 'Esa galaxia no se puede regalar: no sale con esa rareza, o es tan rara que tarda demasiado en hacerse',
     } as Record<'cosmetic_unknown' | 'cosmetic_default' | 'probe_unknown' | 'event_closed' | 'season_closed' | 'galaxy_unreachable', string>,
   },
   // Event signals left over when their scanner closed, already star dust (open beta): told once in a window.

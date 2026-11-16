@@ -815,7 +815,18 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 
 ### 16.5 Comunicación [D]
 
-- **Buzón:** noticias para todos o por segmentos, con **regalos adjuntos**.
+- **Buzón** (v2, 2026-11-16):
+  - Mensajes para todos, una lista de cuentas o un segmento, ahora o **programados**.
+  - Cada uno es de un **tipo** con su estilo: Anuncio, Regalo, Compensación, Evento, Recompensa y Personal, más los del juego (Referidos, Tienda y Sistema).
+  - Pueden llevar **regalos de todo tipo:**
+    - recursos, también señales de evento y moneda de temporada;
+    - skins, marcos, avatares y títulos;
+    - galaxias de una rareza, acabado y rasgo;
+    - sondas, experiencia y puntos de temporada;
+    - **packs** de una biblioteca reutilizable.
+  - Los regalos grandes, por encima de los límites de la configuración, solo los envía un superadmin.
+  - **El jugador** filtra por tipo, archiva y borra, recoge todo de una vez y ve revelado lo que le dio cada regalo.
+  - **El panel** tiene plantillas, deja duplicar lo enviado y dice cuántos lo leyeron y lo recogieron.
 - **Avisos** en la pantalla de título.
 - **Tablón de noticias** (Admin › Tablón):
   - Tarjetas por secciones: Destacado, Comunidad, Eventos y torneos y Novedades.

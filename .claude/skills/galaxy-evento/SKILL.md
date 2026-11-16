@@ -38,6 +38,7 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 - **Escáner de evento:** solo si alguna meta paga `eventSignals`. Rasgo y valor de la destacada: valores reales de `packages/engine/config/traits.yaml`, también listados en `traitValues` de `apps/web/src/copy/es.ts`.
 - **Potenciadores:** opcionales. Moneda (`coins`, `dust`, `material`, `signal`), factor 1–5, fechas (≤14 días, a cualquier hora). Solo multiplican lo que pagan las incursiones. Mira los vivos: los de la misma moneda que coinciden se multiplican (un ×2 sobre un ×1,5 da ×3); díselo al propietario.
 - **Destacado en el inicio:** el inicio muestra el primer evento **en curso** de la lista; si debe ser este, va primero.
+- **Regalos por correo** (opcional, buzón v2): un evento puede premiar o anunciarse con un mensaje de tipo Evento, con regalos de todo tipo o un pack de la biblioteca (`docs/CONTENIDO.md` B10). Ese mensaje no va en la carpeta: lo envía el propietario desde Admin › Comunicación, ahora o programado, y una plantilla lo deja listo para la próxima vez.
 - **Aviso:** opcional, 1–200 caracteres. Con la CLI sale **en el momento de publicar** y dura N días desde entonces; si debe salir más tarde (por ejemplo, el mismo viernes), que el propietario lo programe en Admin › Comunicación.
 
 ## 3. Prepara la carpeta
