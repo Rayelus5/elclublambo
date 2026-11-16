@@ -5067,11 +5067,13 @@
   /* The library's packs and the tray's. */
   .gift-packs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; }
   .gift-pack { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-areas: "art text add" "art strip add"; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); }
-  .gift-pack-art { grid-area: art; inline-size: 56px; block-size: 56px; background: no-repeat 0 0 / 400% 100%; image-rendering: pixelated; }
+  .gift-pack-art { display: block; flex: none; inline-size: 56px; block-size: 56px; background: no-repeat 0 0 / 400% 100%; image-rendering: pixelated; }
+  .gift-pack > .gift-pack-art { grid-area: art; }
   .gift-pack-text { grid-area: text; display: grid; min-inline-size: 0; }
   .gift-pack-text small { color: var(--color-ink-mute); font-size: 12.5px; }
   .gift-pack > .pill { grid-area: add; }
-  .gift-pack-strip { grid-area: strip; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .gift-pack-strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .gift-pack > .gift-pack-strip { grid-area: strip; }
   .gift-pack-strip .gift-ico { inline-size: 28px; block-size: 28px; border-radius: 8px; }
   .gift-pack-strip .gift-ico .ico { inline-size: 16px; block-size: 16px; }
   .gift-pack-strip .gift-ico.galaxy .gift-galaxy-card { inline-size: 22px; block-size: 28px; }
@@ -5086,8 +5088,8 @@
   .gift-tray.packs { display: grid; }
   .gift-tray-pack { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: var(--color-panel-2); }
   .gift-tray-pack.bad { box-shadow: inset 0 0 0 2px var(--color-nova); }
-  .gift-tray-pack .gift-pack-art { grid-area: auto; inline-size: 48px; block-size: 48px; }
-  .gift-tray-pack .gift-pack-strip { grid-area: auto; flex-wrap: nowrap; }
+  .gift-tray-pack .gift-pack-art { inline-size: 48px; block-size: 48px; }
+  .gift-tray-pack .gift-pack-strip { flex-wrap: nowrap; }
   .gift-tray-pack .gift-tile-words b { font-size: 14.5px; }
 
   /* A big gift, at once: why, and whether you may send it. */
@@ -5104,4 +5106,66 @@
   .comms-gift-strip .gift-ico .ico { inline-size: 16px; block-size: 16px; }
   .comms-gift-strip .gift-ico.galaxy .gift-galaxy-card { inline-size: 22px; block-size: 28px; }
   .comms-gift-strip .gift-ico.galaxy .ico { inline-size: 12px; block-size: 12px; }
+}
+
+/* Mail v2, P4 (2026-11-16): the pack library — its arts playing their four frames, the cards, the editor. */
+@layer components {
+  .gift-pack-art { animation: gift-frames .8s steps(4) infinite; }
+  @media (prefers-reduced-motion: reduce) { .gift-pack-art { animation: none; } }
+  :where(:root[data-motion='reduced']) .gift-pack-art { animation: none; }
+  .gift-library-link { justify-self: start; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+
+  .pack-lib { max-inline-size: 1560px; }
+  .pack-lib-grid { list-style: none; margin: 16px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+  .pack-lib-card { --r: 18px; display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "art text" "strip strip" "actions actions"; gap: 10px 14px; padding: 16px; block-size: 100%; box-sizing: border-box; }
+  .pack-lib-card .gift-pack-art { grid-area: art; inline-size: 64px; block-size: 64px; }
+  .pack-lib-text { grid-area: text; display: grid; gap: 2px; align-content: center; justify-items: start; min-inline-size: 0; }
+  .pack-lib-text h3 { margin: 0; font: 400 20px var(--font-display); overflow-wrap: anywhere; }
+  .pack-lib-text small { color: var(--color-ink-mute); font-size: 13px; }
+  .pack-lib-card .gift-pack-strip { grid-area: strip; }
+  .pack-lib-actions { grid-area: actions; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+  .pack-lib-actions .iconbtn.small { --lip-h: 3px; inline-size: 40px; block-size: 40px; }
+  .pack-lib-actions .iconbtn .ico { inline-size: 18px; block-size: 18px; }
+  .pack-lib-card.off { opacity: .72; }
+  .pack-lib-card.off .gift-pack-art { filter: grayscale(.85); }
+  .pack-lib-new { inline-size: 100%; block-size: 100%; min-block-size: 168px; display: grid; place-items: center; align-content: center; gap: 8px; border: 2px dashed rgb(255 255 255 / .16); border-radius: 18px; background: transparent; color: var(--color-ink-soft); font: 700 16px var(--font-sans); cursor: pointer; transition: border-color .15s, color .15s; }
+  .pack-lib-new .ico { inline-size: 28px; block-size: 28px; }
+  .pack-lib-new:hover { border-color: var(--color-solar); color: var(--color-ink); }
+  .pack-lib-new:focus-visible { outline: 3px solid var(--color-solar); outline-offset: 2px; }
+  .pack-lib-publish { --r: 18px; display: grid; gap: 8px; max-inline-size: 760px; padding: 16px 20px; }
+  .pack-lib-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0; }
+
+  .pack-editor { --r: 18px; display: grid; gap: 14px; margin-top: 16px; padding: 18px 20px; }
+  .pack-editor-head { display: grid; grid-template-columns: 96px minmax(0, 1fr) minmax(0, 260px); gap: 16px 20px; align-items: start; }
+  .pack-editor-art { inline-size: 96px; block-size: 96px; }
+  .pack-editor-names { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0 14px; min-inline-size: 0; }
+  .pack-editor-on { display: grid; justify-items: start; gap: 6px; }
+  .pack-editor .field-label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 7px; }
+  .pack-editor-on .hint { margin: 0; }
+  @media (max-width: 1100px) { .pack-editor-head { grid-template-columns: 72px minmax(0, 1fr); } .pack-editor-art { inline-size: 72px; block-size: 72px; } .pack-editor-on { grid-column: 1 / -1; } }
+  .pack-arts { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; min-inline-size: 0; }
+  .pack-arts legend { padding: 0; margin-bottom: 8px; font-weight: 600; font-size: 15px; }
+  .pack-art-choice { position: relative; display: grid; justify-items: center; gap: 6px; padding: 10px 8px; border-radius: 14px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .04); cursor: pointer; font-weight: 700; font-size: 13px; text-align: center; }
+  .pack-art-choice input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+  .pack-art-choice .gift-pack-art { inline-size: 64px; block-size: 64px; }
+  .pack-art-choice:hover { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 45%, transparent); }
+  .pack-art-choice:has(input:checked) { background: color-mix(in oklab, var(--color-solar) 12%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px var(--color-solar); }
+  .pack-art-choice:has(input:focus-visible) { outline: 3px solid var(--color-solar); outline-offset: 2px; }
+  .pack-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+}
+
+/* Mail v2, the P6 review: the library's templates, its warning days, and another admin's publish said plainly. */
+@layer components {
+  .pack-lib-advanced { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .pack-lib-more { --r: 18px; display: grid; gap: 10px; max-inline-size: 960px; margin: 4px 0 16px; padding: 16px 20px; }
+  .pack-lib-more h2 { margin: 0; font: 400 20px var(--font-display); }
+  .pack-lib-templates { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .pack-lib-templates li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--color-panel-2); }
+  .pack-lib-template-text { display: grid; min-inline-size: 0; }
+  .pack-lib-template-text small { color: var(--color-ink-mute); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pack-lib-templates .iconbtn.small { --lip-h: 3px; inline-size: 36px; block-size: 36px; }
+  .pack-lib-templates .iconbtn .ico { inline-size: 16px; block-size: 16px; }
+  .pack-lib-days input { inline-size: 96px; }
+  .pack-lib-moved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--color-nova) 14%, transparent); box-shadow: inset 0 0 0 2px var(--color-nova); }
+  .pack-lib-moved p { margin: 0; font-weight: 700; }
 }

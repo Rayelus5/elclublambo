@@ -1,8 +1,8 @@
 import type { BigGiftReason, Gift, GiftIssue, PackCopy } from '@galaxy/shared';
 import { copy } from '../copy/es';
-import { giftUrl } from '../mail/art';
 import { Icon } from '../ui/Icon';
 import { GiftArt, GiftTile } from './GiftArt';
+import { PackArt } from './PackArt';
 import { bigReasonText, type GiftCatalog, giftWords, issueText } from './words';
 
 // What a message gives, as it is being made (mail v2, P3): the loose gifts and the packs, each with its drawing, its
@@ -20,6 +20,8 @@ export function GiftTray({
   issues,
   onRemove,
   onRemovePack,
+  maxItems = MAX_ITEMS,
+  maxPacks = MAX_PACKS,
 }: {
   items: readonly Gift[];
   packs: readonly PackCopy[];
@@ -28,6 +30,9 @@ export function GiftTray({
   issues: readonly GiftIssue[];
   onRemove: (index: number) => void;
   onRemovePack: (id: string) => void;
+  /** A pack's own contents hold up to 30 and no packs (the library's editor). */
+  maxItems?: number;
+  maxPacks?: number;
 }) {
   const problem = (index: number) => {
     const i = issues.find((x) => x.index === index);
@@ -38,8 +43,8 @@ export function GiftTray({
   return (
     <div className="gift-tray-wrap">
       <p className="gift-tray-count" aria-live="polite">
-        <span>{g.tray.count(items.length, MAX_ITEMS)}</span>
-        <span>{g.tray.packs(packs.length, MAX_PACKS)}</span>
+        <span>{g.tray.count(items.length, maxItems)}</span>
+        {maxPacks > 0 ? <span>{g.tray.packs(packs.length, maxPacks)}</span> : null}
       </p>
       {items.length === 0 && packs.length === 0 ? <p className="gift-tray-empty">{g.tray.empty}</p> : null}
       {items.length > 0 ? (
@@ -60,7 +65,7 @@ export function GiftTray({
             const bad = issues.filter((x) => x.index >= start && x.index < start + p.items.length);
             return (
               <li key={p.id} className={`gift-tray-pack${bad.length ? ' bad' : ''}`}>
-                <span className="gift-pack-art" aria-hidden="true" style={giftUrl ? { backgroundImage: `url(${giftUrl})` } : undefined} />
+                <PackArt art={p.art} />
                 <span className="gift-tile-words">
                   <b>{g.pack(p.name)}</b>
                   <small>{p.items.map((i) => giftWords(i, catalog)).join(', ')}</small>

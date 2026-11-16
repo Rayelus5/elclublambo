@@ -28,6 +28,7 @@ import { WatchScreen } from './admin/WatchScreen';
 import { SoloWatchScreen } from './admin/SoloWatchScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { ContentScreen } from './admin/content/ContentScreen';
+import { PackLibraryScreen } from './admin/mail/PackLibraryScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
@@ -161,6 +162,8 @@ export function App() {
             <Route path="configuracion" element={<ConfigScreen />} />
             {/* The run content's own page (the content editor, 2026-11-16): drafts on the server. */}
             <Route path="configuracion/content" element={<ContentScreen />} />
+            <Route path="configuracion/mail" element={<PackLibraryScreen />} />
+            <Route path="configuracion/mail/avanzado" element={<ConfigKeyScreen keyName="mail" />} />
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
             <Route path="eventos" element={<EventsScreen />} />
             <Route path="eventos/:id" element={<EventWizardScreen />} />
