@@ -1247,3 +1247,15 @@ Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae cada ev
 
 Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae la lluvia de meteoritos, la tormenta y el pozo con sus áreas grandes.
 
+## Editor de contenido, P1: API de configuración ligera y contenido publicado en toda la web
+
+**Qué cambia.** Sin migraciones, sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- `GET /galaxy/api/admin/config/keys` ya no manda el contenido de las incursiones (marcado `lazy`); su página lo pide con `GET /galaxy/api/admin/config/:key`.
+- El historial de una clave llega sin los datos; cada versión se pide al cargarla (`GET …/:key/versions/:v`).
+- Publicar, validar y publicar en lote aceptan hasta 1 MiB: el contenido entero cabe en una publicación.
+- El Códice, la clasificación, el perfil (sondas), las listas de partidas y salas del admin y el simulador de la economía usan el contenido publicado.
+
+Comprueba con `rayelus`: Configuración → «Contenido de las incursiones» abre, su historial carga una versión, y el Códice enseña los nombres de lo publicado.
+

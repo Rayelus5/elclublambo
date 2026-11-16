@@ -74,15 +74,11 @@ En PRE `content` está publicado (también los cambios a mano del propietario de
 - **Las entradas antiguas de `DEPLOY_PRE.md`** que dicen «vuelve a publicarla desde el valor por defecto» son de antes de que el propietario editara `content` en el panel. Hoy manda esta regla.
 - **Se deja constancia** en el `LEEME.md` de la carpeta de `ops/launch/` (C).
 
-### A5. Lo que la web lee de `DEFAULT_CONTENT` y no de lo publicado
+### A5. La web lee lo publicado
 
-Estas pantallas usan el contenido incluido en la web, no el vivo:
-- el Hangar de reliquias (`hangar/lobby/RelicStrip.tsx`, `hangar/SetsPanel.tsx`): «Potencia ×», conjuntos y apilado;
-- el Códice (`codex/entries.ts`);
-- los sprites de sonda de la clasificación (`social/LeaderboardScreen.tsx`);
-- algunas listas del admin.
+Desde el editor de contenido (2026-11-16, P1), la web lee el contenido publicado (`useLiveContent`) en todas sus pantallas: el Códice, el Hangar de reliquias, la clasificación, el perfil y las listas del admin (`api/content-names.ts`). `DEFAULT_CONTENT` solo se ve mientras carga lo publicado o si no se puede leer.
 
-Por eso **todo cambio de contenido se hace en `DEFAULT_CONTENT` y además se publica**. Si solo se publica, esas pantallas mienten.
+Por eso un cambio hecho en el panel se ve en todas partes sin desplegar. `DEFAULT_CONTENT` sigue siendo el punto de partida del código: un cambio en código parte de lo publicado (`draft-config`, A4) y se publica después.
 
 ### A6. Arte
 
