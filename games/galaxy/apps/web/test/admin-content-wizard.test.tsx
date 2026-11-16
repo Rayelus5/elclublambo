@@ -119,7 +119,7 @@ test('un sector nuevo entra antes del de temporada, con su desbloqueo y su paga 
   await pickOption(user, screen.getByRole('combobox', { name: w.basedOn }), rings.name);
   await stepTo(user, w.unlock);
   await pickOption(user, screen.getByRole('combobox', { name: w.unlockAfter }), live.sectors.find((s) => s.id === 'broken-forge')!.name);
-  fireEvent.change(screen.getByRole('spinbutton', { name: w.pay }), { target: { value: '1.6' } });
+  fireEvent.change(screen.getByRole('textbox', { name: w.pay }), { target: { value: '1.6' } });
   await stepTo(user, w.review);
   await user.click(screen.getByRole('button', { name: w.add }));
   await waitFor(() => expect(putsOf(fetch, 'sectors').map((p) => p.field)).toEqual(expect.arrayContaining(['unlocks', 'pay'])), { timeout: 3000 });
@@ -179,7 +179,7 @@ test('una sonda nueva entra con su condición de desbloqueo', async () => {
   fireEvent.change(await screen.findByRole('textbox', { name: w.name }), { target: { value: 'Faro' } });
   await pickOption(user, screen.getByRole('combobox', { name: w.basedOn }), live.probes[0]!.name);
   await stepTo(user, w.unlock);
-  fireEvent.change(screen.getByRole('spinbutton', { name: w.unlockValue }), { target: { value: '7' } });
+  fireEvent.change(screen.getByRole('textbox', { name: w.unlockValue }), { target: { value: '7' } });
   await stepTo(user, w.review);
   await user.click(screen.getByRole('button', { name: w.add }));
   await waitFor(() => expect(putsOf(fetch, 'probes').map((p) => p.field)).toContain('unlocks'), { timeout: 3000 });

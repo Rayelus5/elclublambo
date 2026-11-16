@@ -1,9 +1,9 @@
 import { type ConfigValue, configIssues, configJsonSchema, type JsonSchema } from '@galaxy/shared';
-import { useId, useMemo, useState } from 'react';
+import { useDeferredValue, useId, useMemo, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
-import { ConfigForm, type Options, type Widgets } from '../forms/ConfigForm';
+import { ConfigForm, NumberInput, type Options, type Widgets } from '../forms/ConfigForm';
 import { placeOf } from '../forms/humanDiff';
 import { issueText } from '../forms/issues';
 import { emptyOf, getIn, itemsOf, setIn, slugOf, unwrap } from '../forms/schema';
@@ -47,11 +47,11 @@ export const WIZARDS: Record<WizardKind, KindDef> = {
 };
 export const isWizardKind = (k: string | null): k is WizardKind => !!k && Object.hasOwn(WIZARDS, k);
 
-/** What a wizard writes in other keys of the draft (a sector's unlock and pay, a probe's unlock). */
+/** What a wizard writes in other keys of the draft (a sector's unlock and pay, a probe's unlock): entries to add. */
 export interface CompanionField {
   key: 'sectors' | 'probes';
   field: string;
-  value: unknown;
+  patch: Record<string, unknown>;
 }
 export interface Companions {
   sectors: ConfigValue<'sectors'> | null;
@@ -113,7 +113,7 @@ export function CreateWizard({
   const [evo, setEvo] = useState<{ name: string; passive: string; model: Entry | null }>({ name: '', passive: '', model: null });
   // A sector's unlock and pay, a probe's unlock.
   const normal = sectors.filter((s) => !s.season);
-  const [unlock, setUnlock] = useState<{ sector: string; stat: string; value: number; pay: number }>(() => ({
+  const [unlock, setUnlock] = useState<{ sector: string; stat: string; value: number | undefined; pay: number | undefined }>(() => ({
     sector: normal.at(-1)?.id ?? '',
     stat: def.needs === 'probeUnlock' ? 'runs' : 'bossKills',
     value: def.needs === 'probeUnlock' ? 5 : 1,
@@ -170,17 +170,27 @@ export function CreateWizard({
   const pathOf = (i: number) => `${def.path.join('.')}.${i}`;
   const at = pathOf(where);
   const evoAt = evolution ? pathOf(list.length + 1) : null;
+  // What it brings along in the sectors: its own spawns and forms (a problem elsewhere in a sector is not its own).
+  const ownPaths = useMemo(() => {
+    const out: string[] = [];
+    sectors.forEach((s, i) => {
+      if (def.needs === 'spawns' && placed[s.id]) out.push(`sectors.${i}.spawns.${Array.isArray(s.spawns) ? s.spawns.length : 0}`);
+      if (def.needs === 'forms' && forms.includes(s.id)) out.push(`sectors.${i}.bossCycle`);
+    });
+    return out;
+  }, [sectors, def.needs, placed, forms]);
+  // The checks run a moment behind the keys (the content is about 180 KB).
+  const checked = useDeferredValue(next);
   const issues = useMemo(
     () =>
-      configIssues('content', next).filter(
+      configIssues('content', checked).filter(
         (i) =>
           i.path === at ||
           i.path.startsWith(`${at}.`) ||
           (evoAt && (i.path === evoAt || i.path.startsWith(`${evoAt}.`))) ||
-          (def.needs === 'spawns' && i.path.startsWith('sectors.') && i.path.includes('.spawns.')) ||
-          (def.needs === 'forms' && i.path.startsWith('sectors.') && i.path.includes('.bossCycle')),
+          ownPaths.some((p) => i.path === p || i.path.startsWith(`${p}.`)),
       ),
-    [next, at, evoAt, def.needs],
+    [checked, at, evoAt, ownPaths],
   );
   const mine = useMemo(() => {
     const out = new Map<string, string[]>();
@@ -198,6 +208,7 @@ export function CreateWizard({
   if (def.needs === 'forms' && forms.length === 0) missing.push(w.needsForms);
   if (def.needs === 'evolution' && !evolution) missing.push(w.needsEvolution);
   if (def.needs === 'sectorUnlock' && !entry.season && !unlock.sector) missing.push(w.needsUnlock);
+  if ((def.needs === 'sectorUnlock' && !entry.season && !companions.sectors) || (def.needs === 'probeUnlock' && !companions.probes)) missing.push(w.needsCompanions);
   const countFor = (s: Step) => {
     if (s.id === 'review') return issues.length + missing.length;
     if (s.id === 'placement' || s.id === 'evolution' || s.id === 'unlock') return missing.length;
@@ -211,6 +222,11 @@ export function CreateWizard({
   function base(from: string) {
     const source = list.find((e) => e.id === from);
     const start = source ? (structuredClone(source) as Entry) : (emptyOf(item) as Entry);
+    // A copy says its own things (or the game's for it), and a new sector is a normal one.
+    delete start.lore;
+    delete start.radio;
+    delete start.hazardNames;
+    if (def.needs === 'sectorUnlock') start.season = false;
     setEntry({ ...start, name: entry.name, id: entry.id });
     if (def.needs === 'spawns' && source) {
       // Where the model comes out, the new one comes out too (a starting point; it can be changed).
@@ -230,11 +246,12 @@ export function CreateWizard({
   }
   function add() {
     const extra: CompanionField[] = [];
-    if (def.needs === 'sectorUnlock' && companions.sectors && !entry.season) {
-      extra.push({ key: 'sectors', field: 'unlocks', value: { ...companions.sectors.unlocks, [entry.id]: { sector: unlock.sector, stat: unlock.stat, value: unlock.value } } });
-      extra.push({ key: 'sectors', field: 'pay', value: { ...companions.sectors.pay, [entry.id]: unlock.pay } });
+    const count = Math.max(1, Math.round(unlock.value ?? 1));
+    if (def.needs === 'sectorUnlock' && !entry.season) {
+      extra.push({ key: 'sectors', field: 'unlocks', patch: { [entry.id]: { sector: unlock.sector, stat: unlock.stat, value: count } } });
+      extra.push({ key: 'sectors', field: 'pay', patch: { [entry.id]: Math.min(3, Math.max(0.1, unlock.pay ?? 1)) } });
     }
-    if (def.needs === 'probeUnlock' && companions.probes) extra.push({ key: 'probes', field: 'unlocks', value: { ...companions.probes.unlocks, [entry.id]: { stat: unlock.stat, value: unlock.value } } });
+    if (def.needs === 'probeUnlock') extra.push({ key: 'probes', field: 'unlocks', patch: { [entry.id]: { stat: unlock.stat, value: count } } });
     onAdd(next, { zona: def.zona, lista: def.lista, id: entry.id }, extra);
   }
   const baseOptions = (def.needs === 'evolution' ? list.filter((e) => !e.evolution && !e.variant) : list).map((e) => ({
@@ -399,12 +416,12 @@ export function CreateWizard({
           </div>
           <div className="cf-field">
             <label htmlFor={`${ids}-uv`}>{w.unlockValue}</label>
-            <input id={`${ids}-uv`} type="number" min={1} value={unlock.value} onChange={(e) => setUnlock((u) => ({ ...u, value: Math.round(num(e.target.value, 1)) }))} />
+            <NumberInput id={`${ids}-uv`} value={unlock.value} info={{ label: w.unlockValue }} onChange={(v) => setUnlock((u) => ({ ...u, value: v }))} />
           </div>
           {def.needs === 'sectorUnlock' ? (
             <div className="cf-field">
               <label htmlFor={`${ids}-up`}>{w.pay}</label>
-              <input id={`${ids}-up`} type="number" min={0.1} max={3} step={0.05} value={unlock.pay} onChange={(e) => setUnlock((u) => ({ ...u, pay: Math.min(3, num(e.target.value, 0.1)) }))} />
+              <NumberInput id={`${ids}-up`} value={unlock.pay} info={{ label: w.pay, unit: 'factor' }} onChange={(v) => setUnlock((u) => ({ ...u, pay: v }))} />
               <small className="cf-hint">{w.payHint}</small>
             </div>
           ) : null}

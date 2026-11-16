@@ -198,6 +198,21 @@ export function liveIds(value: unknown, pattern = '', out = new Set<string>()): 
   return out;
 }
 
+/**
+ * A free id from `base`: itself, else «base-2», «base-3»… cut so it never passes 32 letters. A name every object
+ * inherits («constructor», «toString») is never free: plain lookups by id would find the inherited one.
+ */
+export function uniqueId(base: string, taken: (id: string) => boolean): string {
+  const busy = (id: string) => taken(id) || id in Object.prototype;
+  const root = (base || 'nueva-entrada').slice(0, 32);
+  if (!busy(root)) return root;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const id = `${root.slice(0, 32 - suffix.length)}${suffix}`;
+    if (!busy(id)) return id;
+  }
+}
+
 /** «Semana de la Fisura» → «semana-de-la-fisura»: an id from a name (lowercase, no accents, dashes, 32 at most). */
 export function slugOf(name: string): string {
   return name

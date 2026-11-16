@@ -6,7 +6,7 @@ import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
 import { fmtNumber, fmtUtc, fromLocalInput, itemSummary, scaleOf, tidy, toLocalInput } from './format';
 import { type FieldInfo, fieldInfo, itemName, UNIT_SUFFIX, valueName } from './labels';
-import { discriminatorOf, emptyOf, getIn, itemsOf, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
+import { discriminatorOf, emptyOf, getIn, itemsOf, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, uniqueId, unwrap } from './schema';
 
 // A config key as a form (polish phase 4), drawn from its JSON Schema: numbers with their unit and range, switches,
 // choices with Spanish names, dates in the admin's time, lists of cards (add, duplicate, move, remove), named entries,
@@ -47,6 +47,8 @@ interface Ctx {
   autoIds: Set<string>;
   /** The ids published, by list («list[]|fisura»): shown, never changed. */
   locked: Set<string>;
+  /** Ids the form cannot see that are taken (the other entries of the list one entry's form is in). */
+  takenIds?: (id: string) => boolean;
   widgets?: Widgets;
   /** A field's label, hint, unit and source: the form's own description first, then the key's labels. */
   info: (pattern: string) => FieldInfo;
@@ -121,7 +123,7 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
 
 /** One scalar field: label, control, hint and its problems. */
 function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Path; pattern: string; optional: boolean }) {
-  const { root, set, options, issues, autoIds, locked, info } = useForm();
+  const { root, set, options, issues, autoIds, locked, info, takenIds } = useForm();
   const id = useId();
   const field = info(pattern);
   const invalid = issues.has(pathKey(path));
@@ -138,7 +140,11 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
     const parent = getIn(root, parentPath) as Record<string, unknown> | undefined;
     const follows = path.at(-1) === 'name' && typeof v === 'string' && parent && typeof parent.id === 'string' && !isLocked(parent.id) && (parent.id === '' || autoIds.has(parent.id));
     if (follows) {
-      const id = slugOf(v);
+      // Never another entry's id: its siblings in the list here, and those the form is told about.
+      const container = getIn(root, parentPath.slice(0, -1));
+      const siblings = Array.isArray(container) ? container.filter((x) => x !== parent).map((x) => (x as { id?: unknown })?.id) : [];
+      const slug = slugOf(v);
+      const id = slug ? uniqueId(slug, (x) => x !== parent.id && (siblings.includes(x) || !!takenIds?.(x))) : '';
       autoIds.add(id);
       set(parentPath, { ...parent, name: v, id });
     } else set(path, v);
@@ -782,6 +788,7 @@ export function ConfigForm({
   live,
   widgets,
   describe,
+  takenIds,
 }: {
   cfgKey: ConfigKey;
   schema: JsonSchema;
@@ -799,12 +806,14 @@ export function ConfigForm({
   widgets?: Widgets;
   /** The form's own descriptions of its fields (the content editor's descriptors), before the key's labels. */
   describe?: Describe;
+  /** Ids taken outside the value (an entry edited alone: its list's other ids). */
+  takenIds?: (id: string) => boolean;
 }) {
   const [own] = useState(() => new Set<string>());
   // The published ids are read once per published value, not on every keystroke (the run content is 180 KB).
   const locked = useMemo(() => liveIds(live), [live]);
   const info = (pattern: string): FieldInfo => describe?.(pattern) ?? (pattern.includes('<') ? describe?.(pattern.replace(/<[^>]*>/g, '')) : undefined) ?? fieldInfo(cfgKey, pattern);
-  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own, locked, widgets, info };
+  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own, locked, widgets, info, takenIds };
   return (
     <FormCtx.Provider value={ctx}>
       <div className="cf-form">

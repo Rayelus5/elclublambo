@@ -109,7 +109,7 @@ export function ContentEditor({
   issues: { path: string; message: string }[];
   /** The sectors and probes keys as the draft has them, for what a new sector or probe writes there. */
   companions?: Companions;
-  onCompanions?: (fields: CompanionField[]) => void;
+  onCompanions?: (fields: CompanionField[], content: Value) => void;
 }) {
   const [params, setParams] = useSearchParams();
   const schema = configJsonSchema('content');
@@ -142,8 +142,9 @@ export function ContentEditor({
         companions={companions}
         onCancel={() => go({ crear: null })}
         onAdd={(next, where, extra) => {
-          if (extra.length > 0) onCompanions(extra);
           onChange(next);
+          // The content first, then what it writes in the sectors or probes keys (never an unlock of a missing sector).
+          if (extra.length > 0) onCompanions(extra, next);
           go({ crear: null, zona: where.zona, lista: where.lista ?? null, id: where.lista ? where.id : null });
         }}
       />
@@ -360,6 +361,7 @@ function EntityPanel({
                 if (entity.id !== current.id) onSelect(entity.id);
               }}
               autoIds={autoIds}
+              takenIds={(x) => list.some((e, k) => k !== index && e.id === x)}
               issues={issuesUnder(issues, `${field}.${index}`, value)}
               options={options}
               prefix={`${field}[]`}

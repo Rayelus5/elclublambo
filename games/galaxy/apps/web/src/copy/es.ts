@@ -1269,6 +1269,7 @@ export const copy = {
         pay: 'Paga',
         payHint: 'Multiplica lo que paga una incursión en él; los sectores más duros pagan más',
         needsUnlock: 'Le falta el sector tras el que se abre: elígelo en «Desbloqueo»',
+        needsCompanions: 'No se ha podido leer la configuración de sectores o de sondas: vuelve a abrir el borrador para guardar su desbloqueo',
         stats: { runs: 'Incursiones jugadas', bossKills: 'Núcleos vencidos', maxDepth: 'Capa más honda alcanzada', extractions: 'Extracciones', kills: 'Enemigos eliminados' },
         noProblems: 'Todo correcto: se puede añadir al borrador',
         add: 'Añadir al borrador',

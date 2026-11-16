@@ -1,6 +1,6 @@
 import { type ConfigKey, configJsonSchema, parseConfig } from '@galaxy/shared';
 import type { BotRun, Content, ContentWarning } from '@galaxy/sim';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Select } from '../../ui/Select';
 import { placeOf } from '../forms/humanDiff';
@@ -71,14 +71,17 @@ const fmt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 
 export function QuickSim({ live, doc, ready }: { live: Content; doc: Value; ready: boolean }) {
   const id = useId();
-  const sectors = (Array.isArray(doc.sectors) ? doc.sectors : []) as { id: string; name: string }[];
-  const probes = (Array.isArray(doc.probes) ? doc.probes : []) as { id: string; name: string }[];
+  const named = (v: unknown) => (Array.isArray(v) ? v : []).filter((x): x is { id: string; name: string } => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string');
+  const sectors = named(doc.sectors);
+  const probes = named(doc.probes);
   const [sector, setSector] = useState(sectors[0]?.id ?? '');
   const [probe, setProbe] = useState(probes[0]?.id ?? '');
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<QuickResult | null>(null);
   const [failed, setFailed] = useState(false);
   const cancel = useRef<(() => void) | null>(null);
+  // Closing the draft stops the bot: nothing keeps playing in the background.
+  useEffect(() => () => cancel.current?.(), []);
 
   function start() {
     let draft: Content;
