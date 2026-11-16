@@ -71,8 +71,11 @@ async function trail(accountId: string, cookie: string, runId: string) {
 }
 
 let admin: Awaited<ReturnType<typeof staff>>;
+/** An admin with no run at all, logged in before the clock moves on (its TOTP session is dated by it). */
+let fresh: Awaited<ReturnType<typeof staff>>;
 beforeAll(async () => {
   admin = await staff('admin');
+  fresh = await staff('admin');
 });
 
 describe('quién puede', () => {
@@ -209,7 +212,6 @@ describe('el panel', () => {
 // onboarding, nor finish the tutorial for an account that had none.
 describe('una incursión de prueba no cuenta como jugada', () => {
   test('ni para la primera incursión del inicio ni para el tutorial', async () => {
-    const fresh = await staff('admin');
     const run = (await start(fresh.cookie, true)).json() as RunStart;
     clock = new Date(clock.getTime() + 13 * 60_000);
     expect((await finish(fresh.cookie, run.id, body())).statusCode).toBe(200);
