@@ -204,3 +204,17 @@ describe('el panel', () => {
     expect(res.json().error).toBe('run_test');
   });
 });
+
+// A test run is not play (pending minor from the debug mode, 2026-11-16): it does not tick the first run of the
+// onboarding, nor finish the tutorial for an account that had none.
+describe('una incursión de prueba no cuenta como jugada', () => {
+  test('ni para la primera incursión del inicio ni para el tutorial', async () => {
+    const fresh = await staff('admin');
+    const run = (await start(fresh.cookie, true)).json() as RunStart;
+    clock = new Date(clock.getTime() + 13 * 60_000);
+    expect((await finish(fresh.cookie, run.id, body())).statusCode).toBe(200);
+    expect((await get(ctx.app, '/galaxy/api/onboarding', { cookie: fresh.cookie })).json()).toMatchObject({ firstRun: false });
+    expect((await get(ctx.app, '/galaxy/api/tutorial', { cookie: fresh.cookie })).json()).toMatchObject({ status: 'active' });
+  });
+});
+

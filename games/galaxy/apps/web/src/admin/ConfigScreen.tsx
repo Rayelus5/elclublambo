@@ -16,7 +16,7 @@ import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
 import { ADVANCED_KEYS, CATEGORIES, JSON_ONLY, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
-import { readContentDraft, saveContentDraft } from './content-draft';
+import { clearContentDraft, readContentDraft, saveContentDraft } from './content-draft';
 
 const t = copy.admin.config;
 const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 'trades', 'chat', 'friends'] as const;
@@ -353,6 +353,8 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
                 {
                   onSuccess: (r) => {
                     setDone(r.version);
+                    // The content is published: the draft tried in a test run is done with (debug mode, 2026-11-16).
+                    if (row.key === 'content') clearContentDraft();
                     if (next) {
                       setBase({ version: r.version, data: next });
                       load(next);
