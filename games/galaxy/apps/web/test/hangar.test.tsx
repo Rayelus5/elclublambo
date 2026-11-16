@@ -145,6 +145,25 @@ describe('el selector de sectores', () => {
     expect(screen.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeInTheDocument();
   });
 
+  // 2026-11-16: the season sector also asks for runs in any sector, and every sector says what it pays.
+  test('la Fisura cerrada por incursiones dice cuántas hacen falta, con su progreso', async () => {
+    const sectors = SECTORS.map((x) => (x.id === 'signal-rift' ? { ...x, unlocked: false, condition: { sector: null, stat: 'runs' as const, value: 15 }, progress: 4 / 15 } : x));
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ sectors })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).queryByRole('button', { name: 'Fisura de la Señal' })).toBeNull();
+    expect(within(picker).getByText('Juega 15 incursiones')).toBeInTheDocument();
+  });
+
+  test('el sector elegido y cada sector abierto dicen lo que pagan', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const title = await screen.findByTitle(copy.hangar.sectorPayTitle(0.8));
+    expect(title).toHaveTextContent('×0,8');
+    const picker = screen.getByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).getByRole('button', { name: 'Nebulosa Exterior' })).toHaveTextContent('×0,8');
+  });
+
   test('con la temporada cerrada, la Fisura dice «Fuera de temporada» y no se elige', async () => {
     const sectors = SECTORS.map((x) => (x.id === 'signal-rift' ? { ...x, unlocked: false, progress: 0 } : x));
     mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ sectors })) });

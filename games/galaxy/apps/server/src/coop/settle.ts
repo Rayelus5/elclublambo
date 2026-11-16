@@ -88,12 +88,12 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
     };
     const out = new Notices();
     const result = await runOperation(deps.db, who.accountId, `coop:${s.coopRunId}`, 'coop.finish', `coop:${s.coopRunId}:${slot}`, async (trx) => {
-      const row = await trx.selectFrom('galaxy.runs').select(['id', 'upgrades', 'started_at', 'finished_at']).where('id', '=', who.runRowId).forUpdate().executeTakeFirstOrThrow();
+      const row = await trx.selectFrom('galaxy.runs').select(['id', 'upgrades', 'started_at', 'finished_at', 'sector', 'sector_factor']).where('id', '=', who.runRowId).forUpdate().executeTakeFirstOrThrow();
       const wallSeconds = Math.max(0, (now.getTime() - new Date(row.started_at).getTime()) / 1000);
       const r = await settleRun(
         trx,
         who.accountId,
-        { run: row, claim, claimed: claim, flags: s.idle?.[slot] ? ['coop_idle'] : [], penalized: false, wallSeconds, inputs: null, pointsFactor, satellites: runs.caps.satelliteSignals },
+        { run: row, claim, claimed: claim, flags: s.idle?.[slot] ? ['coop_idle'] : [], penalized: false, wallSeconds, inputs: null, pointsFactor, satellites: runs.caps.satelliteSignals, sector: { id: row.sector, factor: row.sector_factor } },
         `coop:${s.coopRunId}`,
         { runs, runsVersion, content, account, season, boosts, now },
       );

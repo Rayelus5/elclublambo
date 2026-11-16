@@ -4,7 +4,7 @@ import { type FinishRunRequest, generateGalaxy, type Leaderboard, type MeRespons
 import { encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { invalidateLeaderboard } from '../../src/social/leaderboard';
-import { fixedConfig, get, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, NEUTRAL_SECTORS, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // The social side on the server (GDD §12.1, §14.1, §14.2; M5a): a finished run that is not suspicious gives account
 // experience and, in an open season, points; the season leaderboard ranks players by score, depth and Cores; profiles
@@ -80,7 +80,7 @@ describe('la experiencia de una incursión', () => {
   let clock = at(s, 24);
   let ctx: Ctx;
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
   });
   afterAll(() => ctx.close());
 
@@ -161,7 +161,7 @@ describe('la clasificación de la temporada', () => {
   let cheat: typeof a;
   let early: typeof a;
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
     [a, b, c, d, cheat, early] = [await player(ctx, 'lba'), await player(ctx, 'lbb'), await player(ctx, 'lbc'), await player(ctx, 'lbd'), await player(ctx, 'lbx'), await player(ctx, 'lbe')];
     // A and C tie on 175 points and depth 5 with two Cores; C got there first. B leads with 180; D has 10.
     await scored(ctx, a.id, { depth: 5, bossKills: 2, outcome: 'extracted', when: at(s, 30) });
@@ -303,7 +303,7 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
   let ctx: Ctx;
   let [a, b, c, d, x, solo]: Awaited<ReturnType<typeof player>>[] = [];
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
     [a, b, c, d, x, solo] = [await player(ctx, 'gra'), await player(ctx, 'grb'), await player(ctx, 'grc'), await player(ctx, 'grd'), await player(ctx, 'grx'), await player(ctx, 'grs')];
     // A+B reach layer 6 with 3 Cores twice (the faster counts) and layer 4 once; C+D reach the same, faster still.
     await grouped(ctx, [a!, b!], { depth: 6, cores: 3, ticks: 54_000, when: at(s, 10) });
@@ -345,7 +345,7 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
 
 test('sin temporada abierta, la clasificación lo dice y no tiene filas', async () => {
   const s = season();
-  const ctx = await testApp({ now: () => at(s, -24), config: fixedConfig({ season: s }) });
+  const ctx = await testApp({ now: () => at(s, -24), config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
   try {
     const p = await player(ctx);
     const v = await board(ctx, p.cookie);
@@ -354,3 +354,36 @@ test('sin temporada abierta, la clasificación lo dice y no tiene filas', async 
     await ctx.close();
   }
 });
+
+// Pay by sector (2026-11-16): with the real defaults a Nebulosa run pays ×0,8 (loot, material and season points), its
+// experience stays as it was (never below ×1), and the ranking adds up exactly the points its results said.
+describe('la paga por sector', () => {
+  const s = season();
+  let clock = at(s, 24);
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+  });
+  afterAll(() => ctx.close());
+
+  const INPUTS = toBase64(encodeLog({ probes: 1, events: [1, 0, 0, 127, 0, -1, 300, 0, 0, 0, 0, -1] }));
+  const body: FinishRunRequest = { outcome: 'extracted', ticks: 6 * 3600, depth: 1, kills: 600, bossKills: 1, level: 14, loot: [{ coins: 40, dust: 12 }], hash: '0123456789abcdef', inputs: INPUTS };
+
+  test('la Nebulosa paga ×0,8 botín, material y puntos, la experiencia no baja y la clasificación suma lo mismo', async () => {
+    const p = await player(ctx);
+    const start = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    expect(start.statusCode).toBe(200);
+    const id = (start.json() as RunStart).id;
+    expect(Number((await ctx.db.selectFrom('galaxy.runs').select('sector_factor').where('id', '=', id).executeTakeFirstOrThrow()).sector_factor)).toBe(0.8);
+    clock = new Date(clock.getTime() + 10 * 60_000);
+    const res = await post(ctx.app, `/galaxy/api/runs/${id}/finish`, body, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    expect(res.statusCode).toBe(200);
+    const r = res.json() as RunResult;
+    // ×1 it would be 40 coins, 12 dust, 28 material and 85 points (the test above); experience 145 either way.
+    expect(r.payout).toMatchObject({ coins: 32, dust: 9, material: 22 });
+    expect(r.breakdown.sector).toEqual({ id: 'outer-nebula', factor: 0.8 });
+    expect(r.progress).toMatchObject({ xp: 145, points: 68 });
+    expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: 68 });
+  });
+});
+

@@ -129,3 +129,15 @@ describe('la API', () => {
     expect(API_ERROR_CODES).toContain('season_closed');
   });
 });
+
+// Pay by sector (2026-11-16): experience follows the sector's factor, but never below ×1 (newcomers live in the
+// Nebulosa, ×0,8, and experience opens group play).
+describe('experiencia por sector', () => {
+  test('en un sector que paga ×1,5 da un 50 % más, tras el tope por minuto', () => {
+    expect(runXp(run(), account, 1.5)).toBe(Math.floor(runXp(run(), account) * 1.5));
+  });
+  test('en la Nebulosa (×0,8) da lo mismo que hoy', () => {
+    expect(runXp(run(), account, 0.8)).toBe(runXp(run(), account));
+  });
+});
+

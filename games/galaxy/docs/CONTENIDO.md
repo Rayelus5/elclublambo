@@ -324,7 +324,17 @@ Un id nunca se reutiliza ni cambia de significado:
 - `season.anomaly` debe existir en `content.anomalies`. Una anomalía nueva es contenido (parte A).
 - `season.finish` solo admite `rift` (`SEASON_FINISHES`); un acabado nuevo es código y arte.
 
-**El sector de temporada:** `sectors.season` (hoy `signal-rift`) es independiente de las fechas; `null` lo cierra.
+**El sector de temporada:**
+- `sectors.season` (hoy `signal-rift`) es independiente de las fechas; `null` lo cierra.
+- Además pide `sectors.seasonUnlock` incursiones (por defecto 15) en cualquier sector, contadas como las de las sondas: terminadas, no sospechosas y de al menos `probes.minRunSeconds`. Quien ya terminó una incursión en él lo conserva. `null` lo abre a todos.
+
+**La paga por sector (2026-11-16):**
+- `sectors.pay` multiplica lo que paga una incursión en cada sector: monedas, polvo, material, componentes y puntos de temporada.
+- Por defecto: Nebulosa ×0,8, Escarcha ×1, Arrecife ×1,25, Forja ×1,5 y Fisura ×1,8. Un sector que no esté en la lista paga ×1.
+- La experiencia sigue el mismo factor, pero nunca por debajo de ×1.
+- Los topes por incursión de `runs.caps` crecen con el factor.
+- El factor se guarda al empezar la incursión (`runs.sector_factor`): cambiarlo no toca las que están en marcha.
+- En la simulación, el botín en bruto por minuto sigue siendo el mismo en todos los sectores (±15 %, `calibration.test.ts`); la diferencia la pone el servidor al pagar.
 
 **Textos fijos:** «Temporada 1 · La Señal» en `codex/entries.ts` y «Beta Abierta» en `es.ts`.
 

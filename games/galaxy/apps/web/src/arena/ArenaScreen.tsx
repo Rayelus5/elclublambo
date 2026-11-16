@@ -247,7 +247,8 @@ export function ArenaScreen({
   }, []);
 
   const pause = useCallback(() => {
-    if (ended.current || sim.status === 'choosing') return;
+    // While the debug mode asks about the test run, the question is the pause (2026-11-16).
+    if (ended.current || sim.status === 'choosing' || askingRef.current) return;
     dashAsked.current = false;
     loopRef.current?.pause();
     setPaused(true);
@@ -597,7 +598,8 @@ export function ArenaScreen({
       if (pad) {
         input.current.pad = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0, rx: pad.axes[2] ?? 0, ry: pad.axes[3] ?? 0 };
         const start = pad.buttons[9]?.pressed ?? false;
-        if (start && !startWas) {
+        // Start never resumes the run under the debug mode's question.
+        if (start && !startWas && !askingRef.current) {
           if (loopRef.current?.paused) resume();
           else pause();
         }
@@ -691,7 +693,7 @@ export function ArenaScreen({
       {choosing && (
         <LevelUp offer={hud.offer!} content={run.content} onPick={choose} />
       )}
-      {paused && !over && !ending && !debugOpen && (
+      {paused && !over && !ending && !debugOpen && !asking && (
         <PauseMenu
           onDebug={debug ? () => setDebugOpen(true) : undefined}
           manualAim={manualAim}

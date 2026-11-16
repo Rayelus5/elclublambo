@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-35-cada-sector-paga-lo-suyo',
+    version: '1.35',
+    date: '2026-11-16',
+    title: 'Cada sector paga lo suyo',
+    summary: 'Los sectores más difíciles pagan más, para que valga la pena salir de la Nebulosa',
+    items: [
+      { kind: 'equilibrio', text: 'Cuanto más difícil es el sector, más pagan sus incursiones: monedas, polvo estelar, material, componentes y puntos de temporada' },
+      { kind: 'equilibrio', text: 'La Nebulosa Exterior paga algo menos que antes; la experiencia que da sigue igual' },
+      { kind: 'mejora', text: 'Cada sector dice en el hangar cuánto paga, y los resultados de la incursión lo muestran' },
+      { kind: 'equilibrio', text: 'La Fisura de la Señal se abre tras jugar unas cuantas incursiones; si ya la jugaste esta temporada, la conservas' },
+    ],
+  },
+  {
     id: 'v1-34-la-estatica-crece-contigo',
     version: '1.34',
     date: '2026-11-15',
