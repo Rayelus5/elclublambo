@@ -12,7 +12,7 @@ import { artUrl } from './art';
 import { AREAS, type AreaDesc, describeContent as describe, DESCRIPTORS, VOCABS } from './descriptors';
 import { PhaseTimeline, ReactionMatrix, SpawnTimeline, WeightBars } from './Charts';
 import { LevelTable } from './LevelTable';
-import { CreateWizard, isWizardKind, WIZARDS, type WizardKind } from './CreateWizard';
+import { type CompanionField, type Companions, CreateWizard, isWizardKind, WIZARDS, type WizardKind } from './CreateWizard';
 import { uniqueId } from './ids';
 import { SpritePicker } from './SpritePicker';
 import { TEXT_PATTERNS, TextFallback } from './TextFallback';
@@ -95,7 +95,22 @@ function areasFor(): AreaDesc[] {
   return rest.length ? [...AREAS, { id: 'otros', title: t.others, summary: t.othersSummary, icon: 'list', keys: rest as AreaDesc['keys'] }] : [...AREAS];
 }
 
-export function ContentEditor({ value, live, onChange, issues }: { value: Value; live: Value; onChange: (next: Value) => void; issues: { path: string; message: string }[] }) {
+export function ContentEditor({
+  value,
+  live,
+  onChange,
+  issues,
+  companions = { sectors: null, probes: null },
+  onCompanions = () => {},
+}: {
+  value: Value;
+  live: Value;
+  onChange: (next: Value) => void;
+  issues: { path: string; message: string }[];
+  /** The sectors and probes keys as the draft has them, for what a new sector or probe writes there. */
+  companions?: Companions;
+  onCompanions?: (fields: CompanionField[]) => void;
+}) {
   const [params, setParams] = useSearchParams();
   const schema = configJsonSchema('content');
   const areas = useMemo(() => areasFor(), []);
@@ -124,8 +139,10 @@ export function ContentEditor({ value, live, onChange, issues }: { value: Value;
         value={value}
         options={options}
         widgets={WIDGETS}
+        companions={companions}
         onCancel={() => go({ crear: null })}
-        onAdd={(next, where) => {
+        onAdd={(next, where, extra) => {
+          if (extra.length > 0) onCompanions(extra);
           onChange(next);
           go({ crear: null, zona: where.zona, lista: where.lista ?? null, id: where.lista ? where.id : null });
         }}

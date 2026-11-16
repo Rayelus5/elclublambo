@@ -237,6 +237,36 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
   const warningsKey = warnings.map((w) => `${w.code}@${w.path}`).join('|');
   const [ackFor, setAckFor] = useState<string | null>(null);
   const acked = warnings.length === 0 || ackFor === warningsKey;
+  // The sectors and probes keys as this draft has them: what a new sector's or probe's wizard writes there (P9b).
+  const companions = useMemo(() => {
+    try {
+      return {
+        sectors: liveSectors.data ? parseConfig('sectors', mergeDraft('sectors', liveSectors.data.data, d0.data.sectors ?? {})) : null,
+        probes: liveProbes.data ? parseConfig('probes', mergeDraft('probes', liveProbes.data.data, d0.data.probes ?? {})) : null,
+      };
+    } catch {
+      return { sectors: null, probes: null };
+    }
+  }, [liveSectors.data, liveProbes.data, d0.data.sectors, d0.data.probes]);
+
+  /** Saves fields of the sectors or probes keys into the draft, after what is already queued. */
+  function saveCompanions(fields: { key: 'sectors' | 'probes'; field: string; value: unknown }[]) {
+    queue.current = queue.current.then(async () => {
+      let latest = view.current;
+      if (!latest) return;
+      setStatus('saving');
+      try {
+        for (const f of fields) latest = await saveDraftField(id, { key: f.key, field: f.field, value: f.value, revision: latest.revision });
+        view.current = latest;
+        qc.setQueryData([...DRAFTS_KEY, id], latest);
+        setStatus('saved');
+      } catch (err) {
+        setSaveError(err);
+        setStatus('error');
+        await qc.invalidateQueries({ queryKey: [...DRAFTS_KEY, id] });
+      }
+    });
+  }
   const touched = useMemo(() => Object.keys(checked).filter((k) => JSON.stringify(checked[k]) !== JSON.stringify(live.data[k])), [checked, live.data]);
 
   function save(next: Record<string, unknown>) {
@@ -344,7 +374,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
               setMode('json');
             }}
           >
-            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} companions={companions} onCompanions={saveCompanions} />
           </EditorBoundary>
         ) : (
           <div className="field">

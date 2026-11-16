@@ -1375,3 +1375,22 @@ Comprueba con `rayelus`:
 1. En un borrador, «Crear enemigo», basado en el ácaro: al añadirlo se abre su ficha, y sale en la Nebulosa Exterior.
 2. «Crear reacción» basada en otra: la revisión avisa de que esa pareja ya reacciona.
 
+## Editor de contenido, P9b: asistentes con piezas enlazadas
+
+**Qué cambia.** Solo cambia la web: no hay migraciones ni configuración que publicar.
+
+**El código ya trae:**
+- **Crear Núcleo:** en «Dónde sale» se eligen los sectores donde sale por turnos como una forma más de su Núcleo (`bossCycle`).
+- **Crear sector:**
+  - entra antes del de temporada, porque el orden de los sectores es su dificultad;
+  - en «Desbloqueo» se elige tras qué sector se abre, qué hay que conseguir y su paga;
+  - el desbloqueo y la paga se guardan en la clave `sectors` del mismo borrador.
+- **Crear arma:**
+  - no se añade sin su evolución, que se crea en «Evolución» con su nombre y la pasiva que pide;
+  - si se basa en un arma que ya evoluciona, la evolución nueva copia la suya.
+- **Crear sonda:** su condición de desbloqueo va a la clave `probes` del mismo borrador.
+
+Comprueba con `rayelus`:
+1. En un borrador, «Crear sector» basado en los Anillos: queda antes de la Fisura, y publicar avisa de lo que falte.
+2. «Crear arma» basada en el Pulso: «Revisión» pide su evolución; con ella entran las dos.
+

@@ -3094,6 +3094,8 @@
   .ce-wizard-spawn input { inline-size: 84px; min-block-size: 36px; padding: 6px 8px; border: 0; border-radius: 8px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
   .ce-wizard-review { display: grid; gap: 10px; justify-items: start; }
   .ce-wizard-nav { display: flex; gap: 8px; }
+  .ce-wizard .ce-wizard-wide { grid-column: 1 / -1; margin: 0; }
+  .ce-wizard .cf-field input[type='number'] { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
   /* A text tied to an entry (P8): the game's own greyed while it is empty. */
   .ce-text.long { grid-column: 1 / -1; }
   .ce-text textarea, .ce-text input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; line-height: 1.45; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); resize: vertical; }
