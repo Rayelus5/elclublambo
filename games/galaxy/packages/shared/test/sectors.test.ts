@@ -83,7 +83,11 @@ describe('la Fisura a las 15 incursiones', () => {
   });
 
   test('quien ya terminó una incursión en ella la conserva aunque tenga menos de 15', () => {
-    expect(sectorStatus(rift, { 'signal-rift': { ...zero, maxDepth: 1 } }, cfg, { runs: 3 })).toMatchObject({ unlocked: true });
+    expect(sectorStatus(rift, {}, cfg, { runs: 3, kept: ['signal-rift'] })).toMatchObject({ unlocked: true });
+  });
+
+  test('haber jugado en ella no basta: lo dice el servidor (en grupo, solo antes de la puerta)', () => {
+    expect(sectorStatus(rift, { 'signal-rift': { ...zero, maxDepth: 1 } }, cfg, { runs: 3, kept: [] })).toMatchObject({ unlocked: false });
   });
 
   test('fuera de temporada sigue cerrada aunque tenga las incursiones', () => {

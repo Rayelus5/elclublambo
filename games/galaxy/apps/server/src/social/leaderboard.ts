@@ -59,8 +59,10 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, m
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
   // A co-op run's points are scaled by the players it started with (multiplayer plan: runs.points_factor), and every
   // run's by what its sector pays (2026-11-16: runs.sector_factor) — in double precision, in the same order as
-  // creditRunProgress, so the ranking adds up exactly what each run's results said.
-  const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)::float8 * r.points_factor::float8 * r.sector_factor)::int`;
+  // creditRunProgress, so the ranking adds up exactly what each run's results said. `points_factor` is a `real`: cast
+  // straight to double, 0,7 is 0,69999998…, and a run of 10 points ranked 6 where its results said 7 (review of
+  // 2026-11-16); through numeric, rounded, it is the config's 0,7 again.
+  const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)::float8 * round(r.points_factor::numeric, 6)::float8 * r.sector_factor)::int`;
   // Group records live in the group ranking only: depth and purges count solo runs.
   const soloOnly = tab === 'general' ? sql`` : sql`and r.coop_run_id is null`;
   const value =
