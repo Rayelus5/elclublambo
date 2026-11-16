@@ -1,12 +1,12 @@
 import type { ConfigKey, JsonSchema } from '@galaxy/shared';
-import { createContext, type ReactNode, useContext, useId, useState } from 'react';
+import { type ComponentType, createContext, createElement, type ReactNode, useContext, useId, useMemo, useState } from 'react';
 import { copy } from '../../copy/es';
 import { DateField } from '../../ui/DateField';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
 import { fmtNumber, fmtUtc, fromLocalInput, itemSummary, scaleOf, tidy, toLocalInput } from './format';
 import { type FieldInfo, fieldInfo, itemName, UNIT_SUFFIX, valueName } from './labels';
-import { discriminatorOf, emptyOf, getIn, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
+import { discriminatorOf, emptyOf, getIn, itemsOf, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
 
 // A config key as a form (polish phase 4), drawn from its JSON Schema: numbers with their unit and range, switches,
 // choices with Spanish names, dates in the admin's time, lists of cards (add, duplicate, move, remove), named entries,
@@ -14,7 +14,22 @@ import { discriminatorOf, emptyOf, getIn, kindOf, liveIds, optionOf, parseNumber
 // their group.
 
 export type Option = { value: string; label: string };
-export type Options = Partial<Record<'anomalies' | 'sectors' | 'probes', Option[]>>;
+/** Named lists of choices (the live sectors, anomalies and probes; the content editor adds its own sources). */
+export type Options = Partial<Record<string, Option[]>>;
+/** A form's own description of a field (the content editor's descriptors), or none: the key's labels then. */
+export type Describe = (pattern: string) => FieldInfo | undefined;
+
+/** What a widget that replaces a field gets (the content editor, 2026-11-16): its value, where it is, how to set it. */
+export interface WidgetProps {
+  value: unknown;
+  node: JsonSchema;
+  path: Path;
+  pattern: string;
+  info: FieldInfo;
+  set: (value: unknown) => void;
+}
+/** Widgets by the pattern they replace («sectors[].spawns», «bosses[].phases»): components made once, never per render. */
+export type Widgets = Partial<Record<string, ComponentType<WidgetProps>>>;
 
 interface Ctx {
   cfgKey: ConfigKey;
@@ -26,6 +41,9 @@ interface Ctx {
   autoIds: Set<string>;
   /** The ids published, by list («list[]|fisura»): shown, never changed. */
   locked: Set<string>;
+  widgets?: Widgets;
+  /** A field's label, hint, unit and source: the form's own description first, then the key's labels. */
+  info: (pattern: string) => FieldInfo;
 }
 const FormCtx = createContext<Ctx | null>(null);
 const useForm = () => useContext(FormCtx)!;
@@ -97,9 +115,9 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
 
 /** One scalar field: label, control, hint and its problems. */
 function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Path; pattern: string; optional: boolean }) {
-  const { cfgKey, root, set, options, issues, autoIds, locked } = useForm();
+  const { root, set, options, issues, autoIds, locked, info } = useForm();
   const id = useId();
-  const info = fieldInfo(cfgKey, pattern);
+  const field = info(pattern);
   const invalid = issues.has(pathKey(path));
   const { node: n, nullable } = unwrap(node);
   const kind = kindOf(n);
@@ -123,7 +141,7 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
   if (path.at(-1) === 'id' && isLocked(value)) {
     return (
       <div className="cf-field cf-k-fixed">
-        <span className="cf-label">{info.label}</span>
+        <span className="cf-label">{field.label}</span>
         <span className="cf-locked">
           <Icon name="lock" />
           <span>{String(value)}</span>
@@ -132,14 +150,15 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
       </div>
     );
   }
-  const choices = info.options ? options[info.options] : undefined;
+  const choices = field.options ? options[field.options] : undefined;
+  const labelId = `${id}-l`;
   let control: ReactNode;
-  let hint = info.hint ?? null;
+  let hint = field.hint ?? null;
 
-  if (kind === 'boolean') control = <Toggle id={id} on={value === true} onChange={change} label={info.label} />;
+  if (kind === 'boolean') control = <Toggle id={id} on={value === true} onChange={change} label={field.label} />;
   else if (kind === 'number') {
-    control = <NumberInput id={id} value={value} info={info} onChange={change} invalid={invalid} />;
-    hint = hint ?? rangeHint(n, info);
+    control = <NumberInput id={id} value={value} info={field} onChange={change} invalid={invalid} />;
+    hint = hint ?? rangeHint(n, field);
   } else if (kind === 'enum' || choices) {
     const list: Option[] = choices ?? (n.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
     const known = list.some((o) => o.value === value) || value === null || value === undefined;
@@ -148,13 +167,14 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
         id={id}
         size="sm"
         block
+        aria-labelledby={labelId}
         value={value === null || value === undefined ? '' : String(value)}
         options={[
           ...(nullable || optional ? [{ value: '', label: 'Ninguno' }] : []),
           ...(!known ? [{ value: String(value), label: String(value) }] : []),
           ...list,
         ]}
-        onChange={(v) => change(v === '' ? (nullable ? null : undefined) : v)}
+        onChange={(v) => change(v === '' ? (nullable ? null : undefined) : (n.enum?.find((e) => String(e) === v) ?? v))}
       />
     );
   } else if (kind === 'datetime') {
@@ -180,12 +200,14 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
   }
   return (
     <div className={`cf-field cf-k-${kind}`}>
-      <label htmlFor={id}>{info.label}</label>
+      <label id={labelId} htmlFor={id}>
+        {field.label}
+      </label>
       {control}
       {hint ? <small className="cf-hint">{hint}</small> : null}
       {optional && value !== undefined && kind !== 'enum' && !choices ? (
         <button type="button" className="cf-link" onClick={() => change(undefined)}>
-          Quitar {info.label.toLowerCase()}
+          Quitar {field.label.toLowerCase()}
         </button>
       ) : null}
       <Problems path={path} />
@@ -195,37 +217,37 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
 
 /** A fixed row of numbers (one per rarity, per level…) or a growing one. */
 function Row({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { cfgKey, root, set } = useForm();
+  const { root, set, info } = useForm();
   const id = useId();
-  const info = fieldInfo(cfgKey, pattern);
+  const field = info(pattern);
   const value = (getIn(root, path) as unknown[] | undefined) ?? [];
-  const item = unwrap(node.items ?? {}).node;
+  const item = unwrap(itemsOf(node)).node;
   const fixed = node.minItems !== undefined && node.minItems === node.maxItems;
   return (
     <fieldset className="cf-field cf-row">
-      <legend>{info.label}</legend>
+      <legend>{field.label}</legend>
       <div className="cf-row-items">
         {value.map((v, i) => {
-          const name = itemName(info, i) ?? `${i + 1}`;
+          const name = itemName(field, i) ?? `${i + 1}`;
           return (
             <span key={i} className="cf-row-item">
               <small>{name}</small>
-              <NumberInput id={`${id}-${i}`} value={v} info={info} label={`${info.label}: ${name}`} onChange={(x) => set([...path, i], x)} />
+              <NumberInput id={`${id}-${i}`} value={v} info={field} label={`${field.label}: ${name}`} onChange={(x) => set([...path, i], x)} />
             </span>
           );
         })}
         {!fixed ? (
           <span className="cf-row-tools">
-            <button type="button" className="cf-icon-btn" aria-label={`Añadir a ${info.label}`} disabled={node.maxItems !== undefined && value.length >= node.maxItems} onClick={() => set(path, [...value, value.at(-1) ?? emptyOf(item)])}>
+            <button type="button" className="cf-icon-btn" aria-label={`Añadir a ${field.label}`} disabled={node.maxItems !== undefined && value.length >= node.maxItems} onClick={() => set(path, [...value, value.at(-1) ?? emptyOf(item)])}>
               <Icon name="plus" />
             </button>
-            <button type="button" className="cf-icon-btn" aria-label={`Quitar el último de ${info.label}`} disabled={value.length <= (node.minItems ?? 0)} onClick={() => set(path, value.slice(0, -1))}>
+            <button type="button" className="cf-icon-btn" aria-label={`Quitar el último de ${field.label}`} disabled={value.length <= (node.minItems ?? 0)} onClick={() => set(path, value.slice(0, -1))}>
               <Icon name="trash" />
             </button>
           </span>
         ) : null}
       </div>
-      {info.hint ? <small className="cf-hint">{info.hint}</small> : null}
+      {field.hint ? <small className="cf-hint">{field.hint}</small> : null}
       <Problems path={path} />
     </fieldset>
   );
@@ -233,9 +255,9 @@ function Row({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: s
 
 /** Words, one per line. */
 function Words({ path, pattern }: { path: Path; pattern: string }) {
-  const { cfgKey, root, set } = useForm();
+  const { root, set, info } = useForm();
   const id = useId();
-  const info = fieldInfo(cfgKey, pattern);
+  const field = info(pattern);
   const value = (getIn(root, path) as string[] | undefined) ?? [];
   const [text, setText] = useState(value.join('\n'));
   const [seen, setSeen] = useState(value.join('\n'));
@@ -246,7 +268,7 @@ function Words({ path, pattern }: { path: Path; pattern: string }) {
   }
   return (
     <div className="cf-field cf-words">
-      <label htmlFor={id}>{info.label}</label>
+      <label htmlFor={id}>{field.label}</label>
       <textarea
         id={id}
         rows={Math.min(10, Math.max(3, value.length + 1))}
@@ -258,7 +280,7 @@ function Words({ path, pattern }: { path: Path; pattern: string }) {
           set(path, next);
         }}
       />
-      {info.hint ? <small className="cf-hint">{info.hint}</small> : null}
+      {field.hint ? <small className="cf-hint">{field.hint}</small> : null}
       <Problems path={path} />
     </div>
   );
@@ -266,7 +288,7 @@ function Words({ path, pattern }: { path: Path; pattern: string }) {
 
 /** The fields of an object: scalars side by side, groups and lists across. */
 function Fields({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { root, set, cfgKey } = useForm();
+  const { root, set, info } = useForm();
   const value = getIn(root, path) as Record<string, unknown> | undefined;
   return (
     <div className="cf-grid">
@@ -276,10 +298,10 @@ function Fields({ node, path, pattern }: { node: JsonSchema; path: Path; pattern
         const optional = !node.required?.includes(k) && child.default === undefined && unwrap(child).node.default === undefined;
         // An optional group or date not set: a button adds it.
         if (optional && value?.[k] === undefined && kindOf(unwrap(child).node) !== 'enum') {
-          const info = fieldInfo(cfgKey, pat);
+          const field = info(pat);
           return (
             <div key={k} className="cf-field cf-absent">
-              <span className="cf-absent-label">{info.label}</span>
+              <span className="cf-absent-label">{field.label}</span>
               <button type="button" className="lip pill small" onClick={() => set(p, emptyOf(child))}>
                 <Icon name="plus" />
                 <span>Añadir</span>
@@ -294,18 +316,18 @@ function Fields({ node, path, pattern }: { node: JsonSchema; path: Path; pattern
 }
 
 function Group({ node, path, pattern, optional }: { node: JsonSchema; path: Path; pattern: string; optional: boolean }) {
-  const { cfgKey, set } = useForm();
-  const info = fieldInfo(cfgKey, pattern);
+  const { set, info } = useForm();
+  const field = info(pattern);
   return (
     <fieldset className="cf-group">
-      <legend>{info.label}</legend>
-      {info.hint ? <p className="cf-hint">{info.hint}</p> : null}
+      <legend>{field.label}</legend>
+      {field.hint ? <p className="cf-hint">{field.hint}</p> : null}
       <Problems path={path} />
       <Fields node={node} path={path} pattern={pattern} />
       {optional ? (
         <button type="button" className="lip pill small cf-remove-group" onClick={() => set(path, undefined)}>
           <Icon name="trash" />
-          <span>Quitar {info.label.toLowerCase()}</span>
+          <span>Quitar {field.label.toLowerCase()}</span>
         </button>
       ) : null}
     </fieldset>
@@ -313,9 +335,9 @@ function Group({ node, path, pattern, optional }: { node: JsonSchema; path: Path
 }
 
 function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { cfgKey, root, set } = useForm();
+  const { root, set, info } = useForm();
   const id = useId();
-  const info = fieldInfo(cfgKey, pattern);
+  const field = info(pattern);
   const value = getIn(root, path) as Record<string, unknown> | undefined;
   const d = discriminatorOf(node);
   const option = optionOf(node, value);
@@ -323,10 +345,10 @@ function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; patter
   const rest = { ...option, properties: Object.fromEntries(Object.entries(option.properties ?? {}).filter(([k]) => k !== d)) };
   return (
     <fieldset className="cf-group">
-      <legend>{info.label}</legend>
+      <legend>{field.label}</legend>
       <div className="cf-grid">
         <div className="cf-field cf-k-enum">
-          <label htmlFor={id}>{fieldInfo(cfgKey, `${pattern}.${d}`).label}</label>
+          <label htmlFor={id}>{info(`${pattern}.${d}`).label}</label>
           <Select
             id={id}
             size="sm"
@@ -337,17 +359,89 @@ function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; patter
           />
         </div>
       </div>
-      {Object.keys(rest.properties).length ? <Fields node={rest} path={path} pattern={pattern} /> : null}
+      {Object.keys(rest.properties).length ? <Fields node={rest} path={path} pattern={`${pattern}<${String(value?.[d] ?? '')}>`} /> : null}
+      <Problems path={path} />
+    </fieldset>
+  );
+}
+
+/** A tuple ([min, max], a pair of elements): one control per place, each its own kind. */
+function Tuple({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
+  const { root, set, info } = useForm();
+  const id = useId();
+  const field = info(pattern);
+  const value = (getIn(root, path) as unknown[] | undefined) ?? [];
+  return (
+    <fieldset className="cf-field cf-row cf-tuple">
+      <legend>{field.label}</legend>
+      <div className="cf-row-items">
+        {(node.prefixItems ?? []).map((place, i) => {
+          const name = itemName(field, i) ?? `${i + 1}`;
+          const p = unwrap(place).node;
+          return (
+            <span key={i} className="cf-row-item">
+              <small>{name}</small>
+              {kindOf(p) === 'enum' ? (
+                <Select
+                  id={`${id}-${i}`}
+                  size="sm"
+                  aria-label={`${field.label}: ${name}`}
+                  value={String(value[i] ?? '')}
+                  options={(p.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }))}
+                  onChange={(v) => set([...path, i], p.enum?.find((e) => String(e) === v) ?? v)}
+                />
+              ) : (
+                <NumberInput id={`${id}-${i}`} value={value[i]} info={field} label={`${field.label}: ${name}`} onChange={(x) => set([...path, i], x)} />
+              )}
+            </span>
+          );
+        })}
+      </div>
+      {field.hint ? <small className="cf-hint">{field.hint}</small> : null}
+      <Problems path={path} />
+    </fieldset>
+  );
+}
+
+/** A union of objects told apart by the key each one requires ({passive} | {element}): which one, then its fields. */
+function Choice({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
+  const { root, set, info } = useForm();
+  const id = useId();
+  const field = info(pattern);
+  const value = getIn(root, path) as Record<string, unknown> | undefined;
+  const options = node.anyOf ?? [];
+  const keyOf = (o: JsonSchema) => o.required![0]!;
+  const current = options.find((o) => value && Object.hasOwn(value, keyOf(o))) ?? options[0]!;
+  return (
+    <fieldset className="cf-group">
+      <legend>{field.label}</legend>
+      <div className="cf-grid">
+        <div className="cf-field cf-k-enum">
+          <label id={`${id}-l`} htmlFor={id}>
+            {field.label}
+          </label>
+          <Select
+            id={id}
+            size="sm"
+            block
+            aria-labelledby={`${id}-l`}
+            value={keyOf(current)}
+            options={options.map((o) => ({ value: keyOf(o), label: info(`${pattern}.${keyOf(o)}`).label }))}
+            onChange={(k) => set(path, emptyOf(options.find((o) => keyOf(o) === k)!))}
+          />
+        </div>
+      </div>
+      <Fields node={current} path={path} pattern={`${pattern}<${keyOf(current)}>`} />
       <Problems path={path} />
     </fieldset>
   );
 }
 
 function List({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { cfgKey, root, set, issues } = useForm();
-  const info = fieldInfo(cfgKey, pattern);
+  const { root, set, issues, info } = useForm();
+  const field = info(pattern);
   const value = (getIn(root, path) as unknown[] | undefined) ?? [];
-  const item = node.items ?? {};
+  const item = itemsOf(node);
   const [open, setOpen] = useState<Set<number>>(() => new Set());
   const toggle = (i: number) => setOpen((s) => (s.has(i) ? new Set([...s].filter((x) => x !== i)) : new Set([...s, i])));
   const move = (i: number, by: number) => {
@@ -358,9 +452,9 @@ function List({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: 
   };
   const full = node.maxItems !== undefined && value.length >= node.maxItems;
   // Items named by their place (levels, ranks) are only added or removed at the end; the rest move freely.
-  const positional = !!info.items;
+  const positional = !!field.items;
   const fixed = node.minItems !== undefined && node.minItems === node.maxItems;
-  const noun = info.noun ?? 'elemento';
+  const noun = field.noun ?? 'elemento';
   const withId = (x: unknown) => {
     // A copy needs its own id (a new item gets it from its name).
     if (!x || typeof x !== 'object' || typeof (x as { id?: unknown }).id !== 'string' || !(x as { id: string }).id) return x;
@@ -371,16 +465,16 @@ function List({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: 
     return { ...(x as object), id: `${base}-${n}`.slice(0, 32) };
   };
   return (
-    <section className="cf-list" aria-label={info.label}>
+    <section className="cf-list" aria-label={field.label}>
       <header className="cf-list-head">
-        <h4>{info.label}</h4>
+        <h4>{field.label}</h4>
         <span className="cf-count">{value.length}</span>
       </header>
-      {info.hint ? <p className="cf-hint">{info.hint}</p> : null}
+      {field.hint ? <p className="cf-hint">{field.hint}</p> : null}
       <Problems path={path} />
       <ol>
         {value.map((x, i) => {
-          const name = itemSummary(info, x, i);
+          const name = itemSummary(field, x, i);
           const hasProblems = [...issues.keys()].some((k) => k === pathKey([...path, i]) || k.startsWith(`${pathKey([...path, i])}.`));
           return (
             <li key={i} className={`cf-card${open.has(i) ? ' open' : ''}${hasProblems ? ' bad' : ''}`}>
@@ -459,24 +553,24 @@ function List({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: 
 }
 
 function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { cfgKey, root, set, options } = useForm();
+  const { root, set, options, info } = useForm();
   const id = useId();
-  const info = fieldInfo(cfgKey, pattern);
+  const field = info(pattern);
   const value = (getIn(root, path) as Record<string, unknown> | undefined) ?? {};
   const child = node.additionalProperties as JsonSchema;
   const choices: Option[] =
-    (info.options ? options[info.options] : undefined) ?? (node.propertyNames?.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
+    (field.options ? options[field.options] : undefined) ?? (node.propertyNames?.enum ?? []).map((v) => ({ value: String(v), label: valueName(v) }));
   const free = choices.filter((o) => !(o.value in value));
   const [adding, setAdding] = useState('');
   const nameOf = (k: string) => choices.find((o) => o.value === k)?.label ?? valueName(k);
   const scalar = !['object', 'variant', 'list', 'record'].includes(kindOf(unwrap(child).node));
   return (
-    <section className="cf-list" aria-label={info.label}>
+    <section className="cf-list" aria-label={field.label}>
       <header className="cf-list-head">
-        <h4>{info.label}</h4>
+        <h4>{field.label}</h4>
         <span className="cf-count">{Object.keys(value).length}</span>
       </header>
-      {info.hint ? <p className="cf-hint">{info.hint}</p> : null}
+      {field.hint ? <p className="cf-hint">{field.hint}</p> : null}
       <Problems path={path} />
       <ul className={scalar ? 'cf-entries' : undefined}>
         {Object.keys(value).map((k) => (
@@ -505,7 +599,7 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
       <div className="cf-add-entry">
         {choices.length ? (
           <Select
-            aria-label={`Elegir qué añadir a ${info.label}`}
+            aria-label={`Elegir qué añadir a ${field.label}`}
             id={id}
             size="sm"
             value={adding}
@@ -514,7 +608,7 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
             onChange={setAdding}
           />
         ) : (
-          <input aria-label={`Identificador nuevo en ${info.label}`} id={id} type="text" value={adding} onChange={(e) => setAdding(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))} />
+          <input aria-label={`Identificador nuevo en ${field.label}`} id={id} type="text" value={adding} onChange={(e) => setAdding(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))} />
         )}
         <button
           type="button"
@@ -535,7 +629,11 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
 
 /** Any node: the right control for its kind. `bare` draws an object's fields without its own frame (inside a card). */
 function Node({ node, path, pattern, optional, bare = false }: { node: JsonSchema; path: Path; pattern: string; optional: boolean; bare?: boolean }) {
+  const { root, set, widgets, info } = useForm();
   const n = unwrap(node).node;
+  // A widget made for this field replaces the generic control (the content editor's level tables, timelines…).
+  const widget = widgets?.[pattern] ?? (pattern.includes('<') ? widgets?.[pattern.replace(/<[^>]*>/g, '')] : undefined);
+  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v) });
   switch (kindOf(n)) {
     case 'object':
       return bare ? <Fields node={n} path={path} pattern={pattern} /> : <Group node={n} path={path} pattern={pattern} optional={optional} />;
@@ -547,6 +645,10 @@ function Node({ node, path, pattern, optional, bare = false }: { node: JsonSchem
       return <Record_ node={n} path={path} pattern={pattern} />;
     case 'row':
       return <Row node={n} path={path} pattern={pattern} />;
+    case 'tuple':
+      return <Tuple node={n} path={path} pattern={pattern} />;
+    case 'choice':
+      return <Choice node={n} path={path} pattern={pattern} />;
     case 'words':
       return <Words path={path} pattern={pattern} />;
     case 'unknown':
@@ -566,6 +668,8 @@ export function ConfigForm({
   prefix = '',
   autoIds,
   live,
+  widgets,
+  describe,
 }: {
   cfgKey: ConfigKey;
   schema: JsonSchema;
@@ -579,9 +683,16 @@ export function ConfigForm({
   autoIds?: Set<string>;
   /** What is published (the whole key): its ids are locked. */
   live?: unknown;
+  /** Widgets that replace the generic control of some fields (the content editor, 2026-11-16). */
+  widgets?: Widgets;
+  /** The form's own descriptions of its fields (the content editor's descriptors), before the key's labels. */
+  describe?: Describe;
 }) {
   const [own] = useState(() => new Set<string>());
-  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own, locked: liveIds(live) };
+  // The published ids are read once per published value, not on every keystroke (the run content is 180 KB).
+  const locked = useMemo(() => liveIds(live), [live]);
+  const info = (pattern: string): FieldInfo => describe?.(pattern) ?? (pattern.includes('<') ? describe?.(pattern.replace(/<[^>]*>/g, '')) : undefined) ?? fieldInfo(cfgKey, pattern);
+  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own, locked, widgets, info };
   return (
     <FormCtx.Provider value={ctx}>
       <div className="cf-form">

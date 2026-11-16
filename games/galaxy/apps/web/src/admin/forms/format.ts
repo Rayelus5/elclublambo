@@ -1,6 +1,6 @@
 import type { JsonSchema } from '@galaxy/shared';
 import { type FieldInfo, itemName, UNIT_SUFFIX, valueName } from './labels';
-import { kindOf, unwrap } from './schema';
+import { itemsOf, kindOf, unwrap } from './schema';
 
 // How the config forms show values (polish phase 4): numbers in Spanish, shares as percentages, dates in the admin's
 // own time, and a short name for each item of a list.
@@ -42,7 +42,7 @@ export function fmtValue(node: JsonSchema, info: FieldInfo, v: unknown): string 
     if (!unit) return shown;
     return unit === 'percent' ? `${shown} %` : unit === 'factor' ? `×${shown}` : `${shown} ${UNIT_SUFFIX[unit]}`;
   }
-  if (Array.isArray(v)) return v.map((x) => fmtValue(inner.items ?? {}, info, x)).join(', ');
+  if (Array.isArray(v)) return v.map((x, i) => fmtValue(inner.prefixItems?.[i] ?? itemsOf(inner), info, x)).join(', ');
   if (typeof v === 'string') {
     if (kindOf(inner) === 'datetime') return fmtDate(v);
     if (kindOf(inner) === 'enum') return valueName(v);

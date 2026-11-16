@@ -1,7 +1,7 @@
 import type { ConfigKey, JsonSchema } from '@galaxy/shared';
 import { fmtValue, itemSummary } from './format';
 import { fieldInfo, valueName } from './labels';
-import { kindOf, optionOf, unwrap } from './schema';
+import { itemsOf, kindOf, optionOf, unwrap } from './schema';
 
 // «Qué cambia» in words (polish phase 4): each change of a draft against what is live, named the way the form names
 // it («Temporada › Puntos por incursión › Por capa pasa de 10 a 12»). List items are matched by their id when they
@@ -39,7 +39,7 @@ function walk(key: ConfigKey, node: JsonSchema, pattern: string, trail: string[]
     return;
   }
   if (kind === 'list' && Array.isArray(before) && Array.isArray(after)) {
-    const item = n.items ?? {};
+    const item = itemsOf(n);
     const idOf = (x: unknown, i: number) => (isObj(x) && typeof x.id === 'string' ? `id:${x.id}` : `at:${i}`);
     const old = new Map(before.map((x, i) => [idOf(x, i), { x, i }]));
     const now = new Map(after.map((x, i) => [idOf(x, i), { x, i }]));
@@ -79,7 +79,7 @@ export function placeOf(key: ConfigKey, schema: JsonSchema, value: unknown, path
     if (kind === 'list' && /^\d+$/.test(seg)) {
       const i = Number(seg);
       names.push(itemSummary(fieldInfo(key, pattern), (at as unknown[] | undefined)?.[i], i));
-      node = n.items ?? {};
+      node = itemsOf(n);
       pattern = `${pattern}[]`;
       at = (at as unknown[] | undefined)?.[i];
     } else if (kind === 'record') {

@@ -1,7 +1,7 @@
 import { configJsonSchema, eventBanner, eventCurrency, type EventWarning, type GameEvent, type JsonSchema } from '@galaxy/shared';
 import { copy } from '../../copy/es';
 import { fmtDate, fmtNumber } from '../forms/format';
-import { unwrap } from '../forms/schema';
+import { itemsOf, unwrap } from '../forms/schema';
 
 // What the events screen and its wizard share (polish phase 4): the event's shape for the form, its scanner, and how
 // dates, durations, rewards and warnings read.
@@ -20,7 +20,7 @@ export type Banner = {
 };
 
 /** One event's JSON Schema (an item of `events.list`). */
-export const eventSchema = (): JsonSchema => unwrap(unwrap(configJsonSchema('events').properties!.list!).node).node.items!;
+export const eventSchema = (): JsonSchema => itemsOf(unwrap(unwrap(configJsonSchema('events').properties!.list!).node).node);
 
 /** The schema with only some of its fields, for one step of the wizard. */
 export function pick(schema: JsonSchema, keys: string[]): JsonSchema {

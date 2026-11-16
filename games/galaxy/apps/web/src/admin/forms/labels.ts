@@ -17,7 +17,8 @@ export interface FieldInfo {
   /** The singular noun of a list's items («evento»), for «Añadir evento». */
   noun?: string;
   /** The options come from the live content. */
-  options?: 'anomalies' | 'sectors' | 'probes';
+  /** Where its choices come from: the live sectors, anomalies and probes, or any source a form is given (the content editor's enemies, trait values…). */
+  options?: string;
   /** A list of words, one per line. */
   lines?: boolean;
 }
@@ -532,6 +533,8 @@ function humanize(segment: string): string {
 export function fieldInfo(key: ConfigKey, pattern: string): FieldInfo {
   const own = FIELDS[key]?.[pattern];
   if (own) return own;
+  // A field of one variant («behavior<shooter>.range»; the content editor, 2026-11-16) falls back to the plain field's.
+  if (pattern.includes('<')) return fieldInfo(key, pattern.replace(/<[^>]*>/g, ''));
   const last = pattern.replace(/\[\]$/, '').split(/[.[\]*]+/).filter(Boolean).at(-1) ?? pattern;
   return COMMON[last] ?? { label: humanize(last) };
 }
