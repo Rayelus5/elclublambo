@@ -17,6 +17,8 @@ export interface SelectOption<V extends string = string> {
   label: string;
   /** Shown but not choosable (skipped by the keys and the type-ahead). */
   disabled?: boolean;
+  /** A small drawing beside the label (a `data:` URL: an enemy, a Core, a weapon's icon in the content editor). */
+  image?: string;
 }
 
 type DataAttributes = { [key: `data-${string}`]: string | boolean | undefined };
@@ -258,6 +260,7 @@ export function Select<V extends string>({
         onBlur={(e) => open && !list.current?.contains(e.relatedTarget as Node | null) && close()}
         {...data}
       >
+        {current?.image ? <img className="select-image" src={current.image} alt="" width={24} height={24} /> : null}
         <span className={current ? 'select-text' : 'select-text placeholder'}>{current ? current.label : (placeholder ?? '')}</span>
         {/* Every label, invisible, so the trigger is as wide as the longest (as a native select is). */}
         {options.map((o) => (
@@ -297,6 +300,7 @@ export function Select<V extends string>({
                     if (i !== at) setActive(i);
                   }}
                 >
+                  {o.image ? <img className="select-image" src={o.image} alt="" width={24} height={24} /> : null}
                   <span className="select-option-label">{o.label}</span>
                   <Icon name="tick" className="ico select-check" />
                 </li>

@@ -93,3 +93,30 @@ test('la pestaña JSON sigue mostrando todo el borrador', async () => {
   await user.click(await screen.findByRole('tab', { name: t.jsonTab }));
   expect(screen.getByRole('textbox', { name: copy.admin.drafts.json })).toBeInTheDocument();
 });
+
+test('el dibujo se elige de una galería y se guarda', async () => {
+  const fetch = api({ 'PUT /galaxy/api/admin/config-drafts/d1/field': () => jsonResponse(200, draft({ revision: 2 })) });
+  renderAt('/admin/configuracion/content?borrador=d1&zona=fauna&id=mite', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: mite.name });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: t.changeArt }));
+  const gallery = screen.getByRole('dialog', { name: t.gallery });
+  expect(within(gallery).getByRole('tab', { name: t.groups.fauna })).toHaveAttribute('aria-selected', 'true');
+  await user.click(within(gallery).getByRole('button', { name: 'cell' }));
+  expect(screen.queryByRole('dialog', { name: t.gallery })).toBeNull();
+  await waitFor(() => expect(puts(fetch).map((p) => p.field)).toContain('enemies'), { timeout: 3000 });
+  const saved = puts(fetch).find((p) => p.field === 'enemies')!.value as { id: string; sprite: string }[];
+  expect(saved.find((e) => e.id === 'mite')!.sprite).toBe('cell');
+});
+
+test('una entrada en uso dice dónde y no se quita hasta dejar de usarla', async () => {
+  const fresh = { ...structuredClone(mite), id: 'zz-nuevo', name: 'Ácaro nuevo' };
+  const sectors = structuredClone(live.sectors);
+  sectors[0]!.spawns[0]!.enemy = 'zz-nuevo';
+  api({ 'GET /galaxy/api/admin/config-drafts/d1': () => jsonResponse(200, draft({ data: { content: { enemies: [...live.enemies, fresh], sectors } } })) });
+  renderAt('/admin/configuracion/content?borrador=d1&zona=fauna&id=zz-nuevo', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: 'Ácaro nuevo' });
+  expect(screen.getByText(t.usedIn(1))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.remove('Ácaro nuevo') })).toBeDisabled();
+  expect(screen.getByText(t.usedStays)).toBeInTheDocument();
+});

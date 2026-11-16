@@ -3,7 +3,7 @@ import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type Sim
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { singularityOf } from '../../api/content-read';
 import { copy } from '../../copy/es';
-import { probeFlame, probeNozzle, skinSprites } from '../sprites';
+import { drawableId, probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm, maskTexture } from './atlas';
 import { createEnvironment, hashSeed, OVERLAY_MAX } from './environment';
@@ -263,10 +263,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
 
   // The atlas carries the skins this run draws, and no others.
   const atlas = buildAtlas(skinSprites(opts.skins ?? []));
+  const inAtlas = (id: string) => !!atlas.frames[id];
   /** What probe `i` is drawn as: its skin, or its own drawing (a skin with no art falls back to it). */
   const drawingOf = (i: number, def: { sprite: string }): string => {
     const skin = opts.skins?.[i];
-    return skin && atlas.frames[skin] ? skin : def.sprite;
+    return skin && atlas.frames[skin] ? skin : drawableId(def.sprite, 'probe-lumen', inAtlas);
   };
   const look = BIOME_LOOK[opts.biome ?? 'nebula'];
   let w = app.renderer.width;
@@ -440,7 +441,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
 
   function enemySprite(sim: Sim, i: number): string {
     const t = sim.enemies.type[i]!;
-    return sim.enemies.boss[i] ? (content.bosses[t]?.sprite ?? 'hive') : (content.enemies[t]?.sprite ?? 'mite');
+    return sim.enemies.boss[i] ? drawableId(content.bosses[t]?.sprite ?? 'hive', 'hive', inAtlas) : drawableId(content.enemies[t]?.sprite ?? 'mite', 'mite', inAtlas);
   }
 
   function frameOf(id: string, offset = 0): number {

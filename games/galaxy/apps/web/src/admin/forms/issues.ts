@@ -58,6 +58,7 @@ const PREFIXED: Record<string, (rest: string, root: unknown) => string> = {
   content_set: () => 'Los tramos del conjunto tienen que pedir cada vez más reliquias',
   content_phases: () => 'Las fases tienen que empezar con la vida llena y bajar en orden',
   content_cycle: () => 'El ciclo de Núcleos tiene que empezar por el Núcleo del propio sector',
+  content_art: (id) => `El dibujo «${id}» no existe en el juego: elige uno de la galería`,
   lab_duplicate: (id) => `Hay dos nodos «${id}»`,
   lab_requires: (id) => `El nodo «${id}» necesita uno que no existe`,
   lab_cycle: (id) => `El nodo «${id}» se necesita a sí mismo en cadena`,

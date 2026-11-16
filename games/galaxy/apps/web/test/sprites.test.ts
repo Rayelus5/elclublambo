@@ -1,7 +1,7 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { ART_SKINS, skinParts } from '@galaxy/shared';
-import { pixels, probeFlame, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
+import { drawableId, pixels, probeFlame, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
 
 // The arena's pixel art is written in code as palette grids (plan ruling 10). Every grid must be well formed and
 // every sprite the content names must exist, or the renderer would draw holes.
@@ -136,4 +136,10 @@ test('Aurora y Leyenda llevan su llama y su estela; las demás, las de siempre',
   expect(probeFlame('skin-comet-leyenda')!.flame.length).toBeGreaterThan(0);
   expect(probeFlame('skin-lumen-coral')).toBeNull();
   expect(probeFlame('probe-lumen')).toBeNull();
+});
+
+test('un dibujo que la arena no tiene se pinta con otro conocido en vez de romper la incursión', () => {
+  expect(drawableId('mite', 'cell')).toBe('mite');
+  expect(drawableId('zz-no-existe', 'cell')).toBe('cell');
+  expect(drawableId('mite', 'cell', () => false)).toBe('cell');
 });

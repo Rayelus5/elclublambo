@@ -1199,6 +1199,17 @@ export const copy = {
       publishedStays: 'Ya está publicada: no se puede quitar, porque partidas y jugadores la usan. Puedes cambiarla o dejar de usarla',
       others: 'Otros',
       othersSummary: 'Campos nuevos del juego que todavía no tienen zona',
+      usedIn: (n: number) => (n === 1 ? 'Se usa en 1 sitio' : `Se usa en ${n} sitios`),
+      unused: 'No se usa en ningún sitio',
+      usedStays: 'Se usa en otros sitios: deja de usarla ahí antes de quitarla',
+      changeArt: 'Cambiar dibujo',
+      gallery: 'Elige un dibujo',
+      galleryGroups: 'Grupos de dibujos',
+      searchArt: 'Buscar dibujo',
+      groups: { fauna: 'Fauna', nucleos: 'Núcleos', sondas: 'Sondas', iconos: 'Iconos', otros: 'Otros', all: 'Todos' },
+      artSize: (w: number, h: number, frames: number) => `${w} × ${h} px, ${frames === 1 ? '1 fotograma' : `${frames} fotogramas`}`,
+      artMissing: 'Este dibujo no existe en el juego',
+      keepArt: 'Dejar el que tiene',
     },
     // The run content's drafts (the content editor, 2026-11-16, P2).
     drafts: {

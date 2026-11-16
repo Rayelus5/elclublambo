@@ -1,5 +1,6 @@
 import { DEFAULT_CHAT_WORDS } from '../chat/words';
-import { contentSchema, STAT_KEYS } from '@galaxy/sim';
+import { type Content, contentSchema, STAT_KEYS } from '@galaxy/sim';
+import { contentArtIssues } from './art';
 import { DEFAULT_LAB_NODES, nodeTotal } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
@@ -837,6 +838,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
   if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+  // What the schema cannot know: the content's drawings exist in the arena (art.ts). Only publishing checks it, never
+  // reading what is live.
+  if (key === 'content') return contentArtIssues(result.data as Content);
   return [];
 }
 

@@ -1,13 +1,16 @@
-import { configJsonSchema, type JsonSchema } from '@galaxy/shared';
+import { ART_FIELDS, configJsonSchema, type JsonSchema } from '@galaxy/shared';
+import { type Content, type ContentRef, type RefKind, usesOf } from '@galaxy/sim';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { spriteDataUrl } from '../../arena/sprites';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
-import { ConfigForm, type Options } from '../forms/ConfigForm';
+import { ConfigForm, type Options, type Widgets } from '../forms/ConfigForm';
+import { placeOf } from '../forms/humanDiff';
 import { issueText } from '../forms/issues';
 import { emptyOf, itemsOf, liveIds, slugOf, unwrap } from '../forms/schema';
+import { artUrl } from './art';
 import { AREAS, type AreaDesc, describeContent as describe, DESCRIPTORS, VOCABS } from './descriptors';
+import { SpritePicker } from './SpritePicker';
 
 // The content editor (2026-11-16, P4): the run content edited the way an admin thinks of it. Areas (Arsenal, Fauna,
 // Núcleos…) hold their top-level fields; a list of things with ids (weapons, enemies, sectors…) is a searchable list
@@ -19,6 +22,23 @@ const t = copy.admin.content;
 type Entity = { id: string; name?: string } & Record<string, unknown>;
 type Value = Record<string, unknown>;
 
+/** Fields replaced by the editor's own controls: every drawing is picked from the gallery. */
+const WIDGETS: Widgets = Object.fromEntries(Object.keys(ART_FIELDS).map((p) => [p, SpritePicker]));
+
+/** The lists whose entries the content names elsewhere (refs): what is used cannot go. */
+const REF_KINDS: Partial<Record<string, RefKind>> = { weapons: 'weapons', passives: 'passives', enemies: 'enemies', bosses: 'bosses' };
+
+/** Where an entry is named, or nothing while the draft is not a whole content (its JSON being edited). */
+function usesIn(value: Value, field: string, id: string): ContentRef[] {
+  const kind = REF_KINDS[field];
+  if (!kind) return [];
+  try {
+    return usesOf(value as unknown as Content, kind, id);
+  } catch {
+    return [];
+  }
+}
+
 const isEntityList = (v: unknown): v is Entity[] => Array.isArray(v) && v.length > 0 && v.every((x) => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string');
 
 /** The choices the forms offer: every vocabulary, and the entities the draft has now (by id, with their names). */
@@ -27,7 +47,7 @@ function choicesOf(value: Value): Options {
   for (const [name, vocab] of Object.entries(VOCABS)) out[`vocab:${name}`] = Object.entries(vocab ?? {}).map(([v, term]) => ({ value: v, label: term.label }));
   for (const key of ['weapons', 'passives', 'enemies', 'bosses', 'sectors', 'probes', 'anomalies']) {
     const list = value[key];
-    if (isEntityList(list)) out[key] = list.map((e) => ({ value: e.id, label: e.name ? `${e.name}` : e.id }));
+    if (isEntityList(list)) out[key] = list.map((e) => ({ value: e.id, label: e.name ? `${e.name}` : e.id, image: thumbOf(key, e, value) ?? undefined }));
   }
   return out;
 }
@@ -36,12 +56,7 @@ function choicesOf(value: Value): Options {
 function thumbOf(key: string, e: Entity, value: Value): string | null {
   let id: unknown = e.sprite ?? e.icon;
   if (key === 'sectors') id = (value.bosses as Entity[] | undefined)?.find((b) => b.id === e.boss)?.sprite;
-  if (typeof id !== 'string') return null;
-  try {
-    return spriteDataUrl(id, 2);
-  } catch {
-    return null;
-  }
+  return typeof id === 'string' ? artUrl(id, 2) : null;
 }
 
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -116,6 +131,7 @@ export function ContentEditor({ value, live, onChange, issues }: { value: Value;
             issues={issuesUnder(issues, '', value)}
             options={options}
             describe={describe}
+            widgets={WIDGETS}
             live={live}
           />
         </section>
@@ -166,6 +182,8 @@ function EntityPanel({
   const shown = list.filter((e) => !query.trim() || fold(`${e.name ?? ''} ${e.id}`).includes(fold(query.trim())));
   const index = list.findIndex((e) => e.id === selected);
   const current = index >= 0 ? list[index]! : null;
+  const uses = current ? usesIn(value, field, current.id) : [];
+  const schema = configJsonSchema('content');
   const unique = (base: string) => {
     let id = base || 'nueva-entrada';
     for (let n = 2; list.some((e) => e.id === id); n++) id = `${base}-${n}`.slice(0, 32);
@@ -234,7 +252,7 @@ function EntityPanel({
                   type="button"
                   className="lip pill small danger"
                   aria-label={t.remove(current.name ?? current.id)}
-                  disabled={isPublished(current.id)}
+                  disabled={isPublished(current.id) || uses.length > 0}
                   onClick={() => {
                     onChange(list.filter((_, k) => k !== index));
                     onSelect('');
@@ -245,7 +263,21 @@ function EntityPanel({
                 </button>
               </div>
             </header>
-            {isPublished(current.id) ? <p className="panel-note">{t.publishedStays}</p> : null}
+            {isPublished(current.id) ? <p className="panel-note">{t.publishedStays}</p> : uses.length > 0 ? <p className="panel-note">{t.usedStays}</p> : null}
+            {REF_KINDS[field] ? (
+              uses.length === 0 ? (
+                <p className="panel-note ce-uses">{t.unused}</p>
+              ) : (
+                <details className="ce-uses">
+                  <summary>{t.usedIn(uses.length)}</summary>
+                  <ul>
+                    {uses.map((r) => (
+                      <li key={r.path.join('.')}>{placeOf('content', schema, value, r.path.join('.'), describe)}</li>
+                    ))}
+                  </ul>
+                </details>
+              )
+            ) : null}
             <ConfigForm
               cfgKey="content"
               schema={item}
@@ -255,6 +287,7 @@ function EntityPanel({
               options={options}
               prefix={`${field}[]`}
               describe={describe}
+              widgets={WIDGETS}
               live={live}
             />
           </section>
