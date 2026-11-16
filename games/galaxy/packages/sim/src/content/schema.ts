@@ -245,6 +245,18 @@ const sector = z
     // `perLayer` (enemy life plan, 2026-11-15): the spawn rate's ceiling and the alive cap grow by it every layer past the
     // first; 0 for content published before.
     density: z.object({ base: n, perMinute: n, max: n, cap: z.number().int().min(1).max(2000), bossFactor: unit, perLayer: z.number().min(0).max(2).default(0) }).strict(),
+    // Fewer small enemies piling up (the owner, 2026-11-16): the swarm family's groups stop while `cap` of it are alive
+    // (0: no limit) and, from minute `fadeFrom` of the run, come less by `fadePerMinute` down to `fadeFloor` of their
+    // weight; the other species take their place. Content published before takes these values.
+    swarm: z
+      .object({
+        cap: z.number().int().min(0).max(2000),
+        fadeFrom: z.number().min(0).max(120),
+        fadePerMinute: unit,
+        fadeFloor: unit,
+      })
+      .strict()
+      .default({ cap: 60, fadeFrom: 8, fadePerMinute: 0.1, fadeFloor: 0.5 }),
     scaling: z
       .object({
         hpPerMinute: n,

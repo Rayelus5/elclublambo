@@ -29,11 +29,15 @@ function levels(row: Row, n = 5): WeaponLevel[] {
 }
 
 /** What every sector shares in M3b-3 (plan ruling 3: parallel difficulty, the same loot): their own fauna and Core vary. */
-const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scaling' | 'elite' | 'drops'> = {
+const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'swarm' | 'scaling' | 'elite' | 'drops'> = {
   layerSeconds: 300,
   beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
   // Enemy life plan (2026-11-15): 0.5, as the owner set it live from the panel (it was 0.3), so calibration measures PRE.
-  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5, perLayer: 0.4 },
+  // The owner, 2026-11-16: a quarter of the usual comes while the Núcleo is up (it was half), so the fight is the Núcleo.
+  density: { base: 0.5, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.25, perLayer: 0.4 },
+  // The owner, 2026-11-16: the swarm kept in check (at most 60 alive; from minute 8 a tenth less a minute, down to half).
+  // Half, not 30 %: calibrated (16 seeds, Nebula) it is the one with no endless run for the advanced bot nor the Sifón.
+  swarm: { cap: 60, fadeFrom: 8, fadePerMinute: 0.1, fadeFloor: 0.5 },
   scaling: {
     hpPerMinute: 0.06,
     damagePerMinute: 0.065,
@@ -593,7 +597,8 @@ export const DEFAULT_CONTENT: Content = {
     { id: 'armor', name: 'Blindaje', icon: 'icon-armor', description: 'Más vida máxima', stat: 'maxHp', levels: [0.15, 0.3, 0.45, 0.6, 0.75] },
     { id: 'thrusters', name: 'Propulsores', icon: 'icon-thrusters', description: 'Te mueves más rápido', stat: 'speed', levels: [0.08, 0.16, 0.24, 0.32, 0.4] },
     { id: 'capacitor', name: 'Condensador', icon: 'icon-capacitor', description: 'Las armas se recargan antes', stat: 'cooldown', levels: [0.06, 0.12, 0.18, 0.24, 0.3] },
-    { id: 'amplifier', name: 'Amplificador', icon: 'icon-amplifier', description: 'Todo hace más daño', stat: 'damage', levels: [0.1, 0.2, 0.3, 0.4, 0.5] },
+    // The owner, 2026-11-16: its high levels count against enemies with a lot of life (it was 0.3, 0.4, 0.5).
+    { id: 'amplifier', name: 'Amplificador', icon: 'icon-amplifier', description: 'Todo hace más daño', stat: 'damage', levels: [0.1, 0.2, 0.35, 0.6, 1] },
     { id: 'lens', name: 'Lente gravitatoria', icon: 'icon-lens', description: 'Áreas y orbes más grandes', stat: 'area', levels: [0.1, 0.2, 0.3, 0.4, 0.5] },
     { id: 'magnet', name: 'Imán de datos', icon: 'icon-magnet', description: 'Recoges los fragmentos desde más lejos', stat: 'pickup', levels: [0.25, 0.5, 0.75, 1, 1.25] },
     { id: 'splitter', name: 'Divisor de haz', icon: 'icon-splitter', description: 'Un proyectil más en cada disparo', stat: 'projectiles', levels: [1, 2] },
@@ -1816,6 +1821,7 @@ export const DEFAULT_CONTENT: Content = {
       coreDamage: 1.6,
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.06, damagePerMinute: 0.1 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
+      swarm: SECTOR_BASE.swarm,
     },
     {
       ...SECTOR_BASE,
@@ -2121,7 +2127,8 @@ export const DEFAULT_CONTENT: Content = {
   // Enemy life plan (2026-11-15): damage may grow, but no single hit kills a probe on its own.
   hitCap: 0.4,
   // Sifón rework (2026-11-16): Sifón level 1 ≈ 1,4 %/s of max life, level 5 = 3 %/s; leech and drain alone 1 %/s.
-  healing: { base: 0.01, perLifesteal: 0.4, burst: 1 },
+  // The owner, 2026-11-16: 1.5 % (it was 1 %); calibration showed 2 of 16 advanced runs become endless, accepted.
+  healing: { base: 0.015, perLifesteal: 0.4, burst: 1 },
   // «La Estática te alcanza» (2026-11-16): a warning at 8 s in a small area, from 12 s 2 %/s more and more (up to 15 %/s).
   stillness: { radius: 56, warn: 8, hurt: 12, damage: 0.02, growth: 0.02, max: 0.15 },
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
