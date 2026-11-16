@@ -16,7 +16,7 @@ const g = copy.gifts;
 const me: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['admin'], mfa: true, level: 30 };
 const live = {
   packs: [{ id: 'bienvenida', name: 'Bienvenida', art: 'parcel', enabled: true, items: [{ kind: 'currency', currency: 'coins', amount: 500 }] }],
-  templates: [],
+  templates: [{ id: 'caida', name: 'Caída del servidor', type: 'compensation', title: 'Perdón', body: 'Aquí tienes algo', items: [], packs: ['bienvenida'], expiresInDays: 14 }],
   warnDays: 3,
 };
 const posted = (fetch: ReturnType<typeof mockApi>) =>
@@ -94,5 +94,47 @@ test('si otro admin publicó antes, lo dice y no pisa su versión', async () => 
   await userEvent.type(screen.getByLabelText(copy.admin.fields.reason), 'Nombre nuevo');
   await userEvent.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
   await userEvent.click(screen.getByRole('button', { name: t.publish }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(String(copy.errors.config_conflict));
+  // Said plainly, with the way to load what is published (P6 review).
+  expect(await screen.findByRole('alert')).toHaveTextContent(t.moved);
+  expect(screen.getByRole('button', { name: t.reload })).toBeInTheDocument();
+});
+
+test('tras un conflicto, publicar otra vez sigue partiendo de su versión y no pisa la del otro admin (revisión de P6)', async () => {
+  let version = 4;
+  const fetch = mockApi(
+    routes({
+      'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, [{ key: 'mail', version, data: live, createdAt: null, author: null, note: null }]),
+      'POST /galaxy/api/admin/config/mail': () => {
+        version = 5;
+        return jsonResponse(409, { error: 'config_conflict' });
+      },
+    }),
+  );
+  open();
+  await userEvent.click(await screen.findByRole('button', { name: t.editOf('Bienvenida') }));
+  await userEvent.click(within(screen.getByRole('region', { name: t.editorTitle })).getByRole('switch', { name: t.enabled }));
+  await userEvent.click(screen.getByRole('button', { name: t.save }));
+  await userEvent.type(screen.getByLabelText(copy.admin.fields.reason), 'Apagar');
+  await userEvent.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
+  await userEvent.click(screen.getByRole('button', { name: t.publish }));
+  expect(await screen.findByText(t.moved)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: t.publish }));
+  await waitFor(() => expect(posted(fetch).length).toBe(2));
+  expect(posted(fetch).map((b) => b.baseVersion)).toEqual([4, 4]);
+  await userEvent.click(screen.getByRole('button', { name: t.reload }));
+  expect(screen.queryByText(t.pending(1))).toBeNull();
+});
+
+test('las plantillas se quitan, los días de aviso se cambian y el historial sigue a mano (revisión de P6)', async () => {
+  const fetch = mockApi(routes({ 'POST /galaxy/api/admin/config/mail': () => jsonResponse(201, { version: 5 }) }));
+  open();
+  expect(await screen.findByRole('link', { name: t.advanced })).toHaveAttribute('href', '/admin/configuracion/mail/avanzado');
+  await userEvent.click(await screen.findByRole('button', { name: t.removeTemplateOf('Caída del servidor') }));
+  const days = screen.getByLabelText(t.warnDays);
+  await userEvent.clear(days);
+  await userEvent.type(days, '5');
+  await userEvent.type(screen.getByLabelText(copy.admin.fields.reason), 'Limpieza');
+  await userEvent.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
+  await userEvent.click(screen.getByRole('button', { name: t.publish }));
+  await waitFor(() => expect(posted(fetch)[0]).toMatchObject({ baseVersion: 4, data: { templates: [], warnDays: 5, packs: [{ id: 'bienvenida' }] } }));
 });
