@@ -1476,3 +1476,17 @@ Comprueba con `rayelus`:
 - **La lista de enviados** dice el tipo, dibuja los regalos y marca los grandes.
 
 **Para probarlo en PRE:** en Comunicación, envíate un mensaje de tipo Regalo con monedas, una skin y un pack. Una galaxia legendaria avisa de que es un regalo grande.
+
+## Buzón v2, P4: la biblioteca de packs
+
+**Qué cambia.** Solo la web del panel, más cinco dibujos de pack nuevos. No hay migraciones.
+
+**El código ya trae:**
+- **Biblioteca de packs:** es la página propia de la clave `mail` en Configuración (`/admin/configuracion/mail`). También se abre desde la pestaña Packs de Comunicación.
+  - Cada pack se ve con su dibujo y lo que da.
+  - Se crea y se cambia con el mismo selector de regalos que un mensaje, sin packs dentro.
+  - Se apaga sin borrarlo.
+  - Se publica la clave entera con su versión, un motivo y la contraseña. Si otro admin publicó antes, avisa con `config_conflict` y no pisa su versión.
+- **Dibujos:** paquete, cofre, cápsula, estrella, caja de suministros y regalo. Los cinco nuevos los pinta `art/mail/paint-packs.lua` en Aseprite, con el estilo del paquete.
+
+**Para probarlo en PRE:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje desde Comunicación.

@@ -12,8 +12,8 @@ import type { GiftCatalog } from './words';
 // the ends. A full tray says so where the button is.
 
 const g = copy.gifts;
-const TABS = ['resources', 'style', 'galaxies', 'probes', 'progress', 'packs'] as const;
-type Tab = (typeof TABS)[number];
+const ALL_TABS = ['resources', 'style', 'galaxies', 'probes', 'progress', 'packs'] as const;
+type Tab = (typeof ALL_TABS)[number];
 
 export interface GiftPickerProps {
   catalog: GiftCatalog;
@@ -23,10 +23,13 @@ export interface GiftPickerProps {
   packsChosen: readonly string[];
   itemsFull: boolean;
   packsFull: boolean;
+  /** Without the packs tab (a pack holds no packs). */
+  showPacks?: boolean;
 }
 
-export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull }: GiftPickerProps) {
+export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull, showPacks = true }: GiftPickerProps) {
   const ids = useId();
+  const TABS: readonly Tab[] = showPacks ? ALL_TABS : ALL_TABS.filter((k) => k !== 'packs');
   const [tab, setTab] = useState<Tab>('resources');
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const index = TABS.indexOf(tab);

@@ -2,11 +2,12 @@ import type { Gift } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { probeDrawing } from '../arena/sprites';
 import { copy } from '../copy/es';
-import { giftUrl } from '../mail/art';
+import { Link } from 'react-router';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { SpriteLoop } from '../ui/SpriteLoop';
 import { GiftArt } from './GiftArt';
+import { PackArt } from './PackArt';
 import { currencyLook, type GiftCatalog, giftWords } from './words';
 
 // The gift picker's simpler tabs (mail v2, P3): an amount of a currency, XP or season points; a probe; a pack of the
@@ -85,7 +86,19 @@ export function ProbePicker({ catalog, disabled, onAdd }: { catalog: GiftCatalog
 /** The library's packs (those on): their art, name and what they carry; each goes once in a message. */
 export function PacksPanel({ catalog, chosen, full, onAdd }: { catalog: GiftCatalog; chosen: readonly string[]; full: boolean; onAdd: (id: string) => void }) {
   const packs = catalog.packs.filter((p) => p.enabled);
-  if (packs.length === 0) return <p className="panel-note">{g.packsEmpty}</p>;
+  const library = (
+    <Link to="/admin/configuracion/mail" className="lip pill small gift-library-link">
+      <Icon name="list" />
+      <span>{copy.admin.packs.openLibrary}</span>
+    </Link>
+  );
+  if (packs.length === 0)
+    return (
+      <>
+        <p className="panel-note">{g.packsEmpty}</p>
+        {library}
+      </>
+    );
   return (
     <>
       {full ? (
@@ -96,7 +109,7 @@ export function PacksPanel({ catalog, chosen, full, onAdd }: { catalog: GiftCata
       <ul className="gift-packs">
         {packs.map((p) => (
           <li key={p.id} className="gift-pack" data-art={p.art}>
-            <span className="gift-pack-art" aria-hidden="true" style={giftUrl ? { backgroundImage: `url(${giftUrl})` } : undefined} />
+            <PackArt art={p.art} />
             <span className="gift-pack-text">
               <b>{p.name}</b>
               <small>{g.packItems(p.items.length)}</small>
@@ -115,6 +128,7 @@ export function PacksPanel({ catalog, chosen, full, onAdd }: { catalog: GiftCata
           </li>
         ))}
       </ul>
+      {library}
     </>
   );
 }
