@@ -1119,6 +1119,20 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
   - las señales en el HUD;
   - «N de satélites» en Resultados.
 
+## Sifón y «La Estática te alcanza» (SIM 1.16.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: los mandos nuevos de `content` entran con sus valores por defecto también para el contenido publicado. La simulación pasa a **SIM_VERSION 1.16.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **`content.healing`:** la vida robada a enemigos (Sifón, Sanguijuela y Sangría) cura solo del daño real y como mucho vida máxima × (0,01 + 0,4 × robo de vida) por segundo: Sifón 1 ≈ 1,4 %/s, Sifón 5 = 3 %/s, sin Sifón 1 %/s.
+- **`content.stillness`, «La Estática te alcanza»:**
+  - a los 8 s en un círculo de 56 avisa;
+  - desde los 12 s hace daño, del 2 %/s creciendo hasta el 15 %/s, y bloquea toda curación hasta salir (los kits esperan en el suelo);
+  - no cuenta en la baliza, reanimando a un compañero ni eligiendo carta en grupo.
+- **En pantalla:** el anillo de la zona y el aviso bajo la HUD.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
 ## Pendientes de la simulación (SIM 1.15.0)
 
 **Qué cambia.** Sin migraciones ni configuración que publicar. La simulación pasa a **SIM_VERSION 1.15.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.

@@ -353,10 +353,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   glowLayer.addChild(glow);
   // Your probe goes over its own abilities (the owner: shots, beams, blasts and sparks never cover it); only the foes'
   // bullets go over it.
+  // «La Estática te alcanza» (2026-11-16): the ring of the area where my probe stands still, under the probes.
+  const stillRing = new Graphics({ label: 'still' });
   // The admin debug mode's collisions (2026-11-15), over everything in the world.
   const hitboxes = new Graphics({ label: 'hitboxes' });
   let showHitboxes = false;
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
+  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, stillRing, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
   const numbers = new Container();
   // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
   const mateArrows = new Graphics();
@@ -1320,6 +1322,33 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     for (; g < mateTexts.length; g++) mateTexts[g]!.visible = false;
   }
 
+  /**
+   * «La Estática te alcanza» (2026-11-16): around where my probe stopped, a dashed amber ring once it is warned, and a
+   * crackling red one while the Static hurts it (steady with reduced motion).
+   */
+  function drawStill(sim: Sim): void {
+    stillRing.clear();
+    const p = sim.probes[opts.probe];
+    const s = sim.content.stillness;
+    if (!p || !p.alive || s.hurt <= 0) return;
+    const t = p.still.t;
+    const hurt = t >= s.hurt * 60;
+    if (!hurt && !(s.warn > 0 && t >= s.warn * 60)) return;
+    const { x, y } = p.still;
+    const r = s.radius;
+    const spin = opts.reduced ? 0 : clock * (hurt ? 1.6 : 0.6);
+    const color = hurt ? 0xff4d6d : 0xffc94a;
+    const pulse = opts.reduced ? 0.85 : 0.65 + 0.3 * Math.abs(Math.sin(clock * (hurt ? 9 : 3)));
+    dashedArc(stillRing, x, y, r, spin, spin + Math.PI * 2, { width: 2, color, alpha: pulse });
+    if (!hurt) return;
+    // The crackle: short sparks jumping across the ring.
+    for (let k = 0; k < 10; k++) {
+      const a = spin * 2 + (k * Math.PI * 2) / 10 + (opts.reduced ? 0 : Math.sin(clock * 23 + k) * 0.2);
+      const r0 = r - 4 - (opts.reduced ? 2 : 4 * Math.abs(Math.sin(clock * 31 + k * 1.3)));
+      stillRing.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0).lineTo(x + Math.cos(a + 0.05) * (r + 4), y + Math.sin(a + 0.05) * (r + 4)).stroke({ width: 1.5, color: 0xffd1db, alpha: pulse });
+    }
+  }
+
   function drawHitboxes(sim: Sim, alpha: number): void {
     if (!showHitboxes) return;
     hitboxes.clear();
@@ -1574,6 +1603,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       drawProbes(sim, alpha);
       drawParticles();
       drawAnomalies();
+      drawStill(sim);
       drawHitboxes(sim, alpha);
       drawNumbers(c, originX + shake.x, originY + shake.y);
       drawMates(sim, c);

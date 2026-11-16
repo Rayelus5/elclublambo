@@ -3551,6 +3551,12 @@ export const copy = {
     // No number: the share without extraction is `runs.deathShare`, set by the admin (the results screen says the real one).
     abandonBody: 'Solo cobras una parte del botín, como si la sonda cayera. No se puede deshacer',
     keepPlaying: 'Seguir jugando',
+    // «La Estática te alcanza» (2026-11-16): standing still in a small area.
+    still: {
+      title: 'La Estática',
+      warn: (s: number) => `La Estática se acerca: muévete · ${s} s`,
+      hurt: 'La Estática te alcanza: sin curación hasta que te muevas',
+    },
     // The admin debug mode (2026-11-15): a side panel in solo runs, for admins with TOTP only.
     debug: {
       title: 'Depuración',

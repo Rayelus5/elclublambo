@@ -4,6 +4,7 @@ import { ticks } from '../version';
 import { downProbe } from './coop';
 import { tickDash } from './dash';
 import { onContact, rescue, tickQuirk } from './quirks';
+import { healProbe, refillHealBank } from './healing';
 
 // Probes (GDD §5.2, §6): movement from per-tick inputs, contact damage with half a second of invulnerability, shield,
 // regeneration, and death. The run ends when every probe is down.
@@ -78,18 +79,35 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number, opts?: { keep
   p.invulnT = ticks(INVULN_SECONDS);
   p.fx['lastHurt'] = sim.tick;
   sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
-  if (p.hp <= 0 && rescue(sim, p)) return;
+  loseLife(sim, p);
+}
+
+/** Out of life: a quirk may rescue it; in a group it falls and waits for a teammate; alone it is lost. */
+function loseLife(sim: Sim, p: ProbeState): void {
+  if (p.hp > 0) return;
+  if (rescue(sim, p)) return;
   // Co-op: it falls and waits for a teammate (systems/coop.ts).
-  if (p.hp <= 0 && sim.coop) {
+  if (sim.coop) {
     downProbe(sim, p);
     return;
   }
-  if (p.hp <= 0) {
-    p.hp = 0;
-    p.alive = false;
-    sim.events.push({ t: 'probeDown', probe: p.index });
-    if (sim.probes.every((q) => !q.alive)) sim.status = 'dead';
-  }
+  p.hp = 0;
+  p.alive = false;
+  sim.events.push({ t: 'probeDown', probe: p.index });
+  if (sim.probes.every((q) => !q.alive)) sim.status = 'dead';
+}
+
+/**
+ * The Static's harm («La Estática te alcanza», 2026-11-16): a steady drain, not a hit — no armour, cap or breather, and
+ * no flash or sound every tick — but the shield takes it first and it holds the shield's recharge like any harm.
+ */
+export function staticHurt(sim: Sim, p: ProbeState, amount: number): void {
+  if (!p.alive || !(amount > 0) || sim.debug?.god) return;
+  const absorbed = Math.min(p.shield, amount);
+  p.shield -= absorbed;
+  p.hp -= amount - absorbed;
+  p.fx['lastHurt'] = sim.tick;
+  loseLife(sim, p);
 }
 
 const near: number[] = [];
@@ -126,7 +144,8 @@ export function tickProbes(sim: Sim): void {
     if (p.invulnT > 0) p.invulnT--;
     tickQuirk(sim, p);
     tickDash(sim, p);
-    if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen / 60);
+    if (p.stats.regen > 0) healProbe(sim, p, p.stats.regen / 60, 'other');
+    refillHealBank(sim, p);
     rechargeShield(sim, p);
   }
 }

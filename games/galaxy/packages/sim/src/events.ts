@@ -70,4 +70,7 @@ export type SimEvent =
   | { t: 'reaction'; id: string; x: number; y: number }
   | { t: 'quirk'; probe: number; kind: string }
   /** Fase cuántica (Nov plan B2): a hit went through the probe without harm. */
-  | { t: 'evade'; probe: number };
+  | { t: 'evade'; probe: number }
+  /** «La Estática te alcanza» (2026-11-16): the warning, the start of the harm, leaving the area; and a tick for sound. */
+  | { t: 'static'; probe: number; what: 'warn' | 'start' | 'stop' }
+  | { t: 'staticTick'; probe: number };

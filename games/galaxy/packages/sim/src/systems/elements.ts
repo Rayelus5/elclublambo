@@ -6,6 +6,7 @@ import { killEnemy } from './combat';
 import { prismTouch } from './quirks';
 import { PROBE_RADIUS } from './probes';
 import { SHOT, spawnShot } from './weapons';
+import { healProbe } from './healing';
 
 // Elements (GDD §5.4, §8.3). Each relic palette gives one; relic hits apply it, and a share of weapon hits apply the
 // relics' elements by turns. Statuses (burn, slow, corrosion, hack) tick here; the rest act on the hit itself.
@@ -101,7 +102,8 @@ function neighbours(sim: Sim, x: number, y: number, range: number, n: number, no
  * After a hit with `element` landed (`dealt` damage). `x, y`: where the enemy was (it may have died). Spreading
  * hits carry no element, so nothing chains forever.
  */
-export function applyElement(sim: Sim, e: number, element: ElementId, dealt: number, x: number, y: number, src: HitSource, deal: (e: number, amount: number) => void): void {
+/** `real`: what the hit really took (no overkill), what the leech heals from (2026-11-16). */
+export function applyElement(sim: Sim, e: number, element: ElementId, dealt: number, x: number, y: number, src: HitSource, deal: (e: number, amount: number) => void, real = dealt): void {
   const en = sim.enemies;
   const t = sim.content.elements;
   const alive = en.alive[e] === 1 && en.fuseT[e] === 0;
@@ -130,7 +132,7 @@ export function applyElement(sim: Sim, e: number, element: ElementId, dealt: num
       break;
     case 'leech': {
       const p = sim.probes[src.probe];
-      if (p && p.alive) p.hp = Math.min(p.stats.maxHp, p.hp + dealt * t.leech.share);
+      if (p && p.alive) healProbe(sim, p, real * t.leech.share, 'steal');
       break;
     }
     case 'chain':

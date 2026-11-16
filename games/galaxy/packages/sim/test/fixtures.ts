@@ -39,6 +39,9 @@ export function tinyContent(over?: (c: Content) => void): Content {
   s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05, hpPerLevel: 0, levelFrom: 1, coreHpPerLevel: 0, coreRise: 0 };
   s.density = { ...s.density, perLayer: 0 };
   c.hitCap = 1;
+  // Pinned too (2026-11-16): healing has no budget and the Static never comes, unless a test turns them on.
+  c.healing = { base: 1000, perLifesteal: 0, burst: 1 };
+  c.stillness = { ...c.stillness, warn: 0, hurt: 0 };
   c.weapons.find((w) => w.id === 'pulse')!.levels.forEach((l) => (l.cooldown = 0.9));
   over?.(c);
   return contentSchema.parse(c);

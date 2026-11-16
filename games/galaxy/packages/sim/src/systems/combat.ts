@@ -10,6 +10,7 @@ import { react } from './reactions';
 import { dropPickup } from './pickups';
 import { onKill } from './quirks';
 import { enemiesNear } from './weapons';
+import { healProbe } from './healing';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
@@ -64,24 +65,37 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     }
   }
   const absorbed = Math.min(en.shield[e]!, dmg);
+  const before = en.hp[e]!;
   en.shield[e] = en.shield[e]! - absorbed;
-  en.hp[e] = en.hp[e]! - (dmg - absorbed);
+  en.hp[e] = before - (dmg - absorbed);
+  // What the hit really took (2026-11-16): the shield it broke and the life it had left, never the overkill.
+  const real = absorbed + Math.min(Math.max(0, before), dmg - absorbed);
   // Protocolo de purga (Nov plan B2): an ordinary enemy left this weak is finished off.
   if (p && p.stats.execute > 0 && en.hp[e]! > 0 && !en.boss[e] && !(en.elite[e]! > 0) && en.hp[e]! <= en.maxHp[e]! * p.stats.execute) en.hp[e] = 0;
   en.flashT[e] = FLASH_TICKS;
   const x = en.x[e]!;
   const y = en.y[e]!;
   sim.events.push({ t: 'hit', x, y, amount: dmg, crit, element });
-  if (p && p.alive && p.stats.lifesteal > 0) p.hp = Math.min(p.stats.maxHp, p.hp + dmg * p.stats.lifesteal);
+  if (p && p.alive && p.stats.lifesteal > 0) healProbe(sim, p, real * p.stats.lifesteal, 'steal');
   if (en.hp[e]! <= 0) killEnemy(sim, e, src);
   if (element) {
-    applyElement(sim, e, element, dmg, x, y, src, (o, amt) => {
-      dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
-    });
+    applyElement(
+      sim,
+      e,
+      element,
+      dmg,
+      x,
+      y,
+      src,
+      (o, amt) => {
+        dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
+      },
+      real,
+    );
     react(sim, e, element, dmg, x, y, src);
   }
   combatHooks.afterHit(sim, e, dmg, x, y, src);
-  return dmg;
+  return real;
 }
 
 /** Death: credit, data fragments and loot; the slot is freed. */

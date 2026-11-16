@@ -2,6 +2,7 @@ import { PICKUP } from '../world/pools';
 import type { Sim } from '../types';
 import { PROBE_RADIUS } from './probes';
 import { gainXp } from './xp';
+import { healBlocked, healProbe } from './healing';
 
 // Data fragments (XP), coins, star dust, repair kits, magnets and components on the ground (GDD §5.1). Within a probe's
 // pickup radius they are pulled in, faster and faster, and collected on touch. Coins, dust and components count for
@@ -59,6 +60,8 @@ export function updatePickups(sim: Sim): void {
     }
     if (best < 0) continue;
     const p = sim.probes[best]!;
+    // A kit waits on the ground while the Static blocks this probe's healing (2026-11-16): nothing is wasted.
+    if (pk.kind[i] === PICKUP.repair && healBlocked(sim, p)) continue;
     const r = p.stats.pickup;
     if (!pk.magnet[i] && bestD2 <= r * r) pk.magnet[i] = 1;
     if (!pk.magnet[i]) continue;
@@ -82,7 +85,7 @@ function collect(sim: Sim, i: number, probe: number): void {
   const value = pk.value[i]!;
   pk.kill(i);
   if (kind === PICKUP.xp) gainXp(sim, p, value * p.stats.xp);
-  else if (kind === PICKUP.repair) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * sim.sector.drops.repairHeal * value);
+  else if (kind === PICKUP.repair) healProbe(sim, p, p.stats.maxHp * sim.sector.drops.repairHeal * value, 'other');
   else if (kind === PICKUP.magnet) pullFragments(sim, probe);
   else {
     const bag = sim.loot[sim.layer - 1]!;

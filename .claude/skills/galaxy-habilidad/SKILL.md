@@ -34,6 +34,7 @@ Todo en `packages/sim/src/content/default.ts`:
 3. **Variantes:** si es un arma inicial, filas en la tabla `VARIANTS` al final (`variantOf`, `VariantSpec`, `unlockAt: 4 | 8`).
 4. **Pasiva:** `{ id, name, icon, description, stat, levels }` en `passives`. `levels` es el valor total en cada nivel.
 5. **Orden del bot:** si quieres que juegue con ella, `WEAPON_ORDER`/`PASSIVE_ORDER` en `packages/sim/src/bot.ts`. Mueve las partidas de referencia y la calibración.
+6. **Curación (2026-11-16):** toda curación de una sonda pasa por `healProbe` (`systems/healing.ts`). La vida robada a enemigos (`'steal'`: robo de vida, Sanguijuela, Sangría) sale del tope por segundo de `content.healing` y solo del daño real; el resto (`'other'`: regeneración, kits, carta) no tiene tope. Con la Estática encima (`content.stillness`) no cura nada. Una habilidad nueva que cure no escribe `p.hp` a mano.
 
 ## 3. Código, solo si es un `kind` o una stat nueva
 

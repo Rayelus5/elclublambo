@@ -440,6 +440,15 @@ const shape = z
     // Enemy life plan (2026-11-15): no single enemy hit takes more than this share of a probe's maximum life (1: no cap).
     // Content published before takes the code's value: it only protects the player.
     hitCap: z.number().min(0.05).max(1).default(D.hitCap),
+    // Sifón rework (2026-11-16): life stolen from enemies (lifesteal, leech, drain) heals at most maxHp × (base +
+    // perLifesteal × lifesteal) a second, banked up to `burst` seconds of it. Content published before takes the code's.
+    healing: z.object({ base: z.number().min(0).max(1000), perLifesteal: z.number().min(0).max(100), burst: z.number().min(0.1).max(30) }).strict().default(D.healing),
+    // «La Estática te alcanza» (2026-11-16): `warn` seconds in a `radius` warn, from `hurt` seconds the Static hurts
+    // (damage, + growth a second, up to max, × maxHp a second) and blocks healing until the probe leaves. hurt 0: off.
+    stillness: z
+      .object({ radius: pos, warn: z.number().min(0).max(600), hurt: z.number().min(0).max(600), damage: z.number().min(0).max(5), growth: z.number().min(0).max(5), max: z.number().min(0).max(5) })
+      .strict()
+      .default(D.stillness),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z

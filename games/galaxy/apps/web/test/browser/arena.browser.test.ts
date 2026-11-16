@@ -611,6 +611,33 @@ test('el brillo detrás de tu sonda solo se ve si lo activas, y es suave', async
 });
 
 
+// «La Estática te alcanza» (2026-11-16): a ring around the area where the probe stopped, amber when warned and red
+// while it hurts; nothing before.
+test('el anillo de la Estática sale al avisar y cambia al hacer daño', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    const p = sim.probes[0]!;
+    p.still = { x: p.x, y: p.y, t: 0 };
+    stage.render(sim, 1);
+    const calm = pixels(canvas);
+    p.still.t = 60 * DEFAULT_CONTENT.stillness.warn;
+    stage.render(sim, 1);
+    const warned = pixels(canvas);
+    expect(changed(calm, warned)).toBeGreaterThan(0);
+    p.still.t = 60 * DEFAULT_CONTENT.stillness.hurt;
+    stage.render(sim, 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/static-ring.png', element: canvas });
+    expect(changed(warned, pixels(canvas))).toBeGreaterThan(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
 // The admin debug mode (2026-11-15): the collisions are thin outlines over the world, only while they are on.
 test('las colisiones de depuración se dibujan solo encendidas, sobre el mundo', async () => {
   const now = 0;

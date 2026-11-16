@@ -21,6 +21,8 @@ import { xpFor } from './systems/xp';
 import { IDLE, type ProbeInput, type ProbeState, type Sim, type SimOptions } from './types';
 import { SpatialGrid } from './world/grid';
 import { createPools } from './world/pools';
+import { healBudget } from './systems/healing';
+import { updateStillness } from './systems/stillness';
 
 // The run simulation (GDD §5, §5.7, §18.4): a fixed 60 Hz step fed with one input per probe per tick. Same options and
 // same inputs → the same run, on every machine. While a level-up choice is open the world is frozen: only choices
@@ -124,6 +126,8 @@ export function createSim(opts: SimOptions): Sim {
       dash: { charges: 0, recharge: 0, pause: 0, t: 0, dir: 0 },
       kills: 0,
       fx: {},
+      still: { x, y: 0, t: 0 },
+      healBank: 0,
     };
     return p;
   });
@@ -131,6 +135,7 @@ export function createSim(opts: SimOptions): Sim {
     refreshStats(sim, p);
     p.hp = p.stats.maxHp;
     p.dash.charges = dashRules(sim, p).max;
+    p.healBank = healBudget(sim, p) * sim.content.healing.burst;
   }
   return sim;
 }
@@ -212,6 +217,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickProbes(sim);
   moveProbes(sim, inputs);
   recordMoves(sim, inputs);
+  updateStillness(sim);
   startDashes(sim, inputs);
   tickFlashes(sim);
   direct(sim);

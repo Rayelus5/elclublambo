@@ -41,6 +41,11 @@ export interface HudSnapshot {
     revive: number;
     team: { index: number; hp: number; maxHp: number; life: ProbeState['life']; x: number; y: number; level: number }[];
   };
+  /**
+   * «La Estática te alcanza» (2026-11-16): 0 nothing, 1 warned (seconds `left` until it hurts), 2 hurting and blocking
+   * the healing; the area's centre and radius, for the ring.
+   */
+  still: { level: 0 | 1 | 2; left: number; x: number; y: number; radius: number };
 }
 
 function nearestSatellite(sim: Sim, x: number, y: number): HudSnapshot['satellite'] {
@@ -54,6 +59,15 @@ function nearestSatellite(sim: Sim, x: number, y: number): HudSnapshot['satellit
     }
   }
   return best;
+}
+
+function stillOf(sim: Sim, p: Sim['probes'][number]): HudSnapshot['still'] {
+  const s = sim.content.stillness;
+  const { x, y, t } = p.still;
+  const hurt = s.hurt * 60;
+  const warn = s.warn * 60;
+  const level = s.hurt <= 0 || !p.alive ? 0 : t >= hurt ? 2 : warn > 0 && t >= warn ? 1 : 0;
+  return { level, left: level === 1 ? (hurt - t) / 60 : 0, x, y, radius: s.radius };
 }
 
 export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
@@ -87,6 +101,7 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     boss,
     beacon: b ? { x: b.x, y: b.y, dx: b.x - p.x, dy: b.y - p.y, hold: b.hold / 60, holdNeeded: b.holdNeeded / 60, left: b.t / 60 } : null,
     satellite: nearestSatellite(sim, p.x, p.y),
+    still: stillOf(sim, p),
     offer: p.offer,
     status: sim.status,
     dash: {

@@ -489,6 +489,13 @@ export interface Content {
   crit: { chance: number; damage: number };
   /** No single enemy hit takes more than this share of a probe's maximum life (1: no cap). */
   hitCap: number;
+  /** Life stolen heals at most maxHp × (base + perLifesteal × lifesteal) a second, banked up to `burst` seconds. */
+  healing: { base: number; perLifesteal: number; burst: number };
+  /**
+   * «La Estática te alcanza»: `warn` s inside `radius` warn; from `hurt` s it hurts maxHp × min(max, damage + growth ×
+   * the seconds since) a second and blocks healing, until the probe leaves the area. hurt 0: off.
+   */
+  stillness: { radius: number; warn: number; hurt: number; damage: number; growth: number; max: number };
   arena: { viewW: number; viewH: number; margin: number; despawn: number };
   limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number };
   anomalies: AnomalyDef[];
