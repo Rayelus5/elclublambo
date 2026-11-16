@@ -47,8 +47,11 @@ export const ART_FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown
  */
 export const SKIN_PROBES = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'] as const;
 export type SkinProbe = (typeof SKIN_PROBES)[number];
-/** Chatarra and Coral are still (won playing), Aurora and Leyenda animated (the season route and the shop). */
-export const SKIN_LINES = ['chatarra', 'coral', 'aurora', 'leyenda'] as const;
+/**
+ * Chatarra and Coral are still (won playing), Aurora and Leyenda animated (the season route and the shop), and the
+ * shop's six complete packs (2026-11-17), animated, each sold whole: Navidad, Fuego, Agua, Galáctico, Carbono, Rubí.
+ */
+export const SKIN_LINES = ['chatarra', 'coral', 'aurora', 'leyenda', 'navidad', 'fuego', 'agua', 'galaxia', 'carbono', 'rubi'] as const;
 export type SkinLine = (typeof SKIN_LINES)[number];
 export type SkinId = `skin-${SkinProbe}-${SkinLine}`;
 export const ART_SKINS = SKIN_PROBES.flatMap((p) => SKIN_LINES.map((l) => `skin-${p}-${l}` as const)) as readonly SkinId[];
@@ -92,6 +95,17 @@ const A = (id: AvatarId, name: string, rarity: Rarity, source: CosmeticSource, h
 const F = (id: (typeof ART_FRAMES)[number], name: string, rarity: Rarity, source: CosmeticSource, hint: string, animated = false): FrameItem => ({ id, name, rarity, source, hint, enabled: true, animated });
 const S = (id: SkinId, name: string, rarity: Rarity, hint: string, source: CosmeticSource = 'reward', animated = false): SkinItem => ({ id, name, rarity, source, hint, enabled: true, animated });
 const AURORA_HINT = 'Ruta de temporada';
+const PROBE_NAMES: Record<SkinProbe, string> = { lumen: 'Lumen', bastion: 'Bastión', spark: 'Chispa', sentinel: 'Vigía', anchor: 'Áncora', prism: 'Prisma', comet: 'Cometa', echo: 'Eco' };
+
+/** The shop's complete skin packs (2026-11-17): a line each, its eight skins sold whole as one `set` product. */
+export const SKIN_PACKS = [
+  { line: 'navidad', pack: 'Navidad', of: 'de Navidad' },
+  { line: 'fuego', pack: 'Fuego', of: 'de fuego' },
+  { line: 'agua', pack: 'Agua', of: 'de agua' },
+  { line: 'galaxia', pack: 'Galáctico', of: 'de galaxia' },
+  { line: 'carbono', pack: 'Carbono', of: 'de carbono' },
+  { line: 'rubi', pack: 'Rubí', of: 'de rubí' },
+] as const satisfies readonly { line: SkinLine; pack: string; of: string }[];
 const T = (text: string, rarity: Rarity, source: CosmeticSource, hint: string, style: TitleStyle): TitleItem => ({ text, rarity, source, hint, style, enabled: true });
 
 const DEFAULT_HINT = 'De serie: es tuyo desde el primer día';
@@ -189,6 +203,8 @@ export const DEFAULT_COSMETICS = {
     S('skin-prism-leyenda', 'Prisma leyenda', 'legendary', SHOP_HINT, 'shop', true),
     S('skin-comet-leyenda', 'Cometa leyenda', 'legendary', SHOP_HINT, 'shop', true),
     S('skin-echo-leyenda', 'Eco leyenda', 'legendary', SHOP_HINT, 'shop', true),
+    // The shop's complete packs (2026-11-17), only sold whole.
+    ...SKIN_PACKS.flatMap((k) => SKIN_PROBES.map((p) => S(`skin-${p}-${k.line}`, `${PROBE_NAMES[p]} ${k.of}`, 'legendary', `Exclusiva del Pack ${k.pack}`, 'shop', true))),
   ],
 } satisfies { avatars: AvatarItem[]; frames: FrameItem[]; titles: TitleItem[]; skins: SkinItem[] };
 
