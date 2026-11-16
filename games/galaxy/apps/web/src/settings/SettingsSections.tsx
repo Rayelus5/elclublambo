@@ -308,17 +308,25 @@ export function AccessSection({ inRun = false }: { inRun?: boolean }) {
   );
 }
 
-/** The run's own settings: aiming with the mouse (the pause passes the run's live switch). */
-export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean) => void }) {
+/**
+ * The run's own settings: aiming with the mouse (the pause passes the run's live switch) and the centre notices. In a
+ * run the two switches share a row, without their hints, so the pause fits 1280×720 with the controls below.
+ */
+export function ArenaSection({ aim, onAim, inRun = false }: { aim: boolean; onAim: (on: boolean) => void; inRun?: boolean }) {
   const runNotices = usePrefs((p) => p.runNotices);
-  return (
+  const switches = (
     <>
-      <SettingRow label={t.manualAim} hint={t.manualAimHint}>
+      <SettingRow label={t.manualAim} hint={inRun ? undefined : t.manualAimHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
       </SettingRow>
-      <SettingRow label={t.runNotices} hint={t.runNoticesHint}>
+      <SettingRow label={t.runNotices} hint={inRun ? undefined : t.runNoticesHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={runNotices} onChange={(on) => setPrefs({ runNotices: on })} />}
       </SettingRow>
+    </>
+  );
+  return (
+    <>
+      {inRun ? <div className="setting-pair">{switches}</div> : switches}
       <Controls />
     </>
   );

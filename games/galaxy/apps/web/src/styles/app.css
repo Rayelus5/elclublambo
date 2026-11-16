@@ -2762,6 +2762,10 @@
   .settings-shell.in-run { min-block-size: 456px; }
   .settings-shell.in-run .settings-pane { padding: 20px 26px 22px; }
   .settings-shell.in-run .setting { padding: 12px 0; }
+  /* Two switches side by side (the run's settings in the pause, 2026-11-16), each with its own line above. */
+  .setting-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+  .setting-pair > .setting { border-block-start: 0; }
+  @media (max-width: 720px) { .setting-pair { grid-template-columns: minmax(0, 1fr); } }
   .settings-shell.in-run .settings-tab { block-size: 48px; }
   @media (max-width: 760px) {
     .settings-shell { grid-template-columns: minmax(0, 1fr); min-block-size: 0; }

@@ -62,7 +62,7 @@ export function SettingsPanel({
   if (tab === 'sonido') body = <SoundSection inRun={inRun} />;
   else if (tab === 'pantalla') body = <DisplaySection inRun={inRun} />;
   else if (tab === 'accesibilidad') body = <AccessSection inRun={inRun} />;
-  else if (tab === 'incursion') body = <ArenaSection aim={aim} onAim={onAim} />;
+  else if (tab === 'incursion') body = <ArenaSection aim={aim} onAim={onAim} inRun={inRun} />;
   else body = inRun ? <HelpSectionInRun /> : <HelpSection />;
 
   return (
