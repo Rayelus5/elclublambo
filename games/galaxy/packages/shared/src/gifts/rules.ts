@@ -1,3 +1,4 @@
+import { TRAITS } from '@galaxy/engine';
 import type { CosmeticsConfig } from '../cosmetics/catalog';
 import { generateGalaxy } from '../gacha/generate';
 import { TIERS } from '../gacha/types';
@@ -54,9 +55,16 @@ export interface GiftIssue {
 /** Seeds a galaxy gift is tried on before it is sent: one that fails on all would fail at the claim too. */
 const REACH_SEEDS = [7919n, 15838n, 23757n];
 
+/** Whether a trait has that value at all (checked before any seed is tried: an unknown one never comes out). */
+export function traitKnown(key: string, value: string): boolean {
+  const def = (TRAITS.traits as Readonly<Record<string, { values: readonly { value: string }[] } | undefined>>)[key];
+  return !!def && def.values.some((v) => v.value === value);
+}
+
 /** Whether a galaxy of that tier with that trait can be made (a plain one of any tier always can). */
 export function galaxyReachable(tier: number, trait: { key: string; value: string } | null): boolean {
   if (!trait && tier < TIERS.indexOf('mythic')) return true;
+  if (trait && !traitKnown(trait.key, trait.value)) return false;
   try {
     for (const seed of REACH_SEEDS) generateGalaxy(seed, tier, trait ? { trait: trait.key as never, value: trait.value } : undefined);
     return true;
