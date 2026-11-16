@@ -5,6 +5,8 @@ import type { Kysely } from 'kysely';
 import { ZodError } from 'zod';
 import { clearSessionCookie, registerSessionReader } from './auth/guards';
 import { registerAuthRoutes } from './auth/routes';
+import { createDraftService } from './config/drafts';
+import { registerDraftRoutes } from './config/drafts-routes';
 import { registerConfigRoutes } from './config/routes';
 import { registerCollectionRoutes } from './collection/routes';
 import { registerGachaRoutes } from './gacha/routes';
@@ -145,6 +147,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     api.addHook('onClose', async () => live.close());
     registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now, onLogout: (id) => live.dropSession(id) });
     registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
+    // The content editor (2026-11-16, P2): config drafts, also tried in a test run.
+    const drafts = createDraftService({ db: deps.db, config });
+    registerDraftRoutes(api, { env: deps.env, drafts, db: deps.db });
     // Shop and lab plan F4: the resource shop's gateway (closed without Stripe's keys).
     const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
     registerGachaRoutes(api, { db: deps.db, config, now, live, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
@@ -153,7 +158,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     const soloFeeds = new SoloFeeds({ now: () => now().getTime() });
     soloFeeds.start();
     api.addHook('onClose', async () => soloFeeds.close());
-    registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, trustCfIp: deps.env.TRUST_CF_IP, onProbeChosen: (id, probe, skin) => rooms.memberChanged(id, { probe, skin }) });
+    registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, drafts, trustCfIp: deps.env.TRUST_CF_IP, onProbeChosen: (id, probe, skin) => rooms.memberChanged(id, { probe, skin }) });
     registerSoloStreamRoutes(api, { db: deps.db, feeds: soloFeeds, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerStationRoutes(api, { db: deps.db, config, now, live });
     registerLabRoutes(api, { db: deps.db, config, now });

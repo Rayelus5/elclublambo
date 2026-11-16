@@ -1,9 +1,8 @@
 import type { CollectionPage, FinishRunRequest, RunResult, RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
-import { readContentDraft, saveContentDraft } from '../src/admin/content-draft';
 import type { ArenaDebug, RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
@@ -309,68 +308,70 @@ describe('modo depuración', () => {
   });
 });
 
-// «Probar en incursión» (admin debug mode, 2026-11-15): an admin's content draft is played in a test run, unpublished.
+// «Probar en incursión» (the content editor, 2026-11-16, P2): an admin plays a server-side config draft in a test run,
+// unpublished. The hangar is opened with ?borrador=<id>; the draft's sectors and probes (new ones too) are picked in its
+// notice, and the server plays the draft over what is live.
 describe('borrador de contenido', () => {
   const adminMe = () => jsonResponse(200, { id: 'a1', username: 'admin', roles: ['admin'], mfa: true });
-  const draft = () => {
-    const content = structuredClone(DEFAULT_CONTENT);
-    content.sectors[0]!.name = 'Nebulosa de prueba';
-    saveContentDraft({ baseVersion: 12, raw: content, content });
-  };
+  const playerMe = () => jsonResponse(200, { id: 'p1', username: 'jugador', roles: [], mfa: false });
+  const draftSector = { ...DEFAULT_CONTENT.sectors[0]!, id: 'draft-sector', name: 'Sector del borrador' };
+  const draftView = () =>
+    jsonResponse(200, {
+      id: 'd1',
+      title: 'Sector nuevo',
+      status: 'open',
+      revision: 3,
+      fields: [{ key: 'content', field: 'sectors' }],
+      createdBy: 'admin',
+      updatedBy: 'admin',
+      createdAt: '2026-11-16T10:00:00.000Z',
+      updatedAt: '2026-11-16T10:00:00.000Z',
+      stale: false,
+      data: { content: { sectors: [...DEFAULT_CONTENT.sectors, draftSector] } },
+      baseVersions: { content: 12 },
+      publishedVersions: null,
+    });
   const ready = async () => waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
-  afterEach(() => sessionStorage.clear());
 
-  test('un admin con borrador ve el aviso, y «Descartar» lo borra', async () => {
-    draft();
-    mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  test('un admin con un borrador ve su aviso con el título, y «Dejar de probar» lo quita', async () => {
+    mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/admin/config-drafts/d1': draftView });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
     const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
     // Inside the launch dock, over the button: never a column of its own in the lobby's foot (review, 2026-11-15).
     expect(notice.closest('.lobby-dock')).not.toBeNull();
-    fireEvent.click(within(notice).getByRole('button', { name: copy.hangar.draft.discard }));
-    expect(readContentDraft()).toBeNull();
-    expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
+    expect(await within(notice).findByText('Sector nuevo')).toBeInTheDocument();
+    fireEvent.click(within(notice).getByRole('button', { name: copy.hangar.draft.stop }));
+    await waitFor(() => expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull());
   });
 
-  test('el lanzamiento envía test: true y la incursión usa el contenido del borrador', async () => {
-    draft();
-    const fetch = mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    await screen.findByRole('status', { name: copy.hangar.draft.notice });
+  test('se elige un sector del borrador y el lanzamiento envía la prueba con el borrador', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/auth/me': adminMe,
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'GET /galaxy/api/admin/config-drafts/d1': draftView,
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+    });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
+    const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    await pickOption(userEvent.setup(), await within(notice).findByRole('combobox', { name: copy.hangar.draft.sector }), 'Sector del borrador');
     await ready();
     fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
     await screen.findByTestId('arena');
     const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
-    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true });
-    expect(arena.props!.run!.content.sectors[0]!.name).toBe('Nebulosa de prueba');
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true, draft: 'd1', sector: 'draft-sector' });
     expect(arena.props!.debug).toMatchObject({ test: true, draft: true });
   });
 
-  test('borrador sin el sector elegido no lanza', async () => {
-    const content = structuredClone(DEFAULT_CONTENT);
-    content.sectors[0]!.id = 'otro-sector';
-    saveContentDraft({ baseVersion: 12, raw: content, content });
-    const fetch = mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    expect(readContentDraft()).not.toBeNull();
-    await screen.findByRole('status', { name: copy.hangar.draft.notice });
-    await ready();
-    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
-    expect(await screen.findByText(copy.hangar.draft.missing)).toBeInTheDocument();
-    expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')).toBe(false);
-  });
-
-  test('un no admin ignora el borrador', async () => {
-    draft();
-    const fetch = mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  test('un jugador con ?borrador juega normal: no hay aviso ni prueba', async () => {
+    const fetch = mockApi({ 'GET /galaxy/api/auth/me': playerMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
     await ready();
     expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
     await screen.findByTestId('arena');
     const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
-    expect(JSON.parse(String(sent[1]!.body)).test).toBeUndefined();
-    expect(arena.props!.run!.content.sectors[0]!.name).not.toBe('Nebulosa de prueba');
+    expect(JSON.parse(String(sent[1]!.body))).not.toHaveProperty('draft');
+    expect(fetch.mock.calls.some(([url]) => String(url).includes('config-drafts'))).toBe(false);
   });
 });
 

@@ -2,7 +2,7 @@ import { HScroll } from '../ui/HScroll';
 import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
 import type { Content } from '@galaxy/sim';
 import { useId, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { type ConfigKeyRow, useConfigKey, useConfigKeys, useConfigVersions, useFetchConfigVersion, usePublishConfig } from '../api/config';
 import { useLiveContent } from '../api/content';
 import { errorText } from '../auth/useMe';
@@ -17,7 +17,6 @@ import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
 import { ADVANCED_KEYS, CATEGORIES, JSON_ONLY, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
-import { clearContentDraft, readContentDraft, saveContentDraft } from './content-draft';
 
 const t = copy.admin.config;
 const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 'trades', 'chat', 'friends'] as const;
@@ -199,9 +198,6 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
   const versions = useConfigVersions(row.key);
   const fetchVersion = useFetchConfigVersion();
   const publish = usePublishConfig(row.key);
-  const navigate = useNavigate();
-  // A content draft tried in a test run (admin debug mode, 2026-11-15) can come back to the editor.
-  const [tried] = useState(() => (row.key === 'content' ? readContentDraft() : null));
   let parsed: unknown = draft;
   let jsonOk = true;
   if (mode === 'json') {
@@ -315,31 +311,6 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
               {t.published(done)}
             </p>
           ) : null}
-          {row.key === 'content' ? (
-            <div className="admin-try">
-              <button
-                type="button"
-                className="lip pill"
-                disabled={!next}
-                onClick={() => {
-                  if (!next) return;
-                  saveContentDraft({ baseVersion: base.version, raw: merged, content: next as never });
-                  void navigate('/incursion');
-                }}
-              >
-                {t.tryInRun}
-              </button>
-              <p className="hint">{t.tryInRunHint}</p>
-              {tried ? (
-                <>
-                  <button type="button" className="lip pill small" onClick={() => load(tried.raw)}>
-                    {t.restoreDraft}
-                  </button>
-                  {tried.baseVersion !== row.version ? <p className="field-error">{t.draftMoved(tried.baseVersion)}</p> : null}
-                </>
-              ) : null}
-            </div>
-          ) : null}
           <PublishFields
             busy={publish.isPending}
             disabled={!next || changes.length === 0}
@@ -350,8 +321,6 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
                 {
                   onSuccess: (r) => {
                     setDone(r.version);
-                    // The content is published: the draft tried in a test run is done with (debug mode, 2026-11-16).
-                    if (row.key === 'content') clearContentDraft();
                     if (next) {
                       setBase({ version: r.version, data: next });
                       load(next);
