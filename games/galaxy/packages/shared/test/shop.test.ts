@@ -151,3 +151,50 @@ describe('los cosméticos de la tienda', () => {
     expect(issues({ ...product('coins-1'), cosmetic: { kind: 'frame', id: 'prism' } })).toContain('shop_cosmetic_piece');
   });
 });
+
+// Complete skin packs (2026-11-17): a `set` gives several pieces at once, sold whole, once per account, in the
+// «Estilo» tab; any product can have a sales window (the Christmas pack only sells in December).
+describe('los packs de piezas', () => {
+  const leyenda = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'].map((p) => ({ kind: 'skin' as const, id: `skin-${p}-leyenda` }));
+  const set: ShopProduct = { ...product('style-skin-lumen'), id: 'skins-leyenda', kind: 'set', name: 'Pack Leyenda', cosmetic: null, pieces: leyenda, priceCents: 1699, enabled: false };
+  const issues = (p: object) => messages({ products: [p] });
+
+  test('un pack da sus piezas y nada más, una vez por cuenta, en la pestaña Estilo', () => {
+    expect(issues(set)).toEqual([]);
+    expect(productTab(set)).toBe('style');
+    expect(productBlock({ ...set, enabled: true }, { staff: false, bought: 0 })).toBeNull();
+    expect(productBlock({ ...set, enabled: true, maxPerAccount: null }, { staff: false, bought: 1 })).toBe('once_used');
+  });
+
+  test('un pack lleva de 2 a 12 piezas con arte, sin repetir, y solo un pack las lleva', () => {
+    expect(issues({ ...set, pieces: leyenda.slice(0, 1) })).toContain('shop_set_pieces');
+    expect(issues({ ...set, pieces: [...leyenda, ...leyenda.slice(0, 5)] })).toContain('shop_set_pieces');
+    expect(issues({ ...set, pieces: [leyenda[0], leyenda[0]] })).toContain('shop_set_pieces');
+    expect(issues({ ...set, pieces: [leyenda[0], { kind: 'skin', id: 'skin-lumen-nada' }] })).toContain('shop_set_pieces');
+    expect(issues({ ...set, grants: { coins: 10, dust: 0, components: 0 } })).toContain('shop_cosmetic_grants');
+    expect(issues({ ...set, cosmetic: leyenda[0] })).toContain('shop_cosmetic_piece');
+    expect(issues({ ...product('coins-1'), pieces: leyenda })).toContain('shop_set_pieces');
+    expect(issues({ ...product('style-skin-lumen'), pieces: leyenda })).toContain('shop_set_pieces');
+  });
+
+  test('las fechas de venta: fuera de ellas no se ve ni se compra', () => {
+    const xmas = { ...set, enabled: true, availableFrom: '2026-11-30T23:00:00.000Z', availableUntil: '2027-01-06T23:00:00.000Z' };
+    expect(issues(xmas)).toEqual([]);
+    expect(productBlock(xmas, { staff: false, bought: 0, now: at('2026-11-30T22:59:59.000Z') })).toBe('unavailable');
+    expect(productBlock(xmas, { staff: false, bought: 0, now: at('2026-11-30T23:00:00.000Z') })).toBeNull();
+    expect(productBlock(xmas, { staff: false, bought: 0, now: at('2027-01-06T22:59:59.000Z') })).toBeNull();
+    expect(productBlock(xmas, { staff: false, bought: 0, now: at('2027-01-06T23:00:00.000Z') })).toBe('unavailable');
+    // Only one end is fine; an end before the start is not.
+    expect(productBlock({ ...xmas, availableFrom: null }, { staff: false, bought: 0, now: at('2020-01-01T00:00:00.000Z') })).toBeNull();
+    expect(issues({ ...xmas, availableUntil: '2026-11-01T00:00:00.000Z' })).toContain('shop_window');
+  });
+
+  test('lo que ya estaba publicado sigue valiendo: sin piezas ni fechas', () => {
+    const old = { ...product('coins-1') } as Partial<ShopProduct>;
+    delete old.pieces;
+    delete old.availableFrom;
+    delete old.availableUntil;
+    const parsed = parseConfig('shop', { products: [old] });
+    expect(parsed.products[0]).toMatchObject({ pieces: [], availableFrom: null, availableUntil: null });
+  });
+});

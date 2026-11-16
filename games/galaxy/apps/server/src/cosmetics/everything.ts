@@ -30,8 +30,10 @@ export function cosmeticsToGrant(s: GrantSources, scope: GrantScope): Pieces {
   for (const t of s.cosmetics.titles) if (wanted(t.source)) titles.add(t.text);
   for (const k of s.cosmetics.skins) if (wanted(k.source)) skins.add(k.id);
   for (const p of s.shopProducts) {
-    if (p.kind !== 'cosmetic' || !p.cosmetic) continue;
-    ({ avatar: avatars, frame: frames, title: titles, skin: skins })[p.cosmetic.kind].add(p.cosmetic.id);
+    const into = { avatar: avatars, frame: frames, title: titles, skin: skins };
+    if (p.kind === 'cosmetic' && p.cosmetic) into[p.cosmetic.kind].add(p.cosmetic.id);
+    // A complete skin pack's pieces (2026-11-17).
+    if (p.kind === 'set') for (const x of p.pieces) into[x.kind].add(x.id);
   }
   if (scope === 'all') {
     const defaults = new Set<string>([...s.cosmetics.avatars, ...s.cosmetics.frames].filter((x) => x.source === 'default').map((x) => x.id));

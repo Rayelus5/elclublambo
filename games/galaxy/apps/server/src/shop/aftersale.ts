@@ -32,10 +32,16 @@ async function takeBack(trx: Db, account: string, purchase: string, product: str
   return { taken, short };
 }
 
-/** A refunded or disputed cosmetic (Nov plan C5): its piece goes, and comes off if worn. */
-async function takePiece(trx: Db, account: string, snapshot: unknown): Promise<void> {
-  const piece = (snapshot as { cosmetic?: { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string } | null } | null)?.cosmetic;
+type Piece = { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string };
+
+/**
+ * A refunded or disputed cosmetic (Nov plan C5): its piece goes, and comes off if worn. A set (2026-11-17): only the
+ * pieces that purchase gave, never one the player had before.
+ */
+async function takePiece(trx: Db, account: string, snapshot: unknown, grantedPieces: unknown): Promise<void> {
+  const piece = (snapshot as { cosmetic?: Piece | null } | null)?.cosmetic;
   if (piece) await revokeCosmetic(trx, account, piece.kind, piece.id);
+  for (const p of (grantedPieces as Piece[] | null) ?? []) await revokeCosmetic(trx, account, p.kind, p.id);
 }
 
 async function blockShop(trx: Db, account: string, purchase: string, reason: string): Promise<void> {
@@ -74,7 +80,7 @@ async function lockedByIntent(trx: Db, paymentIntent: string | null) {
   return (
     (await trx
       .selectFrom('galaxy.shop_purchases')
-      .select(['id', 'account_id', 'product', 'status', 'amount_cents', 'refunded_cents', 'granted', 'clawed', 'snapshot'])
+      .select(['id', 'account_id', 'product', 'status', 'amount_cents', 'refunded_cents', 'granted', 'granted_pieces', 'clawed', 'snapshot'])
       .where('stripe_payment_intent', '=', paymentIntent)
       .forUpdate()
       .executeTakeFirst()) ?? null
@@ -95,7 +101,7 @@ export async function applyRefund(deps: ShopDeps, charge: GatewayCharge): Promis
     const target = { ...NONE };
     for (const c of SHOP_CURRENCIES) target[c] = full ? granted[c] : Math.floor((granted[c] * refunded) / r.amount_cents);
     const { taken, short } = await takeBack(trx, r.account_id, r.id, r.product, granted, clawed, target);
-    await takePiece(trx, r.account_id, r.snapshot);
+    await takePiece(trx, r.account_id, r.snapshot, r.granted_pieces);
     const status = r.status === 'disputed' ? 'disputed' : full ? 'refunded' : 'partially_refunded';
     const nextClawed = { ...clawed };
     for (const c of SHOP_CURRENCIES) nextClawed[c] = Math.max(clawed[c], Math.min(target[c], granted[c]));
@@ -136,7 +142,7 @@ export async function applyDispute(deps: ShopDeps, dispute: GatewayDispute, clos
     const granted = (r.granted as ShopAmounts | null) ?? NONE;
     const clawed = { ...NONE, ...(r.clawed as Partial<ShopAmounts>) };
     const { taken, short } = await takeBack(trx, r.account_id, r.id, r.product, granted, clawed, granted);
-    await takePiece(trx, r.account_id, r.snapshot);
+    await takePiece(trx, r.account_id, r.snapshot, r.granted_pieces);
     await trx.updateTable('galaxy.shop_purchases').set({ status: 'disputed', clawed: JSON.stringify(granted), updated_at: now }).where('id', '=', r.id).execute();
     await blockShop(trx, r.account_id, r.id, 'Contracargo');
     await trx

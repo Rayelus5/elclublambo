@@ -4,6 +4,7 @@ import {
   referencePrice,
   type ShopVersion,
   type LiveEvent,
+  maxPerAccount,
   productBlock,
   productTab,
   purchaseGrants,
@@ -13,6 +14,7 @@ import {
   type ShopCheckoutRequest,
   type ShopConfig,
   shopOpenFor,
+  type ShopPiece,
   type ShopProduct,
   type ShopProductView,
   type ShopPurchaseStatus,
@@ -75,6 +77,8 @@ interface Snapshot {
   product: { id: string; name: string; kind: ShopProduct['kind']; art: string };
   /** The piece a cosmetic gives (Nov plan C5); absent for the rest. */
   cosmetic?: ShopProduct['cosmetic'];
+  /** The pieces a set gives (2026-11-17); the delivery gives those the player still lacks. */
+  pieces?: ShopPiece[];
   base: ShopAmounts;
   extra: ShopAmounts;
   total: ShopAmounts;
@@ -250,13 +254,38 @@ export async function shopFlag(deps: Pick<ShopDeps, 'db' | 'config' | 'now' | 'g
   const staff = isStaff(session);
   if (!shopOpenFor(cfg, deps.gateway !== null, staff) || (await isBlocked(deps.db, session.accountId))) return { open: false, offer: false };
   const now = deps.now();
-  return { open: true, offer: cfg.products.some((p) => productBlock(p, { staff, bought: 0 }) === null && activeOffer(p, now) !== null) };
+  return { open: true, offer: cfg.products.some((p) => productBlock(p, { staff, bought: 0, now }) === null && activeOffer(p, now) !== null) };
 }
 
 /** Whether the player already has a cosmetic's piece (Nov plan C5). */
 async function ownsPiece(db: Db, accountId: string, piece: NonNullable<ShopProduct['cosmetic']>): Promise<boolean> {
   const row = await db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', piece.kind).where('value', '=', piece.id).executeTakeFirst();
   return !!row;
+}
+
+const has = (owned: readonly { kind: string; value: string }[], piece: ShopPiece) => owned.some((x) => x.kind === piece.kind && x.value === piece.id);
+
+/** The pieces of a set the player has (2026-11-17). */
+async function ownedOf(db: Db, accountId: string, pieces: readonly ShopPiece[]): Promise<{ kind: string; value: string }[]> {
+  if (pieces.length === 0) return [];
+  return db
+    .selectFrom('galaxy.cosmetics')
+    .select(['kind', 'value'])
+    .where('account_id', '=', accountId)
+    .where('value', 'in', pieces.map((p) => p.id))
+    .execute();
+}
+
+/** Gives a set's pieces the player lacks and says which (a piece already owned stays as it was, and is not listed). */
+async function grantPieces(trx: Db, accountId: string, pieces: readonly ShopPiece[]): Promise<ShopPiece[]> {
+  if (pieces.length === 0) return [];
+  const rows = await trx
+    .insertInto('galaxy.cosmetics')
+    .values(pieces.map((p) => ({ account_id: accountId, kind: p.kind, value: p.id })))
+    .onConflict((oc) => oc.doNothing())
+    .returning(['kind', 'value'])
+    .execute();
+  return pieces.filter((p) => has(rows, p));
 }
 
 export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<ShopView> {
@@ -275,14 +304,15 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
     paidToday(deps.db, session.accountId, now),
     deps.db.selectFrom('galaxy.cosmetics').select(['kind', 'value']).where('account_id', '=', session.accountId).execute(),
   ]);
-  const sellable = cfg.products.filter((p) => productBlock(p, { staff, bought: 0 }) !== 'unavailable');
+  const sellable = cfg.products.filter((p) => productBlock(p, { staff, bought: 0, now }) !== 'unavailable');
   const before = new Map(await Promise.all(sellable.map(async (p) => [p.id, await beforeOf(deps, p, now)] as const)));
   const products = sellable.map((p): ShopProductView => {
       const c = counts.get(p.id) ?? { bought: 0, firstUsed: false };
       const first = p.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
       const { base, extra, total } = purchaseGrants(p, now, first, cfg);
       const price = effectivePrice(p, now);
-      const block = productBlock(p, { staff, bought: c.bought }) ?? (spent + price.cents > cfg.limits.dailyCents ? 'daily_limit' : null);
+      const block = productBlock(p, { staff, bought: c.bought, now }) ?? (spent + price.cents > cfg.limits.dailyCents ? 'daily_limit' : null);
+      const owned = p.cosmetic ? has(pieces, p.cosmetic) : p.kind === 'set' && p.pieces.every((x) => has(pieces, x));
       return {
         id: p.id,
         kind: p.kind,
@@ -299,11 +329,13 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
         badge: p.badge,
         featured: p.featured,
         first,
-        maxPerAccount: p.kind === 'welcome' || p.kind === 'cosmetic' ? 1 : p.maxPerAccount,
+        maxPerAccount: maxPerAccount(p),
         bought: c.bought,
-        block: p.cosmetic && pieces.some((x) => x.kind === p.cosmetic!.kind && x.value === p.cosmetic!.id) ? 'once_used' : block,
+        block: owned ? 'once_used' : block,
         cosmetic: p.cosmetic,
-        owned: !!p.cosmetic && pieces.some((x) => x.kind === p.cosmetic!.kind && x.value === p.cosmetic!.id),
+        ...(p.kind === 'set' ? { pieces: p.pieces.map((x) => ({ ...x, owned: has(pieces, x) })) } : {}),
+        owned,
+        availableUntil: p.availableUntil,
       };
     });
   return { open: true, closed: null, publishableKey: deps.gateway!.publishableKey, products, limits: { ...cfg.limits, spentTodayCents: spent }, ...common };
@@ -357,7 +389,7 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
   if (!gateway || !shopOpenFor(cfg, true, staff)) throw new HttpError(409, 'shop_closed');
   if (body.terms !== cfg.legal.termsVersion) throw new HttpError(409, 'shop_terms_outdated');
   const product = cfg.products.find((p) => p.id === body.product);
-  if (!product || productBlock(product, { staff, bought: 0 }) === 'unavailable') throw new HttpError(409, 'shop_unavailable');
+  if (!product || productBlock(product, { staff, bought: 0, now }) === 'unavailable') throw new HttpError(409, 'shop_unavailable');
   const price = effectivePrice(product, now);
   if (!price.stripePriceId) throw new HttpError(409, 'shop_unavailable');
 
@@ -411,7 +443,7 @@ async function reserve(
   await expireStale(trx, accountId, now);
   if (await isBlocked(trx, accountId)) throw new HttpError(403, 'shop_blocked');
   const c = (await purchaseCounts(trx, accountId)).get(product.id) ?? { bought: 0, firstUsed: false };
-  const block = productBlock(product, { staff, bought: c.bought });
+  const block = productBlock(product, { staff, bought: c.bought, now });
   if (block === 'once_used') throw new HttpError(409, 'shop_once_used');
   if (block) throw new HttpError(409, 'shop_unavailable');
   const first = product.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
@@ -423,9 +455,15 @@ async function reserve(
   const { base, extra, total } = purchaseGrants(product, now, first, cfg);
   // A piece already owned (bought, or earned another way) is not sold again.
   if (product.cosmetic && (await ownsPiece(trx, accountId, product.cosmetic))) throw new HttpError(409, 'shop_once_used');
+  // A set whose every piece the player has already is not sold; one with some of them gives the rest.
+  if (product.kind === 'set') {
+    const mine = await ownedOf(trx, accountId, product.pieces);
+    if (product.pieces.every((x) => has(mine, x))) throw new HttpError(409, 'shop_once_used');
+  }
   const snapshot: Snapshot = {
     product: { id: product.id, name: product.name, kind: product.kind, art: product.art },
     ...(product.cosmetic ? { cosmetic: product.cosmetic } : {}),
+    ...(product.kind === 'set' ? { pieces: product.pieces } : {}),
     base,
     extra,
     total,
@@ -491,10 +529,11 @@ type PurchaseRow = {
   status: string;
   amount_cents: number;
   granted: unknown;
+  granted_pieces: unknown;
   created_at: Date;
   paid_at: Date | null;
 };
-const PURCHASE_COLUMNS = ['id', 'account_id', 'product', 'snapshot', 'status', 'amount_cents', 'granted', 'created_at', 'paid_at'] as const;
+const PURCHASE_COLUMNS = ['id', 'account_id', 'product', 'snapshot', 'status', 'amount_cents', 'granted', 'granted_pieces', 'created_at', 'paid_at'] as const;
 
 async function purchaseView(db: Db, r: PurchaseRow): Promise<ShopPurchaseView> {
   const snap = r.snapshot as Snapshot;
@@ -505,6 +544,7 @@ async function purchaseView(db: Db, r: PurchaseRow): Promise<ShopPurchaseView> {
     status: r.status as ShopPurchaseStatus,
     amountCents: r.amount_cents,
     grants: (r.granted as ShopAmounts | null) ?? snap.total,
+    ...(snap.pieces ? { pieces: (r.granted_pieces as ShopPiece[] | null) ?? [] } : {}),
     createdAt: r.created_at.toISOString(),
     paidAt: r.paid_at?.toISOString() ?? null,
     wallet: await getWallet(db, r.account_id),
@@ -527,11 +567,20 @@ export async function fulfil(deps: ShopDeps, purchaseId: string, session: Gatewa
     const now = deps.now();
     const ref = { purchase: r.id, product: r.product };
     for (const c of SHOP_CURRENCIES) if (snap.total[c] > 0) await credit(trx, r.account_id, c, snap.total[c], 'shop', ref, key);
-    // A cosmetic gives its piece (Nov plan C5).
+    // A cosmetic gives its piece (Nov plan C5); a set, the pieces the player still lacks, written down for a refund.
     if (snap.cosmetic) await grantCosmetics(trx, r.account_id, { [snap.cosmetic.kind]: snap.cosmetic.id });
+    const given = snap.pieces ? await grantPieces(trx, r.account_id, snap.pieces) : null;
     await trx
       .updateTable('galaxy.shop_purchases')
-      .set({ status: 'paid', paid_at: now, granted: JSON.stringify(snap.total), stripe_session_id: session.id, stripe_payment_intent: session.paymentIntent, updated_at: now })
+      .set({
+        status: 'paid',
+        paid_at: now,
+        granted: JSON.stringify(snap.total),
+        ...(given ? { granted_pieces: JSON.stringify(given) } : {}),
+        stripe_session_id: session.id,
+        stripe_payment_intent: session.paymentIntent,
+        updated_at: now,
+      })
       .where('id', '=', r.id)
       .execute();
     // The operation row is a backstop: a second delivery of the same purchase could never commit.
@@ -540,7 +589,7 @@ export async function fulfil(deps: ShopDeps, purchaseId: string, session: Gatewa
       const details = { expected: r.amount_cents, got: session.amountTotal, currency: session.currency };
       await trx.insertInto('galaxy.shop_alerts').values({ kind: 'amount_mismatch', account_id: r.account_id, purchase_id: r.id, details: JSON.stringify(details) }).execute();
     }
-    return { ...r, status: 'paid', granted: snap.total, paid_at: now };
+    return { ...r, status: 'paid', granted: snap.total, granted_pieces: given, paid_at: now };
   });
   if (!delivered) return false;
   deps.log?.info({ purchase: delivered.id, product: delivered.product }, 'shop_paid');

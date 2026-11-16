@@ -4557,6 +4557,16 @@
   .pack-card.tone-dust { --g: rgb(155 134 255 / .25); }
   .pack-card.tone-components { --g: rgb(69 227 166 / .22); }
   .pack-card.tone-packs { --g: rgb(255 107 122 / .2); }
+  .pack-card.tone-style { --g: rgb(255 154 60 / .22); }
+  /* A complete skin pack (2026-11-17): its eight probes in two rows, one moving at a time (all of them while the card
+     is pointed at), the ones the player has dimmed with a tick. */
+  .set-art { position: relative; display: grid; grid-template-columns: repeat(4, auto); justify-content: center; gap: 6px; margin: 8px 0 6px; padding: 0; list-style: none; }
+  .set-piece { position: relative; display: grid; place-items: center; padding: 3px; border-radius: 12px; background: rgb(0 0 0 / .24); transition: transform .2s var(--ease-bounce), background-color .2s; }
+  .set-piece img { display: block; image-rendering: pixelated; }
+  .set-piece.moving { background: rgb(255 255 255 / .09); transform: translateY(-2px); }
+  .set-piece.owned img { opacity: .5; }
+  .set-check { position: absolute; inset-inline-end: -5px; inset-block-end: -5px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-panel); color: var(--color-terminal); }
+  .shop-summary.set { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
   .pack-glow { position: absolute; inset: 0; background: radial-gradient(60% 45% at 50% 34%, var(--g), transparent 70%); pointer-events: none; }
   .pack-art { position: relative; inline-size: 168px; block-size: 168px; margin: 6px 0 4px; image-rendering: pixelated; transition: transform .25s var(--ease-bounce); }
   .pack-card:hover .pack-art { transform: scale(1.06) rotate(-2deg); }
@@ -4618,7 +4628,7 @@
   }
   :where(:root[data-motion='reduced']) {
     .shop-featured::before, .shop-featured-canvas, .shop-rays, .pack-card, .shop-spinner, .shop-celebrate { animation: none; }
-    .pack-art { transition: none; }
+    .pack-art, .set-piece { transition: none; }
   }
 
   /* The Laboratorio's whiteboard (shop and lab plan, F3; the approved F0 mockup): a board that fills the screen under

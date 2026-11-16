@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_SHOP_PRODUCTS, type ShopCheckout, type ShopPurchaseView, type ShopView } from '@galaxy/shared';
+import { DEFAULT_SHOP_PRODUCTS, onSale, type ShopCheckout, type ShopPurchaseView, type ShopView } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { grantCosmetics } from '../../src/cosmetics/service';
 import { getWallet } from '../../src/economy/wallet';
 import { fakeGateway } from '../fake-gateway';
 import { fixedConfig, get, post, randomIp, sessionCookie, testApp, uniqueName } from '../helpers';
@@ -9,8 +10,15 @@ import { fixedConfig, get, post, randomIp, sessionCookie, testApp, uniqueName } 
 // terms, limits, the first-purchase extra, once-only products, Stripe's price checked), the delivery by webhook or by
 // the purchase's own check (once, whatever arrives twice), expired and failed payments, and the webhook's guards.
 
+// Two complete skin packs (2026-11-17): one on sale, one whose sales window has not opened yet.
+const LEYENDA = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'].map((p) => ({ kind: 'skin' as const, id: `skin-${p}-leyenda` }));
+const LUMEN = DEFAULT_SHOP_PRODUCTS.find((p) => p.id === 'style-skin-lumen')!;
+const SETS = [
+  { ...LUMEN, id: 'skins-leyenda', kind: 'set' as const, name: 'Pack Leyenda', cosmetic: null, pieces: LEYENDA, priceCents: 1699, enabled: true },
+  { ...LUMEN, id: 'skins-futuro', kind: 'set' as const, name: 'Pack del futuro', cosmetic: null, pieces: LEYENDA.slice(0, 2), priceCents: 999, enabled: true, availableFrom: '2099-01-01T00:00:00.000Z' },
+];
 // One shop cosmetic switched on (Nov plan C5): the rest are born off.
-const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_t${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
+const PRODUCTS = [...DEFAULT_SHOP_PRODUCTS, ...SETS].map((p, i) => ({ ...p, stripePriceId: `price_t${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
 const priceOf = (id: string) => PRODUCTS.find((p) => p.id === id)!;
 const SHOP = { enabled: true, audience: 'everyone', products: PRODUCTS, limits: { dailyCents: 10_000, pendingMax: 3 } };
 
@@ -47,8 +55,8 @@ describe('la tienda abierta', () => {
     const { cookie } = await player();
     const v = await view(cookie);
     expect(v).toMatchObject({ open: true, closed: null, publishableKey: 'pk_live_fake', limits: { dailyCents: 10_000, spentTodayCents: 0, pendingMax: 3 } });
-    // The products switched off (the shop's cosmetics until their Stripe prices are in) are not shown.
-    expect(v.products).toHaveLength(PRODUCTS.filter((p) => p.enabled).length);
+    // The products switched off (the shop's cosmetics until their Stripe prices are in), or out of their sales window, are not shown.
+    expect(v.products).toHaveLength(PRODUCTS.filter((p) => p.enabled && onSale(p, clock)).length);
     expect(v.products.find((p) => p.id === 'dust-2')).toMatchObject({ tab: 'dust', priceCents: 699, first: true, base: { dust: 600 }, extra: { dust: 600 }, total: { dust: 1200 }, block: null });
     expect(v.products.find((p) => p.id === 'welcome')).toMatchObject({ tab: 'packs', first: false, maxPerAccount: 1, bought: 0 });
   });
@@ -337,5 +345,47 @@ describe('los cosméticos (plan de noviembre C5)', () => {
     expect((await checkout(cookie, 'style-star-fox')).json()).toEqual({ error: 'shop_once_used' });
     // Nothing else moved: a cosmetic gives no currency.
     expect((await purchase(cookie, p)).status).toBe('paid');
+  });
+});
+
+describe('los packs de skins (2026-11-17)', () => {
+  const skinsOf = async (account: string) =>
+    (await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'skin').execute()).map((r) => r.value).sort();
+
+  test('el pack da las skins que faltan, apunta cuáles dio y luego no se vende otra vez', async () => {
+    const { cookie, id } = await player();
+    // Three of the eight came before (a gift by mail).
+    for (const s of LEYENDA.slice(0, 3)) await grantCosmetics(ctx.db, id, { skin: s.id });
+    const set = (await view(cookie)).products.find((x) => x.id === 'skins-leyenda')!;
+    expect(set).toMatchObject({ kind: 'set', tab: 'style', priceCents: 1699, maxPerAccount: 1, owned: false, block: null });
+    expect(set.pieces?.filter((x) => x.owned).map((x) => x.id)).toEqual(LEYENDA.slice(0, 3).map((x) => x.id));
+    expect(set.pieces).toHaveLength(8);
+    const p = await opened(cookie, 'skins-leyenda');
+    gateway.pay(p);
+    expect((await deliver(gateway.webhook('checkout.session.completed', p))).statusCode).toBe(200);
+    expect(await skinsOf(id)).toEqual(LEYENDA.map((x) => x.id).sort());
+    const row = await ctx.db.selectFrom('galaxy.shop_purchases').select(['status', 'granted_pieces']).where('id', '=', p).executeTakeFirstOrThrow();
+    expect(row.status).toBe('paid');
+    expect(row.granted_pieces).toEqual(LEYENDA.slice(3));
+    expect((await purchase(cookie, p)).pieces).toEqual(LEYENDA.slice(3));
+    expect((await view(cookie)).products.find((x) => x.id === 'skins-leyenda')).toMatchObject({ owned: true, block: 'once_used' });
+    expect((await checkout(cookie, 'skins-leyenda')).json()).toEqual({ error: 'shop_once_used' });
+  });
+
+  test('quien ya tiene las ocho no lo compra', async () => {
+    const { cookie, id } = await player();
+    for (const s of LEYENDA) await grantCosmetics(ctx.db, id, { skin: s.id });
+    expect((await view(cookie)).products.find((x) => x.id === 'skins-leyenda')).toMatchObject({ owned: true, block: 'once_used' });
+    const res = await checkout(cookie, 'skins-leyenda');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'shop_once_used' });
+  });
+
+  test('fuera de sus fechas no se ve ni se compra', async () => {
+    const { cookie } = await player();
+    expect((await view(cookie)).products.some((x) => x.id === 'skins-futuro')).toBe(false);
+    const res = await checkout(cookie, 'skins-futuro');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'shop_unavailable' });
   });
 });
