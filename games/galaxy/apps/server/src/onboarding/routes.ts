@@ -1,4 +1,4 @@
-import type { OnboardingView } from '@galaxy/shared';
+import { type OnboardingView, TEST_FLAG } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { type Kysely, sql } from 'kysely';
 import { requireSession } from '../auth/guards';
@@ -14,7 +14,7 @@ export function registerOnboardingRoutes(api: FastifyInstance, deps: { db: Kysel
     const { rows } = await sql<{ test: boolean; run: boolean; pulls: boolean; room: boolean; relic: boolean }>`
       select
         exists (select 1 from galaxy.probe_tests where account_id = ${id}) as test,
-        exists (select 1 from galaxy.runs where account_id = ${id} and finished_at is not null) as run,
+        exists (select 1 from galaxy.runs where account_id = ${id} and finished_at is not null and not (${TEST_FLAG} = any(flags))) as run,
         exists (select 1 from galaxy.gacha_pulls where account_id = ${id}) as pulls,
         exists (select 1 from galaxy.station_rooms where account_id = ${id} and room in ('antenna', 'lab') and level > 0) as room,
         exists (select 1 from galaxy.loadouts where account_id = ${id}) as relic`.execute(deps.db);

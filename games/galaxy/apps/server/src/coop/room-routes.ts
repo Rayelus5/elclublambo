@@ -9,6 +9,7 @@ import {
   roomTargetSchema,
   type RoomView,
   sectorStatus,
+  TEST_FLAG,
 } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type Kysely, sql } from 'kysely';
@@ -84,7 +85,17 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     const [features, coop, account] = await Promise.all([deps.config.get('features'), deps.config.get('coop'), deps.config.get('account')]);
     if (!features.coop) return { allowed: false, reason: 'disabled', minLevel: coop.minLevel, waitUntil: null };
     const t = await db.selectFrom('galaxy.tutorial').select(['done_at', 'skipped_at']).where('account_id', '=', accountId).executeTakeFirst();
-    const played = t ? null : await db.selectFrom('galaxy.runs').select('id').where('account_id', '=', accountId).where('finished_at', 'is not', null).limit(1).executeTakeFirst();
+    // An admin's test run (debug mode) is not play.
+    const played = t
+      ? null
+      : await db
+          .selectFrom('galaxy.runs')
+          .select('id')
+          .where('account_id', '=', accountId)
+          .where('finished_at', 'is not', null)
+          .where(sql<boolean>`not (${TEST_FLAG} = any(flags))`)
+          .limit(1)
+          .executeTakeFirst();
     const tutorialDone = t ? t.done_at !== null || t.skipped_at !== null : played !== undefined;
     if (!tutorialDone) return { allowed: false, reason: 'tutorial', minLevel: coop.minLevel, waitUntil: null };
     if ((await accountLevel(db, accountId, account)) < coop.minLevel) return { allowed: false, reason: 'level', minLevel: coop.minLevel, waitUntil: null };

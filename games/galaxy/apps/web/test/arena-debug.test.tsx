@@ -258,3 +258,18 @@ test('elegir una mejora de la lista no se queda el foco: Espacio sigue siendo el
   expect(document.activeElement).not.toBe(option);
 });
 
+// A pending minor (2026-11-16): while the test-run question is up, losing the window's focus does not open the pause
+// menu under it (with the panel closed by F2, nothing else hid it).
+test('con la pregunta de prueba abierta, perder el foco no abre la pausa debajo', async () => {
+  await mount(admin());
+  f2();
+  fireEvent.click(screen.getByRole('button', { name: t.speedValue(2) }));
+  expect(screen.getByRole('alertdialog', { name: t.confirmTitle })).toBeTruthy();
+  f2();
+  act(() => {
+    window.dispatchEvent(new Event('blur'));
+  });
+  expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+  expect(screen.getByRole('alertdialog', { name: t.confirmTitle })).toBeTruthy();
+});
+

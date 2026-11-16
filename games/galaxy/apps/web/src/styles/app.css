@@ -1496,7 +1496,7 @@
   .debug-replace { display: grid; gap: 6px; }
   .debug-replace p { margin: 0; color: var(--color-solar); font-size: 13px; }
   .debug-notice { margin: 0; padding: 8px 10px; border-radius: 10px; background: rgb(11 12 36 / .6); color: var(--color-ink-soft); font-size: 13px; }
-  .debug-info { position: absolute; z-index: 29; top: 104px; left: 20px; inline-size: min(264px, calc(100vw - 40px)); max-block-size: calc(100% - 250px); box-sizing: border-box; padding: 10px 12px; overflow-y: auto; border: 2px solid rgb(255 255 255 / .08); border-radius: 14px; background: rgb(11 12 36 / .82); color: var(--color-ink); font: 500 12px var(--font-sans); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .debug-info { position: absolute; z-index: 29; top: 104px; left: 20px; inline-size: min(264px, calc(100vw - 40px)); max-block-size: calc(100% - 250px); box-sizing: border-box; padding: 10px 12px; overflow-y: auto; border: 2px solid rgb(255 255 255 / .08); border-radius: 14px; background: rgb(11 12 36 / .82); color: var(--color-ink); font: 500 12px var(--font-sans); font-variant-numeric: tabular-nums; overscroll-behavior: contain; pointer-events: auto; }
   .debug-info dl { margin: 0; display: grid; gap: 3px; }
   .debug-info dl > div { display: flex; justify-content: space-between; gap: 10px; }
   .debug-info dt { color: var(--color-ink-mute); }
