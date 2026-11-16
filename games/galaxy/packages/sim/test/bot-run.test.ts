@@ -13,11 +13,12 @@ test('una incursión de bot dice cuánto duró, hasta dónde llegó y cómo acab
   expect(playBot(DEFAULT_CONTENT, { sector: 'outer-nebula', probe: 'lumen', seed: '101', maxMinutes: 6 })).toEqual(a);
 });
 
-test('con enemigos mucho más duros dura menos o llega menos lejos', () => {
+test('con enemigos mucho más duros dura menos, llega menos lejos o sube menos de nivel', () => {
   const hard = structuredClone(DEFAULT_CONTENT);
   hard.sectors[0]!.enemyHp = 3;
   hard.sectors[0]!.enemyDamage = 4;
   const easy = playBot(DEFAULT_CONTENT, { sector: 'outer-nebula', probe: 'lumen', seed: '202', maxMinutes: 8 });
   const tough = playBot(hard, { sector: 'outer-nebula', probe: 'lumen', seed: '202', maxMinutes: 8 });
-  expect(tough.minutes * 10 + tough.layer).toBeLessThan(easy.minutes * 10 + easy.layer);
+  // Lasts less, or in the same time levels less (each enemy takes longer to fall).
+  expect(tough.minutes * 1000 + tough.layer * 100 + tough.level).toBeLessThan(easy.minutes * 1000 + easy.layer * 100 + easy.level);
 });
