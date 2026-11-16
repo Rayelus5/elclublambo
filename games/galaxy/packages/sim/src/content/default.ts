@@ -2149,10 +2149,13 @@ export const DEFAULT_CONTENT: Content = {
     wreck: { distance: 420, radius: 44, hold: 4, life: 60, coins: 12, dust: 5, components: 1, perLayer: 0.5 },
     capsule: { distance: 340, radius: 16, warn: 2, life: 45, coins: 8, dust: 3, components: 1, perLayer: 0.5 },
     bounty: { distance: 380, seconds: 45, hp: 4, speed: 62, coins: 20, dust: 8, components: 2, perLayer: 0.5 },
-    meteors: { seconds: 16, every: 0.8, warn: 1.2, radius: 24, damage: 0.12, spread: 150 },
-    storm: { distance: 240, seconds: 22, radius: 70, speed: 34, damage: 0.06 },
+    // The owner, 2026-11-16: the hazards' harm areas «deberían de ser mucho mayores» — a meteor's circle, the storm and
+    // the well's heart about 2–2,7 × the radius (3–7 × the area); the well pulls from a little further. They come a
+    // little further away so they do not land on top of the probe (the view is about 340 units high).
+    meteors: { seconds: 16, every: 0.8, warn: 1.2, radius: 52, damage: 0.12, spread: 220 },
+    storm: { distance: 300, seconds: 22, radius: 130, speed: 34, damage: 0.06 },
     ambush: { distance: 170, warn: 1.5, count: 10, perLayer: 3 },
-    well: { distance: 190, seconds: 14, radius: 150, pull: 45, core: 18, damage: 0.08 },
+    well: { distance: 260, seconds: 14, radius: 220, pull: 45, core: 48, damage: 0.08 },
   },
   // The player's dash (owner's plan 2026-11-13; SIM 1.12.0): SHIFT, Space or the pad's A, for every probe.
   dash: { charges: 1, recharge: 6, pause: 0.4, distance: 90, seconds: 0.15, invuln: 0.1, cometCharges: 1, cometMax: 2 },

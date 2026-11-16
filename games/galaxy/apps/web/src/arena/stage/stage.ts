@@ -908,10 +908,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     const spin = opts.reduced ? 0 : clock * 0.8;
     eventFloor.circle(x, y, r).fill({ color: 0x8e2bb3, alpha: 0.16 });
     dashedArc(eventFloor, x, y, r, spin, spin + Math.PI * 2, { width: 2, color: 0xe05cff, alpha: 0.8 });
-    for (let k = 0; k < 7; k++) {
-      const a = spin * 3 + (k * Math.PI * 2) / 7;
-      const r0 = r * (0.25 + 0.6 * Math.abs(Math.sin((opts.reduced ? 1 : clock * 3) + k)));
-      const r1 = r0 + 10;
+    // As many sparks as it is big (a spark every 10 units of radius), each a little longer in a bigger cloud.
+    const sparks = Math.max(7, Math.round(r / 10));
+    for (let k = 0; k < sparks; k++) {
+      const a = spin * 3 + (k * Math.PI * 2) / sparks;
+      const r0 = r * (0.15 + 0.7 * Math.abs(Math.sin((opts.reduced ? 1 : clock * 3) + k * 1.7)));
+      const r1 = r0 + Math.max(10, r * 0.09);
       eventFloor.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0).lineTo(x + Math.cos(a + 0.2) * r1, y + Math.sin(a + 0.2) * r1).stroke({ width: 1.5, color: 0xf3f5ff, alpha: 0.7 });
     }
   }

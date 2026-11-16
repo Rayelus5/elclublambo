@@ -674,10 +674,10 @@ for (const sector of ['outer-nebula', 'broken-forge']) {
       stage.render(sim, 1);
       const clear = pixels(canvas);
       const storm = startEvent(sim, 'storm', 3);
-      storm.x = p.x - 110;
+      storm.x = p.x - 170;
       storm.y = p.y + 20;
       const well = startEvent(sim, 'well', 4);
-      well.x = p.x + 110;
+      well.x = p.x + 190;
       well.y = p.y - 10;
       startEvent(sim, 'ambush', 5);
       const meteors = startEvent(sim, 'meteors', 6);
