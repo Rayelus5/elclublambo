@@ -154,3 +154,23 @@ describe('ordenar el buzón', () => {
     expect(first.unread).toBe(4);
   });
 });
+
+describe('revisión de P3', () => {
+  test('cada destinatario recibe sus propias galaxias, no las mismas', async () => {
+    const [a, b] = await Promise.all([player(), player()]);
+    const { id } = (await send([a.username, b.username], { gifts: { items: [{ kind: 'galaxy', tier: 'rare', finish: 'normal', trait: null, count: 2 }], packs: [] } })).json() as { id: string };
+    await claim(a, id);
+    await claim(b, id);
+    const dna = async (p: P) => (await ctx.db.selectFrom('galaxy.galaxies').select('dna').where('owner_id', '=', p.id).where('origin', '=', 'grant').execute()).map((r) => r.dna);
+    const [da, db] = await Promise.all([dna(a), dna(b)]);
+    expect(da).toHaveLength(2);
+    expect(db).toHaveLength(2);
+    expect(da.filter((x) => db.includes(x))).toEqual([]);
+  });
+
+  test('un mensaje con más de diez galaxias no se envía', async () => {
+    const a = await player();
+    const res = await send([a.username], { gifts: { items: [3, 3, 3, 2].map((count) => ({ kind: 'galaxy', tier: 'rare', finish: 'normal', trait: null, count })), packs: [] } }, superadmin);
+    expect(res.json()).toEqual({ error: 'galaxy_too_many' });
+  });
+});

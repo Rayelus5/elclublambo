@@ -129,6 +129,8 @@ export async function claimMail(deps: MailDeps, accountId: string, id: string): 
     if (!done) throw new HttpError(409, 'mail_claimed');
     const given = await grantGifts(trx, accountId, gifts, {
       key: `mail:${id}`,
+      // Each player's own galaxies (the same claim always makes the same ones).
+      seedKey: `mail:${id}:${accountId}`,
       reason: 'mail_gift',
       ref: { message: id },
       actor: { id: accountId, label: 'buzón' },

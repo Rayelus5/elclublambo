@@ -4278,6 +4278,7 @@ export const copy = {
     mail_claimed: 'Ese regalo ya está recogido',
     mail_gone: 'Ese mensaje ya no está en tu buzón',
     gift_invalid: 'Algún regalo no se puede dar: no existe, ya no está disponible o no se puede conseguir',
+    galaxy_too_many: 'Demasiadas galaxias en un mensaje. Quita alguna, contando también las de los packs',
     gift_needs_superadmin: 'Ese regalo es demasiado grande: solo lo puede enviar un superadmin',
     pack_unknown: 'Ese pack no está en la biblioteca o está desactivado',
     mail_has_gift: 'Recoge antes su regalo: un mensaje con un regalo sin recoger no se borra',
