@@ -3221,6 +3221,8 @@ export const copy = {
     colorVision: 'Visión del color',
     colorVisionHint: 'Cambia los colores que avisan de algo (rarezas, jugadores, peligro, elementos) por otros que se distinguen mejor. El arte de las galaxias no cambia',
     colorVisions: { none: 'Normal', protan: 'Protanopía (rojo)', deutan: 'Deuteranopía (verde)', tritan: 'Tritanopía (azul)' },
+    runNotices: 'Avisos en el centro de la pantalla',
+    runNoticesHint: 'Te dice lo que pasa en la incursión: capa nueva, Núcleo, sucesos y lo que ganas',
     probeGlow: 'Brillo detrás de tu sonda',
     probeGlowHint: 'Un halo blanco suave detrás de tu sonda en las incursiones, para distinguirla mejor del fondo',
     preview: 'Vista previa',
@@ -3551,6 +3553,16 @@ export const copy = {
     // No number: the share without extraction is `runs.deathShare`, set by the admin (the results screen says the real one).
     abandonBody: 'Solo cobras una parte del botín, como si la sonda cayera. No se puede deshacer',
     keepPlaying: 'Seguir jugando',
+    // Centre-screen notices (2026-11-16): what happens in the run, one at a time.
+    notices: {
+      layer: (n: number) => `Avanzas a la capa ${n}`,
+      boss: (name: string) => `¡${name} aparece!`,
+      beacon: 'La baliza de extracción está abierta',
+      satellite: 'Hay un satélite cerca: rómpelo y llévate una señal del escáner profundo',
+      signal: (n: number) => `+${n} ${n === 1 ? 'señal' : 'señales'} del escáner profundo`,
+      staticWarn: 'La Estática se acerca: muévete',
+      staticStart: 'La Estática te alcanza: no te curas hasta que te muevas',
+    },
     // «La Estática te alcanza» (2026-11-16): standing still in a small area.
     still: {
       title: 'La Estática',

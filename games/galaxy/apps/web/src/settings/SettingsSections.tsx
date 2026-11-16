@@ -310,10 +310,14 @@ export function AccessSection({ inRun = false }: { inRun?: boolean }) {
 
 /** The run's own settings: aiming with the mouse (the pause passes the run's live switch). */
 export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean) => void }) {
+  const runNotices = usePrefs((p) => p.runNotices);
   return (
     <>
       <SettingRow label={t.manualAim} hint={t.manualAimHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
+      </SettingRow>
+      <SettingRow label={t.runNotices} hint={t.runNoticesHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={runNotices} onChange={(on) => setPrefs({ runNotices: on })} />}
       </SettingRow>
       <Controls />
     </>

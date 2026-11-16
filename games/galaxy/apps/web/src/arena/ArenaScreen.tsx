@@ -51,6 +51,8 @@ import { Dialog } from '../ui/Dialog';
 import { DebugInfo } from './debug/DebugInfo';
 import { DebugPanel } from './debug/DebugPanel';
 import { createRates } from './debug/rates';
+import { createNoticeQueue, noticesFor, type RunNotice as Notice } from './notices';
+import { RunNotice } from './hud/RunNotice';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
@@ -125,6 +127,10 @@ export function ArenaScreen({
   const reduced = useReducedMotion();
   const colorVision = usePrefs((p) => p.colorVision);
   const probeGlow = usePrefs((p) => p.probeGlow);
+  // Centre-screen notices (2026-11-16): the run's moments, one at a time; the run's settings turn them off.
+  const runNotices = usePrefs((p) => p.runNotices);
+  const [notices] = useState(createNoticeQueue);
+  const [centre, setCentre] = useState<Notice | null>(null);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, 0));
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
@@ -367,6 +373,7 @@ export function ArenaScreen({
       if (debugRef.current) rates.onEvents(events, sim.tick);
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);
+      notices.push(noticesFor(events, 0, run.content), Date.now());
       for (const e of events) {
         if (e.t === 'layer') musicStinger('layer');
         if (e.t === 'extracted') musicStinger('extract');
@@ -462,6 +469,7 @@ export function ArenaScreen({
     const id = setInterval(() => {
       const h = hudSnapshot(sim, 0);
       setHud(h);
+      setCentre(notices.current(Date.now()));
       setCamera(stageRef.current?.camera() ?? null);
       const s = seen.current;
       if (h.level > s.level) setAnnounce(copy.arena.announce.level(h.level));
@@ -663,6 +671,7 @@ export function ArenaScreen({
         </Dialog>
       ) : null}
       {hud.boss && <BossBar boss={hud.boss} />}
+      {runNotices && hud.status !== 'choosing' ? <RunNotice notice={centre} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
       {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}

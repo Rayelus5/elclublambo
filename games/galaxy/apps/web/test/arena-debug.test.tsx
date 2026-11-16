@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type ArenaDebug, type RunEnd } from '../src/arena/ArenaScreen';
 import { markRadioSeen } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
+import { setPrefs } from '../src/settings/prefs';
 
 // The admin debug mode in a solo run (2026-11-15): F2 or the pause menu opens a side panel; looking (information,
 // collisions) changes nothing; the first change to play asks once and turns the run into a test run on the server
@@ -256,5 +257,24 @@ test('elegir una mejora de la lista no se queda el foco: Espacio sigue siendo el
   option.focus();
   fireEvent.click(option);
   expect(document.activeElement).not.toBe(option);
+});
+
+// Centre-screen notices (2026-11-16): what happens says so in the middle of the screen; the run's settings turn them off.
+test('pasar de capa lo dice en el centro de la pantalla, salvo con los avisos apagados', async () => {
+  await mount(admin({ test: true }));
+  f2();
+  fireEvent.click(screen.getByRole('button', { name: t.layer }));
+  act(() => vi.advanceTimersByTime(150));
+  expect(screen.getByText(copy.arena.notices.layer(2))).toBeTruthy();
+});
+
+test('con los avisos apagados no sale nada en el centro', async () => {
+  setPrefs({ runNotices: false });
+  await mount(admin({ test: true }));
+  f2();
+  fireEvent.click(screen.getByRole('button', { name: t.layer }));
+  act(() => vi.advanceTimersByTime(150));
+  expect(screen.queryByText(copy.arena.notices.layer(2))).toBeNull();
+  setPrefs({ runNotices: true });
 });
 

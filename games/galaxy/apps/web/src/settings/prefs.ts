@@ -29,6 +29,8 @@ export interface Prefs {
   probeGlow: boolean;
   /** Which chats tell me with a notice while I do not have them open (the owner, 2026-11-14: clan, room and mentions). */
   chatNotify: ChatNotify;
+  /** The run's centre-screen notices: a new layer, a Núcleo, events and their rewards (the owner, 2026-11-16; on by default). */
+  runNotices: boolean;
 }
 
 export interface ChatNotify {
@@ -40,7 +42,7 @@ export interface ChatNotify {
 export const CHAT_NOTIFY_KEYS = ['clan', 'room', 'mentions', 'global'] as const satisfies readonly (keyof ChatNotify)[];
 const DEFAULT_CHAT_NOTIFY: ChatNotify = Object.freeze({ global: false, clan: true, room: true, mentions: true });
 
-export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: DEFAULT_CHAT_NOTIFY });
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient', probeGlow: false, chatNotify: DEFAULT_CHAT_NOTIFY, runNotices: true });
 const NOTE_VERSION = /^\d{1,3}\.\d{1,3}$/;
 
 const KEY = 'galaxy.prefs';
@@ -59,6 +61,7 @@ function sanitize(raw: unknown): Prefs {
     musicStyle: oneOf(SETTINGS_MUSIC_STYLES, r['musicStyle'], DEFAULT_PREFS.musicStyle),
     probeGlow: typeof r['probeGlow'] === 'boolean' ? r['probeGlow'] : DEFAULT_PREFS.probeGlow,
     chatNotify: chatNotifyOf(r['chatNotify']),
+    runNotices: typeof r['runNotices'] === 'boolean' ? r['runNotices'] : DEFAULT_PREFS.runNotices,
   };
 }
 
