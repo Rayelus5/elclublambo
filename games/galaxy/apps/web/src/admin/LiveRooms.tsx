@@ -1,11 +1,11 @@
 import { HScroll } from '../ui/HScroll';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { Link } from 'react-router';
 import { useAdminRooms, useAdminSoloLive } from '../api/rooms';
 import { clockText } from '../arena/hud/Hud';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useModDialog } from './ModerationScreen';
+import { useContentNames } from '../api/content-names';
 
 // Moderación › Salas en vivo (multiplayer plan, phase 5): every open room with its code, kind, sector, state, players
 // (connected or not) and how long since anything changed; a moderator closes one with a reason (audited), and its
@@ -14,11 +14,10 @@ import { useModDialog } from './ModerationScreen';
 const t = copy.admin.moderation;
 const r = t.rooms;
 const so = t.solo;
-const probeName = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id)?.name ?? id;
-const sectorName = (id: string) => DEFAULT_CONTENT.sectors.find((s) => s.id === id)?.name ?? id;
 
 export function LiveRooms() {
   const rooms = useAdminRooms();
+  const { sectorName } = useContentNames();
   const dialog = useModDialog();
   const rows = rooms.data?.rooms ?? [];
   return (
@@ -94,6 +93,7 @@ export function LiveRooms() {
 /** Plan «escáner pro», part G: the solo runs being played now, each leading to its live view. */
 function SoloRuns() {
   const solo = useAdminSoloLive();
+  const { sectorName, probeName } = useContentNames();
   const rows = solo.data?.runs ?? [];
   return (
     <>

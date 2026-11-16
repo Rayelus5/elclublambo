@@ -1,5 +1,4 @@
 import { type ClanRow, type GroupRow, type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { Link, useSearchParams } from 'react-router';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
@@ -11,6 +10,7 @@ import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
 import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
 import { HomeLink } from '../ui/BackLink';
+import { useContentNames } from '../api/content-names';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
 // view can be shared; the podium holds the top three and the table the rest; your row is marked, and pinned below
@@ -20,7 +20,6 @@ const t = copy.social;
 const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes', groups: 'grupo' };
 const tabOf = (slug: string | null): LeaderTab =>
   slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : slug === 'clanes' ? 'clans' : slug === 'grupo' ? 'groups' : 'general';
-const probeSprite = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id)?.sprite ?? 'probe-lumen';
 
 function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) {
   return (
@@ -42,6 +41,7 @@ function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) 
  * (each name to its profile), the layer, the Cores and the time; the viewer's best group marked, or pinned below.
  */
 function GroupTable({ groups, mine }: { groups: GroupRow[]; mine: GroupRow | null }) {
+  const { probeSprite } = useContentNames();
   const key = (g: GroupRow) => g.players.map((p) => p.username).join(',');
   const own = mine ? key(mine) : null;
   const row = (g: GroupRow) => (

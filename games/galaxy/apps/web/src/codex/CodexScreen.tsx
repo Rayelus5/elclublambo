@@ -2,6 +2,7 @@ import type { CodexProgress } from '@galaxy/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { useLiveContent } from '../api/content';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { BackLink } from '../ui/BackLink';
@@ -17,7 +18,9 @@ const SECTIONS: CodexSection[] = ['chronicle', 'sectors', 'cores', 'bestiary', '
 
 export function CodexScreen() {
   const progress = useQuery({ queryKey: ['codex'], queryFn: () => api<CodexProgress>('/codex') });
-  const entries = useMemo(() => codexEntries(), []);
+  // What is published (2026-11-16): a sector or a Core retuned from the admin panel reads as it is now.
+  const content = useLiveContent();
+  const entries = useMemo(() => codexEntries(content), [content]);
   const [section, setSection] = useState<CodexSection>('chronicle');
   const [chosen, setChosen] = useState<string | null>(null);
   const p = progress.data;

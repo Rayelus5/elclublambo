@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CONFIG_KEYS, PROBE_TEST, parseConfig } from '@galaxy/shared';
+import { DEFAULT_CONTENT } from '@galaxy/sim';
 import type { ControlledTransaction, Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { createConfigService } from '../../src/config/service';
@@ -66,6 +67,49 @@ describe('las claves', () => {
   test('un borrador se comprueba con su esquema, cada problema en su ruta', async () => {
     expect((await post(ctx.app, A('/chat/validate'), { data: { maxLength: 5 } }, { cookie: admin.cookie })).json()).toEqual({ ok: false, issues: [expect.objectContaining({ path: 'maxLength' })] });
     expect((await post(ctx.app, A('/chat/validate'), { data: { maxLength: 300 } }, { cookie: admin.cookie })).json()).toEqual({ ok: true, issues: [] });
+  });
+});
+
+// The content editor (2026-11-16, P1): the run content is about 180 KB, so the key list leaves it out and the panel asks
+// for it (and for each old version) when it needs it; a publish may carry all of it.
+describe('el contenido, bajo demanda', () => {
+  test('la lista de claves no trae el contenido entero: lo marca para pedirlo aparte', async () => {
+    const keys = (await get(ctx.app, A('/keys'), { cookie: admin.cookie })).json() as { key: string; data?: unknown; lazy?: boolean }[];
+    const content = keys.find((k) => k.key === 'content')!;
+    expect(content.lazy).toBe(true);
+    expect(content.data).toBeUndefined();
+  });
+
+  test('una clave se pide sola, con su versión y lo que está vivo', async () => {
+    const res = await get(ctx.app, A('/content'), { cookie: admin.cookie });
+    expect(res.statusCode).toBe(200);
+    const row = res.json() as { key: string; version: number; data: unknown };
+    expect(row.key).toBe('content');
+    expect(row.data).toEqual(parseConfig('content', {}));
+    expect((await get(ctx.app, A('/nope'), { cookie: admin.cookie })).statusCode).toBe(404);
+    expect((await get(ctx.app, A('/content'), { cookie: await player() })).statusCode).toBe(403);
+  });
+
+  test('el historial no trae los datos; cada versión se pide por su número', async () => {
+    const before = await lastVersion('chat');
+    expect((await publish('chat', { data: { maxLength: 222 }, reason: 'historial', password: admin.password, baseVersion: before })).statusCode).toBe(201);
+    const list = (await get(ctx.app, A('/chat/versions'), { cookie: admin.cookie })).json() as { version: number; data?: unknown; note: string }[];
+    const last = list.find((v) => v.version === before + 1)!;
+    expect(last.note).toBe('historial');
+    expect(last.data).toBeUndefined();
+    const one = (await get(ctx.app, A(`/chat/versions/${before + 1}`), { cookie: admin.cookie })).json() as { version: number; data: { maxLength: number } };
+    expect(one).toMatchObject({ version: before + 1, data: { maxLength: 222 } });
+    expect((await get(ctx.app, A('/chat/versions/99999'), { cookie: admin.cookie })).statusCode).toBe(404);
+  });
+
+  test('se puede publicar el contenido entero, aunque pase de 64 KB', async () => {
+    const enemies = DEFAULT_CONTENT.enemies.map((e) => (e.id === 'mite' ? { ...e, hp: e.hp + 1 } : e));
+    const data = { enemies, bosses: DEFAULT_CONTENT.bosses, sectors: DEFAULT_CONTENT.sectors, weapons: DEFAULT_CONTENT.weapons };
+    expect(JSON.stringify(data).length).toBeGreaterThan(64 * 1024);
+    const res = await publish('content', { data, reason: 'contenido grande', password: admin.password, baseVersion: await lastVersion('content') });
+    expect(res.statusCode).toBe(201);
+    const row = (await get(ctx.app, A('/content'), { cookie: admin.cookie })).json() as { data: { enemies: { id: string; hp: number }[] } };
+    expect(row.data.enemies.find((e) => e.id === 'mite')!.hp).toBe(DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!.hp + 1);
   });
 });
 

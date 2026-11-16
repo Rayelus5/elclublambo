@@ -17,7 +17,13 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.admin.config;
 const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'], mfa: true, level: 30 };
-const keys = CONFIG_KEYS.map((key) => ({ key, version: key === 'chat' ? 3 : 0, data: parseConfig(key, {}), createdAt: null, author: key === 'chat' ? 'rayelus' : null, note: null }));
+// The run content is not in the list (2026-11-16, P1): it is marked `lazy` and asked for on its own.
+const keys = CONFIG_KEYS.map((key) =>
+  key === 'content'
+    ? { key, version: 0, lazy: true, createdAt: null, author: null, note: null }
+    : { key, version: key === 'chat' ? 3 : 0, data: parseConfig(key, {}), createdAt: null, author: key === 'chat' ? 'rayelus' : null, note: null },
+);
+const contentRow = { key: 'content', version: 0, data: parseConfig('content', {}), createdAt: null, author: null, note: null };
 /** The keys after someone published `chat` again (version 4, with `data`). */
 const keysAfter = (data: object) => keys.map((k) => (k.key === 'chat' ? { ...k, version: 4, data: { ...k.data, ...data } } : k));
 const keysCalls = (fetch: ReturnType<typeof mockApi>) => fetch.mock.calls.filter(([url]) => url === '/galaxy/api/admin/config/keys').length;
@@ -28,7 +34,9 @@ function api(routes: Record<string, (b: unknown) => Response> = {}) {
   return mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
     'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys),
-    'GET /galaxy/api/admin/config/chat/versions': () => jsonResponse(200, [{ version: 3, data: { maxLength: 200 }, createdAt: '2026-11-08T10:00:00.000Z', createdBy: 'ad1', author: 'rayelus', note: 'Más corto' }]),
+    'GET /galaxy/api/admin/config/content': () => jsonResponse(200, contentRow),
+    'GET /galaxy/api/admin/config/chat/versions': () => jsonResponse(200, [{ version: 3, createdAt: '2026-11-08T10:00:00.000Z', author: 'rayelus', note: 'Más corto' }]),
+    'GET /galaxy/api/admin/config/chat/versions/3': () => jsonResponse(200, { version: 3, data: { maxLength: 200 }, createdAt: '2026-11-08T10:00:00.000Z', author: 'rayelus', note: 'Más corto' }),
     'GET /galaxy/api/admin/config/gacha/versions': () => jsonResponse(200, []),
     'GET /galaxy/api/admin/config/probes/versions': () => jsonResponse(200, []),
     ...routes,
@@ -177,11 +185,13 @@ test('los problemas que encuentra el servidor al publicar se enseñan con su rut
 });
 
 test('el historial carga una versión vieja en el formulario, para publicarla como nueva', async () => {
-  api();
+  const fetch = api();
   renderAt('/admin/configuracion/chat', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.loadVersion(3) }));
-  expect(screen.getByLabelText('Caracteres por mensaje')).toHaveValue('200');
+  // The history comes without the data (2026-11-16, P1): the version is asked for when it is loaded.
+  await waitFor(() => expect(screen.getByLabelText('Caracteres por mensaje')).toHaveValue('200'));
+  expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/admin/config/chat/versions/3')).toBe(true);
   expect(screen.getByText('Caracteres por mensaje pasa de 280 a 200')).toBeInTheDocument();
 });
 
@@ -277,16 +287,27 @@ test('tras publicar el contenido no queda borrador probado', async () => {
   sessionStorage.clear();
   saveContentDraft({ baseVersion: 0, raw: parseConfig('content', {}), content: DEFAULT_CONTENT });
   api({
-    'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, [{ version: 1, data: { hitCap: 0.5 }, createdAt: '2026-11-15T10:00:00.000Z', createdBy: 'ad1', author: 'rayelus', note: 'Tope' }]),
+    'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, [{ version: 1, createdAt: '2026-11-15T10:00:00.000Z', author: 'rayelus', note: 'Tope' }]),
+    'GET /galaxy/api/admin/config/content/versions/1': () => jsonResponse(200, { version: 1, data: { hitCap: 0.5 }, createdAt: '2026-11-15T10:00:00.000Z', author: 'rayelus', note: 'Tope' }),
     'POST /galaxy/api/admin/config/content': () => jsonResponse(201, { version: 1 }),
   });
   renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.loadVersion(1) }));
+  // The version's data comes on demand: the change it makes shows once it is loaded.
+  await waitFor(() => expect(screen.getAllByText(/0,5/).length).toBeGreaterThan(0));
   await user.type(screen.getByLabelText(copy.admin.fields.reason), 'Tope por golpe');
   await user.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
   await user.click(screen.getByRole('button', { name: t.publish }));
   expect(await screen.findByText(t.published(1))).toBeInTheDocument();
   expect(readContentDraft()).toBeNull();
+});
+
+// The content editor, P1 (2026-11-16): the key list leaves the run content out (about 180 KB); its page asks for it.
+test('el contenido no viene en la lista: su página lo pide aparte', async () => {
+  const fetch = api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
+  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  expect(await screen.findByRole('button', { name: t.tryInRun })).toBeInTheDocument();
+  expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/admin/config/content')).toBe(true);
 });
 

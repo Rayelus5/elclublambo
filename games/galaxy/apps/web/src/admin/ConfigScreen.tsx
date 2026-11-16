@@ -1,9 +1,10 @@
 import { HScroll } from '../ui/HScroll';
 import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import type { Content } from '@galaxy/sim';
 import { useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { type ConfigKeyRow, useConfigKeys, useConfigVersions, usePublishConfig } from '../api/config';
+import { type ConfigKeyRow, useConfigKey, useConfigKeys, useConfigVersions, useFetchConfigVersion, usePublishConfig } from '../api/config';
+import { useLiveContent } from '../api/content';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
@@ -173,14 +174,9 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
   );
 }
 
-/** What the live content offers for the fields that pick a sector, an anomaly or a probe. */
-function contentOptions(rows: ConfigKeyRow[] | undefined): Options {
-  const content = (rows?.find((k) => k.key === 'content')?.data ?? DEFAULT_CONTENT) as {
-    sectors?: { id: string; name: string }[];
-    anomalies?: { id: string; name: string }[];
-    probes?: { id: string; name: string }[];
-  };
-  const list = (xs: { id: string; name: string }[] | undefined) => (xs ?? []).map((x) => ({ value: x.id, label: x.name }));
+/** What the published content offers for the fields that pick a sector, an anomaly or a probe. */
+function contentOptions(content: Content): Options {
+  const list = (xs: readonly { id: string; name: string }[]) => xs.map((x) => ({ value: x.id, label: x.name }));
   return { sectors: list(content.sectors), anomalies: list(content.anomalies), probes: list(content.probes) };
 }
 
@@ -201,6 +197,7 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
   const [text, setText] = useState(() => JSON.stringify(row.data, null, 2));
   const [done, setDone] = useState<number | null>(null);
   const versions = useConfigVersions(row.key);
+  const fetchVersion = useFetchConfigVersion();
   const publish = usePublishConfig(row.key);
   const navigate = useNavigate();
   // A content draft tried in a test run (admin debug mode, 2026-11-15) can come back to the editor.
@@ -377,7 +374,12 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
               <b>{t.version(v.version)}</b>
               <span>{v.author ? t.by(v.author, cellText('at', v.createdAt)) : cellText('at', v.createdAt)}</span>
               <span className="panel-note">{v.note}</span>
-              <button type="button" className="lip pill small" aria-label={t.loadVersion(v.version)} onClick={() => load(mergeDraft(row.key, base.data, v.data))}>
+              <button
+                type="button"
+                className="lip pill small"
+                aria-label={t.loadVersion(v.version)}
+                onClick={() => void fetchVersion(row.key, v.version).then((full) => load(mergeDraft(row.key, base.data, full.data)))}
+              >
                 {t.loadVersion(v.version)}
               </button>
             </li>
@@ -392,7 +394,11 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
 export function ConfigKeyScreen() {
   const { key = '' } = useParams();
   const keys = useConfigKeys();
-  const row = isConfigKey(key) ? keys.data?.find((k) => k.key === (key as ConfigKey)) : undefined;
+  const listed = isConfigKey(key) ? keys.data?.find((k) => k.key === (key as ConfigKey)) : undefined;
+  // A big key (the run content) comes without its data in the list: its page asks for it.
+  const full = useConfigKey(key, !!listed?.lazy);
+  const row: ConfigKeyRow | undefined = listed?.lazy ? full.data : listed;
+  const live = useLiveContent();
   return (
     <section className="admin-page">
       <Link to="/admin/configuracion" className="lip pill small">
@@ -406,7 +412,8 @@ export function ConfigKeyScreen() {
         </p>
       ) : null}
       {keys.error ? <p className="field-error">{errorText(keys.error, copy.errors)}</p> : null}
-      {row ? <ConfigEditor key={row.key} row={row} options={contentOptions(keys.data)} /> : null}
+      {full.error ? <p className="field-error">{errorText(full.error, copy.errors)}</p> : null}
+      {row ? <ConfigEditor key={row.key} row={row} options={contentOptions(live)} /> : null}
     </section>
   );
 }

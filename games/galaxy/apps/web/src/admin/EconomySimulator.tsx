@@ -1,6 +1,7 @@
 import { HScroll } from '../ui/HScroll';
 import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, sectorPay, simulateEconomy } from '@galaxy/shared';
-import { botInput, botPick, type Content, createSim, DEFAULT_CONTENT, eventLootUpTo, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
+import { botInput, botPick, type Content, createSim, eventLootUpTo, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
+import { useLiveContent } from '../api/content';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
 import { copy, fmt } from '../copy/es';
@@ -17,14 +18,16 @@ const SEEDS = ['20261108', '20261109', '20261110'];
 const PER_DAY = [60, 180, 360];
 const yieldToPage = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 /** The bot's runs without the in-run events: their loot is added from the seed, as if every one was looted. */
-const NO_EVENTS: Content = { ...DEFAULT_CONTENT, events: { ...DEFAULT_CONTENT.events, slots: [] } };
+const withoutEvents = (content: Content): Content => ({ ...content, events: { ...content.events, slots: [] } });
 
 type RunsConfig = ConfigValue<'runs'>;
 
 export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { editing: 'runs' | 'boosts'; draft: Record<string, unknown>; lengths?: number[] }) {
   const ids = useId();
   const keys = useConfigKeys();
-  const [sector, setSector] = useState(DEFAULT_CONTENT.sectors[0]!.id);
+  // The published content (2026-11-16): the bot plays what players play.
+  const content = useLiveContent();
+  const [sector, setSector] = useState(content.sectors[0]!.id);
   const [minutes, setMinutes] = useState(lengths[0]!);
   const [perDay, setPerDay] = useState(PER_DAY[1]!);
   const [pct, setPct] = useState<number | null>(null);
@@ -46,7 +49,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
     const ticks = Math.round(minutes * 60 * 60);
     const samples: EconomySample[] = [];
     for (const [i, seed] of SEEDS.entries()) {
-      const sim = createSim({ seed, content: NO_EVENTS, sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
+      const sim = createSim({ seed, content: withoutEvents(content), sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
       while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
         for (let n = 0; n < CHUNK && sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing'); n++) {
           if (sim.status === 'choosing') step(sim, sim.probes.map((p) => ({ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer) : -1 })));
@@ -63,10 +66,10 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
       const s = runSummary(sim);
       // The bot never chases the abandoned satellites (SIM 1.10.0): count every one the seed had in the time played, as
       // a player who breaks them all would (the most the economy can get from them).
-      const layerSeconds = DEFAULT_CONTENT.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300;
-      const satellites = satelliteSignalsUpTo(seed, DEFAULT_CONTENT.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      const layerSeconds = content.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300;
+      const satellites = satelliteSignalsUpTo(seed, content.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds });
       // Nor the in-run events (2026-11-16): the bot plays without them, and every one the seed had is added, looted.
-      const events = eventLootUpTo(seed, DEFAULT_CONTENT, sector, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      const events = eventLootUpTo(seed, content, sector, { depth: s.depth, ticks: s.ticks, layerSeconds });
       const loot = s.loot.map((l, k) =>
         k === 0 ? { ...l, coins: l.coins + events.coins, dust: l.dust + events.dust, components: l.components + events.components, signals: satellites } : { ...l, signals: 0 },
       );
@@ -107,7 +110,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
         <div className="field">
           <label htmlFor={`${ids}-sector`}>{t.sector}</label>
           <div className="control">
-            <Select id={`${ids}-sector`} size="lg" block value={sector} options={DEFAULT_CONTENT.sectors.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
+            <Select id={`${ids}-sector`} size="lg" block value={sector} options={content.sectors.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
           </div>
         </div>
         <div className="field">
