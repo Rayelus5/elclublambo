@@ -97,6 +97,22 @@ export interface GameConfigVersionsTable {
   note: string;
 }
 
+/** Config drafts (the content editor, 2026-11-16, P2): changed top-level fields per key, made on `base_versions`. */
+export interface ConfigDraftsTable {
+  id: Generated<string>;
+  title: string;
+  data: ColumnType<unknown, string | undefined, string>;
+  base_versions: ColumnType<unknown, string | undefined, string>;
+  revision: ColumnType<number, number | undefined, number>;
+  status: ColumnType<'open' | 'published' | 'discarded', 'open' | undefined, 'open' | 'published' | 'discarded'>;
+  published_versions: ColumnType<unknown, string | null | undefined, string | null>;
+  created_by: string | null;
+  updated_by: ColumnType<string | null, string | null | undefined, string | null>;
+  created_at: Generated<Date>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 export interface GameConfigActiveView {
   key: string;
   version: number;
@@ -991,6 +1007,7 @@ export interface DB {
   'galaxy.reset_codes': ResetCodesTable;
   'galaxy.admin_audit_log': AdminAuditLogTable;
   'galaxy.game_config_versions': GameConfigVersionsTable;
+  'galaxy.config_drafts': ConfigDraftsTable;
   'galaxy.game_config_active': GameConfigActiveView;
   'galaxy.balances': BalancesTable;
   'galaxy.ledger': LedgerTable;

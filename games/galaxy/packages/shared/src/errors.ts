@@ -16,6 +16,12 @@ export const API_ERROR_CODES = [
   'invalid_reset_code',
   'config_invalid',
   'config_conflict',
+  // Config drafts (the content editor, 2026-11-16).
+  'draft_conflict',
+  'draft_closed',
+  'draft_empty',
+  'draft_invalid',
+  'unknown_field',
   'not_found',
   'internal',
   'insufficient_funds',

@@ -69,6 +69,11 @@ export interface StartContext {
   now: Date;
   /** An admin's test run (debug mode, 2026-11-15), started with a content draft: who started it, for the audit. */
   test?: AuditActor;
+  /**
+   * The test run plays a config draft (the content editor, 2026-11-16): a new sector or probe in it can be tried before
+   * anyone can open or own it, so its lock and the hangar's probe do not apply.
+   */
+  draft?: boolean;
 }
 
 /** A run's seed: 64 random bits, in decimal. */
@@ -103,10 +108,13 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   const hangar = await ensureHangar(trx, accountId);
   // The probe test comes first (GDD §12.2): no run without the starting probe it gives.
   if ((await testedProbe(trx, accountId)) === null) throw new HttpError(409, 'probe_test_required');
-  if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
-  // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
-  const access = await sectorAccess(trx, accountId, ctx.probes.minRunSeconds);
-  if (!sectorStatus(sector, access.stats, ctx.sectors, access.totals).unlocked) throw new HttpError(409, 'sector_locked');
+  const tryingDraft = !!ctx.draft && !!ctx.test;
+  if ((!tryingDraft && req.probe !== hangar.probe) || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
+  // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open (a draft's test run tries any).
+  if (!tryingDraft) {
+    const access = await sectorAccess(trx, accountId, ctx.probes.minRunSeconds);
+    if (!sectorStatus(sector, access.stats, ctx.sectors, access.totals).unlocked) throw new HttpError(409, 'sector_locked');
+  }
   const { relics, bonuses, variant, payout, skin } = await loadoutSnapshot(trx, accountId, req.probe, hangar.slots, ctx);
   const seed = newRunSeed();
   const row = await trx

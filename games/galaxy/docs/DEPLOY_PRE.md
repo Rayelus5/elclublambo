@@ -1259,3 +1259,21 @@ Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae la lluv
 
 Comprueba con `rayelus`: Configuración → «Contenido de las incursiones» abre, su historial carga una versión, y el Códice enseña los nombres de lo publicado.
 
+## Editor de contenido, P2: borradores en el servidor
+
+**Qué cambia.**
+- **Migración** `20261116000200_galaxy_config_drafts.sql`: la tabla `galaxy.config_drafts`, con RLS y permisos solo para `galaxy_api`.
+- Sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- **API** `/galaxy/api/admin/config-drafts` (admin con TOTP): listar, crear, leer, guardar un campo (con revisión; 409 `draft_conflict`), renombrar, comprobar, juntar con lo publicado (con resoluciones), publicar (motivo y contraseña, `publishMany`) y descartar. Auditoría `config.draft.*`.
+- **Incursión de prueba con borrador:** `POST /runs` con `test: true` y `draft: <id>` juega el borrador sobre lo publicado; un sector o una sonda del borrador no necesitan estar abiertos ni ser propios.
+- **Panel:** `/admin/configuracion/content` muestra los borradores abiertos, uno nuevo, el editor (JSON por ahora) con guardado automático, «Juntar con lo publicado», probar, publicar, descartar, y las versiones publicadas (cualquiera vuelve como borrador).
+- **Hangar:** `?borrador=<id>` enseña el aviso con el título, el sector y la sonda del borrador, «Volver al borrador» y «Dejar de probar». El borrador de `sessionStorage` desaparece.
+- **Retención:** los borradores publicados o descartados se borran a los 30 días (trabajo horario).
+
+Comprueba con `rayelus`:
+1. Configuración → Contenido de las incursiones: crea un borrador y cambia `hitCap` en el JSON (sale «Guardado»).
+2. «Probar en incursión»: el hangar enseña el aviso con su sector y su sonda, y la incursión es de prueba.
+3. Publica el borrador o descártalo.
+

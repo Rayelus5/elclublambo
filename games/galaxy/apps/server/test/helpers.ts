@@ -69,6 +69,14 @@ export function get(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
   return app.inject({ method: 'GET', url, headers: headers(opts) });
 }
 
+export function patch(app: FastifyInstance, url: string, body?: unknown, opts: InjectOpts = {}) {
+  return app.inject({ method: 'PATCH', url, payload: body as object | undefined, headers: headers(opts) });
+}
+
+export function del(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
+  return app.inject({ method: 'DELETE', url, headers: headers(opts) });
+}
+
 /** Current TOTP code for a base32 secret (SHA1, 6 digits, 30 s), computed independently with otpauth. */
 export function totpNow(base32: string, at: Date = new Date()): string {
   return TOTP.generate({ secret: Secret.fromBase32(base32), algorithm: 'SHA1', digits: 6, period: 30, timestamp: at.getTime() });

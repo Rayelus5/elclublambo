@@ -4,7 +4,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ConfigKeyScreen, ConfigScreen } from '../src/admin/ConfigScreen';
-import { readContentDraft, saveContentDraft } from '../src/admin/content-draft';
 import { CATEGORIES, KEY_INFO } from '../src/admin/forms/labels';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -250,64 +249,11 @@ test('el álbum se escribe en su porcentaje de 1 a 100, sin multiplicar', async 
   expect(within(list).getByLabelText('Al completar el')).toHaveValue(String(first.percent));
 });
 
-// «Probar en incursión» (admin debug mode, 2026-11-15): a content draft is tried in a test run before it is published.
-test('«Probar en incursión» guarda el borrador del contenido y lleva al hangar', async () => {
-  sessionStorage.clear();
-  api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
-  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen />, '/incursion': <p>hangar</p> });
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: t.tryInRun }));
-  expect(await screen.findByText('hangar')).toBeInTheDocument();
-  const kept = readContentDraft();
-  expect(kept?.baseVersion).toBe(0);
-  expect(kept?.content.sectors.map((s) => s.id)).toEqual(DEFAULT_CONTENT.sectors.map((s) => s.id));
-  sessionStorage.clear();
-});
-
-test('otra clave no ofrece probar en incursión', async () => {
-  api();
-  renderAt('/admin/configuracion/chat', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
-  expect(await screen.findByRole('heading', { level: 1, name: KEY_INFO.chat.title })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: t.tryInRun })).toBeNull();
-});
-
-test('al volver al contenido se puede recuperar el borrador probado, y avisa si lo vivo cambió', async () => {
-  sessionStorage.clear();
-  saveContentDraft({ baseVersion: 5, raw: parseConfig('content', {}), content: DEFAULT_CONTENT });
-  api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
-  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
-  expect(await screen.findByRole('button', { name: t.restoreDraft })).toBeInTheDocument();
-  expect(screen.getByText(t.draftMoved(5))).toBeInTheDocument();
-  sessionStorage.clear();
-});
-
-// A pending minor of the debug mode (2026-11-16): once the content is published, the draft that was tried is gone, so
-// later runs in the tab are normal ones again.
-test('tras publicar el contenido no queda borrador probado', async () => {
-  sessionStorage.clear();
-  saveContentDraft({ baseVersion: 0, raw: parseConfig('content', {}), content: DEFAULT_CONTENT });
-  api({
-    'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, [{ version: 1, createdAt: '2026-11-15T10:00:00.000Z', author: 'rayelus', note: 'Tope' }]),
-    'GET /galaxy/api/admin/config/content/versions/1': () => jsonResponse(200, { version: 1, data: { hitCap: 0.5 }, createdAt: '2026-11-15T10:00:00.000Z', author: 'rayelus', note: 'Tope' }),
-    'POST /galaxy/api/admin/config/content': () => jsonResponse(201, { version: 1 }),
-  });
-  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: t.loadVersion(1) }));
-  // The version's data comes on demand: the change it makes shows once it is loaded.
-  await waitFor(() => expect(screen.getAllByText(/0,5/).length).toBeGreaterThan(0));
-  await user.type(screen.getByLabelText(copy.admin.fields.reason), 'Tope por golpe');
-  await user.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
-  await user.click(screen.getByRole('button', { name: t.publish }));
-  expect(await screen.findByText(t.published(1))).toBeInTheDocument();
-  expect(readContentDraft()).toBeNull();
-});
-
 // The content editor, P1 (2026-11-16): the key list leaves the run content out (about 180 KB); its page asks for it.
 test('el contenido no viene en la lista: su página lo pide aparte', async () => {
   const fetch = api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
   renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
-  expect(await screen.findByRole('button', { name: t.tryInRun })).toBeInTheDocument();
+  expect(await screen.findByLabelText(t.editor)).toBeInTheDocument();
   expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/admin/config/content')).toBe(true);
 });
 

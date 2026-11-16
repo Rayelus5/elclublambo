@@ -40,6 +40,7 @@ import { creditRunExtras } from './extras';
 import { labSeasonId } from '../lab/levels';
 import type { SoloFeeds } from './solo-feeds';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import type { DraftService } from '../config/drafts';
 
 const idParam = z.object({ id: z.uuid() }).strict();
 /** A finished run carries its recorded inputs (≤ 2 MB of bytes, ~2.7 MB in base64). */
@@ -55,9 +56,22 @@ const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).stric
 /** The skin the chosen probe wears in a Hangar view. */
 const wornOf = (view: HangarView): string | null => view.probes.find((p) => p.id === view.probe)?.skin ?? null;
 
+/** Without the drafts service (some tests), a draft is never found. */
+const noDrafts: Pick<DraftService, 'merged'> = {
+  merged: async () => {
+    throw new HttpError(404, 'not_found');
+  },
+};
+
 export function registerRunRoutes(
   api: FastifyInstance,
-  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'>; trustCfIp?: boolean },
+  deps: RunsDeps & {
+    onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>;
+    feeds?: Pick<SoloFeeds, 'end'>;
+    trustCfIp?: boolean;
+    /** Config drafts (the content editor, 2026-11-16): a test run may play one. */
+    drafts?: Pick<DraftService, 'merged'>;
+  },
 ): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
@@ -156,9 +170,12 @@ export function registerRunRoutes(
     await requireRuns(deps);
     const runs = await deps.config.get('runs');
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_start', runs.startPerHour, 3600);
-    const { value: content, version: contentVersion } = await deps.config.getVersioned('content');
-    const sectors = await deps.config.get('sectors');
-    const probes = await deps.config.get('probes');
+    const { value: liveContent, version: contentVersion } = await deps.config.getVersioned('content');
+    // A test run with a config draft (2026-11-16, P2): the draft over what is live (400 draft_invalid with its issues).
+    const draft = body.draft ? await (deps.drafts ?? noDrafts).merged(body.draft) : null;
+    const content = draft?.content ?? liveContent;
+    const sectors = draft?.sectors ?? (await deps.config.get('sectors'));
+    const probes = draft?.probes ?? (await deps.config.get('probes'));
     const lab = await deps.config.get('lab');
     const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
@@ -167,7 +184,7 @@ export function registerRunRoutes(
     const labSeason = labSeasonId(lab, season, now);
     const redshift = await deps.config.get('redshift');
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason, test }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason, test, draft: !!draft }),
     );
   });
 
