@@ -2,13 +2,9 @@ import { SHOP_CURRENCIES, type ShopAmounts, type ShopProductView } from '@galaxy
 import { type CSSProperties, useRef } from 'react';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
+import { PieceArt } from '../cosmetics/PieceArt';
 import { artOf, SPRITE } from './art';
 import { eur, usePackArt } from './art-hooks';
-import { useCosmeticsView } from '../api/cosmetics';
-import { Avatar } from '../hub/Avatar';
-import { TitleText } from '../profile/TitleText';
-import { SpriteLoop } from '../ui/SpriteLoop';
-import { useReducedMotion } from '../ui/motion';
 
 // A product of the shop (shop and lab plan, F5; the approved F0 mockup): its art, name, what it gives (with its gift
 // and, now, its extra), its badge and its price on the button. A product this account cannot buy says why and its
@@ -20,28 +16,6 @@ export const CURRENCY_ICON: Record<keyof ShopAmounts, IconName> = { coins: 'coin
 /** What a product gives in words: its piece for a cosmetic (Nov plan C5), else its amounts. */
 export function giftText(p: Pick<ShopProductView, 'total' | 'cosmetic'>): string {
   return p.cosmetic ? t.piece[p.cosmetic.kind] : amountsText(p.total);
-}
-
-/** A cosmetic's piece, drawn (Nov plan C5): the avatar, a frame round the default face, the title in its style, or a
- *  probe skin moving (plan «skins», C2), in the middle of its art box. `size`: the avatar's side (96 on a card, which a
- *  frame grows to 144). */
-function PieceArt({ piece, className, size = 64 }: { piece: NonNullable<ShopProductView['cosmetic']>; className?: string; size?: 64 | 96 }) {
-  const catalog = useCosmeticsView().data?.catalog;
-  const reduced = useReducedMotion();
-  // A 24 px skin at a whole multiple of its pixels: 96 on a card (×4), 48 elsewhere (×2).
-  const art =
-    piece.kind === 'title' ? (
-      <TitleText text={piece.id} catalog={catalog} />
-    ) : piece.kind === 'skin' ? (
-      <SpriteLoop className="piece-skin" id={piece.id} scale={size === 96 ? 4 : 2} reduced={reduced} width={size === 96 ? 96 : 48} height={size === 96 ? 96 : 48} />
-    ) : (
-      <Avatar name="ECN" avatar={piece.kind === 'avatar' ? piece.id : 'crew-pilot'} frame={piece.kind === 'frame' ? piece.id : null} size={size} />
-    );
-  return (
-    <span className={`piece-art ${className ?? ''}`.trim()} aria-hidden="true">
-      {art}
-    </span>
-  );
 }
 
 /** What it gives, in words («2.500 monedas, 1.250 de polvo»). */

@@ -1456,3 +1456,23 @@ Comprueba con `rayelus`:
 - **Al recoger:** cada regalo pasa por `grantGifts`, la carta guarda qué dio cada uno y la respuesta lo devuelve. Los mensajes de antes pagan con sus claves de siempre (`mail:<id>:<moneda>`).
 - **En el buzón:** «Recoger todo» (`POST /mailbox/claim-all`, hasta 50 mensajes), archivar (`PATCH /mailbox/:id`), borrar (`DELETE /mailbox/:id`, nunca con un regalo sin recoger) y páginas por bandeja, archivo y tipo, con el cursor. Las webs de antes siguen viendo lo mismo.
 - **Tipos automáticos:** la posventa de la tienda escribe `shop` y los referidos, `referral`.
+
+## Buzón v2, P3: regalos visuales y el nuevo formulario de envío
+
+**Qué cambia.** Solo la web del panel. No hay migraciones ni configuración que publicar.
+
+**El código ya trae, en Comunicación:**
+- **Tipo de mensaje:** una tarjeta por tipo, con su icono y su color (Anuncio, Regalo, Compensación, Evento, Recompensa y Personal).
+- **Selector de regalos por pestañas:**
+  - Recursos: todas las monedas, también las señales de los eventos abiertos y la moneda de la temporada;
+  - Estilo: la galería de skins, marcos, avatares y títulos dibujados, filtrada por pieza, por origen y por nombre;
+  - Galaxias: rareza, acabado, rasgo y cuántas, con una muestra a petición;
+  - Sondas;
+  - Progreso: experiencia y puntos de temporada;
+  - Packs de la biblioteca.
+- **La bandeja** reúne lo elegido, dice qué falla de cada regalo y deja quitarlo.
+- **Así lo verá el jugador:** la carta con el sello de su tipo y los regalos dibujados.
+- **Regalo grande:** se avisa al momento con sus motivos. Un admin no puede enviarlo; un superadmin sí.
+- **La lista de enviados** dice el tipo, dibuja los regalos y marca los grandes.
+
+**Para probarlo en PRE:** en Comunicación, envíate un mensaje de tipo Regalo con monedas, una skin y un pack. Una galaxia legendaria avisa de que es un regalo grande.

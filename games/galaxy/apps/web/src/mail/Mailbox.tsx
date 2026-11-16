@@ -1,17 +1,15 @@
-import { MAIL_GIFTS, type MailGift, type MailMessage } from '@galaxy/shared';
+import { hasAnyGift, type MailMessage } from '@galaxy/shared';
 import { type CSSProperties, useState } from 'react';
 import { useClaimMail, useMailbox, useReadMail } from '../api/mail';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
-import { Icon, type IconName } from '../ui/Icon';
-import { giftUrl } from './art';
+import { usePlayerGiftView } from '../gifts/usePlayerGiftView';
+import { Icon } from '../ui/Icon';
+import { LetterView } from './LetterView';
 
 const t = copy.mail;
 const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));
-const GIFT_ICON: Record<MailGift, IconName> = { coins: 'coin', dust: 'dust', signal: 'ticket' };
-const giftLabel = (k: MailGift, n: number) => (k === 'coins' ? copy.hub.resource.coins(n) : k === 'dust' ? copy.hub.resource.dust(n) : copy.hub.resource.signal(n));
-const gifted = (m: MailMessage) => MAIL_GIFTS.filter((k) => (m.gifts[k] ?? 0) > 0);
 
 /**
  * The top bar's mailbox (GDD §4, §16.5; DESIGN_SYSTEM §8 vicies): its name says how many are unread (one atomic
@@ -74,7 +72,7 @@ export function MailboxDialog({ onClose }: { onClose: () => void }) {
                   <span className="mailbox-item-meta">
                     <time dateTime={m.at}>{day(m.at)}</time>
                     {m.read ? null : <span className="mailbox-new">{t.new}</span>}
-                    {gifted(m).length && !m.claimed ? <span className="mailbox-has-gift">{t.hasGift}</span> : null}
+                    {hasAnyGift(m.contents) && !m.claimed ? <span className="mailbox-has-gift">{t.hasGift}</span> : null}
                   </span>
                 </button>
               </li>
@@ -87,49 +85,30 @@ export function MailboxDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** One message: its title, date and text as written; its gift, collected once. */
+/** One message (mail v2): its kind's stamp, title, date and text as written; every gift it gives, collected once. */
 function Letter({ m }: { m: MailMessage }) {
   const claim = useClaimMail();
+  const view = usePlayerGiftView();
   // Claimed here: kept even before the mailbox is read again.
   const [taken, setTaken] = useState(false);
-  const gifts = gifted(m);
   const claimed = m.claimed || taken;
   return (
-    <article className="letter">
-      <h3>{m.title}</h3>
-      <p className="letter-meta">
-        <time dateTime={m.at}>{day(m.at)}</time>
-        <span>{t.expires(day(m.expiresAt))}</span>
-      </p>
-      <p className="letter-body">{m.body}</p>
-      {gifts.length ? (
-        <section className={`gift${claimed ? ' taken' : ''}`} aria-label={t.giftTitle}>
-          <span className="gift-art" aria-hidden="true" style={giftUrl ? { backgroundImage: `url(${giftUrl})` } : undefined} />
-          <ul className="gift-items">
-            {gifts.map((k) => (
-              <li key={k} className={`gift-item ${k}`}>
-                <Icon name={GIFT_ICON[k]} />
-                <span>{giftLabel(k, m.gifts[k] ?? 0)}</span>
-              </li>
-            ))}
-          </ul>
-          {claimed ? (
-            <p className="gift-done" role="status">
-              <Icon name="check" />
-              <span>{t.claimed}</span>
-            </p>
-          ) : (
-            <button type="button" className="lip pill pill-solar" disabled={claim.isPending} aria-busy={claim.isPending || undefined} onClick={() => claim.mutate(m.id, { onSuccess: () => setTaken(true) })}>
-              {t.claim}
-            </button>
-          )}
-          {claim.error ? (
-            <p className="field-error" role="alert">
-              {errorText(claim.error, copy.errors)}
-            </p>
-          ) : null}
-        </section>
+    <LetterView type={m.type} title={m.title} body={m.body} at={m.at} expiresAt={m.expiresAt} contents={m.contents} catalog={view} taken={claimed}>
+      {claimed ? (
+        <p className="gift-done" role="status">
+          <Icon name="check" />
+          <span>{t.claimed}</span>
+        </p>
+      ) : (
+        <button type="button" className="lip pill pill-solar" disabled={claim.isPending} aria-busy={claim.isPending || undefined} onClick={() => claim.mutate(m.id, { onSuccess: () => setTaken(true) })}>
+          {t.claim}
+        </button>
+      )}
+      {claim.error ? (
+        <p className="field-error" role="alert">
+          {errorText(claim.error, copy.errors)}
+        </p>
       ) : null}
-    </article>
+    </LetterView>
   );
 }
