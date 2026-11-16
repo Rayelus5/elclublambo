@@ -100,8 +100,29 @@ export async function sectorStats(db: Kysely<DB>, accountId: string): Promise<Re
  * sector asks for `sectors.seasonUnlock` runs, 2026-11-16), counted like the probes' (`minSeconds` or more).
  */
 export async function sectorAccess(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<{ stats: Record<string, SectorStats>; totals: AccountTotals }> {
-  const [stats, runs] = await Promise.all([sectorStats(db, accountId), runStats(db, accountId, minSeconds)]);
-  return { stats, totals: { runs: runs.runs } };
+  const [stats, runs, kept] = await Promise.all([sectorStats(db, accountId), runStats(db, accountId, minSeconds), keptSectors(db, accountId)]);
+  return { stats, totals: { runs: runs.runs, kept } };
+}
+
+/** When the season sector's gate (`sectors.seasonUnlock`) went live on PRE: group runs from before it still keep it. */
+export const SEASON_GATE_SINCE = new Date('2026-11-16T09:30:00Z');
+
+/**
+ * The sectors the account keeps whatever the gate (2026-11-16 review): a finished, fair solo run there (it had access to
+ * start it), or a group run from before the gate. A group run since does not count: quick join can put a newcomer in a
+ * season-sector room, and only the leader's access is checked.
+ */
+async function keptSectors(db: Kysely<DB>, accountId: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom('galaxy.runs')
+    .select('sector')
+    .distinct()
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where('suspicious', '=', false)
+    .where((eb) => eb.or([eb('coop_run_id', 'is', null), eb('started_at', '<', SEASON_GATE_SINCE)]))
+    .execute();
+  return rows.map((r) => r.sector);
 }
 
 function sectorCards(content: Content, access: { stats: Record<string, SectorStats>; totals: AccountTotals }, cfg: SectorsConfig): SectorCard[] {

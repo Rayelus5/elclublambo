@@ -19,6 +19,12 @@ export type SectorCondition = { sector: string; stat: keyof SectorStats; value: 
 /** The account's totals over every sector: runs that count (finished, not suspicious, at least `minRunSeconds`). */
 export interface AccountTotals {
   runs: number;
+  /**
+   * The sectors the account keeps whatever the gate (2026-11-16 review): where it finished a solo run (it had access to
+   * start one), or a group run from before the season sector's gate. A group run after it does not open the sector: a
+   * newcomer joined into someone's room would keep it for good.
+   */
+  kept?: readonly string[];
 }
 
 /** What a run in `sector` pays, × (2026-11-16); a sector the config does not list pays ×1. */
@@ -39,8 +45,8 @@ export function sectorStatus(def: { id: string; season: boolean }, stats: Readon
   if (def.season) {
     if (cfg.season !== def.id) return { unlocked: false, condition: null, progress: 0, season: true };
     const gate = cfg.seasonUnlock;
-    // Whoever already finished a run in it keeps it (the gate came mid-season).
-    if (!gate || (stats[def.id]?.maxDepth ?? 0) > 0 || totals.runs >= gate.value) return { unlocked: true, condition: null, progress: 1, season: true };
+    // Whoever already played it keeps it (the gate came mid-season): see `AccountTotals.kept`.
+    if (!gate || (totals.kept ?? []).includes(def.id) || totals.runs >= gate.value) return { unlocked: true, condition: null, progress: 1, season: true };
     return { unlocked: false, condition: { sector: null, stat: 'runs', value: gate.value }, progress: Math.max(0, Math.min(1, totals.runs / gate.value)), season: true };
   }
   const condition = cfg.unlocks[def.id];

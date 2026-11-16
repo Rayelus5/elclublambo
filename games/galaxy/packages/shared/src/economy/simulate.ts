@@ -34,11 +34,12 @@ export interface EconomyResult {
 
 const ZERO: EconomyPay = { coins: 0, dust: 0, material: 0, signals: 0 };
 
-function payOf(s: EconomySample, runs: RunsConfig, boosts: BoostsConfig, at: Date, factor: number): EconomyPay & { capped: boolean } {
+/** `sector`: what the sector pays (2026-11-16, `sectors.pay`), on the loot, the material and their caps, as the server pays. */
+function payOf(s: EconomySample, runs: RunsConfig, boosts: BoostsConfig, at: Date, factor: number, sector: number): EconomyPay & { capped: boolean } {
   const g = (c: 'coins' | 'dust' | 'material' | 'signal') => boostFactor(boosts, c, at);
   const claim = { ...s, hash: '0000000000000000' };
-  const pay = runPayout(claim, runs, factor, false, { coins: 0, dust: 0 }, { coins: g('coins'), dust: g('dust') });
-  const material = runMaterial(claim, runs, factor, false, 0, g('material'));
+  const pay = runPayout(claim, runs, factor, false, { coins: 0, dust: 0 }, { coins: g('coins'), dust: g('dust') }, sector);
+  const material = runMaterial(claim, runs, factor, false, 0, g('material'), sector);
   const satellites = Math.min(runs.caps.satelliteSignals, s.loot.reduce((n, l) => n + (l.signals ?? 0), 0));
   const signals = s.bossKills * Math.min(1, runs.signalChancePerBoss * factor * g('signal')) + satellites;
   return { coins: pay.coins, dust: pay.dust, material, signals, capped: pay.capped };
@@ -46,12 +47,13 @@ function payOf(s: EconomySample, runs: RunsConfig, boosts: BoostsConfig, at: Dat
 
 const add = (a: EconomyPay, b: EconomyPay): EconomyPay => ({ coins: a.coins + b.coins, dust: a.dust + b.dust, material: a.material + b.material, signals: a.signals + b.signals });
 
-export function simulateEconomy(samples: readonly EconomySample[], runs: RunsConfig, boosts: BoostsConfig, opts: { minutesPerDay: number; at: Date }): EconomyResult {
+export function simulateEconomy(samples: readonly EconomySample[], runs: RunsConfig, boosts: BoostsConfig, opts: { minutesPerDay: number; at: Date; sector?: number }): EconomyResult {
+  const sector = opts.sector ?? 1;
   if (samples.length === 0) return { perRun: ZERO, perDay: { ...ZERO, runs: 0 }, capped: 0 };
   let total = ZERO;
   let capped = 0;
   for (const s of samples) {
-    const p = payOf(s, runs, boosts, opts.at, 1);
+    const p = payOf(s, runs, boosts, opts.at, 1, sector);
     total = add(total, p);
     if (p.capped) capped++;
   }
@@ -67,7 +69,7 @@ export function simulateEconomy(samples: readonly EconomySample[], runs: RunsCon
     const seconds = Math.max(1, Math.round(s.ticks / 60));
     if (played + seconds > budget) break;
     const factor = dailyFactor(dailySegments(played, seconds, runs));
-    day = add(day, payOf(s, runs, boosts, opts.at, factor));
+    day = add(day, payOf(s, runs, boosts, opts.at, factor, sector));
     played += seconds;
     count++;
   }

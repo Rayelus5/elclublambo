@@ -1,5 +1,5 @@
 import { HScroll } from '../ui/HScroll';
-import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, simulateEconomy } from '@galaxy/shared';
+import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, sectorPay, simulateEconomy } from '@galaxy/shared';
 import { botInput, botPick, type Content, createSim, DEFAULT_CONTENT, eventLootUpTo, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
@@ -37,7 +37,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
       alive.current = false;
     };
   }, []);
-  const liveOf = <K extends 'runs' | 'boosts'>(key: K) => parseConfig(key, keys.data?.find((k) => k.key === key)?.data ?? {});
+  const liveOf = <K extends 'runs' | 'boosts' | 'sectors'>(key: K) => parseConfig(key, keys.data?.find((k) => k.key === key)?.data ?? {});
 
   const run = async () => {
     stop.current = false;
@@ -77,10 +77,12 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
     const liveBoosts = liveOf('boosts');
     const draftRuns = editing === 'runs' ? (draft as unknown as RunsConfig) : liveRuns;
     const draftBoosts = editing === 'boosts' ? (draft as unknown as BoostsConfig) : liveBoosts;
+    // What the chosen sector pays (2026-11-16), as the server pays it.
+    const pay = sectorPay(liveOf('sectors'), sector);
     setPct(null);
     setResult({
-      live: simulateEconomy(samples, liveRuns, liveBoosts, { minutesPerDay: perDay, at }),
-      draft: simulateEconomy(samples, draftRuns, draftBoosts, { minutesPerDay: perDay, at }),
+      live: simulateEconomy(samples, liveRuns, liveBoosts, { minutesPerDay: perDay, at, sector: pay }),
+      draft: simulateEconomy(samples, draftRuns, draftBoosts, { minutesPerDay: perDay, at, sector: pay }),
       samples: samples.length,
     });
   };
