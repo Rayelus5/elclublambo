@@ -95,7 +95,7 @@ describe('estadísticas de lo enviado', () => {
     const res = await post(
       ctx.app,
       '/galaxy/api/admin/mail',
-      { title: 'Regalo', body: 'Para ti', audience: { kind: 'segment', usernames: [a.username] }, reason: 'Prueba de estadísticas', password: admin.password, gifts: { items: [{ kind: 'currency', currency: 'coins', amount: 5 }, { kind: 'probe', probe: 'lumen' }], packs: [] } },
+      { title: 'Regalo', body: 'Para ti', audience: { kind: 'segment', usernames: [a.username] }, reason: 'Prueba de estadísticas', password: admin.password, gifts: { items: [{ kind: 'currency', currency: 'coins', amount: 5 }, { kind: 'cosmetic', piece: 'frame', id: 'bronze' }], packs: [] } },
       { cookie: admin.cookie },
     );
     const { id } = res.json() as { id: string };
