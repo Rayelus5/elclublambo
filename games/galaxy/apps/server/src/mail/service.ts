@@ -90,7 +90,8 @@ export async function myMailbox(deps: MailDeps, accountId: string, q: { box?: 'i
     unread: all.filter((r) => r.read_at === null).length,
     unclaimed: all.filter((r) => r.claimed_at === null && hasAnyGift(readContents(r.gifts).contents)).length,
     next: more && last ? cursorOf(last.created_at, last.id) : null,
-    names: { events: events.list.map((e) => ({ id: e.id, name: e.name })), seasonCurrency: route.currency.name },
+    // Only the events already started: a coming one stays unannounced (security review).
+    names: { events: events.list.filter((e) => Date.parse(e.startsAt) <= now.getTime()).map((e) => ({ id: e.id, name: e.name })), seasonCurrency: route.currency.name },
   };
 }
 

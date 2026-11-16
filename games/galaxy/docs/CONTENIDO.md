@@ -424,7 +424,7 @@ La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
 
 **Un pack** lleva `id` (minúsculas, dígitos y guiones; permanente, porque los mensajes y las plantillas lo nombran), `name`, `art` (`parcel`, `chest`, `capsule`, `star`, `crate` o `gift`), `items` (de 1 a 30) y `enabled`.
 - Como mucho 10 galaxias por pack, igual que por mensaje.
-- Una galaxia que no se puede conseguir (un rasgo que esa rareza nunca lleva) no se publica.
+- Una galaxia que no se puede regalar no se publica: un rasgo que esa rareza nunca lleva, o una combinación tan rara que tarda demasiado en hacerse (una mítica con rasgo; `GIFT_CANDIDATES`).
 - Al enviarse, el pack se copia en el mensaje: cambiarlo o apagarlo después no toca lo enviado.
 
 **Una plantilla** lleva `id`, `name`, `type` (anuncio, regalo, compensación, evento, recompensa o personal), `title`, `body`, `items`, `packs` (ids de la biblioteca) y `expiresInDays`.

@@ -1551,6 +1551,12 @@ No hay migraciones ni configuración que publicar.
 - Una biblioteca de ejemplo en `ops/plantillas/buzon/`.
 - No hay código ni migraciones.
 
+**Repaso de seguridad** (revisor independiente). No encontró nada crítico ni alto, y las cuatro cosas que encontró están arregladas aquí:
+- Una galaxia que tarda demasiado en hacerse ya no se puede regalar: una mítica con rasgo costaba casi un segundo por galaxia al recogerla, en el servidor en vivo. Ahora una galaxia regalada sale en menos de 20.000 candidatos y, al recogerla, cada intento tiene su tope.
+- Un mensaje programado no sale si quien lo escribió ya no es admin, está baneado o se borró su cuenta. Los programados pendientes salen siempre en la lista de enviados, aunque haya 50 envíos más nuevos.
+- Validar un borrador de configuración cuenta para el límite de 60 acciones por minuto del admin.
+- El buzón solo nombra los eventos que ya han empezado.
+
 **Lista de comprobación en PRE** (la prueba el propietario; no se crean cuentas):
 1. **Enviar un regalo de todo tipo:** en Comunicación, un mensaje de tipo Regalo para ti, con monedas, una skin, un pack y una galaxia épica. La carta de la derecha lo enseña igual que lo verá el jugador.
 2. **Regalo grande:**

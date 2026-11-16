@@ -105,3 +105,33 @@ describe('estadísticas de lo enviado', () => {
     expect(row.outcomes.granted + row.outcomes.owned + row.outcomes.skipped).toBe(2);
   });
 });
+
+describe('repaso de seguridad', () => {
+  test('un programado no sale si a quien lo escribió le quitan el rol de admin, o lo banean', async () => {
+    const writer = await staff('admin');
+    const id = (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', writer.username.toLowerCase()).executeTakeFirstOrThrow()).id;
+    const a = await player();
+    const at = (n: number) => new Date(clock + n * 60_000).toISOString();
+    const send = (title: string) =>
+      post(ctx.app, '/galaxy/api/admin/mail', { title, body: 'Luego', audience: { kind: 'segment', usernames: [a.username] }, reason: 'Prueba de rol', scheduledAt: at(5) }, { cookie: writer.cookie });
+    const first = ((await send('Sin rol')).json() as { id: string }).id;
+    await ctx.db.deleteFrom('galaxy.account_roles').where('account_id', '=', id).execute();
+    clock += 6 * 60_000;
+    await dispatchDue(deps());
+    expect((await box(a)).messages.some((m) => m.id === first)).toBe(false);
+    const audit = await ctx.db.selectFrom('galaxy.admin_audit_log').select(['action', 'after']).where('target_id', '=', first).where('action', '=', 'mail.dispatch_refused').executeTakeFirst();
+    expect(audit?.after).toMatchObject({ why: 'writer_revoked' });
+  });
+
+  test('los programados pendientes se ven en el panel aunque haya cincuenta envíos más nuevos', async () => {
+    const a = await player();
+    const { id } = (await schedule([a.username], 30)).json() as { id: string };
+    // Fifty-one newer messages by an admin, straight in the table (the route's own limit is 60 a minute).
+    const by = (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', admin.username.toLowerCase()).executeTakeFirstOrThrow()).id;
+    await ctx.db
+      .insertInto('galaxy.mailbox_messages')
+      .values(Array.from({ length: 51 }, (_, i) => ({ title: `Relleno ${i}`, body: 'x', gifts: '{}', audience: JSON.stringify({ kind: 'all' }), created_by: by, created_at: new Date(clock + (i + 1) * 1000), expires_at: new Date(clock + 86_400_000) })))
+      .execute();
+    expect((await sent()).some((m) => m.id === id)).toBe(true);
+  });
+});
