@@ -1333,7 +1333,26 @@ Plan «escáner pro», parte E.
 2. El formulario de Stripe con su tema `night` en nuestros colores: Apple Pay y Google Pay arriba, el correo para el recibo y la tarjeta. El velo no cierra el diálogo mientras se paga.
 3. La espera, con una ruedecita y «Confirmando el pago con tu banco».
 
-**Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave.
+**Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave. Un pack de skins dice «N skins nuevas en tu Taller».
+
+**Packs de skins** (2026-11-17, pestaña Estilo)
+- **La tarjeta** (`SetArt`):
+  - Las ocho sondas del pack a ×2 (48 px), en dos filas de cuatro, cada una en su casilla oscura.
+  - Se mueve una cada vez, por turnos cada 1,4 s, y todas mientras se apunta a la tarjeta o tiene el foco. Con movimiento reducido, ninguna.
+  - Las que el jugador ya tiene salen atenuadas, con un tic terminal, y su nombre dice «ya la tienes».
+  - Debajo: el nombre del pack, «8 skins animadas» en grande y «Una para cada sonda · solo en este pack», o «Tienes 3 de 8: te damos las otras 5».
+  - Con fecha de fin, la etiqueta «A la venta hasta el 6 de enero». La cinta `limited` dice «Edición limitada».
+- **El pago** enseña las ocho a ×3, todas en movimiento.
+- **Las skins** (`art/probes/paint-probes.lua`): 8 fotogramas a 10 fps, planas como las demás, cada pack con formas propias y su llama, chispas y estela (`FLAMES`):
+
+  | Pack | Forma | Lo que se mueve |
+  |---|---|---|
+  | Navidad | cuerpo verde acebo, gorro de Papá Noel, bastón de caramelo, espumillón | borla, bombillas en cadena, copos |
+  | Fuego | roca carbonizada, grietas de lava, piezas de ascua | grietas que laten, lenguas de fuego, ascuas |
+  | Agua | azul de mar, espuma, aleta dorsal y cola de pez | onda de luz, burbujas |
+  | Galáctico | espacio con estrellas, rosa nebulosa, anillo de planeta | estrellas que titilan, una luna en el anillo |
+  | Carbono | fibra de carbono, alerón, filos de neón | un pulso que recorre el neón |
+  | Rubí | cuerpo tallado, cristales de rubí, platino | un destello por las facetas, chispas |
 
 ## 8 quinquatricies. Perfil: avatar, marco, título, banner y «Personalizar» (plan de noviembre C2–C4)
 

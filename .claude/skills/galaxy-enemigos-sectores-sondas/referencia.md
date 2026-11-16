@@ -18,7 +18,7 @@ Rutas relativas a `games/galaxy/`. Los commits citados sirven de ejemplo real: `
 |---|---|
 | Fauna | `apps/web/src/arena/sprites/fauna2.ts` (`FAUNA2`, `draw`/`lit`) |
 | Núcleos | `apps/web/src/arena/sprites/bosses.ts` (`BOSSES`, `core(fn, fps)`, 40×40) |
-| Sondas | `apps/web/src/arena/sprites/probes.ts` (`PROBES`, 16×16), direcciones en `arena/sprites/rotate.ts` |
+| Sondas y sus skins | `art/probes/paint-probes.lua` (Aseprite, 24×24) → `apps/web/src/arena/sprites/probe-art.ts` (`PROBE_ART`, `SKIN_ART`, `PROBE_NOZZLE`; no se edita a mano); direcciones en `arena/sprites/rotate.ts` |
 | Rocas y objetos rompibles | `arena/sprites/decor.ts` (`DECOR`), `arena/sprites/props.ts` (`PROPS`, `set('<bioma>', …)`) |
 | Bioma | `apps/web/src/arena/stage/biomes.ts` (`BIOME_LOOK`), `stage/terrain.ts` |
 | Avisos de ataque | `apps/web/src/arena/stage/warnings.ts` y `drawWarnings` en `stage.ts` |
