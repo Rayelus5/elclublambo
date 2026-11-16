@@ -19,7 +19,7 @@ import { MarketScreen } from './market/MarketScreen';
 import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
 import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
-import { CommunicationScreen } from './admin/CommunicationScreen';
+import { CommunicationScreen } from './admin/communication/CommunicationScreen';
 import { StatsScreen } from './admin/StatsScreen';
 import { StorageScreen } from './admin/StorageScreen';
 import { RunsScreen } from './admin/RunsScreen';

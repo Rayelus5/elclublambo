@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { AdminLayout } from '../src/admin/AdminLayout';
-import { CommunicationScreen } from '../src/admin/CommunicationScreen';
+import { CommunicationScreen } from '../src/admin/communication/CommunicationScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
 import { pickOption } from './pick';
@@ -14,6 +14,7 @@ import { pickOption } from './pick';
 afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.admin.communication;
+const g = copy.gifts;
 const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'], mfa: true, level: 30 };
 // Dates round the test's own moment, so «en curso» stays true whenever it runs.
 const DAY = 86_400_000;
@@ -26,8 +27,13 @@ const notices: AdminNoticeRow[] = [
 ];
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
-const routes = (extra = {}) => ({
-  'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+// The panel's live config (the pack library) and the run content (none here: its default).
+const keys = [{ key: 'mail', version: 1, data: { packs: [{ id: 'bienvenida', name: 'Bienvenida', art: 'chest', items: [{ kind: 'currency', currency: 'dust', amount: 50 }] }] }, createdAt: null, author: null, note: null }];
+const routes = (extra = {}, me: MeResponse = admin) => ({
+  'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
+  'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys),
+  'GET /galaxy/api/content': () => jsonResponse(503, { error: 'internal' }),
+  'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, {}),
   'GET /galaxy/api/admin/mail': () => jsonResponse(200, sent),
   'GET /galaxy/api/admin/notices': () => jsonResponse(200, notices),
   'POST /galaxy/api/admin/mail/preview': (body: unknown) => jsonResponse(200, { recipients: (body as { audience: { kind: string } }).audience.kind === 'all' ? 40 : 2 }),
@@ -55,7 +61,7 @@ test('enviar a una lista de cuentas dice a cuántas llega y manda solo lo escrit
   await userEvent.click(within(form).getByRole('button', { name: t.send(2) }));
   await waitFor(() =>
     expect(posted(fetch, '/galaxy/api/admin/mail')).toEqual([
-      { title: 'Gracias por probar', body: 'Un saludo del equipo', gifts: {}, audience: { kind: 'segment', usernames: ['vega', 'nova'] }, expiresInDays: 30, reason: 'Agradecimiento' },
+      { title: 'Gracias por probar', body: 'Un saludo del equipo', type: 'announcement', gifts: { items: [], packs: [] }, audience: { kind: 'segment', usernames: ['vega', 'nova'] }, expiresInDays: 30, reason: 'Agradecimiento' },
     ]),
   );
   expect(await screen.findByRole('status')).toHaveTextContent(t.sent(2));
@@ -67,12 +73,17 @@ test('con regalos pide la contraseña y la manda', async () => {
   const form = await screen.findByRole('form', { name: t.composeTitle });
   await userEvent.type(within(form).getByLabelText(t.fields.title), 'Regalo');
   await userEvent.type(within(form).getByLabelText(t.fields.body), 'Para todos');
-  await userEvent.type(within(form).getByLabelText(t.gifts.coins), '100');
+  const picker = within(form).getByRole('region', { name: g.tabsLabel });
+  await userEvent.type(await within(picker).findByLabelText(g.amountOf(g.currency.coins)), '100');
+  await userEvent.click(within(picker).getByRole('button', { name: g.addOf(g.currency.coins) }));
+  expect(within(form).getByRole('button', { name: g.remove(g.amount.coins(100)) })).toBeInTheDocument();
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Inicio de la beta');
   expect(within(form).getByRole('button', { name: t.send(40) })).toBeDisabled();
   await userEvent.type(within(form).getByLabelText(copy.admin.fields.password), 'mi-clave');
   await userEvent.click(within(form).getByRole('button', { name: t.send(40) }));
-  await waitFor(() => expect(posted(fetch, '/galaxy/api/admin/mail')[0]).toMatchObject({ gifts: { coins: 100 }, audience: { kind: 'all' }, password: 'mi-clave' }));
+  await waitFor(() =>
+    expect(posted(fetch, '/galaxy/api/admin/mail')[0]).toMatchObject({ gifts: { items: [{ kind: 'currency', currency: 'coins', amount: 100 }], packs: [] }, audience: { kind: 'all' }, password: 'mi-clave' }),
+  );
 });
 
 test('la lista de enviados dice a cuántos llegó, leídos y recogidos, y se retira con motivo', async () => {
@@ -134,4 +145,59 @@ test('un segmento con los niveles al revés o nombres no válidos dice qué corr
   await pickOption(userEvent, within(form).getByLabelText(t.fields.audience), 'names');
   await userEvent.type(within(form).getByLabelText(t.fields.usernames), 'vega, x!');
   expect(await within(form).findByText(t.badNames('x!'))).toBeInTheDocument();
+});
+
+test('el tipo de mensaje y la vista previa: así lo verá el jugador', async () => {
+  const fetch = mockApi(routes({ 'POST /galaxy/api/admin/mail': () => jsonResponse(200, { id: 'm9', recipients: 40 }) }));
+  renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  await userEvent.click(within(form).getByRole('radio', { name: copy.mailTypes.compensation.name }));
+  await userEvent.type(within(form).getByLabelText(t.fields.title), 'Perdón por la caída');
+  await userEvent.type(within(form).getByLabelText(t.fields.body), 'Aquí tienes algo');
+  const preview = within(form).getByRole('region', { name: t.preview });
+  expect(within(preview).getByRole('heading', { name: 'Perdón por la caída' })).toBeInTheDocument();
+  expect(within(preview).getByText(copy.mailTypes.compensation.name)).toBeInTheDocument();
+  // A pack of the library goes whole, and the preview shows what it carries.
+  const picker = within(form).getByRole('region', { name: g.tabsLabel });
+  await userEvent.click(within(picker).getByRole('tab', { name: g.tabs.packs }));
+  await userEvent.click(within(picker).getByRole('button', { name: g.addOf(g.pack('Bienvenida')) }));
+  expect(within(preview).getByText(g.amount.dust(50))).toBeInTheDocument();
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Caída del sábado');
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.password), 'mi-clave');
+  await userEvent.click(within(form).getByRole('button', { name: t.send(40) }));
+  await waitFor(() => expect(posted(fetch, '/galaxy/api/admin/mail')[0]).toMatchObject({ type: 'compensation', gifts: { items: [], packs: ['bienvenida'] } }));
+});
+
+test('un regalo grande lo avisa al momento: un admin no lo envía, un superadmin sí', async () => {
+  const plain: MeResponse = { ...admin, roles: ['admin'] };
+  mockApi(routes({}, plain));
+  renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  await userEvent.type(within(form).getByLabelText(t.fields.title), 'Una legendaria');
+  await userEvent.type(within(form).getByLabelText(t.fields.body), 'Para todos');
+  const picker = within(form).getByRole('region', { name: g.tabsLabel });
+  await userEvent.click(within(picker).getByRole('tab', { name: g.tabs.galaxies }));
+  await userEvent.click(within(picker).getByRole('radio', { name: copy.tiers.legendary }));
+  await userEvent.click(within(picker).getByRole('button', { name: g.add }));
+  const note = await within(form).findByText(g.big.needs);
+  expect(note.closest('[role="status"]')).toHaveTextContent(g.big.reasons.galaxy_tier(copy.tiers.legendary));
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Regalo de prueba');
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.password), 'mi-clave');
+  expect(within(form).getByRole('button', { name: t.send(40) })).toBeDisabled();
+});
+
+test('un superadmin ve el mismo aviso, pero puede enviarlo', async () => {
+  mockApi(routes());
+  renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  await userEvent.type(within(form).getByLabelText(t.fields.title), 'Una legendaria');
+  await userEvent.type(within(form).getByLabelText(t.fields.body), 'Para todos');
+  const picker = within(form).getByRole('region', { name: g.tabsLabel });
+  await userEvent.click(within(picker).getByRole('tab', { name: g.tabs.galaxies }));
+  await userEvent.click(within(picker).getByRole('radio', { name: copy.tiers.legendary }));
+  await userEvent.click(within(picker).getByRole('button', { name: g.add }));
+  expect(await within(form).findByText(g.big.you)).toBeInTheDocument();
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.reason), 'Regalo de prueba');
+  await userEvent.type(within(form).getByLabelText(copy.admin.fields.password), 'mi-clave');
+  expect(within(form).getByRole('button', { name: t.send(40) })).toBeEnabled();
 });

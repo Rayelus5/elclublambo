@@ -57,6 +57,7 @@ export function Segmented<V extends string>({ value, options, onChange, disabled
           }}
           type="button"
           role="radio"
+          data-value={o.value}
           aria-checked={o.value === value}
           tabIndex={i === stop ? 0 : -1}
           disabled={disabled || o.disabled}

@@ -3782,7 +3782,7 @@
   .news-empty > .ico { flex: none; font-size: 30px; color: var(--color-ice); }
   .news-empty p { display: grid; gap: 4px; margin: 0; }
   .news-empty b { color: var(--color-ink); }
-  .comms { max-inline-size: 1100px; }
+  .comms { max-inline-size: 1560px; }
   .comms-compose { --r: 18px; display: grid; gap: 4px; padding: 18px 20px; }
   .comms-compose h2 { margin: 0 0 8px; font: 400 22px var(--font-display); }
   .comms-compose textarea { inline-size: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); resize: vertical; }
@@ -4923,4 +4923,185 @@
   .invite-limits { margin: 0; font-size: 13.5px; color: var(--color-ink-soft); }
   .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .invite-gifts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--color-ink-soft); }
+}
+
+/* Mail v2, P3 (2026-11-16; DESIGN_SYSTEM «Regalos y packs», «Tipos de mensaje»): the kinds of message with their
+   colour, gifts drawn, the panel's gift picker and tray, the big-gift note, and the compose form with its letter. */
+@layer components {
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico) { --k: var(--color-sky); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-sky { --k: var(--color-sky); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-solar { --k: var(--color-solar); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-terminal { --k: var(--color-terminal); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-nova { --k: var(--color-nova); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-uv { --k: var(--color-uv-soft); }
+  :is(.mail-type, .mail-type-chip, .letter, .gift-ico).k-ice { --k: var(--color-ice); }
+
+  /* The compose form: the form on the left, the letter as the player sees it beside it on wide screens. */
+  .comms-compose-grid { display: grid; gap: 20px; }
+  .comms-compose-main, .comms-compose-aside { display: grid; gap: 4px; min-inline-size: 0; align-content: start; }
+  .comms-compose-aside { gap: 12px; }
+  @media (min-width: 1240px) {
+    .comms-compose-grid { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); align-items: start; }
+    .comms-compose-aside { position: sticky; top: 16px; }
+  }
+  .comms-preview { padding: 14px 16px 16px; border-radius: 18px; background: rgb(0 0 0 / .24); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05); max-block-size: min(72vh, 760px); overflow: auto; overscroll-behavior: contain; }
+  .comms-preview-title { margin: 0 0 12px; font-size: 12.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--color-ink-mute); }
+  .comms-preview .letter-body { font-size: 15px; }
+  .comms-preview .gift { grid-template-columns: auto minmax(0, 1fr); padding: 14px; }
+  .comms-preview .gift-art { inline-size: 72px; block-size: 72px; }
+  .comms-compose-aside > .pill { justify-self: stretch; }
+
+  /* The kinds of message: a card each, its icon in its colour; the chosen one lit. */
+  .mail-types { border: 0; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; min-inline-size: 0; }
+  @media (max-width: 760px) { .mail-types { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .mail-types legend { padding: 0; margin-bottom: 8px; font-weight: 600; font-size: 15px; }
+  .mail-type { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05); cursor: pointer; transition: background .15s, box-shadow .15s; }
+  .mail-type input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+  .mail-type > .ico { grid-row: span 2; inline-size: 34px; block-size: 34px; padding: 7px; border-radius: 10px; box-sizing: border-box; background: color-mix(in oklab, var(--k) 18%, transparent); color: var(--k); }
+  .mail-type b { font-size: 15px; line-height: 1.2; }
+  .mail-type small { font-size: 12px; line-height: 1.3; color: var(--color-ink-mute); }
+  .mail-type:hover { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--k) 45%, transparent); }
+  .mail-type:has(input:checked) { background: color-mix(in oklab, var(--k) 14%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px var(--k); }
+  .mail-type:has(input:checked) b { color: var(--k); }
+  .mail-type:has(input:focus-visible) { outline: 3px solid var(--k); outline-offset: 2px; }
+  .mail-type-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 99px; background: color-mix(in oklab, var(--k) 18%, transparent); color: var(--k); font-weight: 800; font-size: 12.5px; white-space: nowrap; }
+  .mail-type-chip .ico { inline-size: 16px; block-size: 16px; }
+
+  /* A letter's stamp: its kind in its colour, over the title. */
+  .letter { position: relative; }
+  .letter-stamp { justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 4px 12px 4px 6px; border-radius: 99px; background: color-mix(in oklab, var(--k) 18%, transparent); color: var(--k); font-weight: 800; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .letter-stamp .ico { inline-size: 18px; block-size: 18px; }
+  .gift-contents { grid-area: items; display: grid; gap: 10px; min-inline-size: 0; }
+  .gift-grid-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .gift-pack-group { display: grid; gap: 6px; }
+  .gift-pack-name { font-size: 13px; color: var(--color-solar); }
+
+  /* A gift drawn, always next to its words. */
+  .gift-tile { display: inline-flex; align-items: center; gap: 10px; min-inline-size: 0; padding: 6px 12px 6px 6px; border-radius: 14px; background: rgb(0 0 0 / .26); font-weight: 700; color: var(--color-ink); }
+  .gift-tile.bad { box-shadow: inset 0 0 0 2px var(--color-nova); }
+  .gift-tile-words { display: grid; gap: 2px; min-inline-size: 0; overflow-wrap: anywhere; }
+  .gift-tile-words small { font-weight: 500; font-size: 12.5px; color: var(--color-ink-soft); }
+  .gift-tile-words .gift-tile-problem { color: var(--color-nova); font-weight: 700; }
+  .gift-ico { position: relative; flex: none; display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 12px; background: color-mix(in oklab, var(--k) 18%, transparent); color: var(--k); }
+  .gift-ico .ico { inline-size: 22px; block-size: 22px; }
+  .gift-ico.piece, .gift-ico.probe { inline-size: 48px; block-size: 48px; background: rgb(255 255 255 / .06); overflow: hidden; }
+  .gift-ico.piece .piece-art { display: grid; place-items: center; }
+  .gift-ico.piece[data-piece='frame'] .piece-art { scale: .62; }
+  .gift-ico.piece[data-piece='avatar'] .piece-art { scale: .9; }
+  .gift-ico.probe canvas, .gift-ico.probe .gift-probe { image-rendering: pixelated; }
+  /* A galaxy: a sealed card in its tier's colour, with its finish's sheen. */
+  .gift-ico.galaxy { inline-size: 40px; block-size: 48px; background: none; overflow: visible; }
+  .gift-galaxy-card { display: grid; place-items: center; inline-size: 34px; block-size: 46px; border-radius: 6px; background: radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--tc) 55%, #10132a), #070a18); box-shadow: inset 0 0 0 2px var(--tc), 0 2px 0 rgb(0 0 0 / .4); color: color-mix(in oklab, var(--tc) 40%, #fff); }
+  .gift-galaxy-card .ico { inline-size: 18px; block-size: 18px; }
+  .gift-ico.galaxy[data-tier='mythic'] .gift-galaxy-card { box-shadow: inset 0 0 0 2px var(--color-iris-1), inset 0 0 0 4px var(--color-iris-3), 0 2px 0 rgb(0 0 0 / .4); }
+  .gift-ico.galaxy[data-finish='holo'] .gift-galaxy-card { background-image: linear-gradient(135deg, rgb(255 255 255 / 0) 30%, rgb(160 230 255 / .45) 48%, rgb(255 160 240 / .4) 56%, rgb(255 255 255 / 0) 70%), radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--tc) 55%, #10132a), #070a18); }
+  .gift-ico.galaxy[data-finish='prismatic'] .gift-galaxy-card { background-image: conic-gradient(from 200deg, rgb(255 90 90 / .45), rgb(255 220 90 / .45), rgb(90 255 160 / .45), rgb(90 170 255 / .45), rgb(220 90 255 / .45), rgb(255 90 90 / .45)), radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--tc) 55%, #10132a), #070a18); }
+  .gift-ico.galaxy[data-finish='braille'] .gift-galaxy-card { background-image: radial-gradient(circle, rgb(255 255 255 / .35) 1px, transparent 1.5px), radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--tc) 55%, #10132a), #070a18); background-size: 6px 6px, auto; }
+  .gift-ico.galaxy[data-finish='corrupt'] .gift-galaxy-card { background-image: repeating-linear-gradient(0deg, rgb(255 40 160 / .35) 0 2px, transparent 2px 5px, rgb(60 255 160 / .25) 5px 6px, transparent 6px 9px), radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--tc) 55%, #10132a), #070a18); }
+  .gift-ico.galaxy[data-finish='rift'] .gift-galaxy-card { background-image: linear-gradient(115deg, transparent 46%, rgb(200 120 255 / .9) 48%, rgb(255 255 255 / .9) 50%, rgb(200 120 255 / .9) 52%, transparent 54%), radial-gradient(120% 90% at 50% 30%, #2a0c3e, #070a18); }
+  .gift-count { position: absolute; inset-block-end: -4px; inset-inline-end: -6px; padding: 1px 6px; border-radius: 99px; background: var(--color-void); box-shadow: inset 0 0 0 2px var(--tc); color: var(--color-ink); font-size: 11px; font-weight: 800; }
+
+  /* The panel's picker: tabs, then what each adds. */
+  .comms-gifts { display: grid; gap: 10px; min-inline-size: 0; }
+  .gift-picker { display: grid; gap: 12px; min-inline-size: 0; padding: 12px; border-radius: 16px; background: rgb(0 0 0 / .18); }
+  .gift-tabs { margin: 0; flex-wrap: wrap; overflow: visible; border-radius: 24px; }
+  .gift-panel { display: grid; gap: 10px; min-inline-size: 0; }
+  .gift-panel .hint { margin: 0; }
+  .gift-full { margin: 0; padding: 8px 12px; border-radius: 12px; background: color-mix(in oklab, var(--color-nova) 16%, transparent); font-weight: 700; font-size: 13.5px; }
+  .gift-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 8px; }
+  .gift-row { display: grid; grid-template-columns: 40px minmax(120px, 1fr) 104px auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: var(--color-panel-2); }
+  .gift-row-name { display: grid; gap: 2px; margin: 0; font-weight: 700; font-size: 14.5px; }
+  .gift-row-name small { font-weight: 500; font-size: 12.5px; color: var(--color-ink-mute); }
+  .gift-row-amount, .gift-search input, .gift-builder-count input { inline-size: 100%; box-sizing: border-box; block-size: 40px; padding: 0 12px; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel); color: var(--color-ink); font: 600 15px var(--font-sans); }
+  .gift-row-amount { text-align: end; font-variant-numeric: tabular-nums; }
+  :is(.gift-row-amount, .gift-search input, .gift-builder-count input):focus-visible { outline: none; border-color: var(--color-ice); }
+  .gift-row-amount:disabled { opacity: .5; }
+  .gift-row .pill.small, .gift-pack .pill.small, .gift-builder-actions .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .gift-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .gift-filters .segmented { flex-wrap: wrap; border-radius: 18px; }
+  .gift-search { flex: 1 1 200px; min-inline-size: 0; }
+  .gift-grid { list-style: none; margin: 0; padding: 2px 4px 2px 2px; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; max-block-size: 430px; overflow: auto; overscroll-behavior: contain; }
+  .gift-grid.titles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+  .gift-card { inline-size: 100%; block-size: 100%; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 10px 8px 9px; border: 0; border-radius: 14px; background: var(--color-panel-2); color: var(--color-ink); font: inherit; cursor: pointer; box-shadow: inset 0 0 0 2px var(--rk, rgb(255 255 255 / .04)); transition: transform .12s ease-out, box-shadow .12s ease-out; }
+  .gift-card[data-rarity='rare'] { --rk: color-mix(in oklab, var(--color-tier-rare) 45%, transparent); }
+  .gift-card[data-rarity='epic'] { --rk: color-mix(in oklab, var(--color-tier-epic) 50%, transparent); }
+  .gift-card[data-rarity='legendary'] { --rk: color-mix(in oklab, var(--color-tier-legendary) 60%, transparent); }
+  .gift-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--color-solar); }
+  .gift-card:active:not(:disabled) { transform: translateY(0); }
+  .gift-card:focus-visible { outline: 3px solid var(--color-solar); outline-offset: 2px; }
+  .gift-card:disabled { opacity: .5; cursor: not-allowed; }
+  .gift-card .piece-art { min-block-size: 64px; display: grid; place-items: center; }
+  .gift-grid.titles .gift-card .piece-art { min-block-size: 40px; }
+  .gift-card b { font-size: 13px; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
+  .gift-card small { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; font-size: 11.5px; color: var(--color-ink-mute); }
+  .gift-card-shop { color: var(--color-solar); font-weight: 800; }
+  .gift-card-sprite { image-rendering: pixelated; }
+  @media (prefers-reduced-motion: reduce) { .gift-card { transition: none; } .gift-card:hover:not(:disabled) { transform: none; } }
+
+  /* The galaxy builder: tier and finish as swatches with their names, a trait, how many; a sample on request. */
+  .gift-builder { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: start; }
+  .gift-builder-form { flex: 1 1 360px; display: grid; gap: 2px; min-inline-size: 0; }
+  .gift-builder .field-label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 7px; }
+  .gift-builder .segmented { flex-wrap: wrap; border-radius: 18px; }
+  .gift-tiers button { box-shadow: inset 0 -3px 0 color-mix(in oklab, var(--tc) 70%, transparent); }
+  .gift-tiers button[data-value='common'] { --tc: var(--color-tier-common); }
+  .gift-tiers button[data-value='uncommon'] { --tc: var(--color-tier-uncommon); }
+  .gift-tiers button[data-value='rare'] { --tc: var(--color-tier-rare); }
+  .gift-tiers button[data-value='epic'] { --tc: var(--color-tier-epic); }
+  .gift-tiers button[data-value='legendary'] { --tc: var(--color-tier-legendary); }
+  .gift-tiers button[data-value='mythic'] { --tc: var(--color-tier-mythic); }
+  .gift-tiers button[aria-checked='true'] { background: color-mix(in oklab, var(--tc) 30%, var(--color-panel-2)); color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--tc), 0 3px 0 var(--color-panel-lip); }
+  .gift-finishes button::before { content: ''; display: inline-block; inline-size: 12px; block-size: 12px; margin-inline-end: 7px; border-radius: 4px; vertical-align: -1px; background: var(--sw, #6b7393); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .25); }
+  .gift-finishes button[data-value='holo'] { --sw: linear-gradient(135deg, #9fe6ff, #ffa6f0); }
+  .gift-finishes button[data-value='prismatic'] { --sw: conic-gradient(#ff5a5a, #ffdc5a, #5affa0, #5aaaff, #dc5aff, #ff5a5a); }
+  .gift-finishes button[data-value='braille'] { --sw: radial-gradient(circle, #fff 1px, #3a4266 1.5px) 0 0 / 4px 4px; }
+  .gift-finishes button[data-value='corrupt'] { --sw: repeating-linear-gradient(0deg, #ff28a0 0 2px, #1b1030 2px 4px, #3cffa0 4px 5px); }
+  .gift-finishes button[data-value='rift'] { --sw: linear-gradient(115deg, #2a0c3e 40%, #fff 50%, #c878ff 55%, #2a0c3e 62%); }
+  .gift-builder-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 0 12px; }
+  .gift-builder-count input { inline-size: 96px; block-size: 50px; text-align: center; }
+  .gift-builder-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; }
+  .gift-builder-sample { flex: 0 0 200px; margin: 0; display: grid; justify-items: center; gap: 8px; }
+  .gift-builder-sample .hint { margin: 0; text-align: center; font-size: 12.5px; }
+  .gift-builder-empty { display: block; inline-size: 176px; block-size: 246px; border-radius: 14px; border: 2px dashed color-mix(in oklab, var(--tc, var(--color-ink-mute)) 55%, transparent); background: radial-gradient(80% 60% at 50% 40%, color-mix(in oklab, var(--tc, var(--color-ink-mute)) 14%, transparent), transparent); }
+
+  /* The library's packs and the tray's. */
+  .gift-packs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; }
+  .gift-pack { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-areas: "art text add" "art strip add"; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); }
+  .gift-pack-art { grid-area: art; inline-size: 56px; block-size: 56px; background: no-repeat 0 0 / 400% 100%; image-rendering: pixelated; }
+  .gift-pack-text { grid-area: text; display: grid; min-inline-size: 0; }
+  .gift-pack-text small { color: var(--color-ink-mute); font-size: 12.5px; }
+  .gift-pack > .pill { grid-area: add; }
+  .gift-pack-strip { grid-area: strip; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .gift-pack-strip .gift-ico { inline-size: 28px; block-size: 28px; border-radius: 8px; }
+  .gift-pack-strip .gift-ico .ico { inline-size: 16px; block-size: 16px; }
+  .gift-pack-strip .gift-ico.galaxy .gift-galaxy-card { inline-size: 22px; block-size: 28px; }
+  .gift-pack-strip .gift-ico.galaxy .ico { inline-size: 12px; block-size: 12px; }
+  .gift-tray-wrap { display: grid; gap: 8px; min-inline-size: 0; }
+  .gift-tray-count { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 12.5px; font-weight: 700; color: var(--color-ink-mute); }
+  .gift-tray-empty { margin: 0; padding: 16px; border-radius: 14px; border: 2px dashed rgb(255 255 255 / .12); color: var(--color-ink-mute); text-align: center; }
+  .gift-tray { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .gift-tray .gift-tile { background: var(--color-panel-2); padding-inline-end: 6px; }
+  .gift-tray .iconbtn.small, .gift-tray-pack .iconbtn.small { --lip-h: 3px; inline-size: 36px; block-size: 36px; }
+  .gift-tray .iconbtn .ico, .gift-tray-pack .iconbtn .ico { inline-size: 16px; block-size: 16px; }
+  .gift-tray.packs { display: grid; }
+  .gift-tray-pack { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: var(--color-panel-2); }
+  .gift-tray-pack.bad { box-shadow: inset 0 0 0 2px var(--color-nova); }
+  .gift-tray-pack .gift-pack-art { grid-area: auto; inline-size: 48px; block-size: 48px; }
+  .gift-tray-pack .gift-pack-strip { grid-area: auto; flex-wrap: nowrap; }
+  .gift-tray-pack .gift-tile-words b { font-size: 14.5px; }
+
+  /* A big gift, at once: why, and whether you may send it. */
+  .gift-big { --k: var(--color-nova); padding: 12px 14px; border-radius: 14px; background: color-mix(in oklab, var(--k) 13%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px var(--k); }
+  .gift-big.ok { --k: var(--color-solar); }
+  .gift-big-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 6px; }
+  .gift-big-head .ico { inline-size: 20px; block-size: 20px; color: var(--k); }
+  .gift-big-head span { font-size: 13.5px; color: var(--color-ink-soft); }
+  .gift-big ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 2px; font-size: 13.5px; }
+
+  /* The sent list: its kind and its gifts drawn small. */
+  .comms-gift-strip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .comms-gift-strip .gift-ico { inline-size: 28px; block-size: 28px; border-radius: 8px; }
+  .comms-gift-strip .gift-ico .ico { inline-size: 16px; block-size: 16px; }
+  .comms-gift-strip .gift-ico.galaxy .gift-galaxy-card { inline-size: 22px; block-size: 28px; }
+  .comms-gift-strip .gift-ico.galaxy .ico { inline-size: 12px; block-size: 12px; }
 }
