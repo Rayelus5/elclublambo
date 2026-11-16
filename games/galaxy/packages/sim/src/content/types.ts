@@ -546,8 +546,12 @@ export interface SatellitesTuning {
   radius: number;
 }
 
-/** The in-run events' kinds (2026-11-16): loot events now, the hazards after. */
-export const EVENT_KINDS = ['wreck', 'capsule', 'bounty'] as const;
+/** The in-run events' kinds (2026-11-16): the ones that bring loot, and the hazards (nothing to win but the way out). */
+export const LOOT_KINDS = ['wreck', 'capsule', 'bounty'] as const;
+export const HAZARD_KINDS = ['meteors', 'storm', 'ambush', 'well'] as const;
+export const EVENT_KINDS = [...LOOT_KINDS, ...HAZARD_KINDS] as const;
+export type LootKind = (typeof LOOT_KINDS)[number];
+export type HazardKind = (typeof HAZARD_KINDS)[number];
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 /** What a loot event gives: coins, dust and components, × (1 + perLayer × (layer − 1)), floored. */
@@ -575,6 +579,17 @@ export interface EventsTuning {
   capsule: EventLoot & { distance: number; radius: number; warn: number; life: number };
   /** A bounty hunter: a marked enemy (× `hp` the sector's life) that flees at `speed` for `seconds`; kill it. */
   bounty: EventLoot & { distance: number; seconds: number; hp: number; speed: number };
+  /**
+   * A meteor shower: for `seconds`, every `every` s a meteor falls within `spread` of a probe, warned `warn` s before on a
+   * circle of `radius`; it hits the probes inside for `damage` × their maximum life (the hit cap and armour count).
+   */
+  meteors: { seconds: number; every: number; warn: number; radius: number; damage: number; spread: number };
+  /** A Static storm: a circle of `radius` that drifts to the nearest probe at `speed` (slower than any probe) for `seconds`; inside, `damage` × maximum life a second. */
+  storm: { distance: number; seconds: number; radius: number; speed: number; damage: number };
+  /** An ambush: warned `warn` s before, a ring of `count` (+ `perLayer` a layer past the first) of the sector's fauna closes round a probe at `distance`. */
+  ambush: { distance: number; warn: number; count: number; perLayer: number };
+  /** A gravity well: for `seconds`, pulls probes and loot within `radius` (up to `pull` a second at its heart, so a probe gets away); within `core`, `damage` × maximum life a second. */
+  well: { distance: number; seconds: number; radius: number; pull: number; core: number; damage: number };
 }
 
 export interface PropsTuning {

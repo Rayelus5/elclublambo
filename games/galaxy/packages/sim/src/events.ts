@@ -37,7 +37,7 @@ export type SimEvent =
    */
   | {
       t: 'telegraph';
-      kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink' | 'laser' | 'closing';
+      kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink' | 'laser' | 'closing' | 'meteor';
       x: number;
       y: number;
       angle: number;

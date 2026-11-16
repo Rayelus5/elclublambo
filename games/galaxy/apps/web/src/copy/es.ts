@@ -3568,6 +3568,13 @@ export const copy = {
         capsule: 'Cae una cápsula de suministros: tócala para abrirla',
         bounty: 'Un cazarrecompensas huye con botín: derríbalo',
       },
+      // The hazards: their sector's name and what to do.
+      hazard: {
+        meteors: (name: string) => `¡${name}! Sal de los círculos`,
+        storm: (name: string) => `¡${name}! Aléjate: te sigue despacio`,
+        ambush: () => '¡Emboscada! Abre hueco antes de que se cierre el anillo',
+        well: (name: string) => `¡${name}! Sal antes de que te atrape`,
+      },
       eventDone: (kind: 'wreck' | 'capsule' | 'bounty', r: { coins: number; dust: number; components: number }) => {
         const title = { wreck: 'Nave saqueada', capsule: 'Cápsula abierta', bounty: 'Cazarrecompensas derribado' }[kind];
         const parts = [
@@ -3677,8 +3684,19 @@ export const copy = {
       wreck: { name: 'Nave abandonada', hint: 'Quédate dentro para saquearla' },
       capsule: { name: 'Cápsula de suministros', hint: 'Tócala para abrirla' },
       bounty: { name: 'Cazarrecompensas', hint: 'Derríbalo antes de que escape' },
+      // The hazards (2026-11-16): each sector names them its own way (`nameIn`).
+      meteors: { name: 'Lluvia de meteoritos', hint: 'Sal de los círculos' },
+      storm: { name: 'Tormenta de la Estática', hint: 'Aléjate: te sigue despacio' },
+      ambush: { name: 'Emboscada', hint: 'Abre hueco antes de que se cierre' },
+      well: { name: 'Pozo de gravedad', hint: 'Sal antes de que te atrape' },
       left: (s: number) => `${s} s`,
       looting: (pct: number) => `Saqueando · ${pct} %`,
+      bySector: {
+        'frost-rings': { meteors: 'Granizo de hielo', storm: 'Ventisca estática', well: 'Remolino helado' },
+        'hollow-reef': { meteors: 'Lluvia de esporas', storm: 'Marea estática', well: 'Remolino del arrecife' },
+        'broken-forge': { meteors: 'Lluvia de escoria', storm: 'Nube de ceniza', well: 'Pozo de magma' },
+        'signal-rift': { meteors: 'Descargas de la Señal', storm: 'Tormenta de la Señal', well: 'Grieta de la Señal' },
+      } as Record<string, Partial<Record<'meteors' | 'storm' | 'well', string>>>,
     },
     time: 'Tiempo',
     layer: (n: number) => `Capa ${n}`,
@@ -3709,6 +3727,10 @@ export const copy = {
         wreck: 'PERKINS: Una nave abandonada. Quédate dentro unos segundos y desmonto lo que lleve. Eso sí, la Estática no espera',
         capsule: 'PERKINS: Te mando una cápsula de suministros. Ve a por ella antes de que se la trague la Estática',
         bounty: 'PERKINS: Ese que huye lleva botín robado. Derríbalo antes de que se escape',
+        meteors: 'PERKINS: Cae de todo del cielo. Los círculos rojos dicen dónde. Tú, fuera de ellos',
+        storm: 'PERKINS: Una tormenta de Estática viene a por ti. Es lenta. Tú no lo eres. Sigue moviéndote',
+        ambush: 'PERKINS: Te están rodeando. Rompe el anillo por un lado antes de que se cierre',
+        well: 'PERKINS: Un pozo de gravedad. Tira de ti y del botín. Si te acercas al centro, sal rápido',
       },
       levelup: 'PERKINS: Subes de nivel. Elige una mejora: el sector espera mientras decides',
       layer: (n: number) => `PERKINS: Capa ${n}. Aquí la Estática muerde más fuerte, y el botín también`,

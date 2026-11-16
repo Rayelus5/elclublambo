@@ -370,7 +370,7 @@ function CoopWorld({
       }
       const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
-      notices.push(noticesFor(events, slot, start.content), Date.now());
+      notices.push(noticesFor(events, slot, start.content, sim.sector.id), Date.now());
     };
     const loop = createLockstep({
       now: clock.now,
@@ -713,7 +713,7 @@ function CoopWorld({
       {hud.boss && <BossBar boss={hud.boss} />}
       {runNotices ? <RunNotice notice={notice} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      <EventMarkers hud={hud} camera={camera} width={size.w} height={size.h} />
+      <EventMarkers hud={hud} sector={sim.sector.id} camera={camera} width={size.w} height={size.h} />
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />

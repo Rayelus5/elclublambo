@@ -1,4 +1,4 @@
-import type { Content, EventKind, EventsTuning } from '../content/types';
+import { type Content, type EventKind, type EventsTuning, LOOT_KINDS } from '../content/types';
 import { Rng } from '../math/rng';
 import { ANGLE_STEPS, cosA, sinA } from '../math/trig';
 import type { Sim } from '../types';
@@ -7,14 +7,16 @@ import { PICKUP } from '../world/pools';
 import { layerSeconds, scaleAt } from './director';
 import { spawnEnemy, statusHooks } from './enemies';
 import { dropPickup } from './pickups';
-import { PROBE_RADIUS } from './probes';
+import { hurtProbe, PROBE_RADIUS } from './probes';
 import { worldSchedule } from './world-events';
 
 // In-run events (2026-11-16): besides the satellite, things to go for in each layer — an abandoned ship (stay a few
 // seconds inside to loot it), a supply capsule (it lands; touch it) and a bounty hunter (a marked enemy that flees: kill
-// it before it escapes). Each layer's plan comes from the run's seed alone (`eventsForLayer`), so the co-op referee,
-// every player and the server agree on it; the server pays a run at most what its seed's events could drop
-// (`eventLootUpTo`). An event only runs in the layer's waves: when the Núcleo comes, those still going end.
+// it before it escapes) — and hazards to get through: a meteor shower, a Static storm that follows you, an ambush that
+// closes round you and a gravity well that pulls you in. Each layer's plan comes from the run's seed alone
+// (`eventsForLayer`), so the co-op referee, every player and the server agree on it; the server pays a run at most what
+// its seed's events could drop (`eventLootUpTo`). An event only runs in the layer's waves: when the Núcleo comes, those
+// still going end.
 
 export interface EventPlan {
   kind: EventKind;
@@ -33,15 +35,40 @@ export interface ActiveEvent {
   y: number;
   /** Ticks left. */
   t: number;
-  /** Wreck: ticks a probe has been inside. Capsule: ticks left to land. */
+  /**
+   * Wreck: ticks a probe has been inside. Capsule: ticks left to land. Meteors: ticks to the next one. Ambush: ticks to
+   * the ring. Storm and well: ticks gone (their damage beats every 0,5 s).
+   */
   progress: number;
+  /** Meteors fallen (each one's own stream of the seed). */
+  n: number;
   /** Bounty: its enemy's slot and generation (−1: none). */
   enemy: number;
   enemyGen: number;
 }
 
 function duration(t: EventsTuning, kind: EventKind): number {
-  return kind === 'wreck' ? t.wreck.life : kind === 'capsule' ? t.capsule.warn + t.capsule.life : t.bounty.seconds;
+  switch (kind) {
+    case 'wreck':
+      return t.wreck.life;
+    case 'capsule':
+      return t.capsule.warn + t.capsule.life;
+    case 'bounty':
+      return t.bounty.seconds;
+    case 'meteors':
+      return t.meteors.seconds;
+    case 'storm':
+      return t.storm.seconds;
+    case 'ambush':
+      return t.ambush.warn;
+    case 'well':
+      return t.well.seconds;
+  }
+}
+
+/** It brings loot (the hazards bring none). */
+export function isLoot(kind: EventKind): kind is (typeof LOOT_KINDS)[number] {
+  return (LOOT_KINDS as readonly string[]).includes(kind);
 }
 
 function weighted(weights: Record<EventKind, number>, roll: number): EventKind | null {
@@ -86,6 +113,7 @@ export function eventsForLayer(seed: string, t: EventsTuning, sector: string, la
 
 /** What a loot event of `kind` drops in `layer`. */
 export function eventReward(t: EventsTuning, kind: EventKind, layer: number): { coins: number; dust: number; components: number } {
+  if (!isLoot(kind)) return { coins: 0, dust: 0, components: 0 };
   const k = t[kind];
   const f = 1 + k.perLayer * (layer - 1);
   return { coins: Math.floor(k.coins * f), dust: Math.floor(k.dust * f), components: Math.floor(k.components * f) };
@@ -122,10 +150,12 @@ export function startEvent(sim: Sim, kind: EventKind, seq: number): ActiveEvent 
   const a = anchor(sim);
   const rng = Rng.fromSeed(sim.opts.seed, `events:${sim.layer}:${seq}`);
   const angle = rng.int(ANGLE_STEPS);
-  const distance = T[kind].distance;
+  // The meteors and the ambush come where the probe is; the others somewhere to go to (or to get away from).
+  const distance = kind === 'meteors' || kind === 'ambush' ? 0 : T[kind].distance;
   const x = a.x + cosA(angle) * distance;
   const y = a.y + sinA(angle) * distance;
-  const ev: ActiveEvent = { kind, layer: sim.layer, seq, x, y, t: ticks(duration(T, kind)), progress: 0, enemy: -1, enemyGen: 0 };
+  const ev: ActiveEvent = { kind, layer: sim.layer, seq, x, y, t: ticks(duration(T, kind)), progress: 0, n: 0, enemy: -1, enemyGen: 0 };
+  if (kind === 'ambush') ev.progress = ticks(T.ambush.warn);
   // A capsule lands first (`warn`), then waits its `life`.
   if (kind === 'capsule') {
     ev.progress = ticks(T.capsule.warn);
@@ -149,8 +179,12 @@ export function startEvent(sim: Sim, kind: EventKind, seq: number): ActiveEvent 
   return ev;
 }
 
-/** Its loot, spread around where it was, and the notice of what it dropped. */
+/** Its loot, spread around where it was, and the notice of what it dropped (a hazard got through drops nothing). */
 function complete(sim: Sim, ev: ActiveEvent, x: number, y: number): void {
+  if (!isLoot(ev.kind)) {
+    sim.events.push({ t: 'worldEvent', kind: ev.kind, what: 'done', x, y });
+    return;
+  }
   const r = eventReward(sim.content.events, ev.kind, ev.layer);
   const drops: [number, number][] = [
     [PICKUP.coin, r.coins],
@@ -187,6 +221,61 @@ function drop(sim: Sim, k: number, what: 'fail' | 'end'): void {
   if (ev.kind === 'bounty' && ev.enemy >= 0 && sim.enemies.alive[ev.enemy] && sim.enemies.gen[ev.enemy] === ev.enemyGen) sim.enemies.kill(ev.enemy);
   sim.world.active.splice(k, 1);
   sim.events.push({ t: 'worldEvent', kind: ev.kind, what, x: ev.x, y: ev.y });
+}
+
+/** The probes standing up (a hazard only goes for them). */
+function standing(sim: Sim) {
+  return sim.probes.filter((p) => p.alive && (!sim.coop || p.life === 'up'));
+}
+
+/** The probe nearest (x, y) of those standing up, or null. */
+function nearestStanding(sim: Sim, x: number, y: number) {
+  let best = null;
+  let bestD = Infinity;
+  for (const p of standing(sim)) {
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** One meteor: within `spread` of a probe (each in turn), warned, then a blast (systems/blasts.ts). */
+function meteor(sim: Sim, ev: ActiveEvent): void {
+  const T = sim.content.events.meteors;
+  const up = standing(sim);
+  if (up.length === 0) return;
+  const p = up[ev.n % up.length]!;
+  const rng = Rng.fromSeed(sim.opts.seed, `meteor:${ev.layer}:${ev.seq}:${ev.n}`);
+  ev.n++;
+  const a = rng.int(ANGLE_STEPS);
+  const r = rng.float() * T.spread;
+  const x = p.x + cosA(a) * r;
+  const y = p.y + sinA(a) * r;
+  const wait = ticks(T.warn);
+  sim.blasts.push({ x, y, radius: T.radius, damage: p.stats.maxHp * T.damage, at: sim.tick + wait });
+  sim.events.push({ t: 'telegraph', kind: 'meteor', x, y, angle: 0, ticks: wait, radius: T.radius });
+}
+
+/** The ambush closes: a ring of the sector's fauna round the probe it came for. */
+function ambush(sim: Sim, ev: ActiveEvent): void {
+  const T = sim.content.events.ambush;
+  const p = nearestStanding(sim, ev.x, ev.y);
+  if (!p) return;
+  const now = layerSeconds(sim);
+  const kinds = sim.sector.spawns.filter((s) => s.from <= now).map((s) => sim.content.enemies.find((e) => e.id === s.enemy)).filter((d) => d !== undefined);
+  if (kinds.length === 0) return;
+  const count = Math.floor(T.count + T.perLayer * (ev.layer - 1));
+  const scale = scaleAt(sim);
+  const start = Rng.fromSeed(sim.opts.seed, `ambush:${ev.layer}:${ev.seq}`).int(ANGLE_STEPS);
+  for (let k = 0; k < count; k++) {
+    const a = start + Math.floor((k * ANGLE_STEPS) / Math.max(1, count));
+    // Mostly the sector's first fauna; every fourth one of the others it has by now.
+    const def = k % 4 === 3 && kinds.length > 1 ? kinds[1 + ((k >> 2) % (kinds.length - 1))]! : kinds[0]!;
+    spawnEnemy(sim, def, p.x + cosA(a) * T.distance, p.y + sinA(a) * T.distance, { scale });
+  }
 }
 
 /** Ends every event going on (a new layer, the Núcleo, the debug mode's clearing). */
@@ -272,8 +361,89 @@ export function updateRunEvents(sim: Sim): void {
         complete(sim, ev, ev.x, ev.y);
         continue;
       }
+    } else if (ev.kind === 'meteors') {
+      if (ev.progress > 0) ev.progress--;
+      else {
+        meteor(sim, ev);
+        ev.progress = ticks(T.meteors.every);
+      }
+    } else if (ev.kind === 'ambush') {
+      // Its warning follows the probe it came for; then the ring closes, and it is done.
+      const p = nearestStanding(sim, ev.x, ev.y);
+      if (p) {
+        ev.x = p.x;
+        ev.y = p.y;
+      }
+      if (ev.progress > 0) ev.progress--;
+      if (ev.progress <= 0) {
+        ambush(sim, ev);
+        w.active.splice(k, 1);
+        complete(sim, ev, ev.x, ev.y);
+        continue;
+      }
+    } else if (ev.kind === 'storm') {
+      // It drifts to the nearest probe, slower than any: walking away is the answer.
+      ev.progress++;
+      const p = nearestStanding(sim, ev.x, ev.y);
+      if (p) {
+        const dx = p.x - ev.x;
+        const dy = p.y - ev.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const step = T.storm.speed / 60;
+        if (d > step) {
+          ev.x += (dx / d) * step;
+          ev.y += (dy / d) * step;
+        }
+      }
+      if (ev.progress % 30 === 0) hurtWithin(sim, ev.x, ev.y, T.storm.radius, T.storm.damage);
+    } else if (ev.kind === 'well') {
+      ev.progress++;
+      pull(sim, ev.x, ev.y, T.well.radius, T.well.pull);
+      if (ev.progress % 30 === 0) hurtWithin(sim, ev.x, ev.y, T.well.core, T.well.damage);
     }
     ev.t--;
-    if (ev.t <= 0) drop(sim, k, 'fail');
+    // A hazard got through is done; a loot event whose time ran out is lost.
+    if (ev.t <= 0) {
+      if (isLoot(ev.kind)) drop(sim, k, 'fail');
+      else {
+        w.active.splice(k, 1);
+        complete(sim, ev, ev.x, ev.y);
+      }
+    }
   }
 }
+
+/** Half a second of `rate` × maximum life to the probes standing within `radius` (hurtProbe: armour and the hit cap count). */
+function hurtWithin(sim: Sim, x: number, y: number, radius: number, rate: number): void {
+  const r = radius + PROBE_RADIUS;
+  for (const p of standing(sim)) {
+    const dx = p.x - x;
+    const dy = p.y - y;
+    if (dx * dx + dy * dy <= r * r) hurtProbe(sim, p, p.stats.maxHp * rate * 0.5);
+  }
+}
+
+/** Pulls the probes standing and the loot lying within `radius` towards (x, y): `strength` a second at the heart, none at the edge. */
+function pull(sim: Sim, x: number, y: number, radius: number, strength: number): void {
+  const at = (px: number, py: number): [number, number] => {
+    const dx = x - px;
+    const dy = y - py;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d >= radius || d < 1) return [0, 0];
+    const v = ((strength / 60) * (1 - d / radius)) / d;
+    return [dx * v, dy * v];
+  };
+  for (const p of standing(sim)) {
+    const [mx, my] = at(p.x, p.y);
+    p.x += mx;
+    p.y += my;
+  }
+  const pk = sim.pickups;
+  for (let i = 0; i < pk.top; i++) {
+    if (!pk.alive[i] || pk.magnet[i]) continue;
+    const [mx, my] = at(pk.x[i]!, pk.y[i]!);
+    pk.x[i] = pk.x[i]! + mx;
+    pk.y[i] = pk.y[i]! + my;
+  }
+}
+

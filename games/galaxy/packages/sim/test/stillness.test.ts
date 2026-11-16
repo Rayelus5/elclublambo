@@ -83,7 +83,7 @@ describe('quieto', () => {
     const p = sim.probes[0]!;
     // A ship that never finishes, so the probe stays inside the whole time.
     sim.content.events.wreck.hold = 60;
-    sim.world.active.push({ kind: 'wreck', layer: 1, seq: 0, x: p.x, y: p.y, t: 60 * 60, progress: 0, enemy: -1, enemyGen: 0 });
+    sim.world.active.push({ kind: 'wreck', layer: 1, seq: 0, x: p.x, y: p.y, t: 60 * 60, progress: 0, n: 0, enemy: -1, enemyGen: 0 });
     const before = p.still.t;
     expect(idle(sim, 60 * 13)).toEqual([]);
     expect(p.still.t).toBe(before);

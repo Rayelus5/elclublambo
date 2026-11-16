@@ -123,6 +123,7 @@ export function stateHash(sim: Sim): string {
     h.num(ev.y);
     h.num(ev.t);
     h.num(ev.progress);
+    h.num(ev.n);
   }
   for (const b of sim.blasts) {
     h.num(b.x);

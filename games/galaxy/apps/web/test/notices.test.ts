@@ -81,3 +81,16 @@ test('los eventos dicen que llegan, lo que sueltan y si se pierden', () => {
   ]);
 });
 
+test('un peligro avisa con el nombre de su sector y no dice nada al terminar', () => {
+  const events: SimEvent[] = [
+    { t: 'worldEvent', kind: 'meteors', what: 'appear', x: 0, y: 0 },
+    { t: 'worldEvent', kind: 'meteors', what: 'done', x: 0, y: 0 },
+    { t: 'worldEvent', kind: 'ambush', what: 'appear', x: 0, y: 0 },
+  ];
+  expect(noticesFor(events, 0, DEFAULT_CONTENT, 'broken-forge').map((n) => [n.text, n.tone])).toEqual([
+    [t.hazard.meteors(copy.arena.events.bySector['broken-forge']!.meteors!), 'danger'],
+    [t.hazard.ambush(), 'danger'],
+  ]);
+  expect(noticesFor(events.slice(0, 1), 0, DEFAULT_CONTENT, 'outer-nebula')[0]!.text).toBe(t.hazard.meteors(copy.arena.events.meteors.name));
+});
+

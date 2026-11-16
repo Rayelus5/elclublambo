@@ -27,7 +27,7 @@ test('la distancia que dice también se mide desde donde mira la cámara', () =>
 const ev = copy.arena.events;
 
 test('un evento fuera de la pantalla dice qué es, qué hacer, a qué distancia y cuánto le queda', () => {
-  const { container } = render(<EventMarker event={{ kind: 'bounty', dx: 900, dy: 0, left: 31.2 }} camera={null} width={1280} height={720} />);
+  const { container } = render(<EventMarker sector="outer-nebula" event={{ kind: 'bounty', dx: 900, dy: 0, left: 31.2 }} camera={null} width={1280} height={720} />);
   const marker = container.querySelector('.hud-event.bounty');
   expect(marker).not.toHaveClass('here');
   expect(marker).toHaveTextContent(ev.bounty.name);
@@ -35,15 +35,20 @@ test('un evento fuera de la pantalla dice qué es, qué hacer, a qué distancia 
 });
 
 test('el satélite también dice su distancia', () => {
-  const { container } = render(<EventMarker event={{ kind: 'satellite', dx: 0, dy: -700 }} camera={null} width={1280} height={720} />);
+  const { container } = render(<EventMarker sector="outer-nebula" event={{ kind: 'satellite', dx: 0, dy: -700 }} camera={null} width={1280} height={720} />);
   expect(container.querySelector('.hud-event.satellite')).toHaveTextContent(copy.arena.beaconDistance(700));
 });
 
 test('en pantalla no dice nada, salvo la nave que se está saqueando', () => {
-  const near = render(<EventMarker event={{ kind: 'capsule', dx: 40, dy: 0, left: 20 }} camera={null} width={1280} height={720} />);
+  const near = render(<EventMarker sector="outer-nebula" event={{ kind: 'capsule', dx: 40, dy: 0, left: 20 }} camera={null} width={1280} height={720} />);
   expect(near.container.querySelector('.hud-event')).toBeNull();
-  const looting = render(<EventMarker event={{ kind: 'wreck', dx: 40, dy: 0, left: 20, progress: 0.5 }} camera={null} width={1280} height={720} />);
+  const looting = render(<EventMarker sector="outer-nebula" event={{ kind: 'wreck', dx: 40, dy: 0, left: 20, progress: 0.5 }} camera={null} width={1280} height={720} />);
   expect(looting.container.querySelector('.hud-event.wreck')).toHaveClass('here');
   expect(looting.container.querySelector('.hud-event.wreck')).toHaveTextContent(ev.looting(50));
+});
+
+test('un peligro lleva el nombre de su sector', () => {
+  const { container } = render(<EventMarker sector="broken-forge" event={{ kind: 'storm', dx: 900, dy: 0, left: 10 }} camera={null} width={1280} height={720} />);
+  expect(container.querySelector('.hud-event.storm')).toHaveTextContent(ev.bySector['broken-forge']!.storm!);
 });
 

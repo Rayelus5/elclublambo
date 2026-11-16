@@ -668,6 +668,25 @@ for (const sector of ['outer-nebula', 'broken-forge']) {
       stage.render(sim, 1);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/events-${sector}.png`, element: canvas });
       expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.002);
+      // The hazards (2026-11-16): a storm, a well, a falling meteor and an ambush's ring.
+      sim.world.active.length = 0;
+      for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+      stage.render(sim, 1);
+      const clear = pixels(canvas);
+      const storm = startEvent(sim, 'storm', 3);
+      storm.x = p.x - 110;
+      storm.y = p.y + 20;
+      const well = startEvent(sim, 'well', 4);
+      well.x = p.x + 110;
+      well.y = p.y - 10;
+      startEvent(sim, 'ambush', 5);
+      const meteors = startEvent(sim, 'meteors', 6);
+      meteors.progress = 0;
+      step(sim, [IDLE]);
+      stage.feed(sim.events, sim.tick);
+      stage.render(sim, 0.5);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hazards-${sector}.png`, element: canvas });
+      expect(changed(clear, pixels(canvas))).toBeGreaterThan(0.002);
     } finally {
       clock.mockRestore();
     }

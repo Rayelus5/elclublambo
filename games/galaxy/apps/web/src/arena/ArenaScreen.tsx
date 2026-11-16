@@ -376,7 +376,7 @@ export function ArenaScreen({
       if (debugRef.current) rates.onEvents(events, sim.tick);
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);
-      notices.push(noticesFor(events, 0, run.content), Date.now());
+      notices.push(noticesFor(events, 0, run.content, sim.sector.id), Date.now());
       for (const e of events) {
         if (e.t === 'layer') musicStinger('layer');
         if (e.t === 'extracted') musicStinger('extract');
@@ -678,7 +678,7 @@ export function ArenaScreen({
       {hud.boss && <BossBar boss={hud.boss} />}
       {runNotices && hud.status !== 'choosing' ? <RunNotice notice={centre} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      <EventMarkers hud={hud} camera={camera} width={size.w} height={size.h} />
+      <EventMarkers hud={hud} sector={sim.sector.id} camera={camera} width={size.w} height={size.h} />
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}
       {briefing ? (
         <Briefing

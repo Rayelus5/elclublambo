@@ -1,8 +1,9 @@
 -- Galaxy Survivor: the in-run events' sprites (2026-11-16, plan «botín, Sifón, Estática y eventos», C1). Flat like the
 -- probes: three tones per part (its fill, a light edge to the top left, a dark edge to the bottom right), no dithering,
 -- a 1 px #0b0c24 contour. The abandoned ship wears each sector's look — its hull, and an accent of its own: frost in
--- the rings, coral in the reef, embers in the forge, crystal in the rift; the supply capsule and the bounty mark are the
--- station's, the same everywhere.
+-- the rings, coral in the reef, embers in the forge, crystal in the rift; so does the meteor of the hazards (a rock, an
+-- ice chunk, a spore, slag, a shard of the Signal). The supply capsule and the bounty mark are the station's, the same
+-- everywhere.
 --
 -- Run from games/galaxy:
 --   aseprite -b --script-param out=art/events --script-param web=apps/web/src/arena/sprites \
@@ -293,6 +294,25 @@ local function markShape(f)
 end
 local MARK = { mark = R.gold, loot = R.gold, glowing = { loot = true } }
 
+-- ── The meteor of each sector (the hazards, 2026-11-16): a lump falling with its tail above it, the tail flickering.
+-- A rock with a fire tail in the nebula, an ice chunk in the rings, a spore in the reef, slag in the forge, a shard of
+-- the Signal in the rift.
+local function meteorShape(f)
+  local M = grid(12, 18)
+  local len = ({ 0, 1, 0, 2 })[f % 4 + 1]
+  poly(M, { { 3.5, 12 }, { 8.5, 12 }, { 7, 1 + len }, { 5, 1 + len } }, 'tail')
+  ellipse(M, 6, 13, 4.6, 4.2, 'rock')
+  set(M, 4, 12, 'crack'); set(M, 5, 13, 'crack'); set(M, 7, 14, 'crack')
+  return M
+end
+local METEORS = {
+  { id = 'outer-nebula', look = { rock = R.grey, tail = R.solar, crack = R.steel, glowing = { tail = true } } },
+  { id = 'frost-rings', look = { rock = R.ice, tail = R.cyan, crack = R.plate, glowing = { tail = true } } },
+  { id = 'hollow-reef', look = { rock = R.coral, tail = R.teal, crack = R.teal, glowing = { tail = true, crack = true } } },
+  { id = 'broken-forge', look = { rock = R.slag, tail = R.lava, crack = R.lava, glowing = { tail = true, crack = true } } },
+  { id = 'signal-rift', look = { rock = R.obsidian, tail = R.glitch, crack = R.cyan, glowing = { tail = true, crack = true } } },
+}
+
 -- ── Output ──────────────────────────────────────────────────────────────────────────────────────────────────────
 local COLOURS = {}
 local function colour(c)
@@ -376,6 +396,7 @@ for _, s in ipairs(SECTORS) do
   look.around = sparks(look.ember or look.crystal or R.solar)
   build('event-wreck-' .. s.id, function() return M end, look, 6)
 end
+for _, m in ipairs(METEORS) do build('event-meteor-' .. m.id, meteorShape, m.look, 10) end
 local capsule = capsuleShape()
 build('event-capsule', function() return capsule end, CAPSULE, 8)
 build('event-bounty', markShape, MARK, 6)
@@ -387,7 +408,7 @@ if WEB then
     '// change the script and run it again (the command is at its top).',
     "import type { SpriteDef } from './types';",
     '',
-    '/** The in-run events: the abandoned ship of each sector (`event-wreck-<sector>`), the supply capsule, the bounty mark. */',
+    '/** The in-run events: the abandoned ship and the meteor of each sector (`event-wreck-<sector>`, `event-meteor-<sector>`), the supply capsule, the bounty mark. */',
     'export const EVENT_ART: Record<string, SpriteDef> = {',
   }
   for _, g in ipairs(generated) do

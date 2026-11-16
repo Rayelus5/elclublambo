@@ -48,7 +48,7 @@ export interface HudSnapshot {
    */
   still: { level: 0 | 1 | 2; left: number; x: number; y: number; radius: number };
   /** In-run events going on (2026-11-16): where (from my probe), how far along (0–1) and the seconds left. */
-  events: { kind: EventKind; dx: number; dy: number; progress: number; left: number }[];
+  events: { kind: EventKind; dx: number; dy: number; progress: number; left: number; radius: number }[];
 }
 
 function nearestSatellite(sim: Sim, x: number, y: number): HudSnapshot['satellite'] {
@@ -110,6 +110,8 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
       dx: ev.x - p.x,
       dy: ev.y - p.y,
       progress: ev.kind === 'wreck' ? Math.min(1, ev.progress / (sim.content.events.wreck.hold * 60)) : 0,
+      // A hazard's own size, for the screen (the storm's circle, the well's pull, the ambush's ring).
+      radius: ev.kind === 'storm' ? sim.content.events.storm.radius : ev.kind === 'well' ? sim.content.events.well.radius : ev.kind === 'ambush' ? sim.content.events.ambush.distance : 0,
       left: ev.t / 60,
     })),
     offer: p.offer,

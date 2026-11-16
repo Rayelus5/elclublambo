@@ -1,5 +1,6 @@
-import type { Content, SimEvent } from '@galaxy/sim';
+import { type Content, isLoot, type SimEvent } from '@galaxy/sim';
 import { copy } from '../copy/es';
+import { eventName } from './event-names';
 
 // Centre-screen notices in a run (2026-11-16): what happens says so in the middle of the screen, one at a time, so the
 // player knows the run's moments — a new layer, a Núcleo, the beacon, a satellite and its signal, the Static, the
@@ -15,7 +16,8 @@ export interface RunNotice {
 
 const t = copy.arena.notices;
 
-export function noticesFor(events: readonly SimEvent[], me: number, content: Content): RunNotice[] {
+/** `sector`: the run's, for the hazards' own names. */
+export function noticesFor(events: readonly SimEvent[], me: number, content: Content, sector = ''): RunNotice[] {
   const out: RunNotice[] = [];
   for (const e of events) {
     if (e.t === 'layer') out.push({ text: t.layer(e.layer), tone: 'info' });
@@ -26,9 +28,12 @@ export function noticesFor(events: readonly SimEvent[], me: number, content: Con
     else if (e.t === 'static' && e.probe === me && e.what === 'warn') out.push({ text: t.staticWarn, tone: 'danger' });
     else if (e.t === 'static' && e.probe === me && e.what === 'start') out.push({ text: t.staticStart, tone: 'danger' });
     // In-run events (2026-11-16): one comes, what it dropped, or that it was lost. The group shares them.
-    else if (e.t === 'worldEvent' && e.what === 'appear') out.push({ text: t.event[e.kind], tone: 'info' });
-    else if (e.t === 'worldEvent' && e.what === 'done') out.push({ text: t.eventDone(e.kind, { coins: e.coins ?? 0, dust: e.dust ?? 0, components: e.components ?? 0 }), tone: 'reward' });
-    else if (e.t === 'worldEvent' && e.what === 'fail') out.push({ text: t.eventFail[e.kind], tone: 'info' });
+    else if (e.t === 'worldEvent' && e.what === 'appear') {
+      if (isLoot(e.kind)) out.push({ text: t.event[e.kind], tone: 'info' });
+      else out.push({ text: t.hazard[e.kind](eventName(e.kind, sector)), tone: 'danger' });
+    } else if (e.t === 'worldEvent' && e.what === 'done' && isLoot(e.kind))
+      out.push({ text: t.eventDone(e.kind, { coins: e.coins ?? 0, dust: e.dust ?? 0, components: e.components ?? 0 }), tone: 'reward' });
+    else if (e.t === 'worldEvent' && e.what === 'fail' && isLoot(e.kind)) out.push({ text: t.eventFail[e.kind], tone: 'info' });
   }
   return out;
 }

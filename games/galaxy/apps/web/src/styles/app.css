@@ -1442,6 +1442,8 @@
   .hud-event.wreck { --ev: var(--color-solar, #ffc94a); --ev-bg: rgb(40 26 4 / .9); --ev-line: #a0661a; }
   .hud-event.capsule { --ev: var(--color-terminal, #45e3a6); --ev-bg: rgb(4 40 28 / .9); --ev-line: #17b07e; }
   .hud-event.bounty { --ev: #ff4d6d; --ev-bg: rgb(44 6 16 / .9); --ev-line: #9c2238; }
+  .hud-event.storm, .hud-event.well { --ev: #e05cff; --ev-bg: rgb(30 8 44 / .9); --ev-line: #8e2bb3; }
+  .hud-event.meteors, .hud-event.ambush { --ev: #ff4d6d; --ev-bg: rgb(44 6 16 / .9); --ev-line: #9c2238; }
   .hud-event-arrow { width: 0; height: 0; border-left: 14px solid var(--ev); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px var(--ev)); }
   .hud-event-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: var(--ev-bg); border: 2px solid var(--ev-line); color: var(--color-ink); font-size: 12px; white-space: nowrap; }
   .hud-event-label b { color: var(--ev); font-size: 13px; }
