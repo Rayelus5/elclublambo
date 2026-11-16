@@ -1,7 +1,7 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { drawTraits, subRng } from '@galaxy/engine';
 import { describe, expect, test } from 'vitest';
-import { botInput, botPick, type Content, createSim, DEFAULT_CONTENT, IDLE, type RelicInput, type StatBonus, step } from '../src/index';
+import { botInput, botPick, type Content, createSim, DEFAULT_CONTENT, IDLE, type Offer, type RelicInput, type StatBonus, step } from '../src/index';
 import { VETERAN } from './proving';
 
 // The difficulty curve (enemy life plan, 2026-11-15, after Nov plan B1). In the Nebula a beginner reaches layer 2, almost
@@ -26,6 +26,8 @@ interface Trial {
   enemyHpScale?: number;
   bossHpScale?: number;
   hitCap?: number;
+  healing?: Partial<Content['healing']>;
+  stillness?: Partial<Content['stillness']>;
 }
 function contentToMeasure(): Content {
   if (!TRY) return DEFAULT_CONTENT;
@@ -47,6 +49,9 @@ function contentToMeasure(): Content {
     e.hp *= t.enemyHpScale ?? 1;
   }
   if (t.hitCap !== undefined) c.hitCap = t.hitCap;
+  // The healing budget and «La Estática te alcanza» (2026-11-16), field by field.
+  if (t.healing) c.healing = { ...c.healing, ...t.healing };
+  if (t.stillness) c.stillness = { ...c.stillness, ...t.stillness };
   return c;
 }
 // 16 seeds and the mean of the middle half: 8 seeds and a median moved ±20 % between runs of the same settings.
@@ -68,6 +73,10 @@ interface Profile {
   band?: number;
   /** Stands still (no moving, no dash) this share of the time: the bot plays 1 second and idles the rest. */
   still?: number;
+  /** Only wiggles in place, this many units side to side (2026-11-16: dodging «La Estática te alcanza» that way). */
+  wiggle?: number;
+  /** Takes these upgrades first whenever a card offers them (2026-11-16: the Sifón build). */
+  prefer?: string[];
 }
 
 /** Who plays: their relics and their permanent bonuses (probe level and Laboratorio). */
@@ -82,11 +91,21 @@ export const PROFILES = {
   avanzado: { relics: TOP, bonuses: VETERAN, target: 26, band: 4 },
   /** The same account standing still 80 % of the run (the farm the owner reported): it moves 1 second out of 5. */
   quieto: { relics: TOP, bonuses: VETERAN, still: 0.8 },
+  /** «La Estática te alcanza» (2026-11-16): the same account never moving at all. */
+  plantado: { relics: TOP, bonuses: VETERAN, still: 1 },
+  /** The same account wiggling in place, ±20 units: a small area is still standing still. */
+  campero: { relics: TOP, bonuses: VETERAN, wiggle: 20 },
+  /** The Sifón build (2026-11-16): the same account taking Sifón first, then playing as usual. */
+  sifon: { relics: TOP, bonuses: VETERAN, prefer: ['siphon'] },
 } satisfies Record<string, Profile>;
 export type ProfileId = keyof typeof PROFILES;
 
 /** The standing-still advanced player lasts at most this share of the moving one. */
 const STILL_SHARE = 0.6;
+/** Never moving (or only wiggling in place) lasts at most this share of playing (2026-11-16). */
+const PLANTED_SHARE = 0.25;
+/** The Sifón build lasts at most this much more than the usual build: no more endless runs (2026-11-16). */
+const SIPHON_SHARE = 1.15;
 
 export interface Outcome {
   minutes: number;
@@ -100,6 +119,12 @@ export interface Outcome {
   fights: { layer: number; seconds: number }[];
   /** Reached the time limit in a Núcleo fight that had lasted over 5 minutes: neither side could win it. */
   stuck: boolean;
+}
+
+/** The bot's card, or the profile's preferred upgrade when the card offers it. */
+function pickFor(p: Profile, offer: readonly Offer[]): number {
+  const want = p.prefer ? offer.findIndex((o) => p.prefer!.includes(o.id)) : -1;
+  return want >= 0 ? want : botPick(offer);
 }
 
 /** True while a profile that stands still part of the time is idling: it plays the first second of each window. */
@@ -118,7 +143,8 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
   const fights: Outcome['fights'] = [];
   while (sim.tick < maxMinutes * 3600 && (sim.status === 'running' || sim.status === 'choosing')) {
     const probe = sim.probes[0]!;
-    if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: probe.offer ? botPick(probe.offer) : -1 }]);
+    if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: probe.offer ? pickFor(p, probe.offer) : -1 }]);
+    else if (p.wiggle) step(sim, [{ ...IDLE, mx: Math.floor(sim.tick / Math.max(1, Math.round(p.wiggle / 2))) % 2 === 0 ? 127 : -127 }]);
     else step(sim, [idles(p, sim.tick) ? IDLE : botInput(sim, 0, 99)]);
     for (const e of sim.events) {
       if (e.t === 'bossSpawn') {
@@ -202,11 +228,17 @@ describe.skipIf(!LONG)('curva de dificultad (GALAXY_CALIBRATE=1)', () => {
         if (profile === 'quieto' && medians['avanzado']?.[sector] !== undefined) {
           expect.soft(m, 'quedarse quieto el 80 % del tiempo dura como mucho el 60 % de lo que dura jugando').toBeLessThanOrEqual(medians['avanzado'][sector]! * STILL_SHARE);
         }
+        if ((profile === 'plantado' || profile === 'campero') && medians['avanzado']?.[sector] !== undefined) {
+          expect.soft(m, `${profile}: no moverse (o moverse en el sitio) dura como mucho el 25 % de lo que dura jugando`).toBeLessThanOrEqual(medians['avanzado'][sector]! * PLANTED_SHARE);
+        }
+        if (profile === 'sifon' && medians['avanzado']?.[sector] !== undefined) {
+          expect.soft(m, 'la build de Sifón dura como mucho un 15 % más que la de siempre').toBeLessThanOrEqual(medians['avanzado'][sector]! * SIPHON_SHARE);
+        }
       }
       // Each sector shorter than the one before (aimed at 10–15 %; with the bot's noise, between 2 and 30 % passes). Not
       // for a beginner, who only ever plays the Nebula first (the next sector opens by beating its Núcleo), nor for the
       // one standing still, measured against the moving one.
-      if (profile === 'novato' || profile === 'quieto') continue;
+      if (profile === 'novato' || profile === 'quieto' || profile === 'plantado' || profile === 'campero' || profile === 'sifon') continue;
       const order = sectors.filter((s) => s !== 'signal-rift');
       for (let k = 1; k < order.length; k++) {
         const ratio = medians[profile]![order[k]!]! / medians[profile]![order[k - 1]!]!;

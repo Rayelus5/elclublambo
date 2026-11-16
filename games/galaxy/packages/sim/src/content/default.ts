@@ -2120,6 +2120,10 @@ export const DEFAULT_CONTENT: Content = {
   crit: { chance: 0.05, damage: 1.5 },
   // Enemy life plan (2026-11-15): damage may grow, but no single hit kills a probe on its own.
   hitCap: 0.4,
+  // Sifón rework (2026-11-16): Sifón level 1 ≈ 1,4 %/s of max life, level 5 = 3 %/s; leech and drain alone 1 %/s.
+  healing: { base: 0.01, perLifesteal: 0.4, burst: 1 },
+  // «La Estática te alcanza» (2026-11-16): a warning at 8 s in a small area, from 12 s 2 %/s more and more (up to 15 %/s).
+  stillness: { radius: 56, warn: 8, hurt: 12, damage: 0.02, growth: 0.02, max: 0.15 },
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
   // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.

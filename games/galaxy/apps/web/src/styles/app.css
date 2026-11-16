@@ -1131,6 +1131,14 @@
   .hud-hp { position: relative; width: clamp(200px, 20vw, 340px); height: 26px; border-radius: 10px; background: var(--color-panel-lip); overflow: hidden; box-shadow: inset 0 2px 0 rgb(0 0 0 / .4); }
   .hud-hp i { position: absolute; inset: 0 auto 0 0; width: var(--p); background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); transition: width .2s ease; }
   .hud-hp s { position: absolute; inset: 0 auto 0 0; width: var(--p); background: rgb(191 227 255 / .55); text-decoration: none; }
+  /* «La Estática te alcanza» (2026-11-16): the life bar striped while the healing is blocked, and the warning under the
+     HUD's top row, in the middle (the Núcleo's bar sits lower, at 86 px). */
+  .hud-hp.blocked i { background: repeating-linear-gradient(135deg, var(--color-nova) 0 8px, #6b1d33 8px 14px); }
+  .hud-static { position: absolute; top: 152px; left: 50%; translate: -50% 0; padding: 6px 14px; border-radius: 999px; font: 700 14px var(--font-sans); white-space: nowrap; pointer-events: none; box-shadow: 0 3px 0 rgb(0 0 0 / .45); }
+  .hud-static.level-1 { background: rgb(255 201 74 / .92); color: var(--color-on-solar); }
+  .hud-static.level-2 { background: var(--color-static); color: #2b0712; animation: hud-static-pulse 1s ease-in-out infinite; }
+  @keyframes hud-static-pulse { 50% { box-shadow: 0 3px 0 rgb(0 0 0 / .45), 0 0 22px rgb(255 77 109 / .7); } }
+  @media (prefers-reduced-motion: reduce) { .hud-static.level-2 { animation: none; } }
   .hud-hp b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: var(--color-ink); text-shadow: 0 2px 0 rgb(0 0 0 / .55); }
   .hud-hp b small { font-size: 12px; color: var(--color-ink-soft); margin-left: 2px; }
   .hud-hp.low { animation: hud-low 1s ease-in-out infinite; }

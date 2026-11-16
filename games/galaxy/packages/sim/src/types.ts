@@ -215,6 +215,10 @@ export interface ProbeState {
   kills: number;
   /** Per-probe state of later systems (relic cooldowns, buffs…). */
   fx: Record<string, number>;
+  /** «La Estática te alcanza» (2026-11-16): where it has been standing and for how many ticks. */
+  still: { x: number; y: number; t: number };
+  /** Life it may still steal now (2026-11-16): refills by the healing budget each tick. */
+  healBank: number;
 }
 
 /** Who dealt a hit (for statuses, lifesteal and kill credit). */

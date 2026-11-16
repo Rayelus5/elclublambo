@@ -4,6 +4,7 @@ import { ticks } from '../version';
 import { dealDamage } from './combat';
 import { elementCode, elementOf } from './elements';
 import { hitArea, nearestEnemies } from './weapons';
+import { healProbe } from './healing';
 
 // Reactions (GDD §5.4, plan ruling 4). An elemental hit leaves its mark on the enemy for a few seconds; a hit of
 // another element on a marked enemy sets off the reaction of that pair, if there is one, and consumes the mark.
@@ -87,7 +88,7 @@ function apply(sim: Sim, r: ReactionDef, e: number, power: number, x: number, y:
     case 'drain': {
       const dealt = en.alive[e] ? dealDamage(sim, e, power * fx.share, src) : 0;
       const p = sim.probes[probe];
-      if (p && p.alive) p.hp = Math.min(p.stats.maxHp, p.hp + dealt * fx.heal);
+      if (p && p.alive) healProbe(sim, p, dealt * fx.heal, 'steal');
       break;
     }
   }

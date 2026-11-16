@@ -35,7 +35,7 @@ El contenido de las incursiones es la clave de configuración `content`. Su valo
 
 ### A3. `SIM_VERSION` y las partidas de referencia
 
-**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.15.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
+**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.16.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
 
 | Cambio | `SIM_VERSION` | Partidas de referencia |
 |---|---|---|
@@ -141,6 +141,11 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
 | `scaling.damagePerMinute`, `damagePerLayer` | el daño crece poco a poco |
 | `density.perLayer` | más enemigos vivos y más aparición en cada capa a partir de la segunda, salvo mientras hay Núcleo |
 | `hitCap` (en la raíz de `content`) | ningún golpe se lleva más de esta parte de la vida máxima de la sonda: se muere de varios golpes, nunca de uno |
+| `scaling.hpLevelMax` | techo de la vida por nivel (1000: sin techo en la práctica) |
+| `healing` (en la raíz, 2026-11-16) | la vida robada a los enemigos (Sifón, Sanguijuela, Sangría) cura como mucho vida máxima × (`base` + `perLifesteal` × robo de vida) por segundo, ahorrable hasta `burst` segundos; solo del daño real, nunca del sobrante al matar |
+| `stillness` (en la raíz, 2026-11-16) | «La Estática te alcanza»: `warn` s dentro de un círculo de `radius` avisan; desde `hurt` s hace daño (`damage` + `growth` por segundo, hasta `max`, × vida máxima por segundo) y bloquea toda curación hasta salir. No cuenta en la baliza, reanimando ni eligiendo carta en grupo. `hurt` 0 la apaga |
+
+**Perfiles de calibración** (`difficulty.test.ts`): `novato`, `medio`, `veterano` y `avanzado` juegan; `quieto` se queda quieto el 80 % del tiempo; `plantado` no se mueve nunca y `campero` solo se mueve en el sitio (los dos deben durar como mucho el 25 % de `avanzado`), y `sifon` coge el Sifón primero (como mucho un 15 % más que `avanzado`).
 
 **Para calibrar:** `GALAXY_CALIBRATE=1` con `GALAXY_SECTOR`, `GALAXY_PROFILE` y `GALAXY_CURVE_TRY=<json>`, que prueba valores sin tocar el código (sectores, Núcleos, enemigos, `enemyHpScale`, `bossHpScale` y `hitCap`). Cada corrida es lenta: lánzalas de pocas en pocas y con prioridad baja, o el equipo se queda sin CPU.
 

@@ -51,6 +51,11 @@ export function stateHash(sim: Sim): string {
     h.num(p.dash.t);
     h.num(p.dash.dir);
     h.num(p.level);
+    // «La Estática te alcanza» and the healing budget (SIM 1.16.0).
+    h.num(p.still.x);
+    h.num(p.still.y);
+    h.num(p.still.t);
+    h.num(p.healBank);
     h.num(p.xp);
     for (const w of p.weapons) {
       h.str(w.id);

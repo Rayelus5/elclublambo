@@ -38,7 +38,9 @@ export { coopFactor, playersIn } from './systems/coop';
 export { DASH, MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 export { type DashRules, dashRules } from './systems/dash';
 export { CoopFeed } from './coop-feed';
-export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
+export { hurtProbe, PROBE_RADIUS, shieldCapacity, staticHurt } from './systems/probes';
+export { healBlocked, healBudget, healProbe } from './systems/healing';
+export { updateStillness } from './systems/stillness';
 export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {
   AREA,
