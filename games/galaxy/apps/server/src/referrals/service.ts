@@ -75,7 +75,7 @@ const usernameOf = async (db: Db, id: string) => (await db.selectFrom('galaxy.ac
 async function payNewcomer(trx: Db, r: { account_id: string; owner_id: string; code: string }, rules: ReferralRules, out?: Notices): Promise<void> {
   const [newcomer, owner] = await Promise.all([usernameOf(trx, r.account_id), usernameOf(trx, r.owner_id)]);
   if (hasGifts(rules.newcomerGifts)) {
-    await sendSystemMail(trx, { id: r.account_id, username: newcomer }, { title: `Bienvenida de ${owner}`, body: `Has entrado con el código ${r.code} de ${owner}. Aquí tienes tu regalo de bienvenida`, gifts: rules.newcomerGifts }, out);
+    await sendSystemMail(trx, { id: r.account_id, username: newcomer }, { title: `Bienvenida de ${owner}`, body: `Has entrado con el código ${r.code} de ${owner}. Aquí tienes tu regalo de bienvenida`, gifts: rules.newcomerGifts, type: 'referral' }, out);
   }
   await trx.updateTable('galaxy.referrals').set({ newcomer_paid_at: sql<Date>`now()` }).where('account_id', '=', r.account_id).execute();
 }
@@ -86,7 +86,7 @@ async function payOwner(trx: Db, r: { account_id: string; owner_id: string; code
     await sendSystemMail(
       trx,
       { id: r.owner_id, username: owner },
-      { title: `${newcomer} ya es de nivel ${rules.activationLevel}`, body: `${newcomer} entró con tu código ${r.code} y ya ha llegado al nivel ${rules.activationLevel}. Gracias por traerlo. Aquí tienes tu premio`, gifts: rules.ownerGifts },
+      { title: `${newcomer} ya es de nivel ${rules.activationLevel}`, body: `${newcomer} entró con tu código ${r.code} y ya ha llegado al nivel ${rules.activationLevel}. Gracias por traerlo. Aquí tienes tu premio`, gifts: rules.ownerGifts, type: 'referral' },
       out,
     );
   }

@@ -14,11 +14,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.mail;
 const me: MeResponse = { id: 'p1', username: 'vega', roles: [], mfa: false, level: 6 };
+const v2 = { type: 'announcement' as const, granted: null, warn: false, archived: false };
 const box: MyMailbox = {
   unread: 2,
+  unclaimed: 1,
+  next: null,
   messages: [
-    { id: 'm1', title: 'Regalo de bienvenida', body: 'Gracias por probar la beta.\nAquí tienes algo para empezar', gifts: { coins: 100, dust: 5 }, at: '2026-11-08T10:00:00.000Z', expiresAt: '2026-12-08T10:00:00.000Z', read: false, claimed: false },
-    { id: 'm2', title: 'Mantenimiento el domingo', body: 'El juego parará una hora', gifts: {}, at: '2026-11-07T10:00:00.000Z', expiresAt: '2026-12-07T10:00:00.000Z', read: false, claimed: false },
+    { ...v2, contents: { v: 2, items: [{ kind: 'currency', currency: 'coins', amount: 100 }, { kind: 'currency', currency: 'dust', amount: 5 }], packs: [] }, id: 'm1', title: 'Regalo de bienvenida', body: 'Gracias por probar la beta.\nAquí tienes algo para empezar', gifts: { coins: 100, dust: 5 }, at: '2026-11-08T10:00:00.000Z', expiresAt: '2026-12-08T10:00:00.000Z', read: false, claimed: false },
+    { ...v2, contents: { v: 2, items: [], packs: [] }, id: 'm2', title: 'Mantenimiento el domingo', body: 'El juego parará una hora', gifts: {}, at: '2026-11-07T10:00:00.000Z', expiresAt: '2026-12-07T10:00:00.000Z', read: false, claimed: false },
   ],
 };
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) => fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').length;

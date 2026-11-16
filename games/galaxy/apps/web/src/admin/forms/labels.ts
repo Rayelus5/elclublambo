@@ -44,6 +44,7 @@ export const CATEGORIES: Category[] = [
   { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market', 'referrals'] },
   { id: 'coop', title: 'En grupo', description: 'Salas, cartas, caídas y reanimación, y cómo cambian la dificultad y el botín con los jugadores', icon: 'clan', keys: ['coop'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
+  { id: 'mail', title: 'Buzón', description: 'Packs de regalos, plantillas y qué regalo es tan grande que solo lo envía un superadmin', icon: 'mail', keys: ['mail', 'mailLimits'] },
   { id: 'shop', title: 'Tienda', description: 'Packs de pago, precios de Stripe, ofertas y límites', icon: 'store', keys: ['shop'] },
   { id: 'cosmetics', title: 'Cosméticos', description: 'Avatares, marcos y títulos del perfil: nombres, rareza y cómo se consiguen', icon: 'starOn', keys: ['cosmetics'] },
   {
@@ -87,6 +88,8 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   shop: { title: 'Tienda de recursos', description: 'Si está abierta y para quién, los packs con su precio de Stripe, las ofertas y el límite diario' },
   cosmetics: { title: 'Cosméticos del perfil', description: 'Avatares, marcos y títulos: nombre, rareza, de dónde salen y el texto de cómo conseguirlos' },
   referrals: { title: 'Referidos', description: 'Código obligatorio al registrarse, regalos al invitado y al dueño, nivel de activación y topes contra cuentas secundarias' },
+  mail: { title: 'Biblioteca del buzón', description: 'Los packs de regalos y las plantillas de mensaje que se usan desde Comunicación, y cuándo avisa el buzón de que algo caduca' },
+  mailLimits: { title: 'Límites de los regalos', description: 'A partir de qué regalo o de cuántos destinatarios un mensaje solo lo puede enviar un superadmin. Solo un superadmin lo cambia' },
 };
 
 const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria', 'Mítica'] as const;

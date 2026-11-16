@@ -117,6 +117,8 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', { bodyLimit: CONFIG_BODY_LIMIT }, async (req, reply) => {
     const admin = requireAdmin(req);
     const key = keyOf(req.params.key);
+    // Mail v2: what makes a gift a superadmin's is a superadmin's to change (an admin cannot raise their own limit).
+    if (key === 'mailLimits' && !admin.roles.includes('superadmin')) throw new HttpError(403, 'superadmin_only');
     const { data, reason, password, baseVersion } = publishBody.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     await confirmPassword(deps.db, admin, password);

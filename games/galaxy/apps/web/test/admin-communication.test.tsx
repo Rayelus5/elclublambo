@@ -19,7 +19,7 @@ const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'
 const DAY = 86_400_000;
 const around = (days: number) => new Date(Date.now() + days * DAY).toISOString();
 const sent: AdminMailRow[] = [
-  { id: 'm1', title: 'Bienvenida', body: 'Hola', gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: around(-2), expiresAt: around(28), withdrawnAt: null, recipients: 40, read: 12, claimed: 9 },
+  { id: 'm1', title: 'Bienvenida', body: 'Hola', type: 'announcement', contents: { v: 2, items: [{ kind: 'currency', currency: 'coins', amount: 100 }], packs: [] }, big: false, gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: around(-2), expiresAt: around(28), withdrawnAt: null, recipients: 40, read: 12, claimed: 9 },
 ];
 const notices: AdminNoticeRow[] = [
   { id: 'n1', text: 'Mantenimiento el domingo', tone: 'warning', startsAt: around(-2), endsAt: around(2), endedAt: null, by: 'rayelus', live: true },

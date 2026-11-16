@@ -1,3 +1,5 @@
+import { mailConfigSchema } from '../gifts/library';
+import { mailLimitsSchema } from '../gifts/limits';
 import { DEFAULT_CHAT_WORDS } from '../chat/words';
 import { type Content, contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { contentArtIssues } from './art';
@@ -803,6 +805,10 @@ export const configSchemas = {
       sharedIpDays: z.number().int().min(1).max(365).default(30),
     })
     .strict(),
+  // Mail v2 (2026-11-16): the admins' pack library and templates, and what makes a gift a superadmin's (only a
+  // superadmin publishes `mailLimits`).
+  mail: mailConfigSchema,
+  mailLimits: mailLimitsSchema,
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;
