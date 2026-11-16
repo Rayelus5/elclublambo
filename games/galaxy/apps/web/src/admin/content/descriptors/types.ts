@@ -48,8 +48,6 @@ export interface FieldDesc extends Omit<FieldInfo, 'hint' | 'options'> {
   vocab?: VocabName;
   /** Where its choices come from when they are other entities («enemies», «bosses», «weapons», «passives»…). */
   options?: string;
-  section?: string;
-  advanced?: boolean;
 }
 export type FieldTable = Record<string, FieldDesc>;
 

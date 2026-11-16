@@ -15,7 +15,7 @@ import { PublishFields } from './PublishFields';
 import { ConfigForm, type Options } from './forms/ConfigForm';
 import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
-import { ADVANCED_KEYS, CATEGORIES, JSON_ONLY, KEY_INFO } from './forms/labels';
+import { ADVANCED_KEYS, CATEGORIES, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
 
 const t = copy.admin.config;
@@ -185,13 +185,12 @@ function contentOptions(content: Content): Options {
  */
 export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options?: Options }) {
   const id = useId();
-  const jsonOnly = JSON_ONLY.has(row.key);
   const advanced = ADVANCED_KEYS.has(row.key);
   const schema = configJsonSchema(row.key);
   // What the draft is made on: the version that was live when editing began (or was last published from here). If
   // someone else publishes meanwhile, the server refuses the draft (409) and this says so.
   const [base, setBase] = useState({ version: row.version, data: row.data });
-  const [mode, setMode] = useState<'form' | 'json'>(jsonOnly ? 'json' : 'form');
+  const [mode, setMode] = useState<'form' | 'json'>('form');
   const [draft, setDraft] = useState<unknown>(row.data);
   const [text, setText] = useState(() => JSON.stringify(row.data, null, 2));
   const [done, setDone] = useState<number | null>(null);
@@ -239,7 +238,7 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
           <span>{t.advancedNote}</span>
         </p>
       ) : null}
-      {advanced && !jsonOnly ? (
+      {advanced ? (
         <div className="tabs cf-tabs" role="tablist" aria-label={t.modes}>
           <button type="button" role="tab" aria-selected={mode === 'form'} disabled={mode === 'json' && !jsonOk} onClick={() => switchTo('form')}>
             {t.formTab}

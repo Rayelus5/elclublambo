@@ -69,6 +69,7 @@ test('lista los borradores abiertos y crea uno nuevo, que se abre', async () => 
 test('editar guarda solo el campo que cambia, con su revisión', async () => {
   const fetch = api({ 'PUT /galaxy/api/admin/config-drafts/d1/field': () => jsonResponse(200, draft({ revision: 2, data: { content: { hitCap: 0.3 } } })) });
   renderAt('/admin/configuracion/content?borrador=d1', { '/admin/configuracion/content': <ContentScreen /> });
+  await userEvent.setup().click(await screen.findByRole('tab', { name: copy.admin.content.jsonTab }));
   const editor = await screen.findByRole('textbox', { name: t.json });
   const value = JSON.parse((editor as HTMLTextAreaElement).value) as { hitCap: number };
   expect(value.hitCap).toBe(0.35);

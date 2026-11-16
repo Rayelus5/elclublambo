@@ -286,31 +286,54 @@ function Words({ path, pattern }: { path: Path; pattern: string }) {
   );
 }
 
-/** The fields of an object: scalars side by side, groups and lists across. */
+/**
+ * The fields of an object: scalars side by side, groups and lists across. Described sections keep their fields together
+ * under a heading, in the order they first appear; technical fields go last, behind «Más ajustes» (open when one of them
+ * has a problem).
+ */
 function Fields({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { root, set, info } = useForm();
+  const { root, set, info, issues } = useForm();
   const value = getIn(root, path) as Record<string, unknown> | undefined;
+  const field = (k: string, child: JsonSchema) => {
+    const p = [...path, k];
+    const pat = pattern ? `${pattern}.${k}` : k;
+    const optional = !node.required?.includes(k) && child.default === undefined && unwrap(child).node.default === undefined;
+    // An optional group or date not set: a button adds it.
+    if (optional && value?.[k] === undefined && kindOf(unwrap(child).node) !== 'enum') {
+      return (
+        <div key={k} className="cf-field cf-absent">
+          <span className="cf-absent-label">{info(pat).label}</span>
+          <button type="button" className="lip pill small" onClick={() => set(p, emptyOf(child))}>
+            <Icon name="plus" />
+            <span>Añadir</span>
+          </button>
+        </div>
+      );
+    }
+    return <Node key={k} node={child} path={p} pattern={pat} optional={optional} />;
+  };
+  const entries = Object.entries(node.properties ?? {}).map(([k, child]) => ({ k, child, desc: info(pattern ? `${pattern}.${k}` : k) }));
+  const sections = new Map<string, typeof entries>();
+  for (const e of entries.filter((x) => !x.desc.advanced)) sections.set(e.desc.section ?? '', [...(sections.get(e.desc.section ?? '') ?? []), e]);
+  const advanced = entries.filter((x) => x.desc.advanced);
+  const here = pathKey(path);
+  const troubled = advanced.some(({ k }) => [...issues.keys()].some((key) => key === (here ? `${here}.${k}` : k) || key.startsWith(here ? `${here}.${k}.` : `${k}.`)));
   return (
     <div className="cf-grid">
-      {Object.entries(node.properties ?? {}).map(([k, child]) => {
-        const p = [...path, k];
-        const pat = pattern ? `${pattern}.${k}` : k;
-        const optional = !node.required?.includes(k) && child.default === undefined && unwrap(child).node.default === undefined;
-        // An optional group or date not set: a button adds it.
-        if (optional && value?.[k] === undefined && kindOf(unwrap(child).node) !== 'enum') {
-          const field = info(pat);
-          return (
-            <div key={k} className="cf-field cf-absent">
-              <span className="cf-absent-label">{field.label}</span>
-              <button type="button" className="lip pill small" onClick={() => set(p, emptyOf(child))}>
-                <Icon name="plus" />
-                <span>Añadir</span>
-              </button>
-            </div>
-          );
-        }
-        return <Node key={k} node={child} path={p} pattern={pat} optional={optional} />;
-      })}
+      {[...sections].map(([section, list]) => [
+        section && sections.size > 1 ? (
+          <h4 key={`§${section}`} className="cf-section">
+            {section}
+          </h4>
+        ) : null,
+        ...list.map(({ k, child }) => field(k, child)),
+      ])}
+      {advanced.length ? (
+        <details className="cf-more" open={troubled || undefined}>
+          <summary>{`Más ajustes (${advanced.length})`}</summary>
+          <div className="cf-grid">{advanced.map(({ k, child }) => field(k, child))}</div>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -335,12 +358,14 @@ function Group({ node, path, pattern, optional }: { node: JsonSchema; path: Path
 }
 
 function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
-  const { root, set, info } = useForm();
+  const { root, set, info, options } = useForm();
   const id = useId();
   const field = info(pattern);
   const value = getIn(root, path) as Record<string, unknown> | undefined;
   const d = discriminatorOf(node);
   const option = optionOf(node, value);
+  const kindsFrom = d ? info(`${pattern}.${d}`).options : undefined;
+  const kinds = kindsFrom ? options[kindsFrom] : undefined;
   if (!d || !option) return null;
   const rest = { ...option, properties: Object.fromEntries(Object.entries(option.properties ?? {}).filter(([k]) => k !== d)) };
   return (
@@ -354,7 +379,12 @@ function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; patter
             size="sm"
             block
             value={String(value?.[d] ?? '')}
-            options={node.oneOf!.map((o) => ({ value: String(o.properties![d]!.const), label: valueName(o.properties![d]!.const) }))}
+            options={node.oneOf!.map((o) => {
+              const v = String(o.properties![d]!.const);
+              // The kinds' names from the form's own vocabulary when it has one (the content editor's).
+              const named = kinds?.find((x) => x.value === v)?.label;
+              return { value: v, label: named ?? valueName(o.properties![d]!.const) };
+            })}
             onChange={(v) => set(path, emptyOf(node.oneOf!.find((o) => o.properties?.[d]?.const === v)!))}
           />
         </div>

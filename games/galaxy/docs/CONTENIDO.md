@@ -206,6 +206,8 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
 - Si se publica otra versión mientras tanto, el borrador queda desfasado: «Juntar con lo publicado» lo fusiona entidad a entidad (por id) y, si los dos lados cambiaron lo mismo, el admin elige qué se queda.
 - Se publica con motivo y contraseña (todas sus claves o ninguna, `publishMany`) o se descarta. Los cerrados se borran a los 30 días.
 - Cualquier versión publicada puede volver como borrador nuevo («Crear un borrador con la versión N»).
+- **El editor visual** (P4): zonas (Arsenal, Sondas, Fauna, Núcleos, Sectores, Elementos, Reliquias, Eventos, Reglas y Técnico), la lista de cada colección con búsqueda y dibujo, y la ficha de la entrada elegida, con cada campo nombrado y explicado. El JSON sigue a una pestaña. Lo publicado no se quita (su id es permanente); lo que añade el borrador, sí. La vista va en la dirección (`?borrador=<id>&zona=fauna&id=mite`), así que se comparte.
+- **Cada campo nuevo de `content` necesita su descripción** en `apps/web/src/admin/content/descriptors/` (el archivo de su zona): nombre, explicación, y el vocabulario si elige entre valores. Un campo de primer nivel nuevo va además en una zona de `descriptors/index.ts`. `admin-content-descriptors.test.ts` falla diciendo qué falta; hasta entonces el editor lo enseña con su nombre de código, en «Otros» si no tiene zona.
 
 **Probar antes de publicar (modo depuración, 2026-11-15; borradores, 2026-11-16):**
 - Un borrador tiene «Probar en incursión»: abre el hangar con `?borrador=<id>`, donde se eligen su sector y su sonda (también los nuevos). El servidor juega el borrador sobre lo publicado en una incursión de prueba en solitario: nadie más lo ve y no da recompensas.

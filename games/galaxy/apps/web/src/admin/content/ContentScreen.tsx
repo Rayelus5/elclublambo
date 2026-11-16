@@ -1,6 +1,6 @@
 import { configIssues, configJsonSchema, type DraftConflict, type DraftView, mergeDraft } from '@galaxy/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { DRAFTS_KEY, saveDraftField, useCreateDraft, useDiscardDraft, useDraft, useDrafts, usePublishDraft, useRebaseDraft } from '../../api/config-drafts';
 import { type ConfigKeyRow, useConfigKey, useConfigVersions, useFetchConfigVersion } from '../../api/config';
@@ -9,10 +9,12 @@ import { copy } from '../../copy/es';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { cellText } from '../DataTable';
-import { humanDiff } from '../forms/humanDiff';
+import { humanDiff, placeOf } from '../forms/humanDiff';
 import { issueText } from '../forms/issues';
 import { KEY_INFO } from '../forms/labels';
 import { PublishFields } from '../PublishFields';
+import { ContentEditor } from './ContentEditor';
+import { describeContent } from './descriptors';
 import { changedFields } from './drafts';
 
 // The run content's page (the content editor, 2026-11-16, P2): changes go through server-side drafts. The list of open
@@ -164,7 +166,7 @@ function DraftEditor({ id, live, onClose }: { id: string; live: ConfigKeyRow; on
   return <DraftBody id={id} first={draft.data} live={live} onClose={onClose} />;
 }
 
-/** An open draft: the content as JSON, saved as it changes; its checks, its changes, rebasing, trying, publishing. */
+/** An open draft: the visual editor (or its JSON), saved as it changes; its checks, its changes, rebasing, trying, publishing. */
 function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView; live: ConfigKeyRow; onClose: (message?: string) => void }) {
   const ids = useId();
   const qc = useQueryClient();
@@ -173,8 +175,11 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
   const publish = usePublishDraft(id);
   const discard = useDiscardDraft(id);
   const schema = configJsonSchema('content');
-  // The text starts from the draft over what is live.
-  const [text, setText] = useState<string | null>(() => JSON.stringify(mergeDraft('content', live.data, first.data.content ?? {}), null, 2));
+  // The whole content the draft plays: its fields over what is live.
+  const [doc, setDoc] = useState<Record<string, unknown>>(() => mergeDraft('content', live.data, first.data.content ?? {}) as Record<string, unknown>);
+  const [mode, setMode] = useState<'visual' | 'json'>('visual');
+  const [text, setText] = useState('');
+  const [jsonOk, setJsonOk] = useState(true);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<unknown>(null);
   const [conflicts, setConflicts] = useState<DraftConflict[] | null>(null);
@@ -182,20 +187,12 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
   const view = useRef<DraftView | null>(first);
   const queue = useRef(Promise.resolve());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
 
-  const parsed = useMemo(() => {
-    if (text === null) return null;
-    try {
-      const v = JSON.parse(text) as unknown;
-      return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-    } catch {
-      return null;
-    }
-  }, [text]);
-  const issues = parsed ? configIssues('content', parsed) : [];
-  const changes = parsed ? humanDiff('content', schema, live.data, parsed) : [];
+  // The checks run on the content a moment behind the keys (it is about 180 KB): typing never waits for them.
+  const checked = useDeferredValue(doc);
+  const issues = useMemo(() => configIssues('content', checked), [checked]);
+  const changes = useMemo(() => humanDiff('content', schema, live.data, checked, {}, describeContent), [schema, live.data, checked]);
 
   function save(next: Record<string, unknown>) {
     queue.current = queue.current.then(async () => {
@@ -218,17 +215,22 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
     });
   }
 
-  function edit(value: string) {
-    setText(value);
+  function change(next: Record<string, unknown>) {
+    setDoc(next);
     if (timer.current) clearTimeout(timer.current);
-    let next: unknown;
+    timer.current = setTimeout(() => save(next), SAVE_DELAY_MS);
+  }
+
+  function editJson(value: string) {
+    setText(value);
     try {
-      next = JSON.parse(value);
+      const next = JSON.parse(value) as unknown;
+      if (!next || typeof next !== 'object' || Array.isArray(next)) throw new Error('not an object');
+      setJsonOk(true);
+      change(next as Record<string, unknown>);
     } catch {
-      return;
+      setJsonOk(false);
     }
-    if (!next || typeof next !== 'object' || Array.isArray(next)) return;
-    timer.current = setTimeout(() => save(next as Record<string, unknown>), SAVE_DELAY_MS);
   }
 
   function runRebase(resolutions: Parameters<typeof rebase.mutate>[0] = {}) {
@@ -240,7 +242,9 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
         }
         setConflicts(null);
         view.current = r.draft;
-        setText(JSON.stringify(mergeDraft('content', live.data, r.draft.data.content ?? {}), null, 2));
+        const merged = mergeDraft('content', live.data, r.draft.data.content ?? {}) as Record<string, unknown>;
+        setDoc(merged);
+        setText(JSON.stringify(merged, null, 2));
       },
     });
   }
@@ -268,12 +272,33 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
             </button>
           </div>
         ) : null}
-        <div className="field">
-          <label htmlFor={`${ids}-j`}>{t.json}</label>
-          <p className="hint">{t.jsonHint}</p>
-          <textarea id={`${ids}-j`} className="admin-json content-json" spellCheck={false} rows={28} value={text ?? ''} aria-invalid={text !== null && !parsed} onChange={(e) => edit(e.target.value)} />
-          {text !== null && !parsed ? <p className="field-error">{t.invalidJson}</p> : null}
+        <div className="tabs admin-tabs content-modes" role="tablist" aria-label={copy.admin.content.modes}>
+          <button type="button" role="tab" aria-selected={mode === 'visual'} onClick={() => setMode('visual')}>
+            {copy.admin.content.visualTab}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'json'}
+            onClick={() => {
+              setText(JSON.stringify(doc, null, 2));
+              setJsonOk(true);
+              setMode('json');
+            }}
+          >
+            {copy.admin.content.jsonTab}
+          </button>
         </div>
+        {mode === 'visual' ? (
+          <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+        ) : (
+          <div className="field">
+            <label htmlFor={`${ids}-j`}>{t.json}</label>
+            <p className="hint">{t.jsonHint}</p>
+            <textarea id={`${ids}-j`} className="admin-json content-json" spellCheck={false} rows={28} value={text} aria-invalid={!jsonOk} onChange={(e) => editJson(e.target.value)} />
+            {!jsonOk ? <p className="field-error">{t.invalidJson}</p> : null}
+          </div>
+        )}
       </div>
       <aside className="cf-aside">
         <section className="lip panel" aria-label={t.issues}>
@@ -284,7 +309,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
             <ul className="admin-issues">
               {issues.map((i) => (
                 <li key={`${i.path}:${i.message}`}>
-                  <code>{i.path || 'contenido'}</code> {issueText(i.message)}
+                  <b>{placeOf('content', schema, checked, i.path, describeContent) || t.whole}</b> {issueText(i.message, checked)}
                 </li>
               ))}
             </ul>

@@ -1,5 +1,6 @@
 import type { Content } from '@galaxy/sim';
 import type { IconName } from '../../../ui/Icon';
+import type { FieldInfo } from '../../forms/labels';
 import { part as arsenal } from './arsenal';
 import { part as cores } from './cores';
 import { part as elements } from './elements';
@@ -63,4 +64,11 @@ export const VOCABS: Partial<Record<VocabName, Vocab>> = Object.assign({}, ...Ob
 /** A field's description: its own, a variant's falling back to the plain field's, or none. */
 export function describeField(pattern: string): FieldDesc | undefined {
   return DESCRIPTORS[pattern] ?? (pattern.includes('<') ? DESCRIPTORS[pattern.replace(/<[^>]*>/g, '')] : undefined);
+}
+
+/** The descriptors as the forms, «Qué cambia» and the problems read them: a vocabulary is a list of named choices. */
+export function describeContent(pattern: string): FieldInfo | undefined {
+  const d = describeField(pattern);
+  if (!d) return undefined;
+  return { ...d, options: d.vocab ? `vocab:${d.vocab}` : d.options };
 }

@@ -21,6 +21,10 @@ export interface FieldInfo {
   options?: string;
   /** A list of words, one per line. */
   lines?: boolean;
+  /** The heading it goes under among its siblings («Identidad», «Vida y daño»): fields of one section stay together. */
+  section?: string;
+  /** A technical knob: behind «Más ajustes», closed unless it has a problem. */
+  advanced?: boolean;
 }
 
 export interface Category {
@@ -53,9 +57,6 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const ADVANCED_KEYS = new Set<ConfigKey>(CATEGORIES.find((c) => c.advanced)!.keys);
-/** Too large for a form: only its JSON. */
-export const JSON_ONLY = new Set<ConfigKey>(['content']);
-
 export const KEY_INFO: Record<ConfigKey, { title: string; description: string }> = {
   features: { title: 'Interruptores', description: 'Partes del juego que se pueden apagar' },
   auth: { title: 'Cuentas y sesiones', description: 'Duración de las sesiones y límites contra abusos' },

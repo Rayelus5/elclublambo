@@ -1277,3 +1277,17 @@ Comprueba con `rayelus`:
 2. «Probar en incursión»: el hangar enseña el aviso con su sector y su sonda, y la incursión es de prueba.
 3. Publica el borrador o descártalo.
 
+## Editor de contenido, P3 y P4: motor de formularios y editor visual
+
+**Qué cambia.** Solo la web: sin migraciones, sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- **Motor de formularios** (P3): tuplas (`[mínimo, máximo]`, parejas de elementos), uniones de valores fijos (4 u 8, una estadística o la visión) y de objetos (`{ passive }` o `{ element }`), descripciones por variante y controles que sustituyen a un campo. Los campos se agrupan por sección y los técnicos quedan bajo «Más ajustes», que se abre si tienen un problema.
+- **Editor visual del contenido** (P4): las 10 zonas, la lista de cada colección (búsqueda sin tildes, dibujo, «Nueva» en lo añadido) y la ficha con sus 614 campos nombrados y explicados en español; los tipos (de arma, comportamiento, patrón, reacción…) salen con su nombre. Duplicar y añadir entradas; quitar solo lo no publicado. El JSON sigue en su pestaña.
+- **«Qué cambia» y «Problemas»** dicen el campo con su nombre («Tope de daño por golpe pasa de 40 % a 35 %») y los errores propios del contenido, en español («Apunta a «xyz», que no existe»).
+
+Comprueba con `rayelus`:
+1. Abre un borrador: el editor sale por zonas; en Fauna busca «ácaro» y ábrelo.
+2. Cambia su vida: sale «Guardado» y «Qué cambia» lo dice con su nombre.
+3. Duplica una entrada y quítala; una publicada no deja quitarse.
+
