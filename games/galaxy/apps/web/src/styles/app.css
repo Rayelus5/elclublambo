@@ -3080,6 +3080,22 @@
   .ce-matrix td { min-inline-size: 64px; block-size: 30px; padding: 2px 6px; border-radius: 6px; background: rgb(255 255 255 / .03); text-align: center; white-space: nowrap; }
   .ce-matrix td.on { background: color-mix(in srgb, var(--color-uv) 35%, transparent); color: var(--color-ink); font-weight: 700; }
   .ce-matrix td.ce-matrix-off, .ce-matrix thead td { background: transparent; }
+  /* The «Crear…» wizards (P9a). */
+  .ce-create { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ce-wizard { --r: 18px; padding: 16px 18px; display: grid; gap: 14px; min-inline-size: 0; }
+  .ce-wizard-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+  .ce-wizard-head h2 { margin: 0; font: 400 22px var(--font-display); }
+  .ce-wizard-steps { flex-wrap: wrap; }
+  .ce-wizard-steps .admin-chip { margin-inline-start: 6px; }
+  .ce-wizard-place ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .ce-wizard-place li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 6px 10px; border-radius: 10px; background: rgb(255 255 255 / .04); }
+  .ce-wizard-spawn { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13.5px; font-weight: 600; color: var(--color-ink-soft); }
+  .ce-wizard-spawn label { display: flex; align-items: center; gap: 6px; }
+  .ce-wizard-spawn input { inline-size: 84px; min-block-size: 36px; padding: 6px 8px; border: 0; border-radius: 8px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .ce-wizard-review { display: grid; gap: 10px; justify-items: start; }
+  .ce-wizard-nav { display: flex; gap: 8px; }
+  .ce-wizard .ce-wizard-wide { grid-column: 1 / -1; margin: 0; }
+  .ce-wizard .cf-field input[type='number'] { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
   /* A text tied to an entry (P8): the game's own greyed while it is empty. */
   .ce-text.long { grid-column: 1 / -1; }
   .ce-text textarea, .ce-text input { inline-size: 100%; min-block-size: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: rgb(0 0 0 / .3); color: var(--color-ink); font: inherit; font-size: 15px; line-height: 1.45; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); resize: vertical; }

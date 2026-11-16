@@ -68,6 +68,7 @@ pnpm viene de corepack y se usa Node 22. Desde la raíz del repo, con `-C games/
   - En `packages/sim/src` está prohibido `Math.random`, `Date` y la trigonometría nativa.
 - **El motor de galaxias está congelado.** Un rasgo nuevo cambia galaxias que ya tienen los jugadores: decisión del propietario.
 - **El contenido son datos.** `DEFAULT_CONTENT` es el valor por defecto de la clave viva `content`. En PRE manda lo publicado; lo nuevo hay que volver a publicarlo. Detalles en `docs/CONTENIDO.md`.
+- **Los admins editan el contenido en el panel** (`/admin/configuracion/content`, el editor de contenido). Por eso un campo nuevo de `content` necesita su descripción en `apps/web/src/admin/content/descriptors/` (`admin-content-descriptors.test.ts` falla hasta tenerla), un dibujo nuevo regenerar el catálogo de arte y un tipo de arma nuevo su fila en `WEAPON_FIELDS` (CONTENIDO A6 y A7).
 - **La configuración viva** se publica por clave y sustituye los campos de primer nivel enteros. Ids permanentes. Temporadas y eventos, a medianoche de Madrid.
 - **CSP estricta:** nada de `<style>` ni `style=""` en línea (se usan variables CSS o el CSSOM). Sonidos sintetizados (los del escáner pro pueden venir de archivos propios en `apps/web/src/assets/audio/escaner/`, con su versión sintetizada siempre detrás), fuentes propias. Pixi se importa como `pixi.js/unsafe-eval`.
 - **Migraciones:**

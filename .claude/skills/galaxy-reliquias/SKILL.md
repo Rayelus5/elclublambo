@@ -5,6 +5,8 @@ description: Crear o cambiar las pasivas de las galaxias equipadas como reliquia
 
 # Reliquias: los poderes de las galaxias
 
+> **El editor de contenido del panel** (`/admin/configuracion/content`, 2026-11-16) ya permite a un admin retocar estos datos y crear entradas de tipos que existen, con asistentes «Crear…», dibujo de la galería y sus textos, sin código. Esta skill es para lo que necesita código, o para preparar contenido en `ops/launch/`. Todo campo nuevo de `content` lleva su descripción en `apps/web/src/admin/content/descriptors/` (CONTENIDO A7).
+
 Cuando un jugador equipa una galaxia en una ranura, sus **rasgos** se convierten en **poderes** dentro de la incursión. Todo lo que hacen está en `packages/sim/src/systems/relics.ts` (`relicSkill`, `updateRelics`, `relicBonuses`):
 
 | Rasgo | Poder |

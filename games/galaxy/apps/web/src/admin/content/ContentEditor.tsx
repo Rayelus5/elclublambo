@@ -12,6 +12,8 @@ import { artUrl } from './art';
 import { AREAS, type AreaDesc, describeContent as describe, DESCRIPTORS, VOCABS } from './descriptors';
 import { PhaseTimeline, ReactionMatrix, SpawnTimeline, WeightBars } from './Charts';
 import { LevelTable } from './LevelTable';
+import { type CompanionField, type Companions, CreateWizard, isWizardKind, WIZARDS, type WizardKind } from './CreateWizard';
+import { uniqueId } from './ids';
 import { SpritePicker } from './SpritePicker';
 import { TEXT_PATTERNS, TextFallback } from './TextFallback';
 
@@ -54,16 +56,7 @@ function usesIn(value: Value, field: string, id: string): ContentRef[] {
 const isEntity = (x: unknown): x is Entity => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string';
 const entitiesOf = (v: unknown): Entity[] => (Array.isArray(v) ? v.filter(isEntity) : []);
 
-/** A free id from `base`: itself, else «base-2», «base-3»… cut so it never passes 32 letters. */
-export function uniqueId(base: string, taken: (id: string) => boolean): string {
-  const root = (base || 'nueva-entrada').slice(0, 32);
-  if (!taken(root)) return root;
-  for (let n = 2; ; n++) {
-    const suffix = `-${n}`;
-    const id = `${root.slice(0, 32 - suffix.length)}${suffix}`;
-    if (!taken(id)) return id;
-  }
-}
+export { uniqueId } from './ids';
 
 const isEntityList = (v: unknown): v is Entity[] => Array.isArray(v) && v.length > 0 && v.every((x) => !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string');
 
@@ -102,7 +95,22 @@ function areasFor(): AreaDesc[] {
   return rest.length ? [...AREAS, { id: 'otros', title: t.others, summary: t.othersSummary, icon: 'list', keys: rest as AreaDesc['keys'] }] : [...AREAS];
 }
 
-export function ContentEditor({ value, live, onChange, issues }: { value: Value; live: Value; onChange: (next: Value) => void; issues: { path: string; message: string }[] }) {
+export function ContentEditor({
+  value,
+  live,
+  onChange,
+  issues,
+  companions = { sectors: null, probes: null },
+  onCompanions = () => {},
+}: {
+  value: Value;
+  live: Value;
+  onChange: (next: Value) => void;
+  issues: { path: string; message: string }[];
+  /** The sectors and probes keys as the draft has them, for what a new sector or probe writes there. */
+  companions?: Companions;
+  onCompanions?: (fields: CompanionField[], content: Value) => void;
+}) {
   const [params, setParams] = useSearchParams();
   const schema = configJsonSchema('content');
   const areas = useMemo(() => areasFor(), []);
@@ -122,8 +130,36 @@ export function ContentEditor({ value, live, onChange, issues }: { value: Value;
   };
   const node = unwrap(schema.properties?.[key] ?? {}).node;
   const isList = node.type === 'array' && unwrap(itemsOf(node)).node.type === 'object';
+  const creating = params.get('crear');
+  if (isWizardKind(creating)) {
+    return (
+      <CreateWizard
+        key={creating}
+        kind={creating}
+        value={value}
+        options={options}
+        widgets={WIDGETS}
+        companions={companions}
+        onCancel={() => go({ crear: null })}
+        onAdd={(next, where, extra) => {
+          onChange(next);
+          // The content first, then what it writes in the sectors or probes keys (never an unlock of a missing sector).
+          if (extra.length > 0) onCompanions(extra, next);
+          go({ crear: null, zona: where.zona, lista: where.lista ?? null, id: where.lista ? where.id : null });
+        }}
+      />
+    );
+  }
   return (
     <div className="ce">
+      <div className="ce-create" role="group" aria-label={t.wizard.createGroup}>
+        {(Object.keys(WIZARDS) as WizardKind[]).map((k) => (
+          <button key={k} type="button" className="lip pill small" onClick={() => go({ crear: k })}>
+            <Icon name="plus" />
+            <span>{t.wizard.create[WIZARDS[k].id]}</span>
+          </button>
+        ))}
+      </div>
       <div className="ce-areas" role="tablist" aria-label={t.areas}>
         {areas.map((a) => (
           <button key={a.id} type="button" role="tab" aria-selected={a.id === area.id} className="ce-area" onClick={() => go({ zona: a.id, lista: null, id: null })}>
@@ -325,6 +361,7 @@ function EntityPanel({
                 if (entity.id !== current.id) onSelect(entity.id);
               }}
               autoIds={autoIds}
+              takenIds={(x) => list.some((e, k) => k !== index && e.id === x)}
               issues={issuesUnder(issues, `${field}.${index}`, value)}
               options={options}
               prefix={`${field}[]`}

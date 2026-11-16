@@ -14,6 +14,8 @@ Antes de empezar, lee:
 
 Cada sitio que hay que tocar, por tipo, está en `referencia.md`.
 
+> **El editor de contenido del panel** (`/admin/configuracion/content`, 2026-11-16) ya permite a un admin retocar estos datos y crear entradas de tipos que existen, con asistentes «Crear…», dibujo de la galería y sus textos, sin código. Esta skill es para lo que necesita código, o para preparar contenido en `ops/launch/`. Todo campo nuevo de `content` lleva su descripción en `apps/web/src/admin/content/descriptors/` (CONTENIDO A7).
+
 Las rutas son relativas a `games/galaxy/`.
 
 ## 1. Pregunta primero al propietario

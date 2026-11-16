@@ -21,11 +21,11 @@ export function companionWarnings({
   const liveSectors = new Set(live.sectors.map((s) => s.id));
   const liveProbes = new Set(live.probes.map((p) => p.id));
   content.sectors.forEach((s, i) => {
+    if (liveSectors.has(s.id)) return;
     if (s.season) {
       if (sectors.season !== s.id) out.push({ code: 'season_sector_not_live', path: `sectors.${i}`, arg: s.name });
       return;
     }
-    if (liveSectors.has(s.id)) return;
     if (!sectors.unlocks[s.id]) out.push({ code: 'sector_no_unlock', path: `sectors.${i}`, arg: s.name });
     if (sectors.pay[s.id] === undefined) out.push({ code: 'sector_no_pay', path: `sectors.${i}`, arg: s.name });
   });

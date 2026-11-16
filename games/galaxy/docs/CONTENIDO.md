@@ -210,6 +210,13 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
 - Se publica con motivo y contraseña (todas sus claves o ninguna, `publishMany`) o se descarta. Los cerrados se borran a los 30 días.
 - Cualquier versión publicada puede volver como borrador nuevo («Crear un borrador con la versión N»).
 - **El editor visual** (P4): zonas (Arsenal, Sondas, Fauna, Núcleos, Sectores, Elementos, Reliquias, Eventos, Reglas y Técnico), la lista de cada colección con búsqueda y dibujo, y la ficha de la entrada elegida, con cada campo nombrado y explicado. El JSON sigue a una pestaña. Lo publicado no se quita (su id es permanente); lo que añade el borrador, sí. La vista va en la dirección (`?borrador=<id>&zona=fauna&id=mite`), así que se comparte.
+- **Los asistentes «Crear…»** (P9) crean por pasos, sobre el borrador, un enemigo, un Núcleo, un sector, un arma, una sonda, una pasiva, una reacción, una anomalía o un conjunto. Los pasos son:
+  1. nombre y base;
+  2. una sección por paso;
+  3. lo que la entrada necesita para formar parte del juego: dónde sale un enemigo, en qué sectores es forma un Núcleo, la evolución de un arma, o el desbloqueo y la paga de un sector o una sonda, que se guardan en las claves `sectors` y `probes` del mismo borrador;
+  4. una revisión.
+
+  Se abren con `?crear=` y el tipo: `enemigo`, `nucleo`, `sector`, `arma`, `sonda`, `pasiva`, `reaccion`, `anomalia` o `conjunto`.
 - **Un tipo de arma nuevo, o uno que empieza a leer otro número de su nivel, actualiza `WEAPON_FIELDS`** (`packages/sim/src/content/weapon-fields.ts`): la tabla de niveles apaga lo que no lee, y `weapon-fields.test.ts` lo prueba.
 - **Cada campo nuevo de `content` necesita su descripción** en `apps/web/src/admin/content/descriptors/` (el archivo de su zona): nombre, explicación, y el vocabulario si elige entre valores. Un campo de primer nivel nuevo va además en una zona de `descriptors/index.ts`. `admin-content-descriptors.test.ts` falla diciendo qué falta; hasta entonces el editor lo enseña con su nombre de código, en «Otros» si no tiene zona.
 

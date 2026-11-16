@@ -240,3 +240,39 @@ test('los textos de un sector con el de siempre en gris a 1600×900', async () =
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
   if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-texts-1600.png', element: document.querySelector('.ce-text.long')! });
 });
+
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`el asistente de crear un enemigo a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount('/admin/configuracion/content?borrador=d1&crear=enemigo');
+    await vi.waitFor(
+      () => {
+        if (!document.querySelector('.ce-wizard-steps')) throw new Error('sin asistente');
+      },
+      { timeout: 8000 },
+    );
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-wizard-${w}.png` });
+  });
+}
+
+test('el asistente de crear un arma, en su paso de evolución, a 1600×900', async () => {
+  await page.viewport(1600, 900);
+  mount('/admin/configuracion/content?borrador=d1&crear=arma');
+  await vi.waitFor(
+    () => {
+      if (!document.querySelector('.ce-wizard-steps')) throw new Error('sin asistente');
+    },
+    { timeout: 8000 },
+  );
+  const tab = [...document.querySelectorAll<HTMLButtonElement>('.ce-wizard-steps [role="tab"]')].find((b) => b.textContent?.startsWith('Evolución'))!;
+  tab.click();
+  await vi.waitFor(() => {
+    if (!document.querySelector('.ce-wizard .ce-wizard-wide')) throw new Error('sin paso');
+  });
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
+  if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-wizard-weapon-1600.png', element: document.querySelector('.ce-wizard')! });
+});

@@ -1303,6 +1303,28 @@ Plan «escáner pro», parte E.
   - la imagen se elige en una rejilla de miniaturas o se sube arrastrando;
   - el enlace se elige entre tres opciones (ninguno, una pantalla de una lista cerrada o una página https).
 
+## 8 octoquatricies. Editor de contenido
+
+`/admin/configuracion/content`: las incursiones enteras (`content`) se editan sin tocar JSON, pensado para admins que no conocen el código (plan del editor de contenido, 2026-11-16).
+
+- **Borradores en el servidor:** la portada lista los borradores abiertos, uno nuevo y el historial (cualquier versión vuelve como borrador). Un borrador se guarda solo campo a campo, se junta con lo publicado si otro admin publicó entretanto (por entrada, eligiendo qué lado se queda) y se prueba en una incursión de prueba antes de publicarlo.
+- **Encima, «Crear…»:** una fila de botones pequeños, uno por tipo (enemigo, Núcleo, sector, arma, sonda, pasiva, reacción, anomalía, conjunto). Cada asistente va por pasos en pestañas con su recuento de problemas (etiqueta Nova): nombre y «Basado en…», una sección por paso con los textos al final, lo que necesita para formar parte del juego y una revisión con «Añadir al borrador» en Solar. Nunca publica.
+- **Las zonas:** pestañas con icono (Arsenal, Sondas, Fauna, Núcleos, Sectores, Elementos, Reliquias, Eventos de incursión, Reglas de la incursión, Técnico); la elegida en Solar. Debajo, su frase y, si tiene varias listas, sus pastillas.
+- **Lista y ficha:**
+  - a la izquierda, de 240 a 300 px y fija al desplazar, la búsqueda sin tildes y las entradas con su dibujo (32 px, pixelado), su nombre y su identificador en monoespaciada; la elegida con una barra Solar, la que tiene problemas con una Nova, lo nuevo con la etiqueta «Nueva»;
+  - a la derecha, la ficha: dibujo de 48 px, el nombre en la letra de títulos, «Duplicar» y «Quitar» (apagado en lo publicado, o en lo que se usa en otro sitio, que dice dónde);
+  - los campos se agrupan por secciones con un rótulo en versalitas, y los técnicos van al final, bajo «Más ajustes» (cerrado salvo si tienen un problema);
+  - por debajo de 900 px la lista sube encima de la ficha.
+- **Controles propios:**
+  - el dibujo se elige en una galería por grupos (Fauna, Núcleos, Sondas, Iconos, Otros, Todos) con búsqueda; el elegido se anima salvo con movimiento reducido;
+  - los selectores de entradas y de tipos llevan su dibujo o su explicación debajo de cada opción; «Otro: necesita programación» se ve y no se elige;
+  - las listas de ids se ordenan por nombre con flechas (las formas de un Núcleo);
+  - la tabla de niveles de un arma: una fila por nivel, una columna por número con su minigráfico Solar, lo que el tipo no usa apagado y al final;
+  - los gráficos sobre su editor: la vida de un Núcleo por fases (Terminal, Solar, Nova, UV), cuándo sale cada enemigo de un sector y sus oleadas, la parte de cada evento y la tabla de reacciones;
+  - un texto vacío enseña en gris, en cursiva, el que se ve hoy en el juego.
+- **El panel lateral:** Problemas, Avisos (con «He leído los avisos» para poder publicar), Qué cambia (con los nombres del editor), Probar en incursión, la simulación rápida del bot (lo publicado frente al borrador), dónde se notará y la publicación.
+- **El JSON** sigue en su pestaña; mientras no es válido no se vuelve al editor, para no perder lo escrito. Si el editor no puede enseñar un borrador roto, lo dice y ofrece el JSON.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

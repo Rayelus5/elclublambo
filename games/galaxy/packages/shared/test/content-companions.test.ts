@@ -20,8 +20,9 @@ test('un sector nuevo sin desbloqueo ni paga, y una sonda nueva sin desbloqueo',
   expect(found).toEqual(['sector_no_unlock@sectors.1', 'sector_no_pay@sectors.1', `probe_no_unlock@probes.${c.probes.length - 1}`]);
 });
 
-test('un sector de temporada que no es el de la temporada viva', () => {
-  const found = companionWarnings({ content: DEFAULT_CONTENT, live: DEFAULT_CONTENT, sectors: { ...sectors, season: 'outer-nebula' }, probes });
-  const rift = DEFAULT_CONTENT.sectors.findIndex((s) => s.season);
-  expect(found.map((w) => `${w.code}@${w.path}`)).toEqual([`season_sector_not_live@sectors.${rift}`]);
+test('un sector de temporada nuevo que no es el de la temporada viva', () => {
+  const c = structuredClone(DEFAULT_CONTENT);
+  c.sectors.push({ ...structuredClone(c.sectors.find((s) => s.season)!), id: 'otra-fisura', name: 'Otra fisura' });
+  const found = companionWarnings({ content: c, live: DEFAULT_CONTENT, sectors, probes });
+  expect(found.map((w) => `${w.code}@${w.path}`)).toEqual([`season_sector_not_live@sectors.${c.sectors.length - 1}`]);
 });

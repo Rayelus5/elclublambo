@@ -237,6 +237,46 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
   const warningsKey = warnings.map((w) => `${w.code}@${w.path}`).join('|');
   const [ackFor, setAckFor] = useState<string | null>(null);
   const acked = warnings.length === 0 || ackFor === warningsKey;
+  // The sectors and probes keys as this draft has them: what a new sector's or probe's wizard writes there (P9b).
+  const companions = useMemo(() => {
+    try {
+      return {
+        sectors: liveSectors.data ? parseConfig('sectors', mergeDraft('sectors', liveSectors.data.data, d0.data.sectors ?? {})) : null,
+        probes: liveProbes.data ? parseConfig('probes', mergeDraft('probes', liveProbes.data.data, d0.data.probes ?? {})) : null,
+      };
+    } catch {
+      return { sectors: null, probes: null };
+    }
+  }, [liveSectors.data, liveProbes.data, d0.data.sectors, d0.data.probes]);
+
+  /**
+   * Saves what a wizard writes in the sectors or probes keys (P9b): the content it came with first (no waiting for the
+   * pause), then each field as the draft has it at that moment plus the wizard's entries, so two in a row both stay.
+   */
+  function saveCompanions(fields: { key: 'sectors' | 'probes'; field: string; patch: Record<string, unknown> }[], content: Record<string, unknown>) {
+    if (timer.current) clearTimeout(timer.current);
+    save(content);
+    queue.current = queue.current.then(async () => {
+      let latest = view.current;
+      if (!latest) return;
+      setStatus('saving');
+      try {
+        for (const f of fields) {
+          const own = (latest.data[f.key] as Record<string, unknown> | undefined)?.[f.field];
+          const live = ((f.key === 'sectors' ? liveSectors.data?.data : liveProbes.data?.data) as Record<string, unknown> | undefined)?.[f.field];
+          const value = { ...((own ?? live ?? {}) as Record<string, unknown>), ...f.patch };
+          latest = await saveDraftField(id, { key: f.key, field: f.field, value, revision: latest.revision });
+        }
+        view.current = latest;
+        qc.setQueryData([...DRAFTS_KEY, id], latest);
+        setStatus('saved');
+      } catch (err) {
+        setSaveError(err);
+        setStatus('error');
+        await qc.invalidateQueries({ queryKey: [...DRAFTS_KEY, id] });
+      }
+    });
+  }
   const touched = useMemo(() => Object.keys(checked).filter((k) => JSON.stringify(checked[k]) !== JSON.stringify(live.data[k])), [checked, live.data]);
 
   function save(next: Record<string, unknown>) {
@@ -344,7 +384,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
               setMode('json');
             }}
           >
-            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} />
+            <ContentEditor value={doc} live={live.data} onChange={change} issues={issues} companions={companions} onCompanions={saveCompanions} />
           </EditorBoundary>
         ) : (
           <div className="field">

@@ -17,7 +17,11 @@ import {
 // ignored. Every catalog defaults to DEFAULT_CONTENT, and cross references (a probe's weapon, a species' offspring, a
 // sector's boss…) must point at something that exists, so a published content can never break a run.
 
-const id = z.string().regex(/^[a-z0-9-]{1,32}$/);
+// Never a name every object inherits («constructor», «toString»): plain lookups by id would find the inherited one.
+const id = z
+  .string()
+  .regex(/^[a-z0-9-]{1,32}$/)
+  .refine((x) => !(x in Object.prototype), 'reserved_id');
 const sprite = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const name = z.string().min(1).max(60);
 const text = z.string().min(1).max(200);

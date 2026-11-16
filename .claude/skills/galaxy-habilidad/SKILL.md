@@ -7,6 +7,8 @@ description: Crear o cambiar una habilidad de las incursiones de Galaxy Survivor
 
 Las armas y pasivas son datos de `content` (`packages/sim/src/content/default.ts`). Su comportamiento (`kind`) es código. Antes de empezar, lee `games/galaxy/AGENTS.md` y la parte A de `games/galaxy/docs/CONTENIDO.md`. La tabla de todos los sitios que hay que tocar está en `referencia.md`, junto a esta skill. Las rutas son relativas a `games/galaxy/`.
 
+> **El editor de contenido del panel** (`/admin/configuracion/content`, 2026-11-16) ya permite a un admin retocar estos datos y crear entradas de tipos que existen, con asistentes «Crear…», dibujo de la galería y sus textos, sin código. Esta skill es para lo que necesita código, o para preparar contenido en `ops/launch/`. Todo campo nuevo de `content` lleva su descripción en `apps/web/src/admin/content/descriptors/` (CONTENIDO A7).
+
 **Dos casos.** Decide pronto en cuál estás, porque cambia casi todo lo demás:
 - **A, solo datos:** un arma de un `kind` existente, o una pasiva de una stat existente. No sube `SIM_VERSION` y no lleva código de la arena. **Ojo:** en la arena se ve igual que las demás armas de su tipo (el sprite del disparo va por tipo); solo la distinguen el icono y el elemento.
 - **B, código:** un `kind` nuevo o una stat nueva. Sube `SIM_VERSION`.
