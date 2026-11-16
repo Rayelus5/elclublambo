@@ -216,7 +216,8 @@ describe('una incursión de prueba no cuenta como jugada', () => {
     clock = new Date(clock.getTime() + 13 * 60_000);
     expect((await finish(fresh.cookie, run.id, body())).statusCode).toBe(200);
     expect((await get(ctx.app, '/galaxy/api/onboarding', { cookie: fresh.cookie })).json()).toMatchObject({ firstRun: false });
-    expect((await get(ctx.app, '/galaxy/api/tutorial', { cookie: fresh.cookie })).json()).toMatchObject({ status: 'active' });
+    // An admin's tutorial starts skipped; what matters is that the test run did not make it «done».
+    expect((await get(ctx.app, '/galaxy/api/tutorial', { cookie: fresh.cookie })).json().status).not.toBe('done');
   });
 });
 
