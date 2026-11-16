@@ -107,3 +107,29 @@ test('las descripciones propias mandan, y una entrada con nombre se elige de su 
   expect(valueNow().palettes).toHaveProperty('ember');
 });
 
+
+test('los campos se agrupan por sección y los avanzados quedan bajo «Más ajustes»', async () => {
+  const enemy = itemsOf(content.properties!.enemies!);
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  const describe = (p: string) =>
+    ({
+      'enemies[].name': { label: 'Nombre', hint: 'h', section: 'Identidad' },
+      'enemies[].hp': { label: 'Vida', hint: 'h', section: 'Vida y daño' },
+      'enemies[].sprite': { label: 'Dibujo', hint: 'h', advanced: true },
+    })[p];
+  render(<Harness schema={enemy} start={mite} prefix="enemies[]" describe={describe} />);
+  expect(screen.getByRole('heading', { name: 'Identidad' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Vida y daño' })).toBeInTheDocument();
+  const more = screen.getByText(/Más ajustes/).closest('details')!;
+  expect(more).not.toHaveAttribute('open');
+  expect(within(more).getByLabelText('Dibujo')).toBeInTheDocument();
+  expect(within(more).queryByLabelText('Vida')).toBeNull();
+});
+
+test('«Más ajustes» se abre solo cuando un campo avanzado tiene un problema', () => {
+  const enemy = itemsOf(content.properties!.enemies!);
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  const describe = (p: string) => (p === 'enemies[].sprite' ? { label: 'Dibujo', hint: 'h', advanced: true } : undefined);
+  render(<ConfigForm cfgKey="content" schema={enemy} value={mite} onChange={() => {}} issues={new Map([['sprite', ['No existe']]])} options={{}} prefix="enemies[]" describe={describe} />);
+  expect(screen.getByText(/Más ajustes/).closest('details')).toHaveAttribute('open');
+});

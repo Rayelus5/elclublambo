@@ -8,8 +8,8 @@ import { page } from 'vitest/browser';
 import { ContentScreen } from '../../src/admin/content/ContentScreen';
 import '../../src/styles/app.css';
 
-// The run content's page (the content editor, 2026-11-16, P2): the drafts list and an open draft fit the screen with no
-// sideways scroll, from 1280 to 1920. VITE_ADMIN_SHOTS=1 saves them.
+// The run content's page (the content editor, 2026-11-16, P2 and P4): the drafts list, an open draft and the visual
+// editor on each kind of area fit the screen with no sideways scroll, from 1280 to 2560. VITE_ADMIN_SHOTS=1 saves them.
 
 let root: Root | null = null;
 afterEach(() => {
@@ -89,9 +89,40 @@ for (const [w, h] of [
     await page.viewport(w, h);
     mount('/admin/configuracion/content?borrador=d1');
     await vi.waitFor(() => {
-      if (!document.querySelector('.content-editor textarea')) throw new Error('sin editor');
+      if (!document.querySelector('.content-editor .ce')) throw new Error('sin editor');
     });
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
     if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-draft-open-${w}.png` });
   });
+}
+
+/** The visual editor's views: an entity of each big list, and a form of rules. */
+const VIEWS = [
+  ['fauna', 'zona=fauna&id=mite'],
+  ['nucleos', 'zona=nucleos&id=hive'],
+  ['sectores', 'zona=sectores&id=outer-nebula'],
+  ['arsenal', 'zona=arsenal&id=pulse'],
+  ['reglas', 'zona=reglas&lista=healing'],
+] as const;
+
+for (const [w, h] of [
+  [1280, 720],
+  [1600, 900],
+  [1920, 1080],
+  [2560, 1440],
+] as const) {
+  for (const [name, query] of w === 1280 || w === 1920 ? VIEWS : VIEWS.slice(0, 1)) {
+    test(`el editor visual (${name}) a ${w}×${h}`, async () => {
+      await page.viewport(w, h);
+      mount(`/admin/configuracion/content?borrador=d1&${query}`);
+      await vi.waitFor(
+        () => {
+          if (!document.querySelector('.ce-entity, .ce-object')) throw new Error('sin ficha');
+        },
+        { timeout: 8000 },
+      );
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+      if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-editor-${name}-${w}.png` });
+    });
+  }
 }

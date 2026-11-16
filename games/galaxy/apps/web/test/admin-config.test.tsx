@@ -253,7 +253,7 @@ test('el álbum se escribe en su porcentaje de 1 a 100, sin multiplicar', async 
 test('el contenido no viene en la lista: su página lo pide aparte', async () => {
   const fetch = api({ 'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, []) });
   renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
-  expect(await screen.findByLabelText(t.editor)).toBeInTheDocument();
+  expect(await screen.findByRole('tab', { name: t.formTab })).toBeInTheDocument();
   expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/admin/config/content')).toBe(true);
 });
 
