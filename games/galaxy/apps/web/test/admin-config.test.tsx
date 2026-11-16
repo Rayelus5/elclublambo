@@ -271,3 +271,22 @@ test('al volver al contenido se puede recuperar el borrador probado, y avisa si 
   sessionStorage.clear();
 });
 
+// A pending minor of the debug mode (2026-11-16): once the content is published, the draft that was tried is gone, so
+// later runs in the tab are normal ones again.
+test('tras publicar el contenido no queda borrador probado', async () => {
+  sessionStorage.clear();
+  saveContentDraft({ baseVersion: 0, raw: parseConfig('content', {}), content: DEFAULT_CONTENT });
+  api({
+    'GET /galaxy/api/admin/config/content/versions': () => jsonResponse(200, [{ version: 1, data: { hitCap: 0.5 }, createdAt: '2026-11-15T10:00:00.000Z', createdBy: 'ad1', author: 'rayelus', note: 'Tope' }]),
+    'POST /galaxy/api/admin/config/content': () => jsonResponse(201, { version: 1 }),
+  });
+  renderAt('/admin/configuracion/content', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: t.loadVersion(1) }));
+  await user.type(screen.getByLabelText(copy.admin.fields.reason), 'Tope por golpe');
+  await user.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
+  await user.click(screen.getByRole('button', { name: t.publish }));
+  expect(await screen.findByText(t.published(1))).toBeInTheDocument();
+  expect(readContentDraft()).toBeNull();
+});
+

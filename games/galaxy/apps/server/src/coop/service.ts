@@ -1,4 +1,4 @@
-import { activeAnomaly, type CoopClientMessage, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, type LiveEvent, parseConfig } from '@galaxy/shared';
+import { activeAnomaly, type CoopClientMessage, sectorPay, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, type LiveEvent, parseConfig } from '@galaxy/shared';
 import { createReplayer, decodeLog, type Content, SIM_VERSION } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
@@ -72,7 +72,7 @@ export class CoopService {
     const features = await this.deps.config.get('features');
     if (!features.coop) throw new HttpError(403, 'coop_disabled');
     if (!features.runs) throw new HttpError(503, 'runs_disabled');
-    const [{ value: content, version: contentVersion }, probes, lab, planetarium, redshift, season, coopCfg] = await Promise.all([
+    const [{ value: content, version: contentVersion }, probes, lab, planetarium, redshift, season, coopCfg, sectorsCfg] = await Promise.all([
       this.deps.config.getVersioned('content'),
       this.deps.config.get('probes'),
       this.deps.config.get('lab'),
@@ -80,6 +80,7 @@ export class CoopService {
       this.deps.config.get('redshift'),
       this.deps.config.get('season'),
       this.deps.config.get('coop'),
+      this.deps.config.get('sectors'),
     ]);
     const now = this.now();
     const anomaly = activeAnomaly(season, content, now)?.id ?? null;
@@ -136,6 +137,8 @@ export class CoopService {
             slot,
             party_size: n,
             points_factor: pointsFactor,
+            // What its sector pays, fixed at the start (2026-11-16).
+            sector_factor: sectorPay(sectorsCfg, room.sector),
           })
           .returning('id')
           .executeTakeFirstOrThrow();

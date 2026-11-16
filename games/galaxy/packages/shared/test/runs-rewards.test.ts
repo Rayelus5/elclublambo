@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { dailyFactor, dailySegments, dailyStatus, depthMultiplier, parseConfig, runMaterial, runPayout, type RunClaim } from '../src/index';
+import { dailyFactor, dailySegments, dailyStatus, depthMultiplier, parseConfig, runComponents, runMaterial, runPayout, type RunClaim, sectorPay } from '../src/index';
 
 // What a run pays (GDD §5.1, §11.3 bis): loot × the depth of the layer it was picked up in, half without extraction,
 // and the daily yield prorated over the minutes played past each threshold.
@@ -114,3 +114,35 @@ describe('el laboratorio en lo cobrado (M4b-2)', () => {
     expect(runMaterial(claim({ depth: 1000 }), cfg, 1, false, 0.2)).toBe(cfg.caps.runMaterial);
   });
 });
+
+// Pay by sector (2026-11-16): the harder the sector, the more a run there pays; the per-run ceilings grow with it, so an
+// honest run in the hardest sector is never cut (nor flagged) for being paid more.
+describe('paga por sector', () => {
+  test('los valores por defecto van de ×0,8 en la Nebulosa a ×1,8 en la Fisura, y uno sin valor paga ×1', () => {
+    const sectors = parseConfig('sectors', {});
+    expect(['outer-nebula', 'frost-rings', 'hollow-reef', 'broken-forge', 'signal-rift'].map((id) => sectorPay(sectors, id))).toEqual([0.8, 1, 1.25, 1.5, 1.8]);
+    expect(sectorPay(sectors, 'otro-sector')).toBe(1);
+  });
+
+  test('monedas, polvo, material y componentes se multiplican por el sector', () => {
+    const c = claim({ loot: [{ coins: 100, dust: 10, components: 10 }] });
+    const plain = runPayout(c, cfg, 1);
+    const forge = runPayout(c, cfg, 1, false, undefined, undefined, 1.5);
+    expect(forge.coins).toBe(Math.floor(plain.coins * 1.5));
+    expect(forge.dust).toBe(Math.floor(plain.dust * 1.5));
+    expect(runMaterial(c, cfg, 1, false, 0, 1, 1.5)).toBe(Math.floor(runMaterial(c, cfg, 1) * 1.5));
+    expect(runComponents(c, cfg, 1, false, 1, 0.8)).toBe(8);
+  });
+
+  test('los techos por partida crecen con el sector: una partida honrada en la Fisura no se recorta', () => {
+    const rich = claim({ loot: [{ coins: cfg.caps.runCoins, dust: 0 }] });
+    expect(runPayout(rich, cfg, 1).capped).toBe(false);
+    const rift = runPayout(rich, cfg, 1, false, undefined, undefined, 1.8);
+    expect(rift.coins).toBe(Math.floor(cfg.caps.runCoins * 1.8));
+    expect(rift.capped).toBe(false);
+    const over = runPayout(claim({ loot: [{ coins: cfg.caps.runCoins * 2, dust: 0 }] }), cfg, 1, false, undefined, undefined, 1.8);
+    expect(over.coins).toBe(Math.floor(cfg.caps.runCoins * 1.8));
+    expect(over.capped).toBe(true);
+  });
+});
+

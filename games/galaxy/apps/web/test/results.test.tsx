@@ -128,3 +128,14 @@ test('un resultado guardado antes de M5a, sin progreso, se enseña sin la franja
   expect(screen.getByRole('heading', { name: copy.results.died })).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: copy.social.progressTitle })).toBeNull();
 });
+
+// Pay by sector (2026-11-16): the results say what the run's sector paid, when it is not ×1.
+test('dice la paga del sector cuando no es ×1, y la calla si lo es', () => {
+  const { unmount } = show({ ...died, breakdown: { ...died.breakdown, sector: { id: 'broken-forge', factor: 1.5 } } });
+  expect(screen.getByText(copy.results.sectorPay(1.5))).toBeInTheDocument();
+  expect(copy.results.sectorPay(1.5)).toBe('Paga del sector ×1,5');
+  unmount();
+  show({ ...died, breakdown: { ...died.breakdown, sector: { id: 'frost-rings', factor: 1 } } });
+  expect(screen.queryByText(copy.results.sectorPay(1))).toBeNull();
+});
+

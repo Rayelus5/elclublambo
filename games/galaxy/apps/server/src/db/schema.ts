@@ -898,6 +898,8 @@ export interface RunsTable {
   slot: ColumnType<number | null, number | null | undefined, never>;
   party_size: ColumnType<number, number | undefined, never>;
   points_factor: ColumnType<number, number | undefined, never>;
+  /** Pay by sector (2026-11-16): the sector's factor at the run's start (sectors.pay). */
+  sector_factor: ColumnType<number, number | undefined, never>;
   /** Phase 6c: when the player left this group run on purpose (null: stayed, or a solo run). */
   left_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }

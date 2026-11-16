@@ -341,7 +341,12 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   sectors: {
     unlocks: { label: 'Qué abre cada sector', options: 'sectors' },
     'unlocks.*.sector': { label: 'En el sector', options: 'sectors' },
-    season: { label: 'Sector de temporada', hint: 'Abierto a todos; vacío si no hay', options: 'sectors' },
+    season: { label: 'Sector de temporada', hint: 'Abierto mientras dura su temporada; vacío si no hay', options: 'sectors' },
+    pay: { label: 'Paga de cada sector', options: 'sectors', hint: 'Monedas, polvo, material, componentes y puntos de temporada se multiplican por este valor; la experiencia, nunca por menos de ×1' },
+    'pay.*': { label: 'Paga', unit: 'factor' },
+    seasonUnlock: { label: 'Para abrir el sector de temporada', hint: 'Incursiones en cualquier sector. Quien ya lo jugó lo conserva. Vacío: abierto a todos' },
+    'seasonUnlock.value': { label: 'Incursiones' },
+    'seasonUnlock.stat': { label: 'Qué se cuenta' },
   },
   missions: {
     ...pool('daily', 'Diarias'),

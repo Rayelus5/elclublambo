@@ -1,6 +1,6 @@
-import { TUTORIAL_CHAPTERS, type TutorialChapter, tutorialUpdateSchema, type TutorialView } from '@galaxy/shared';
+import { TEST_FLAG, TUTORIAL_CHAPTERS, type TutorialChapter, tutorialUpdateSchema, type TutorialView } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { requireSession } from '../auth/guards';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -24,7 +24,15 @@ function viewOf(r: Row, gift: number): TutorialView {
 async function rowOf(db: Kysely<DB>, accountId: string): Promise<Row> {
   const found = await db.selectFrom('galaxy.tutorial').select(['chapter', 'skipped_at', 'done_at', 'gift_at']).where('account_id', '=', accountId).executeTakeFirst();
   if (found) return found;
-  const played = await db.selectFrom('galaxy.runs').select('id').where('account_id', '=', accountId).where('finished_at', 'is not', null).limit(1).executeTakeFirst();
+  // An admin's test run (debug mode) is not play.
+  const played = await db
+    .selectFrom('galaxy.runs')
+    .select('id')
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where(sql<boolean>`not (${TEST_FLAG} = any(flags))`)
+    .limit(1)
+    .executeTakeFirst();
   await db
     .insertInto('galaxy.tutorial')
     .values({ account_id: accountId, chapter: played ? 'done' : 'hub', done_at: played ? new Date() : null })

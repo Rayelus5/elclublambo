@@ -5,7 +5,7 @@ import { type Page, expect, skipProbeTest, test } from './fixtures';
 
 // The season, the leaderboard and the profiles against the real server (GDD §14.1, §14.2, §12.1; M5a): a new account
 // plays a one-minute run (started and finished through the API, one layer: a run counts from a minute; 25 experience
-// and 10 points), finds itself in the leaderboard marked as its own row, and a second account opens its profile, sees
+// and 8 points: 10 × the Nebulosa's pay, ×0,8, 2026-11-16), finds itself in the leaderboard marked as its own row, and a second account opens its profile, sees
 // its level and season, and goes into its collection and its planetarium. The live season has dates: when none is open
 // (the default season 1 ends on 2026-12-13), the same run gives its experience but no points, and the screens say the
 // season is closed. Writes e2e_* accounts only.
@@ -55,9 +55,9 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
   const player = await newAccount(page);
   const open = ((await (await page.request.get('/galaxy/api/leaderboard')).json()) as Leaderboard).season !== null;
   const result = await shortRun(page, baseURL!);
-  // One whole minute (10) and a layer (15); 10 points while a season is open.
-  // While a season is open, half the points also come in its currency (M7d-1).
-  expect(result.progress).toEqual({ xp: 25, level: 1, levelUp: false, points: open ? 10 : 0, ...(open ? { shards: 5 } : {}) });
+  // One whole minute (10) and a layer (15); 10 points while a season is open, × the Nebulosa's pay (0,8: 8 points;
+  // experience never below ×1). While a season is open, half the points also come in its currency (M7d-1).
+  expect(result.progress).toEqual({ xp: 25, level: 1, levelUp: false, points: open ? 8 : 0, ...(open ? { shards: 4 } : {}) });
 
   if (!open) {
     await page.goto('/galaxy/');
@@ -73,7 +73,7 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
   // The title screen's season column has your place; the leaderboard marks your row.
   await page.goto('/galaxy/');
   const season = page.getByRole('complementary', { name: /Temporada/ });
-  await expect(season.getByRole('region', { name: 'Tu puesto' })).toContainText('10 puntos');
+  await expect(season.getByRole('region', { name: 'Tu puesto' })).toContainText('8 puntos');
   await season.getByRole('link', { name: 'Ver clasificación completa' }).click();
   await expect(page).toHaveURL(/\/galaxy\/clasificacion$/);
   await expect(page.getByRole('navigation', { name: 'Pestañas de la clasificación' }).getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
@@ -93,7 +93,7 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
   await expect(visitor.getByRole('heading', { level: 1, name: player })).toBeVisible();
   // The player's level (the «Sondas» panel shows each probe's level too).
   await expect(visitor.locator('.profile-level-chip')).toHaveText('Nivel 1');
-  await expect(visitor.getByRole('region', { name: 'Esta temporada' })).toContainText('10');
+  await expect(visitor.getByRole('region', { name: 'Esta temporada' })).toContainText('8');
   await expect(visitor.getByRole('region', { name: 'Récords' })).toContainText('1');
   await visitor.getByRole('link', { name: 'Ver su colección' }).click();
   await expect(visitor.getByRole('heading', { level: 1, name: `Colección de ${player}` })).toBeVisible();

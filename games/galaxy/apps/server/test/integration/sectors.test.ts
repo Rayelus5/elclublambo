@@ -43,7 +43,7 @@ const start = (cookie: string, sector: string, app = ctx.app) =>
   post(app, '/galaxy/api/runs', { sector, probe: 'lumen', simVersion: SIM_VERSION }, { cookie, headers: { 'idempotency-key': randomUUID() } });
 
 /** A finished run straight in the table (what finishRun would leave). */
-async function finishedRun(account: string, sector: string, over: { boss_kills?: number; suspicious?: boolean; finished?: boolean } = {}) {
+async function finishedRun(account: string, sector: string, over: { boss_kills?: number; suspicious?: boolean; finished?: boolean; seconds?: number } = {}) {
   const done = over.finished ?? true;
   await ctx.db
     .insertInto('galaxy.runs')
@@ -64,7 +64,7 @@ async function finishedRun(account: string, sector: string, over: { boss_kills?:
       kills: 100,
       boss_kills: over.boss_kills ?? 0,
       level: 8,
-      seconds: 300,
+      seconds: over.seconds ?? 300,
       hash: '0123456789abcdef',
       payout: '{}',
       runs_version: 0,
@@ -86,7 +86,34 @@ test('un hangar nuevo: la Nebulosa elegida, los 5 sectores, la Escarcha cerrada 
     progress: 0,
     biome: 'ice',
   });
-  expect(h.sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: true, season: true, condition: null });
+  // The season sector asks for 15 runs in any sector (2026-11-16).
+  expect(h.sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: false, season: true, condition: { sector: null, stat: 'runs', value: 15 }, progress: 0 });
+  // Each sector says what it pays (sectors.pay).
+  expect(h.sectors.map((s) => s.pay)).toEqual([0.8, 1, 1.25, 1.5, 1.8]);
+});
+
+/** `n` counted runs (finished, not suspicious, a few minutes long) in the Nebulosa. */
+async function played(account: string, n: number) {
+  for (let i = 0; i < n; i++) await finishedRun(account, 'outer-nebula');
+}
+
+test('la Fisura se abre con 15 incursiones en cualquier sector; las cortas y las sospechosas no cuentan', async () => {
+  const { cookie, id } = await player();
+  await played(id, 14);
+  await finishedRun(id, 'outer-nebula', { seconds: 30 });
+  await finishedRun(id, 'outer-nebula', { suspicious: true });
+  expect((await hangar(cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: false, progress: 14 / 15 });
+  expect((await start(cookie, 'signal-rift')).statusCode).toBe(409);
+  await played(id, 1);
+  expect((await hangar(cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: true, condition: null });
+  expect((await start(cookie, 'signal-rift')).statusCode).toBe(200);
+});
+
+test('quien ya terminó una incursión en la Fisura la conserva aunque tenga menos de 15', async () => {
+  const { cookie, id } = await player();
+  await finishedRun(id, 'signal-rift');
+  expect((await hangar(cookie)).sectors.find((s) => s.id === 'signal-rift')).toMatchObject({ unlocked: true });
+  expect((await choose(cookie, 'signal-rift')).statusCode).toBe(200);
 });
 
 test('vencer al Núcleo de la Nebulosa abre la Escarcha; una partida sospechosa o sin terminar no cuenta', async () => {
@@ -113,11 +140,13 @@ test('una incursión solo empieza en un sector abierto', async () => {
   expect(locked.statusCode).toBe(409);
   expect(locked.json()).toEqual({ error: 'sector_locked' });
   expect((await start(cookie, 'nope')).statusCode).toBe(400);
-  expect((await start(cookie, 'signal-rift')).statusCode).toBe(200);
+  // The season sector asks for its runs first (2026-11-16).
+  expect((await start(cookie, 'signal-rift')).statusCode).toBe(409);
 });
 
 test('sin temporada abierta: quien la tenía elegida vuelve a la Nebulosa, la Fisura no deja empezar y la Nebulosa sí', async () => {
-  const { cookie } = await player();
+  const { cookie, id } = await player();
+  await played(id, 15);
   expect((await choose(cookie, 'signal-rift')).statusCode).toBe(200);
   const h = await hangar(cookie, closed.app);
   expect(h.sector).toBe('outer-nebula');

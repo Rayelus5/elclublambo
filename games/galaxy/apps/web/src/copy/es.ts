@@ -2890,7 +2890,12 @@ export const copy = {
       bossKills: (n: number, boss: string, _sector: string) => (n === 1 ? `Derrota a ${boss}` : `Derrota ${n} veces a ${boss}`),
       maxDepth: (n: number, _boss: string, sector: string) => `Llega a la capa ${n} en ${sector}`,
       extractions: (n: number, _boss: string, sector: string) => `Extrae ${n} veces en ${sector}`,
+      // The season sector (2026-11-16): runs in any sector.
+      runs: (n: number) => `Juega ${n} incursiones`,
     },
+    // What a run in each sector pays (live config `sectors.pay`, 2026-11-16).
+    sectorPay: (factor: number) => `×${String(Math.round(factor * 100) / 100).replace('.', ',')}`,
+    sectorPayTitle: (factor: number) => `Paga ×${String(Math.round(factor * 100) / 100).replace('.', ',')} en botín y puntos de temporada`,
     probe: 'Sonda',
     probePicker: 'Sondas',
     chosen: 'Elegida',
@@ -3452,6 +3457,8 @@ export const copy = {
   },
   results: {
     test: 'Incursión de prueba: sin recompensas',
+    // What the run's sector paid (2026-11-16).
+    sectorPay: (factor: number) => `Paga del sector ×${String(Math.round(factor * 100) / 100).replace('.', ',')}`,
     extracted: 'Extracción completada',
     died: 'Sonda perdida',
     abandoned: 'Incursión abandonada',

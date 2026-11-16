@@ -27,8 +27,11 @@ export function WherePanel({ view }: { view: HangarView }) {
   /** A closed sector's line: the Core to beat (named from the sector the condition is about), or the season. */
   const closedLine = (s: SectorCard) => {
     if (!s.condition) return s.season ? copy.hangar.offSeason : copy.hangar.unlockSoon;
-    const from = view.sectors.find((x) => x.id === s.condition!.sector);
-    return copy.hangar.sectorUnlock[s.condition.stat](s.condition.value, from?.boss.name ?? '', from?.name ?? s.condition.sector);
+    // The season sector's runs count in every sector (2026-11-16).
+    if (s.condition.sector === null) return copy.hangar.sectorUnlock.runs(s.condition.value);
+    const where = s.condition.sector;
+    const from = view.sectors.find((x) => x.id === where);
+    return copy.hangar.sectorUnlock[s.condition.stat](s.condition.value, from?.boss.name ?? '', from?.name ?? where);
   };
   return (
     <section className="lobby-where" aria-labelledby="lobby-sector" data-tour="sector">
@@ -39,6 +42,9 @@ export function WherePanel({ view }: { view: HangarView }) {
           <div className="lobby-brief-title">
             <h2 id="lobby-sector">{sector.name}</h2>
             {sector.season ? <span className="season-badge">{copy.hangar.seasonBadge}</span> : null}
+            <span className="sector-pay" title={copy.hangar.sectorPayTitle(sector.pay)}>
+              {copy.hangar.sectorPay(sector.pay)}
+            </span>
           </div>
           <small>{sector.boss.title}</small>
           <b>{sector.boss.name}</b>
@@ -74,7 +80,9 @@ export function WherePanel({ view }: { view: HangarView }) {
                 >
                   {art}
                   <span className="lobby-sector-text">
-                    <b>{s.name}</b>
+                    <b>
+                      {s.name} <span className="sector-pay small">{copy.hangar.sectorPay(s.pay)}</span>
+                    </b>
                     <small className={s.season && !chosen ? 'season' : undefined}>
                       {chosen ? copy.hangar.sectorChosen : s.season ? copy.hangar.seasonBadge : copy.hangar.species(s.fauna.length)}
                     </small>

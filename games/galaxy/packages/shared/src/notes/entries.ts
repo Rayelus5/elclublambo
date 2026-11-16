@@ -7,6 +7,32 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-36-la-estatica-te-alcanza',
+    version: '1.36',
+    date: '2026-11-16',
+    title: 'La Estática te alcanza',
+    summary: 'Quedarse quieto ya no sale gratis, y el Sifón deja de hacer inmortal a una sonda',
+    items: [
+      { kind: 'equilibrio', text: 'Si te quedas quieto en una zona pequeña, la Estática te avisa; poco después te hace daño, cada vez más, y no te curas hasta que te muevas' },
+      { kind: 'equilibrio', text: 'La Estática no cuenta mientras defiendes la baliza, reanimas a un compañero o eliges carta en grupo' },
+      { kind: 'equilibrio', text: 'El Sifón y la vida robada a los enemigos curan solo del daño que de verdad haces, con un tope por segundo que sube con el nivel del Sifón' },
+      { kind: 'mejora', text: 'Un anillo en el suelo marca la zona donde estás parado, y la barra de vida avisa cuando no puedes curarte' },
+    ],
+  },
+  {
+    id: 'v1-35-cada-sector-paga-lo-suyo',
+    version: '1.35',
+    date: '2026-11-16',
+    title: 'Cada sector paga lo suyo',
+    summary: 'Los sectores más difíciles pagan más, para que valga la pena salir de la Nebulosa',
+    items: [
+      { kind: 'equilibrio', text: 'Cuanto más difícil es el sector, más pagan sus incursiones: monedas, polvo estelar, material, componentes y puntos de temporada' },
+      { kind: 'equilibrio', text: 'La Nebulosa Exterior paga algo menos que antes; la experiencia que da sigue igual' },
+      { kind: 'mejora', text: 'Cada sector dice en el hangar cuánto paga, y los resultados de la incursión lo muestran' },
+      { kind: 'equilibrio', text: 'La Fisura de la Señal se abre tras jugar unas cuantas incursiones; si ya la jugaste esta temporada, la conservas' },
+    ],
+  },
+  {
     id: 'v1-34-la-estatica-crece-contigo',
     version: '1.34',
     date: '2026-11-15',

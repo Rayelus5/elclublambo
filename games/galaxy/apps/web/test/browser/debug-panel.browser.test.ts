@@ -114,3 +114,28 @@ test.each([
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/run-notice-${width}.png` });
 });
 
+// A pending minor (2026-11-16): on a short screen the read-out does not fit, so it scrolls inside itself (and takes the
+// wheel and the pointer over it).
+test('en una pantalla baja la información se desplaza por dentro', async () => {
+  await page.viewport(1280, 560);
+  document.body.style.margin = '0';
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  let sim: Sim | null = null;
+  root = createRoot(host);
+  root.render(createElement(ArenaScreen, { run, onEnd: () => {}, onSim: (s: Sim) => (sim ??= s), debug: { test: true, draft: false, markTest: async () => {} } }));
+  await vi.waitFor(() => expect(sim).not.toBeNull(), { timeout: 20_000 });
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F2', key: 'F2' }));
+  await vi.waitFor(() => expect(document.querySelector('.debug-panel')).not.toBeNull());
+  button(copy.arena.debug.info)?.click();
+  const info = await vi.waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.debug-info');
+    if (!el) throw new Error('sin información');
+    return el;
+  });
+  expect(info.getBoundingClientRect().bottom).toBeLessThanOrEqual(560);
+  expect(info.scrollHeight).toBeGreaterThan(info.clientHeight);
+  expect(getComputedStyle(info).pointerEvents).toBe('auto');
+  info.scrollTop = info.scrollHeight;
+  expect(info.scrollTop).toBeGreaterThan(0);
+});

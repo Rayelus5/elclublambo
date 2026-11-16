@@ -18,6 +18,7 @@ import {
   type RunsConfig,
   type RunStart,
   type SeasonConfig,
+  sectorPay,
   type SectorsConfig,
   sectorStatus,
   type StartRunRequest,
@@ -38,7 +39,7 @@ import type { DB } from '../db/schema';
 import { madridDay } from '../economy/day';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
+import { ensureHangar, relicSnapshot, sectorAccess, testedProbe } from './hangar';
 import { probeLevels } from './levels';
 import { accountLabEffects } from '../lab/levels';
 import { redshiftRank } from '../lab/redshift';
@@ -104,7 +105,8 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   if ((await testedProbe(trx, accountId)) === null) throw new HttpError(409, 'probe_test_required');
   if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
-  if (!sectorStatus(sector, await sectorStats(trx, accountId), ctx.sectors).unlocked) throw new HttpError(409, 'sector_locked');
+  const access = await sectorAccess(trx, accountId, ctx.probes.minRunSeconds);
+  if (!sectorStatus(sector, access.stats, ctx.sectors, access.totals).unlocked) throw new HttpError(409, 'sector_locked');
   const { relics, bonuses, variant, payout, skin } = await loadoutSnapshot(trx, accountId, req.probe, hangar.slots, ctx);
   const seed = newRunSeed();
   const row = await trx
@@ -120,6 +122,8 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sim_version: req.simVersion,
       start_key: key,
       started_at: ctx.now,
+      // What its sector pays, fixed at the start (2026-11-16).
+      sector_factor: sectorPay(ctx.sectors, req.sector),
       ...(ctx.test ? { flags: [TEST_FLAG], suspicious: true } : {}),
     })
     .returning(['id', 'started_at'])
@@ -246,7 +250,7 @@ async function finishTestRun(trx: Kysely<DB>, accountId: string, run: { id: stri
 export async function finishRun(trx: Kysely<DB>, accountId: string, runId: string, req: FinishRunRequest, key: string, ctx: FinishContext): Promise<RunResult> {
   const run = await trx
     .selectFrom('galaxy.runs')
-    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades', 'seed', 'content_version', 'flags'])
+    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades', 'seed', 'content_version', 'flags', 'sector_factor'])
     .where('id', '=', runId)
     .where('account_id', '=', accountId)
     // A co-op player's row is paid by its run (coop/settle.ts), never through the solo finish.
@@ -282,7 +286,7 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   const bonus = (depth: number, ticks: number) => eventLootUpTo(String(run.seed), started, run.sector, { depth, ticks, layerSeconds });
   const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick, bonus });
   const satellites = satelliteSignalsUpTo(String(run.seed), started.satellites, { depth: check.claim.depth, ticks: check.claim.ticks, layerSeconds });
-  return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1, satellites }, key, ctx);
+  return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1, satellites, sector: { id: run.sector, factor: run.sector_factor } }, key, ctx);
 }
 
 const contentCache = new Map<number, Content>();
@@ -320,6 +324,8 @@ export interface SettleInput {
   inputs: Uint8Array | null;
   /** The factor on its season points (co-op: by the number of players, multiplayer plan). */
   pointsFactor: number;
+  /** What its sector pays, as snapshotted at its start (2026-11-16): loot, material, components and points. */
+  sector: { id: string; factor: number };
   /**
    * The most satellite signals this run can be paid (SIM 1.10.0): solo, the ones its seed had up to its depth; co-op,
    * the referee's simulation is the run itself (each player gets every signal, no share).
@@ -353,7 +359,7 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
   // The global multipliers running now (M6d-5), before the per-run caps; the signal chance never above 1.
   const boosted = activeBoosts(ctx.boosts, ctx.now).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor }));
   const global = (c: BoostCurrency) => boostFactor(ctx.boosts, c, ctx.now);
-  const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost, { coins: global('coins'), dust: global('dust') });
+  const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost, { coins: global('coins'), dust: global('dust') }, s.sector.factor);
   // More satellite signals claimed than the run could have had (SIM 1.10.0): an honest client never does that.
   const picked = claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0);
   const flags = [...check.flags, ...(pay.capped ? ['payout_cap' as const] : []), ...(picked > s.satellites ? ['satellite_cap' as const] : [])];
@@ -369,10 +375,10 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
   if (pay.dust > 0) await credit(trx, accountId, 'dust', pay.dust, 'run', ref, key);
   if (signals > 0) await credit(trx, accountId, 'signal', signals, 'run', ref, key);
   // Raw material for the station's refinery (GDD §10.3), paid like the loot.
-  const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material, global('material'));
+  const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material, global('material'), s.sector.factor);
   if (material > 0) await credit(trx, accountId, 'material', material, 'run', ref, key);
   // Components from the breakable props (SIM 1.7.0), paid like the material.
-  const components = runComponents(claim, ctx.runs, factor, check.penalized, global('material'));
+  const components = runComponents(claim, ctx.runs, factor, check.penalized, global('material'), s.sector.factor);
   if (components > 0) await credit(trx, accountId, 'components', components, 'run', ref, key);
 
   const payout = { coins: pay.coins, dust: pay.dust, signals, material, components, satellites: fromSatellites };
@@ -388,7 +394,7 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
       level: claim.level,
       seconds,
       hash: claim.hash,
-      payout: JSON.stringify({ ...payout, layers: pay.layers, share: pay.share, daily: segments, claimed: claimed.loot, boosts: boosted }),
+      payout: JSON.stringify({ ...payout, layers: pay.layers, share: pay.share, daily: segments, claimed: claimed.loot, boosts: boosted, sector: s.sector }),
       runs_version: ctx.runsVersion,
       flags,
       suspicious: flags.length > 0,
@@ -411,6 +417,7 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
     { account: ctx.account, season: ctx.season },
     ctx.now,
     s.pointsFactor,
+    s.sector.factor,
   );
 
   return {
@@ -421,7 +428,7 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
     kills: claim.kills,
     level: claim.level,
     payout,
-    breakdown: { layers: pay.layers, share: pay.share, daily: segments, boosts: boosted },
+    breakdown: { layers: pay.layers, share: pay.share, daily: segments, boosts: boosted, sector: s.sector },
     wallet: await getWallet(trx, accountId),
     progress,
   };
