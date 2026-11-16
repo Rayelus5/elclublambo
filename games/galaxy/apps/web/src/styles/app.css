@@ -5171,6 +5171,8 @@
   .comms-outcomes .bad { color: var(--color-nova); }
   .comms-actions { white-space: nowrap; }
   .comms-actions .pill + .pill { margin-inline-start: 6px; }
+}
+
 /* Mail v2, the P6 review: the library's templates, its warning days, and another admin's publish said plainly. */
 @layer components {
   .pack-lib-advanced { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }
