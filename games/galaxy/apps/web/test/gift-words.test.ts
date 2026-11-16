@@ -48,3 +48,7 @@ test('por qué es grande, con el límite de la configuración', () => {
   expect(bigReasonText('currency_coins', cat)).toBe(g.big.reasons.currency(g.currency.coins, cat.limits.currency.coins));
   expect(bigReasonText('xp', cat)).toBe(g.big.reasons.xp(cat.limits.xp));
 });
+
+test('demasiadas galaxias en un mensaje también se explica (revisión de P3)', () => {
+  expect(bigReasonText('galaxy_count', cat)).toBe(g.big.reasons.galaxy_count(cat.limits.galaxies));
+});

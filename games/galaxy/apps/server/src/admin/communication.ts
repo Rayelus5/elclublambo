@@ -4,10 +4,12 @@ import {
   type AdminNoticeRow,
   allGifts,
   bigGiftReasons,
+  galaxyCount,
   giftIssues,
   inAudience,
   legacyView,
   levelOf,
+  MAX_GALAXIES,
   type MailAudience,
   type MailContents,
   readContents,
@@ -71,6 +73,12 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
   if (packs.some((p) => !p)) throw new HttpError(400, 'pack_unknown');
   const contents: MailContents = { v: 2, items: req.gifts.items, packs: packs.map((p) => ({ id: p!.id, name: p!.name, art: p!.art, items: p!.items })) };
   const gifts = allGifts(contents);
+  if (galaxyCount(gifts) > MAX_GALAXIES) throw new HttpError(400, 'galaxy_too_many');
+  // The password before anything costly (finding whether a galaxy can be made takes a moment).
+  if (gifts.length > 0) {
+    if (!req.password) throw new HttpError(400, 'invalid_input');
+    await confirmPassword(deps.db, s, req.password);
+  }
   const open = seasonOpen(season, now);
   const issues = giftIssues(gifts, {
     cosmetics,
@@ -84,10 +92,6 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
   const recipients = to.length;
   const big = gifts.length > 0 ? bigGiftReasons(gifts, recipients, limits, cosmetics) : [];
   if (big.length > 0 && !s.roles.includes('superadmin')) throw new HttpError(403, 'gift_needs_superadmin', { reasons: big });
-  if (gifts.length > 0) {
-    if (!req.password) throw new HttpError(400, 'invalid_input');
-    await confirmPassword(deps.db, s, req.password);
-  }
   let expires = now.getTime() + req.expiresInDays * 86_400_000;
   for (const g of gifts) {
     if (g.kind === 'seasonPoints' || (g.kind === 'currency' && g.currency.startsWith('season:'))) expires = Math.min(expires, Date.parse(season.endsAt));

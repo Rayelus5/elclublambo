@@ -124,6 +124,8 @@ export function bigReasonText(reason: BigGiftReason, cat: Pick<GiftCatalog, 'lim
   const r = g.big.reasons;
   const l = cat.limits;
   switch (reason) {
+    case 'galaxy_count':
+      return r.galaxy_count(l.galaxies);
     case 'galaxy_tier':
       return r.galaxy_tier(copy.tiers[l.galaxyTier]);
     case 'galaxy_finish':

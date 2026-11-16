@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { TIERS } from '../gacha/types';
+import { galaxyCount, galaxyReachable, MAX_GALAXIES } from './rules';
 import { giftListSchema, PACK_ARTS, packIdSchema } from './schema';
 
 // The admins' library for the mail (mail v2, 2026-11-16, the owner: «biblioteca de packs»): packs of gifts with a name
@@ -15,7 +17,14 @@ const name = z.string().trim().min(1).max(40);
 
 export const mailPackSchema = z
   .object({ id: packIdSchema, name, art: z.enum(PACK_ARTS), items: giftListSchema(30).min(1), enabled: z.boolean().default(true) })
-  .strict();
+  .strict()
+  .refine((p) => galaxyCount(p.items) <= MAX_GALAXIES, { message: 'mail_pack_galaxies', path: ['items'] })
+  // A galaxy no one could get is refused when the library is published, not when a message is sent.
+  .superRefine((p, ctx) => {
+    p.items.forEach((g, i) => {
+      if (g.kind === 'galaxy' && !galaxyReachable(TIERS.indexOf(g.tier), g.trait)) ctx.addIssue({ code: 'custom', message: 'galaxy_unreachable', path: ['items', i] });
+    });
+  });
 export type MailPack = z.output<typeof mailPackSchema>;
 
 export const mailTemplateSchema = z
