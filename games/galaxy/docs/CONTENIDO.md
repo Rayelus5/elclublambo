@@ -400,7 +400,7 @@ La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
   - Un reembolso o un contracargo quita solo esas, nunca una que ya tenía.
 - **Fechas de venta:** fuera de ellas, el producto no se ve y su compra da `shop_unavailable`. Un final anterior al inicio no vale (`shop_window`). La tarjeta dice «A la venta hasta el …» con el último día en Madrid.
 - **Una skin de la tienda** solo se puede llevar si está en el catálogo vivo `cosmetics`. Las líneas nuevas se publican primero en `cosmetics` y después sus productos en `shop`.
-- **Los packs de skins** (2026-11-17) son las líneas `navidad`, `fuego`, `agua`, `galaxia`, `carbono` y `rubi`: legendarias, animadas y solo de la tienda (`SKIN_PACKS` en `cosmetics/catalog.ts`). Sus productos son `skins-<línea>`, apagados y sin precio en el valor por defecto. Navidad solo se vende del 1 de diciembre al 6 de enero.
+- **Los packs de skins** (2026-11-17) son las líneas `navidad`, `fuego`, `agua`, `galaxia`, `carbono` y `rubi`: legendarias, animadas y solo de la tienda (`SKIN_PACKS` en `cosmetics/catalog.ts`). Sus productos son `skins-<línea>`, apagados y sin precio en el valor por defecto. Navidad se vende desde su publicación (17/11/2026) hasta el 10 de enero incluido (`availableUntil` el 11 de enero a las 00:00 de Madrid).
 
 ### B9. Qué es configuración y qué es código
 
