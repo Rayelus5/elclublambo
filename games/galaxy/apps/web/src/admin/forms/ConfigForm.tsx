@@ -13,7 +13,7 @@ import { discriminatorOf, emptyOf, getIn, itemsOf, kindOf, liveIds, optionOf, pa
 // and the kind of an effect choosing its fields. Each field shows its own problems; the checks across fields show on
 // their group.
 
-export type Option = { value: string; label: string; image?: string };
+export type Option = { value: string; label: string; image?: string; hint?: string; disabled?: boolean };
 /** Named lists of choices (the live sectors, anomalies and probes; the content editor adds its own sources). */
 export type Options = Partial<Record<string, Option[]>>;
 /** A form's own description of a field (the content editor's descriptors), or none: the key's labels then. */
@@ -29,6 +29,10 @@ export interface WidgetProps {
   set: (value: unknown) => void;
   /** Its problems, in words. */
   problems?: string[];
+  /** The whole value of the form, to read its neighbours (a weapon's kind beside its levels). */
+  root: unknown;
+  /** The form's sources of choices (names and drawings of the content's entries…). */
+  options: Options;
 }
 /** Widgets by the pattern they replace («sectors[].spawns», «bosses[].phases»): components made once, never per render. */
 export type Widgets = Partial<Record<string, ComponentType<WidgetProps>>>;
@@ -72,8 +76,8 @@ function rangeHint(node: JsonSchema, info: FieldInfo): string | null {
   return `De ${fmtNumber(tidy(lo * s))} a ${fmtNumber(tidy(hi * s))}`;
 }
 
-/** A number typed in Spanish (comma or point), kept as text while it is being typed. */
-function NumberInput({ id, value, info, onChange, label, invalid }: { id: string; value: unknown; info: FieldInfo; onChange: (v: number | undefined) => void; label?: string; invalid?: boolean }) {
+/** A number typed in Spanish (comma or point), kept as text while it is being typed. Widgets use it too. */
+export function NumberInput({ id, value, info, onChange, label, invalid }: { id: string; value: unknown; info: FieldInfo; onChange: (v: number | undefined) => void; label?: string; invalid?: boolean }) {
   const s = scaleOf(info);
   const shown = typeof value === 'number' ? String(tidy(value * s)).replace('.', ',') : '';
   const [text, setText] = useState(shown);
@@ -207,6 +211,7 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
       </label>
       {control}
       {hint ? <small className="cf-hint">{hint}</small> : null}
+      {choices?.find((o) => o.value === String(value))?.hint ? <small className="cf-explain">{choices.find((o) => o.value === String(value))!.hint}</small> : null}
       {optional && value !== undefined && kind !== 'enum' && !choices ? (
         <button type="button" className="cf-link" onClick={() => change(undefined)}>
           Quitar {field.label.toLowerCase()}
@@ -438,14 +443,19 @@ function Variant({ node, path, pattern }: { node: JsonSchema; path: Path; patter
             size="sm"
             block
             value={String(value?.[d] ?? '')}
-            options={node.oneOf!.map((o) => {
-              const v = String(o.properties![d]!.const);
-              // The kinds' names from the form's own vocabulary when it has one (the content editor's).
-              const named = kinds?.find((x) => x.value === v)?.label;
-              return { value: v, label: named ?? valueName(o.properties![d]!.const) };
-            })}
+            options={[
+              ...node.oneOf!.map((o) => {
+                const v = String(o.properties![d]!.const);
+                // The kinds' names and what they do from the form's own vocabulary when it has one (the content editor's).
+                const named = kinds?.find((x) => x.value === v);
+                return { value: v, label: named?.label ?? valueName(o.properties![d]!.const), hint: named?.hint };
+              }),
+              // What the vocabulary adds that no option is (a kind that still needs code), shown and never chosen.
+              ...(kinds ?? []).filter((x) => x.disabled),
+            ]}
             onChange={(v) => set(path, emptyOf(node.oneOf!.find((o) => o.properties?.[d]?.const === v)!))}
           />
+          {kinds?.find((x) => x.value === String(value?.[d] ?? ''))?.hint ? <small className="cf-explain">{kinds.find((x) => x.value === String(value?.[d] ?? ''))!.hint}</small> : null}
         </div>
       </div>
       {Object.keys(rest.properties).length ? <Fields node={rest} path={path} pattern={`${pattern}<${String(value?.[d] ?? '')}>`} /> : null}
@@ -717,12 +727,17 @@ function Record_({ node, path, pattern }: { node: JsonSchema; path: Path; patter
 }
 
 /** Any node: the right control for its kind. `bare` draws an object's fields without its own frame (inside a card). */
-function Node({ node, path, pattern, optional, bare = false }: { node: JsonSchema; path: Path; pattern: string; optional: boolean; bare?: boolean }) {
-  const { root, set, widgets, info, issues } = useForm();
+/** The engine's own control for a field: for a widget that adds to it (a chart above a list) instead of replacing it. */
+export function FormField({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: string }) {
+  return <Node node={node} path={path} pattern={pattern} optional={false} plain />;
+}
+
+function Node({ node, path, pattern, optional, bare = false, plain = false }: { node: JsonSchema; path: Path; pattern: string; optional: boolean; bare?: boolean; plain?: boolean }) {
+  const { root, set, widgets, info, issues, options } = useForm();
   const n = unwrap(node).node;
   // A widget made for this field replaces the generic control (the content editor's level tables, timelines…).
-  const widget = widgets?.[pattern] ?? (pattern.includes('<') ? widgets?.[pattern.replace(/<[^>]*>/g, '')] : undefined);
-  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v), problems: issues.get(pathKey(path)) });
+  const widget = plain ? undefined : (widgets?.[pattern] ?? (pattern.includes('<') ? widgets?.[pattern.replace(/<[^>]*>/g, '')] : undefined));
+  if (widget) return createElement(widget, { value: getIn(root, path), node: n, path, pattern, info: info(pattern), set: (v: unknown) => set(path, v), problems: issues.get(pathKey(path)), root, options });
   switch (kindOf(n)) {
     case 'object':
       return bare ? <Fields node={n} path={path} pattern={pattern} /> : <Group node={n} path={path} pattern={pattern} optional={optional} />;

@@ -103,6 +103,7 @@ const VIEWS = [
   ['sectores', 'zona=sectores&id=outer-nebula'],
   ['arsenal', 'zona=arsenal&id=pulse'],
   ['reglas', 'zona=reglas&lista=healing'],
+  ['eventos', 'zona=eventos&lista=events'],
 ] as const;
 
 for (const [w, h] of [
@@ -150,3 +151,55 @@ for (const [w, h] of [
     if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-gallery-${w}.png` });
   });
 }
+
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`la tabla de niveles de un arma a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount('/admin/configuracion/content?borrador=d1&zona=arsenal&id=pulse');
+    await vi.waitFor(
+      () => {
+        if (!document.querySelector('.ce-levels table')) throw new Error('sin tabla');
+      },
+      { timeout: 8000 },
+    );
+    document.querySelector('.ce-levels')!.scrollIntoView({ block: 'center' });
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-levels-${w}.png`, element: document.querySelector('.ce-entity')! });
+  });
+}
+
+for (const [name, query] of [
+  ['fases', 'zona=nucleos&id=hive'],
+  ['oleadas', 'zona=sectores&id=outer-nebula'],
+  ['pesos', 'zona=eventos&lista=events'],
+] as const) {
+  test(`el gráfico de ${name} a 1600×900`, async () => {
+    await page.viewport(1600, 900);
+    mount(`/admin/configuracion/content?borrador=d1&${query}`);
+    await vi.waitFor(
+      () => {
+        if (!document.querySelector('.ce-chart ol li')) throw new Error('sin gráfico');
+      },
+      { timeout: 8000 },
+    );
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
+    const chart = document.querySelector('.ce-chart')!;
+    if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: `__shots__/content-chart-${name}.png`, element: chart.querySelector('ol')!.parentElement! });
+  });
+}
+
+test('la tabla de reacciones a 1280×720', async () => {
+  await page.viewport(1280, 720);
+  mount('/admin/configuracion/content?borrador=d1&zona=elementos');
+  await vi.waitFor(
+    () => {
+      if (!document.querySelector('.ce-matrix td.on')) throw new Error('sin tabla');
+    },
+    { timeout: 8000 },
+  );
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1281);
+  if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-chart-reacciones.png', element: document.querySelector('.ce-matrix-scroll')! });
+});

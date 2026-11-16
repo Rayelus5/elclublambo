@@ -314,3 +314,10 @@ test('una opción con dibujo lo enseña en la lista y en el elegido (el editor d
   const marte = screen.getByRole('option', { name: 'Marte' });
   expect(marte.querySelector('img')).toHaveAttribute('src', 'data:image/png;base64,marte');
 });
+
+test('una opción puede llevar una explicación debajo de su nombre', async () => {
+  const explained = PLANETS.map((p) => ({ ...p, hint: `Sobre ${p.label}` }));
+  render(<Planet options={explained} aria-label="Planeta" />);
+  await userEvent.setup().click(screen.getByRole('combobox', { name: 'Planeta' }));
+  expect(within(screen.getByRole('option', { name: /Marte/ })).getByText('Sobre Marte')).toBeInTheDocument();
+});

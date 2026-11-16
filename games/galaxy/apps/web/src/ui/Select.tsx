@@ -19,6 +19,8 @@ export interface SelectOption<V extends string = string> {
   disabled?: boolean;
   /** A small drawing beside the label (a `data:` URL: an enemy, a Core, a weapon's icon in the content editor). */
   image?: string;
+  /** What the choice does, under its name in the list (it describes the option, never names it). */
+  hint?: string;
 }
 
 type DataAttributes = { [key: `data-${string}`]: string | boolean | undefined };
@@ -291,6 +293,7 @@ export function Select<V extends string>({
                   aria-selected={i === selected}
                   aria-disabled={o.disabled || undefined}
                   data-value={o.value}
+                  aria-describedby={o.hint ? `${optionId(i)}-h` : undefined}
                   data-active={i === at || undefined}
                   onClick={() => !o.disabled && choose(i)}
                   onMouseMove={(e) => {
@@ -301,7 +304,14 @@ export function Select<V extends string>({
                   }}
                 >
                   {o.image ? <img className="select-image" src={o.image} alt="" width={24} height={24} /> : null}
-                  <span className="select-option-label">{o.label}</span>
+                  <span className="select-option-label">
+                    {o.label}
+                    {o.hint ? (
+                      <small id={`${optionId(i)}-h`} className="select-option-hint">
+                        {o.hint}
+                      </small>
+                    ) : null}
+                  </span>
                   <Icon name="tick" className="ico select-check" />
                 </li>
               ))}

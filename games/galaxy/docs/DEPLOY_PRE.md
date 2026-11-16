@@ -1306,3 +1306,22 @@ Comprueba con `rayelus`:
 2. Sectores → un sector → «Formas del Núcleo»: añade, sube y quita formas.
 3. Núcleos → La Colmena Rota: dice «Se usa en N sitios» y los nombra.
 
+## Editor de contenido, P6: controles ricos
+
+**Qué cambia.** Solo la web: ni migraciones, ni configuración que publicar, ni cambios en la simulación. Sí se añade `WEAPON_FIELDS`, un dato que la propia simulación comprueba.
+
+**El código ya trae:**
+- **Tabla de niveles de las armas:** una fila por nivel y una columna por número, cada una con una línea que enseña cómo crece. Las columnas que el tipo de arma no lee salen apagadas y al final.
+  - El mapa `WEAPON_FIELDS` está probado en la simulación: cambiar un número que el tipo no lee no cambia nada en la incursión, y cambiar uno que lee sí cambia algo.
+- **Tipos explicados:** cada tipo de arma, comportamiento, patrón, rasgo, reacción o fenómeno sale con lo que hace, en la lista y bajo lo elegido. «Otro: necesita programación» aparece pero no se puede elegir.
+- **Gráficos sobre su editor:**
+  - las fases de un Núcleo sobre su barra de vida, con sus ataques;
+  - cuándo sale cada enemigo de un sector y cuándo llegan sus oleadas;
+  - qué parte del total se lleva cada evento;
+  - la tabla de reacciones entre elementos.
+
+Comprueba con `rayelus`:
+1. Arsenal → un arma: la tabla de niveles con lo que no usa apagado.
+2. Fauna → un enemigo: el tipo de comportamiento explica lo que hace.
+3. Núcleos, Sectores, Eventos y Elementos: sus gráficos.
+
