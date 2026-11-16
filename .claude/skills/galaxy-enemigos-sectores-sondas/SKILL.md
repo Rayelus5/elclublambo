@@ -52,7 +52,7 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 1. En `bosses`: fases con `below` que empiecen en 1 y bajen, patrones existentes y `scaling`. Hay 11 tipos de patrón: `radial`, `aimed`, `spiral`, `summon`, `charge`, `wall`, `mines`, `blink` y, desde noviembre, `laser` (un rayo avisado que barre), `closing` (un anillo que se cierra sobre la sonda, con un hueco de al menos 20°) y `barrage` (círculos en fila hacia la sonda que estallan uno tras otro).
    - **Formas por capa (noviembre):** un sector rota sus Núcleos con `bossCycle: [forma1, forma2, forma3]`. `bossCycle[0]` debe ser `boss`. Las capas del Núcleo profundo no cuentan. El Núcleo profundo rota con `deepBoss.cycle`, según las veces que ha salido. Sin estos campos, se usa siempre `boss`, como antes. La elección está en `bossIdAt()` (`systems/boss.ts`). Cada forma nueva lleva su sprite (`apps/web/src/arena/sprites/forms.ts`), su texto en el Códice y su frase de radio.
 2. Sprite de 40×40 y 2 fotogramas en `arena/sprites/bosses.ts` (`core(fn, fps)`).
-3. `CORE_TEXT` en `entries.ts` y la frase de PERKINS en `copy.arena.radio.bosses[id]` (`es.ts`).
+3. Su texto del Códice y la frase de PERKINS: en el propio contenido (`lore` y `radio` del Núcleo, CONTENIDO A7), o en código como respaldo (`CORE_TEXT` en `codex/texts.ts`, `copy.arena.radio.bosses[id]` en `es.ts`).
 4. **Patrón nuevo:** `BossPattern`, la unión en `schema.ts`, `systems/boss.ts` y los avisos. Sube `SIM_VERSION`.
 
 **Sector:**
@@ -61,7 +61,7 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
    - `coreDamage` (el daño de sus Núcleos) también crece en el orden de la lista y el de temporada es el mayor. `enemyDamage` es solo de la fauna y se ajusta junto con su `scaling`.
    - Mide la curva con el bot: `GALAXY_CALIBRATE=1 GALAXY_SECTOR=<id> pnpm -C games/galaxy exec vitest run --project unit packages/sim/test/difficulty.test.ts`. Cada sector dura entre un 2 % y un 30 % menos que el anterior.
 2. Clave viva `sectors` (`packages/shared/src/config/registry.ts`): condición en `unlocks` (o `season`, para el sector de temporada).
-3. `SECTOR_TEXT` en `entries.ts` y la frase de PERKINS en `copy.arena.radio.sectors[id]`.
+3. Su texto del Códice, la frase de PERKINS y los nombres de sus peligros: en el propio contenido (`lore`, `radio` y `hazardNames` del sector, CONTENIDO A7), o en código como respaldo (`SECTOR_TEXT` en `codex/texts.ts`, `copy.arena.radio.sectors[id]` y `copy.arena.events.bySector` en `es.ts`).
 
 **Bioma** (solo aspecto, no toca la simulación):
 - `BIOMES` en `types.ts`;

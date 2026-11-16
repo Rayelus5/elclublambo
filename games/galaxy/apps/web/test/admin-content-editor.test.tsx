@@ -242,3 +242,21 @@ test('la simulación rápida compara lo publicado con el borrador', async () => 
   expect(minutes).toHaveTextContent('3,5');
   expect(within(table).getByRole('row', { name: new RegExp(t.quickSimRows.boss) })).toHaveTextContent('2 de 2');
 });
+
+test('un texto vacío enseña el de siempre y se puede escribir el propio', async () => {
+  const { DESCRIPTORS } = await import('../src/admin/content/descriptors');
+  const { SECTOR_TEXT } = await import('../src/codex/texts');
+  const rings = live.sectors.find((s) => s.id === 'frost-rings')!;
+  const fetch = api({ 'PUT /galaxy/api/admin/config-drafts/d1/field': () => jsonResponse(200, draft({ revision: 2 })) });
+  renderAt('/admin/configuracion/content?borrador=d1&zona=sectores&id=frost-rings', { '/admin/configuracion/content': <ContentScreen /> });
+  await screen.findByRole('heading', { name: rings.name });
+  const lore = screen.getByRole('textbox', { name: DESCRIPTORS['sectors[].lore']!.label });
+  expect(lore).toHaveValue('');
+  expect(lore).toHaveAttribute('placeholder', SECTOR_TEXT['frost-rings']);
+  const radio = screen.getByRole('textbox', { name: DESCRIPTORS['sectors[].radio']!.label });
+  expect(radio).toHaveAttribute('placeholder', copy.arena.radio.sectors['frost-rings']);
+  fireEvent.change(lore, { target: { value: 'Un texto propio' } });
+  await waitFor(() => expect(puts(fetch).map((p) => p.field)).toContain('sectors'), { timeout: 3000 });
+  const saved = puts(fetch).find((p) => p.field === 'sectors')!.value as { id: string; lore?: string }[];
+  expect(saved.find((s) => s.id === 'frost-rings')!.lore).toBe('Un texto propio');
+});

@@ -33,6 +33,7 @@ import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { announceFor } from './announce';
 import { playEvents } from './arena-sfx';
+import { coreRadio, sectorRadio } from '../codex/texts';
 import { BeaconMarker, BossBar, EventMarkers, Radio } from './hud/Overlays';
 import { Hud } from './hud/Hud';
 import { LevelUp } from './hud/LevelUp';
@@ -148,7 +149,7 @@ export function ArenaScreen({
   // The first run ever explains the controls; after that, a new sector introduces itself once.
   const [radio, setRadio] = useState<string | null>(() => {
     if (!radioSeen('start')) return copy.arena.radio.start;
-    const intro = copy.arena.radio.sectors[run.sector];
+    const intro = sectorRadio(run.content, run.sector);
     return intro && !radioSeen(`sector:${run.sector}`) ? intro : null;
   });
   const [over, setOver] = useState(false);
@@ -382,7 +383,7 @@ export function ArenaScreen({
         if (e.t === 'layer') musicStinger('layer');
         if (e.t === 'extracted') musicStinger('extract');
         if (e.t === 'bossSpawn') {
-          const line = copy.arena.radio.bosses[e.boss];
+          const line = coreRadio(run.content, e.boss);
           if (line) say(`boss:${e.boss}`, line);
           else say('boss', copy.arena.radio.boss);
         }
@@ -514,8 +515,8 @@ export function ArenaScreen({
       markRadioSeen('start');
       // It says what the tutorial's first coaching line would (polish phase 3).
       markRadioSeen('coach:move');
-    } else if (radio && radio === copy.arena.radio.sectors[run.sector]) markRadioSeen(`sector:${run.sector}`);
-  }, [radio, run.sector]);
+    } else if (radio && radio === sectorRadio(run.content, run.sector)) markRadioSeen(`sector:${run.sector}`);
+  }, [radio, run.sector, run.content]);
 
   useEffect(() => {
     if (!radio) return;
@@ -680,7 +681,7 @@ export function ArenaScreen({
       {hud.boss && <BossBar boss={hud.boss} />}
       {runNotices && hud.status !== 'choosing' ? <RunNotice notice={centre} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      <EventMarkers hud={hud} sector={sim.sector.id} camera={camera} width={size.w} height={size.h} />
+      <EventMarkers hud={hud} sector={sim.sector.id} content={run.content} camera={camera} width={size.w} height={size.h} />
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}
       {briefing ? (
         <Briefing

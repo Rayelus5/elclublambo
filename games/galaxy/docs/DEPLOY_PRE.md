@@ -1346,3 +1346,18 @@ Comprueba con `rayelus`:
 1. En un borrador, duplica un enemigo: sale el aviso «No sale en ningún sector…», y publicar pide marcar que lo has leído.
 2. «Comparar con el bot»: al cabo de un rato sale la tabla de lo publicado frente al borrador.
 
+## Editor de contenido, P8: los textos en el contenido
+
+**Qué cambia.** Hay campos opcionales nuevos en `content`; no hacen falta migraciones ni configuración que publicar.
+- **Los campos:** `lore` en sectores, Núcleos y enemigos; `radio` en sectores y Núcleos; `hazardNames` en sectores.
+- **La simulación no los lee,** así que `SIM_VERSION` no cambia y lo publicado antes sigue valiendo tal cual.
+- **El orden importa:** primero se despliega el código y después se publica contenido que use estos campos. Un servidor antiguo los rechazaría, porque el esquema es estricto.
+
+**El código ya trae:**
+- **Lectura con respaldo:** el Códice, la radio de PERKINS y los nombres de los peligros leen primero el contenido; si está vacío, usan el texto de siempre, que ahora vive en `codex/texts.ts` y `es.ts`.
+- **En el panel:** cada texto vacío enseña en gris el de siempre, y lo que se escriba lo sustituye.
+
+Comprueba con `rayelus`:
+1. En un borrador, Sectores → Anillos de Escarcha, sección Textos: las cajas enseñan en gris el texto de siempre.
+2. Escribe un texto propio para el Códice y pruébalo en una incursión: el Códice del juego no cambia hasta publicar.
+

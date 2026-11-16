@@ -105,9 +105,11 @@ Por eso un cambio hecho en el panel se ve en todas partes sin desplegar. `DEFAUL
   - Fuente: `docs/DESIGN_SYSTEM.md` §9 y `apps/web/src/copy/es.ts`.
   - Los títulos importantes se le proponen al propietario como pregunta de opciones.
 - **Nombres y descripciones** de armas, pasivas, enemigos y sectores viven en el propio contenido, en español.
-- **Textos fijos que hay que tocar a mano:**
-  - Códice: `BEAST_TEXT`, `CORE_TEXT` y `SECTOR_TEXT` en `codex/entries.ts`. Una especie sin `BEAST_TEXT` no sale en el bestiario.
-  - Radio de PERKINS: `copy.arena.radio.sectors[id]` y `radio.bosses[id]` en `es.ts`.
+- **Textos ligados a una entrada (P8, 2026-11-16): van en el propio contenido.**
+  - Campos: `lore` en sectores, Núcleos y enemigos; `radio` en sectores y Núcleos; `hazardNames` en sectores.
+  - Son opcionales. Vacíos, la web usa los de siempre: `SECTOR_TEXT`, `CORE_TEXT` y `BEAST_TEXT` en `codex/texts.ts`, y `copy.arena.radio.*` y `copy.arena.events.bySector` en `es.ts`.
+  - El panel enseña ese texto de respaldo en gris dentro de la caja, así que una entrada nueva puede tener sus textos sin código.
+  - Una especie sin texto, ni propio ni de siempre, no sale en el bestiario.
   - Mapas `satisfies Record<…>` de `es.ts` (familias, elementos, fenómenos, rasgos de sonda): `typecheck` obliga a añadir el id nuevo.
 - **Números escritos en textos:** si cambias el valor, cambia también el texto.
   - Ejemplos: `copy.hangar.stacking` («Desde la tercera… la mitad»), el GDD (§8.2, §8.4 bis) y `DESIGN_SYSTEM.md`.

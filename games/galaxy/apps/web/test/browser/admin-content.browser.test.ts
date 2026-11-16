@@ -227,3 +227,16 @@ test('el lateral con avisos y la simulación rápida a 1600×900', async () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
   if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-review-1600.png', element: document.querySelector('.cf-aside')! });
 });
+
+test('los textos de un sector con el de siempre en gris a 1600×900', async () => {
+  await page.viewport(1600, 900);
+  mount('/admin/configuracion/content?borrador=d1&zona=sectores&id=frost-rings');
+  await vi.waitFor(
+    () => {
+      if (!document.querySelector('.ce-text textarea')) throw new Error('sin textos');
+    },
+    { timeout: 8000 },
+  );
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1601);
+  if (import.meta.env['VITE_ADMIN_SHOTS']) await page.screenshot({ path: '__shots__/content-texts-1600.png', element: document.querySelector('.ce-text.long')! });
+});

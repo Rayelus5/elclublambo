@@ -21,6 +21,9 @@ const id = z.string().regex(/^[a-z0-9-]{1,32}$/);
 const sprite = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const name = z.string().min(1).max(60);
 const text = z.string().min(1).max(200);
+// The texts tied to an entry (the content editor, 2026-11-16, P8): optional, the web falls back to its own.
+const lore = z.string().min(1).max(400).optional();
+const radio = z.string().min(1).max(200).optional();
 const n = z.number().min(0).max(1_000_000);
 const unit = z.number().min(0).max(1);
 const pos = z.number().gt(0).max(1_000_000);
@@ -131,6 +134,7 @@ const enemy = z
   .object({
     id,
     name,
+    lore,
     family: z.enum(ENEMY_FAMILIES),
     sprite,
     hp: pos,
@@ -182,6 +186,8 @@ const boss = z
   .object({
     id,
     name,
+    lore,
+    radio,
     title: name,
     sprite,
     hp: pos,
@@ -213,6 +219,9 @@ const sector = z
       .nullable()
       .default(null),
     season: z.boolean().default(false),
+    lore,
+    radio,
+    hazardNames: z.object({ meteors: name.optional(), storm: name.optional(), well: name.optional() }).strict().optional(),
     // Open beta: the sector's own toughness, on top of its scaling (first sector easiest, the season's hardest).
     enemyHp: z.number().min(0.25).max(4).default(1),
     enemyDamage: z.number().min(0.25).max(4).default(1),

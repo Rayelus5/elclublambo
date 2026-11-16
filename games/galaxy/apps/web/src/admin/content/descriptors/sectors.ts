@@ -20,6 +20,20 @@ export const part: DescriptorPart = {
     },
     'sectors[].name': { label: 'Nombre', section: 'Identidad', hint: 'Cómo se llama en el hangar, en el Códice y en la radio' },
     'sectors[].description': { label: 'Descripción', section: 'Identidad', hint: 'El texto corto que se ve al elegirlo en el hangar' },
+    'sectors[].lore': { label: 'Texto del Códice', section: 'Textos', hint: 'Lo que cuenta de él su entrada del Códice; vacío, el texto de siempre del juego o su descripción' },
+    'sectors[].radio': {
+      label: 'Línea de PERKINS',
+      section: 'Textos',
+      hint: 'Lo que dice PERKINS en la primera incursión de cada jugador en él; vacío, la línea de siempre o ninguna',
+    },
+    'sectors[].hazardNames': {
+      label: 'Nombres de los peligros',
+      section: 'Textos',
+      hint: 'Cómo llama este sector a sus peligros en los avisos y en la pantalla; el que quede vacío usa el nombre de siempre',
+    },
+    'sectors[].hazardNames.meteors': { label: 'Lluvia de meteoritos', hint: 'Su nombre en este sector, como «Granizo de hielo»' },
+    'sectors[].hazardNames.storm': { label: 'Tormenta de la Estática', hint: 'Su nombre en este sector, como «Ventisca estática»' },
+    'sectors[].hazardNames.well': { label: 'Pozo de gravedad', hint: 'Su nombre en este sector, como «Remolino helado»' },
     'sectors[].biome': {
       label: 'Bioma',
       section: 'Identidad',

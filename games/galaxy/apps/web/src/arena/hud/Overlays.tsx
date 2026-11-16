@@ -1,4 +1,4 @@
-import type { HudSnapshot } from '@galaxy/sim';
+import type { Content, HudSnapshot } from '@galaxy/sim';
 import type { CSSProperties } from 'react';
 import { copy } from '../../copy/es';
 import type { Camera } from '../stage/camera';
@@ -47,7 +47,7 @@ export type MarkedEvent = { kind: 'satellite' | HudSnapshot['events'][number]['k
  * arrow at the screen edge with its name, what to do, how far it is and, when it runs out, the seconds it has left. On
  * screen it says nothing (the stage draws it), but an abandoned ship being looted shows how far along it is.
  */
-export function EventMarker({ event, sector, camera, width, height }: { event: MarkedEvent; sector: string; camera: Camera | null; width: number; height: number }) {
+export function EventMarker({ event, sector, content, camera, width, height }: { event: MarkedEvent; sector: string; content?: Content; camera: Camera | null; width: number; height: number }) {
   const zoom = camera?.zoom ?? 2;
   const { x, y, angle, inside } = edgePoint({ width, height, bars: camera?.bars ?? 0 }, event.dx * zoom, event.dy * zoom - (event.kind === 'wreck' ? 34 : 0), 56);
   const looting = event.kind === 'wreck' && (event.progress ?? 0) > 0;
@@ -61,7 +61,7 @@ export function EventMarker({ event, sector, camera, width, height }: { event: M
     <div className={`hud-event ${event.kind}${inside ? ' here' : ''}`} style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` } as CSSProperties}>
       {!inside && <span className="hud-event-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />}
       <span className="hud-event-label">
-        <b>{eventName(event.kind, sector)}</b>
+        <b>{eventName(event.kind, sector, content)}</b>
         <span>{details}</span>
       </span>
     </div>
@@ -69,12 +69,12 @@ export function EventMarker({ event, sector, camera, width, height }: { event: M
 }
 
 /** The markers of a snapshot: its satellite and its events. */
-export function EventMarkers({ hud, sector, camera, width, height }: { hud: Pick<HudSnapshot, 'satellite' | 'events'>; sector: string; camera: Camera | null; width: number; height: number }) {
+export function EventMarkers({ hud, sector, content, camera, width, height }: { hud: Pick<HudSnapshot, 'satellite' | 'events'>; sector: string; content?: Content; camera: Camera | null; width: number; height: number }) {
   return (
     <>
-      {hud.satellite && <EventMarker event={{ kind: 'satellite', ...hud.satellite }} sector={sector} camera={camera} width={width} height={height} />}
+      {hud.satellite && <EventMarker event={{ kind: 'satellite', ...hud.satellite }} sector={sector} content={content} camera={camera} width={width} height={height} />}
       {hud.events.map((e, k) => (
-        <EventMarker key={`${e.kind}-${k}`} event={e} sector={sector} camera={camera} width={width} height={height} />
+        <EventMarker key={`${e.kind}-${k}`} event={e} sector={sector} content={content} camera={camera} width={width} height={height} />
       ))}
     </>
   );

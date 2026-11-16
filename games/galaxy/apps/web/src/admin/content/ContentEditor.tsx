@@ -13,6 +13,7 @@ import { AREAS, type AreaDesc, describeContent as describe, DESCRIPTORS, VOCABS 
 import { PhaseTimeline, ReactionMatrix, SpawnTimeline, WeightBars } from './Charts';
 import { LevelTable } from './LevelTable';
 import { SpritePicker } from './SpritePicker';
+import { TEXT_PATTERNS, TextFallback } from './TextFallback';
 
 // The content editor (2026-11-16, P4): the run content edited the way an admin thinks of it. Areas (Arsenal, Fauna,
 // Núcleos…) hold their top-level fields; a list of things with ids (weapons, enemies, sectors…) is a searchable list
@@ -32,6 +33,7 @@ const WIDGETS: Widgets = {
   'sectors[].spawns': SpawnTimeline,
   'events.weights': WeightBars,
   'elements.reactions': ReactionMatrix,
+  ...Object.fromEntries(TEXT_PATTERNS.map((p) => [p, TextFallback])),
 };
 
 /** The lists whose entries the content names elsewhere (refs): what is used cannot go. */
