@@ -25,6 +25,11 @@ export interface RunCheckContext {
   cfg: RunsConfig;
   /** Last tick of the decoded input log (null when not decoded). */
   logTicks: number | null;
+  /**
+   * The most the run's in-run events could drop (2026-11-16, from its seed: `eventLootUpTo`), on top of the caps. Called
+   * with the depth and ticks that fit in the real time, never the raw claim: a forged depth cannot widen it.
+   */
+  bonus?: (depth: number, ticks: number) => { coins: number; dust: number; components: number };
 }
 
 /** Scales every layer down so the total fits `cap` (never up). */
@@ -53,10 +58,11 @@ export function checkRun(claim: RunClaim, ctx: RunCheckContext): { flags: RunFla
   const kills = Math.min(claim.kills, Math.floor(cfg.caps.killsPerMinute * (ticks / 3600)) + 50);
   const bossKills = Math.min(claim.bossKills, depth);
   const loot = claim.loot.slice(0, depth);
-  const coinCap = kills * cfg.caps.coinsPerKill + bossKills * cfg.caps.bossCoins + 5;
+  const bonus = ctx.bonus?.(depth, ticks) ?? { coins: 0, dust: 0, components: 0 };
+  const coinCap = kills * cfg.caps.coinsPerKill + bossKills * cfg.caps.bossCoins + 5 + bonus.coins;
   const minutes = ticks / 3600;
-  const dustCap = kills * cfg.caps.dustPerKill + bossKills * cfg.caps.bossDust + minutes * cfg.caps.propDustPerMinute + 5;
-  const componentCap = minutes * cfg.caps.componentsPerMinute + 2;
+  const dustCap = kills * cfg.caps.dustPerKill + bossKills * cfg.caps.bossDust + minutes * cfg.caps.propDustPerMinute + 5 + bonus.dust;
+  const componentCap = minutes * cfg.caps.componentsPerMinute + 2 + bonus.components;
   const coins = clip(
     loot.map((l) => l.coins),
     Math.floor(coinCap),

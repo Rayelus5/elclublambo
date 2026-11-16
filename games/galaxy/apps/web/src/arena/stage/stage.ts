@@ -326,6 +326,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   // Breakable props (SIM 1.7.0) over the ground, with their life bars and glints.
   const propLayer = new Container();
   const propMarks = new Graphics();
+  // In-run events (2026-11-16): their areas on the ground, and the bounty hunter's mark over the enemies.
+  const eventFloor = new Graphics({ label: 'events' });
+  const eventMarks = new Container({ label: 'eventMarks' });
   const pickups = new Container();
   const areas = new Graphics({ label: 'areas' });
   // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
@@ -358,7 +361,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   // The admin debug mode's collisions (2026-11-15), over everything in the world.
   const hitboxes = new Graphics({ label: 'hitboxes' });
   let showHitboxes = false;
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, stillRing, enemies, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
+  world.addChild(decor, eventFloor, propLayer, propMarks, pickups, areas, warnings, marks, stillRing, enemies, eventMarks, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
   const numbers = new Container();
   // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
   const mateArrows = new Graphics();
@@ -374,6 +377,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const propPool = new SpritePool(propLayer);
   // Abandoned satellites (SIM 1.10.0), drifting over the props.
   const satPool = new SpritePool(propLayer);
+  // In-run events (2026-11-16): the abandoned ship and the supply capsule over the props, the bounty mark on its layer.
+  const eventPool = new SpritePool(propLayer);
+  const bountyPool = new SpritePool(eventMarks);
+  // The hazards' meteors falling onto their circles (over the enemies), in their sector's look.
+  const meteorPool = new SpritePool(eventMarks);
+  let sectorId = 'outer-nebula';
   const ghostSprites: Sprite[] = [];
   /** Dashes being drawn: a quirk's jump glides from where it took off; every dash leaves afterimages. */
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
@@ -644,6 +653,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   /** `now`: simulation time in ticks, with the frame's fraction (warnings wait while the simulation stops). */
   function drawWarnings(now: number): void {
     warnings.clear();
+    let meteors = 0;
     for (let i = warns.length - 1; i >= 0; i--) {
       const wv = warns[i]!;
       const k = warningProgress(wv, now);
@@ -664,6 +674,19 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: pal.bad, alpha: 0.9 });
       } else if (wv.kind === 'burst') {
         warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: pal.danger, alpha: 0.7 });
+      } else if (wv.kind === 'meteor') {
+        // A meteor of the hazards (2026-11-16): its circle fills as it comes down from the sky onto it.
+        const blink = opts.reduced ? 0.85 : 0.55 + 0.4 * Math.abs(Math.sin(clock * (6 + 20 * k)));
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 2, color: pal.danger, alpha: blink });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.12 + 0.2 * k });
+        const own = `event-meteor-${sectorId}`;
+        const id = atlas.frames[own] ? own : 'event-meteor-outer-nebula';
+        const s = meteorPool.at(meteors++);
+        s.texture = atlas.frames[id]![frameOf(id)]!;
+        s.anchor.set(0.5, 0.75);
+        const fall = (1 - k) * 160;
+        s.position.set(Math.round(wv.x + fall * 0.35), Math.round(wv.y - fall));
+        s.alpha = 0.6 + 0.4 * k;
       } else if (wv.kind === 'explode') {
         // A blast on its way (a volatile elite's corpse, a Core's mine; 2026-11-14): its whole reach drawn bold, blinking
         // faster as the fuse burns, and filling up until it goes off.
@@ -675,6 +698,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.25 });
       }
     }
+    meteorPool.hideFrom(new Uint8Array(Math.max(1, meteors)).fill(1), meteors);
   }
 
   function drawEnemies(sim: Sim, alpha: number): void {
@@ -804,6 +828,103 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     }
     propPool.hideFrom(pr.alive, pr.top);
     drawSatellites(sim, alpha);
+    drawEvents(sim, alpha);
+  }
+
+  /**
+   * The in-run events (2026-11-16): the abandoned ship in its sector's look, with its area dashed on the ground and the
+   * looting going round it in gold; the supply capsule falling onto its green target, then waiting; the gold mark on the
+   * bounty hunter.
+   */
+  function drawEvents(sim: Sim, alpha: number): void {
+    eventFloor.clear();
+    sectorId = sim.sector.id;
+    const T = sim.content.events;
+    const en = sim.enemies;
+    let n = 0;
+    let m = 0;
+    for (const ev of sim.world.active) {
+      if (ev.kind === 'bounty') {
+        const e = ev.enemy;
+        if (e < 0 || !en.alive[e] || en.gen[e] !== ev.enemyGen) continue;
+        const s = bountyPool.at(m++);
+        s.texture = atlas.frames['event-bounty']![frameOf('event-bounty')]!;
+        s.anchor.set(0.5);
+        // Its frame round the hunter, whatever its size.
+        s.scale.set(Math.max(1, (en.radius[e]! * 2 + 8) / 13));
+        s.position.set(Math.round(lerp(en.px[e]!, en.x[e]!, alpha)), Math.round(lerp(en.py[e]!, en.y[e]!, alpha)));
+        continue;
+      }
+      const x = Math.round(ev.x);
+      const y = Math.round(ev.y);
+      // The hazards are drawn on the ground, no sprite of their own (the meteors fall with their warnings).
+      if (ev.kind === 'meteors') continue;
+      if (ev.kind === 'storm') {
+        drawStorm(x, y, T.storm.radius);
+        continue;
+      }
+      if (ev.kind === 'well') {
+        drawWell(x, y, T.well.radius, T.well.core);
+        continue;
+      }
+      if (ev.kind === 'ambush') {
+        // The ring that is about to close: dashed red round the probe, tightening as the warning runs out.
+        const k = 1 - ev.progress / Math.max(1, T.ambush.warn * 60);
+        const spin = opts.reduced ? 0 : clock * 1.2;
+        const pulse = opts.reduced ? 0.85 : 0.55 + 0.4 * Math.abs(Math.sin(clock * 10));
+        dashedArc(eventFloor, x, y, T.ambush.distance * (1.25 - 0.25 * k), spin, spin + Math.PI * 2, { width: 3, color: pal.danger, alpha: pulse });
+        continue;
+      }
+      const s = eventPool.at(n++);
+      s.anchor.set(0.5);
+      s.alpha = 1;
+      if (ev.kind === 'wreck') {
+        const own = `event-wreck-${sim.sector.id}`;
+        const id = atlas.frames[own] ? own : 'event-wreck-outer-nebula';
+        s.texture = atlas.frames[id]![frameOf(id)]!;
+        s.position.set(x, y);
+        const r = T.wreck.radius;
+        const spin = opts.reduced ? 0 : clock * 0.4;
+        dashedArc(eventFloor, x, y, r, spin, spin + Math.PI * 2, { width: 1.5, color: 0xffc94a, alpha: 0.55 });
+        const k = Math.min(1, ev.progress / Math.max(1, T.wreck.hold * 60));
+        if (k > 0) arcFrom(eventFloor, x, y, r, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2).stroke({ width: 3, color: 0xffc94a, alpha: 0.95 });
+      } else {
+        // Landing: it comes down from above onto a target that closes in; landed, a soft ring says «touch it».
+        const k = ev.progress > 0 ? ev.progress / Math.max(1, T.capsule.warn * 60) : 0;
+        s.texture = atlas.frames['event-capsule']![frameOf('event-capsule')]!;
+        s.position.set(x, Math.round(y - k * 90));
+        s.alpha = k > 0 ? 0.55 + 0.45 * (1 - k) : 1;
+        const r = T.capsule.radius + (k > 0 ? 18 * k : 2);
+        const pulse = opts.reduced ? 0.8 : 0.55 + 0.35 * Math.abs(Math.sin(clock * (k > 0 ? 8 : 3)));
+        eventFloor.circle(x, y, r).stroke({ width: k > 0 ? 2 : 1.5, color: 0x45e3a6, alpha: pulse });
+      }
+    }
+    eventPool.hideFrom(new Uint8Array(Math.max(1, n)).fill(1), n);
+    bountyPool.hideFrom(new Uint8Array(Math.max(1, m)).fill(1), m);
+  }
+
+  /** A Static storm: a violet cloud with its edge crackling, sparks jumping inside. */
+  function drawStorm(x: number, y: number, r: number): void {
+    const spin = opts.reduced ? 0 : clock * 0.8;
+    eventFloor.circle(x, y, r).fill({ color: 0x8e2bb3, alpha: 0.16 });
+    dashedArc(eventFloor, x, y, r, spin, spin + Math.PI * 2, { width: 2, color: 0xe05cff, alpha: 0.8 });
+    for (let k = 0; k < 7; k++) {
+      const a = spin * 3 + (k * Math.PI * 2) / 7;
+      const r0 = r * (0.25 + 0.6 * Math.abs(Math.sin((opts.reduced ? 1 : clock * 3) + k)));
+      const r1 = r0 + 10;
+      eventFloor.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0).lineTo(x + Math.cos(a + 0.2) * r1, y + Math.sin(a + 0.2) * r1).stroke({ width: 1.5, color: 0xf3f5ff, alpha: 0.7 });
+    }
+  }
+
+  /** A gravity well: rings that close in towards a dark heart with a bright rim (its harmful core). */
+  function drawWell(x: number, y: number, r: number, core: number): void {
+    const t = opts.reduced ? 0.5 : (clock * 0.6) % 1;
+    for (let k = 0; k < 3; k++) {
+      const f = (t + k / 3) % 1;
+      eventFloor.circle(x, y, core + (r - core) * (1 - f)).stroke({ width: 1.5, color: 0x6fe3ff, alpha: 0.15 + 0.45 * f });
+    }
+    eventFloor.circle(x, y, core).fill({ color: 0x03040e, alpha: 0.85 });
+    eventFloor.circle(x, y, core).stroke({ width: 2, color: 0xb39dff, alpha: 0.95 });
   }
 
   /** The abandoned satellites (SIM 1.10.0): drifting, a white flash when hit, and their life bar once damaged. */

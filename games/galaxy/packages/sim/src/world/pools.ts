@@ -24,6 +24,8 @@ export const ENEMY_FIELDS = {
   boss: 'u8',
   /** 0 none, 1 shielded, 2 swift, 3 volatile. */
   elite: 'u8',
+  /** A bounty hunter of the in-run events (2026-11-16): it flees, and killing it pays its event's prize. */
+  bounty: 'u8',
   /** Behaviour state (0: moving; charge: 1 winding up, 2 dashing; …). */
   state: 'u8',
   timer: 'i32',

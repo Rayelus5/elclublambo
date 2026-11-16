@@ -78,6 +78,17 @@ describe('quieto', () => {
     expect(p.still.t).toBe(before);
   });
 
+  test('dentro de una nave abandonada que se saquea no cuenta', () => {
+    const sim = world();
+    const p = sim.probes[0]!;
+    // A ship that never finishes, so the probe stays inside the whole time.
+    sim.content.events.wreck.hold = 60;
+    sim.world.active.push({ kind: 'wreck', layer: 1, seq: 0, x: p.x, y: p.y, t: 60 * 60, progress: 0, n: 0, enemy: -1, enemyGen: 0 });
+    const before = p.still.t;
+    expect(idle(sim, 60 * 13)).toEqual([]);
+    expect(p.still.t).toBe(before);
+  });
+
   test('invulnerable en depuración avisa pero no hace daño', () => {
     const sim = world();
     setGod(sim, true);
@@ -146,6 +157,21 @@ describe('en grupo', () => {
     expect(b!.life).toBe('up');
     expect(n).toBeGreaterThan(30);
     expect(a!.still.t).toBe(before);
+  });
+
+  // Review of 2026-11-16: a probe moves while it picks a card in a group, and levelling up nonstop kept a card open; the
+  // Static counts then too.
+  test('con una carta abierta sigue contando: en grupo se puede mover mientras elige', () => {
+    const sim = team();
+    const a = sim.probes[0]!;
+    sim.probes[1]!.x = a.x + 500;
+    a.pendingLevels = 1;
+    step(sim, [IDLE, IDLE]);
+    expect(a.offer).not.toBeNull();
+    const before = a.still.t;
+    for (let k = 0; k < 60; k++) step(sim, [IDLE, IDLE]);
+    expect(a.offer).not.toBeNull();
+    expect(a.still.t).toBe(before + 60);
   });
 
   test('cada sonda lleva su cuenta', () => {

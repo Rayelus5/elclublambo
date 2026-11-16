@@ -41,6 +41,7 @@ export { CoopFeed } from './coop-feed';
 export { hurtProbe, PROBE_RADIUS, shieldCapacity, staticHurt } from './systems/probes';
 export { healBlocked, healBudget, healProbe } from './systems/healing';
 export { updateStillness } from './systems/stillness';
+export { type ActiveEvent, endRunEvents, type EventPlan, eventLootUpTo, eventReward, eventsForLayer, isLoot, startEvent, updateRunEvents } from './systems/run-events';
 export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {
   AREA,
@@ -77,6 +78,7 @@ export { createLiveReplayer, createReplayer, decodeEvents, decodeLog, encodeEven
 export { botInput, botPick } from './bot';
 export {
   debugClear,
+  debugEvent,
   debugGrant,
   debugHeal,
   debugInfo,

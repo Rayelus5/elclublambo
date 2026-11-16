@@ -3226,6 +3226,8 @@ export const copy = {
     colorVision: 'Visión del color',
     colorVisionHint: 'Cambia los colores que avisan de algo (rarezas, jugadores, peligro, elementos) por otros que se distinguen mejor. El arte de las galaxias no cambia',
     colorVisions: { none: 'Normal', protan: 'Protanopía (rojo)', deutan: 'Deuteranopía (verde)', tritan: 'Tritanopía (azul)' },
+    runNotices: 'Avisos en el centro de la pantalla',
+    runNoticesHint: 'Te dice lo que pasa en la incursión: capa nueva, Núcleo, sucesos y lo que ganas',
     probeGlow: 'Brillo detrás de tu sonda',
     probeGlowHint: 'Un halo blanco suave detrás de tu sonda en las incursiones, para distinguirla mejor del fondo',
     preview: 'Vista previa',
@@ -3558,6 +3560,43 @@ export const copy = {
     // No number: the share without extraction is `runs.deathShare`, set by the admin (the results screen says the real one).
     abandonBody: 'Solo cobras una parte del botín, como si la sonda cayera. No se puede deshacer',
     keepPlaying: 'Seguir jugando',
+    // Centre-screen notices (2026-11-16): what happens in the run, one at a time.
+    notices: {
+      layer: (n: number) => `Avanzas a la capa ${n}`,
+      boss: (name: string) => `¡${name} aparece!`,
+      beacon: 'La baliza de extracción está abierta',
+      satellite: 'Hay un satélite cerca: rómpelo y llévate una señal del escáner profundo',
+      signal: (n: number) => `+${n} ${n === 1 ? 'señal' : 'señales'} del escáner profundo`,
+      staticWarn: 'La Estática se acerca: muévete',
+      staticStart: 'La Estática te alcanza: no te curas hasta que te muevas',
+      // In-run events (2026-11-16).
+      event: {
+        wreck: 'Hay una nave abandonada cerca: quédate dentro para saquearla',
+        capsule: 'Cae una cápsula de suministros: tócala para abrirla',
+        bounty: 'Un cazarrecompensas huye con botín: derríbalo',
+      },
+      // The hazards: their sector's name and what to do.
+      hazard: {
+        meteors: (name: string) => `¡${name}! Sal de los círculos`,
+        storm: (name: string) => `¡${name}! Aléjate: te sigue despacio`,
+        ambush: () => '¡Emboscada! Abre hueco antes de que se cierre el anillo',
+        well: (name: string) => `¡${name}! Sal antes de que te atrape`,
+      },
+      eventDone: (kind: 'wreck' | 'capsule' | 'bounty', r: { coins: number; dust: number; components: number }) => {
+        const title = { wreck: 'Nave saqueada', capsule: 'Cápsula abierta', bounty: 'Cazarrecompensas derribado' }[kind];
+        const parts = [
+          r.coins > 0 ? `+${fmt(r.coins)} monedas` : null,
+          r.dust > 0 ? `+${fmt(r.dust)} polvo` : null,
+          r.components > 0 ? `+${fmt(r.components)} ${r.components === 1 ? 'componente' : 'componentes'}` : null,
+        ].filter(Boolean);
+        return parts.length > 0 ? `${title}: ${parts.join(' · ')}` : title;
+      },
+      eventFail: {
+        wreck: 'La nave abandonada se ha perdido',
+        capsule: 'La cápsula de suministros se ha perdido',
+        bounty: 'El cazarrecompensas ha escapado',
+      },
+    },
     // «La Estática te alcanza» (2026-11-16): standing still in a small area.
     still: {
       title: 'La Estática',
@@ -3583,6 +3622,7 @@ export const copy = {
       clear: 'Matar enemigos',
       core: 'Núcleo ya',
       layer: 'Capa siguiente',
+      events: 'Eventos',
       pause: 'Pausar',
       resume: 'Seguir',
       choosing: 'Elige antes la carta',
@@ -3645,6 +3685,26 @@ export const copy = {
     signalsLabel: (n: number) => (n === 1 ? '1 señal de satélite' : `${fmt(n)} señales de satélite`),
     satellite: 'Satélite',
     satelliteHint: 'Rómpelo: da una señal',
+    // In-run events (2026-11-16): their markers at the screen edge.
+    events: {
+      satellite: { name: 'Satélite', hint: 'Rómpelo: da una señal' },
+      wreck: { name: 'Nave abandonada', hint: 'Quédate dentro para saquearla' },
+      capsule: { name: 'Cápsula de suministros', hint: 'Tócala para abrirla' },
+      bounty: { name: 'Cazarrecompensas', hint: 'Derríbalo antes de que escape' },
+      // The hazards (2026-11-16): each sector names them its own way (`nameIn`).
+      meteors: { name: 'Lluvia de meteoritos', hint: 'Sal de los círculos' },
+      storm: { name: 'Tormenta de la Estática', hint: 'Aléjate: te sigue despacio' },
+      ambush: { name: 'Emboscada', hint: 'Abre hueco antes de que se cierre' },
+      well: { name: 'Pozo de gravedad', hint: 'Sal antes de que te atrape' },
+      left: (s: number) => `${s} s`,
+      looting: (pct: number) => `Saqueando · ${pct} %`,
+      bySector: {
+        'frost-rings': { meteors: 'Granizo de hielo', storm: 'Ventisca estática', well: 'Remolino helado' },
+        'hollow-reef': { meteors: 'Lluvia de esporas', storm: 'Marea estática', well: 'Remolino del arrecife' },
+        'broken-forge': { meteors: 'Lluvia de escoria', storm: 'Nube de ceniza', well: 'Pozo de magma' },
+        'signal-rift': { meteors: 'Descargas de la Señal', storm: 'Tormenta de la Señal', well: 'Grieta de la Señal' },
+      } as Record<string, Partial<Record<'meteors' | 'storm' | 'well', string>>>,
+    },
     time: 'Tiempo',
     layer: (n: number) => `Capa ${n}`,
     coreIn: (t: string) => `Núcleo en ${t}`,
@@ -3669,6 +3729,16 @@ export const copy = {
       boss: 'PERKINS: Núcleo de la Estática en el radar. Es grande. Tú también, más o menos',
       beacon: 'PERKINS: Baliza abierta. Tienes un minuto para llegar o bajamos una capa',
       satellite: 'PERKINS: Satélite abandonado a la deriva. Rómpelo antes de que se aleje y nos quedamos su señal',
+      // In-run events (2026-11-16): the first time each one comes.
+      events: {
+        wreck: 'PERKINS: Una nave abandonada. Quédate dentro unos segundos y desmonto lo que lleve. Eso sí, la Estática no espera',
+        capsule: 'PERKINS: Te mando una cápsula de suministros. Ve a por ella antes de que se la trague la Estática',
+        bounty: 'PERKINS: Ese que huye lleva botín robado. Derríbalo antes de que se escape',
+        meteors: 'PERKINS: Cae de todo del cielo. Los círculos rojos dicen dónde. Tú, fuera de ellos',
+        storm: 'PERKINS: Una tormenta de Estática viene a por ti. Es lenta. Tú no lo eres. Sigue moviéndote',
+        ambush: 'PERKINS: Te están rodeando. Rompe el anillo por un lado antes de que se cierre',
+        well: 'PERKINS: Un pozo de gravedad. Tira de ti y del botín. Si te acercas al centro, sal rápido',
+      },
       levelup: 'PERKINS: Subes de nivel. Elige una mejora: el sector espera mientras decides',
       layer: (n: number) => `PERKINS: Capa ${n}. Aquí la Estática muerde más fuerte, y el botín también`,
       // The first run in each new sector, and the first time each new Core shows up (GDD §15: one line, skippable).

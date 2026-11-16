@@ -5,6 +5,7 @@ import type { Sim } from '../types';
 import { PICKUP } from '../world/pools';
 import { layerSeconds } from './director';
 import { dropPickup } from './pickups';
+import type { ActiveEvent, EventPlan } from './run-events';
 
 // World events (plan «banda sonora, skins, perfil y entorno», part E; SIM 1.10.0): things that happen in the arena on
 // their own, fixed by the run's seed when it starts. The first one is the abandoned satellite: in about one run in
@@ -68,13 +69,18 @@ export interface WorldState {
   /** The next plan entry still to come. */
   next: number;
   satellites: SatelliteState[];
+  /** In-run events (2026-11-16, systems/run-events.ts): the current layer's plan, the next to come, those going on. */
+  events: EventPlan[];
+  eventsLayer: number;
+  eventNext: number;
+  active: ActiveEvent[];
 }
 
 const FLASH_TICKS = 6;
 const ORB_TICKS = 15;
 
 export function createWorld(seed: string, tuning: SatellitesTuning): WorldState {
-  return { plan: worldSchedule(seed, tuning), next: 0, satellites: [] };
+  return { plan: worldSchedule(seed, tuning), next: 0, satellites: [], events: [], eventsLayer: 0, eventNext: 0, active: [] };
 }
 
 /** The probe a satellite comes to: the first one still flying. */

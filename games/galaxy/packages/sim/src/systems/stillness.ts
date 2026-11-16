@@ -5,8 +5,10 @@ import { PROBE_RADIUS, staticHurt } from './probes';
 // «La Estática te alcanza» (2026-11-16): standing still is how a strong build farmed the first sector for half an hour.
 // A probe that stays within `radius` of where it stopped is warned after `warn` seconds; from `hurt` seconds the Static
 // hurts it more and more (damage + growth a second, up to max, × its maximum life a second) and blocks its healing
-// (healing.ts), until it leaves the area (a dash does). It does not count while it holds the beacon, while it revives a
-// fallen teammate, nor in a group while it picks a card (the world goes on there). Only probes standing up count.
+// (healing.ts), until it leaves the area (a dash does). It does not count while it holds the beacon, while it loots an
+// abandoned ship or while it revives a fallen teammate. In a group it counts while the probe picks a card: it can move
+// then (review of 2026-11-16: levelling up nonstop kept a card open, and the Static off, for good). Only probes standing
+// up count.
 
 function frozen(sim: Sim, p: ProbeState): boolean {
   const b = sim.beacon;
@@ -16,8 +18,16 @@ function frozen(sim: Sim, p: ProbeState): boolean {
     const r = b.radius + PROBE_RADIUS;
     if (dx * dx + dy * dy <= r * r) return true;
   }
+  // Looting an abandoned ship (run-events.ts) is standing still on purpose.
+  const wreck = sim.content.events.wreck.radius + PROBE_RADIUS;
+  for (const ev of sim.world.active) {
+    if (ev.kind !== 'wreck') continue;
+    const dx = p.x - ev.x;
+    const dy = p.y - ev.y;
+    if (dx * dx + dy * dy <= wreck * wreck) return true;
+  }
   if (sim.coop) {
-    if (p.offer) return true;
+    // Not while it picks a card: it can move then, and someone levelling up nonstop kept a card open for good.
     const reach = sim.coop.reviveRadius + PROBE_RADIUS;
     for (const q of sim.probes) {
       if (q === p || q.life !== 'down') continue;

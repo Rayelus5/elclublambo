@@ -38,6 +38,8 @@ export const accountSettingsSchema = z.object({
   manualAim: z.boolean().optional(),
   /** Accesibilidad: a soft white glow behind the player's probe in the runs. */
   probeGlow: z.boolean().optional(),
+  /** The run's centre-screen notices (2026-11-16). */
+  runNotices: z.boolean().optional(),
   musicStyle: z.enum(SETTINGS_MUSIC_STYLES).optional(),
   /** The run's controls: two slots per action (a key or a mouse button, or none). Each device checks them again. */
   keybinds: z.partialRecord(z.enum(KEYBIND_ACTIONS), z.tuple([slot, slot])).optional(),

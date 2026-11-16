@@ -95,7 +95,12 @@ Por eso **todo cambio de contenido se hace en `DEFAULT_CONTENT` y además se pub
   ```
   aseprite -b --script-param out=art/weapons --script-param web=apps/web/src/hangar/weapons --script art/weapons/paint-weapons.lua [--script-param only=<id>]
   ```
-- **Revisa el resultado** con capturas: `VITE_ARENA_SHOTS=1` en `apps/web/test/browser/arena.browser.test.ts` guarda `__shots__/` (arsenal, biomas, sprites).
+- **Los eventos de la incursión** (la nave abandonada de cada sector, la cápsula y la mira del cazarrecompensas) salen de `art/events/paint-events.lua`, que escribe `apps/web/src/arena/sprites/event-art.ts`:
+  ```
+  aseprite -b --script-param out=art/events --script-param web=apps/web/src/arena/sprites --script art/events/paint-events.lua
+  ```
+  Un sector nuevo necesita su nave en `SECTORS` y su meteorito en `METEORS` del script; sin ellos, la arena pinta los de la Nebulosa.
+- **Revisa el resultado** con capturas: `VITE_ARENA_SHOTS=1` en `apps/web/test/browser/arena.browser.test.ts` guarda `__shots__/` (arsenal, biomas, sprites, eventos).
 
 ### A7. Textos
 
@@ -143,11 +148,13 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
 | `hitCap` (en la raíz de `content`) | ningún golpe se lleva más de esta parte de la vida máxima de la sonda: se muere de varios golpes, nunca de uno |
 | `scaling.hpLevelMax` | techo de la vida por nivel (1000: sin techo en la práctica) |
 | `healing` (en la raíz, 2026-11-16) | la vida robada a los enemigos (Sifón, Sanguijuela, Sangría) cura como mucho vida máxima × (`base` + `perLifesteal` × robo de vida) por segundo, ahorrable hasta `burst` segundos; solo del daño real, nunca del sobrante al matar |
-| `stillness` (en la raíz, 2026-11-16) | «La Estática te alcanza»: `warn` s dentro de un círculo de `radius` avisan; desde `hurt` s hace daño (`damage` + `growth` por segundo, hasta `max`, × vida máxima por segundo) y bloquea toda curación hasta salir. No cuenta en la baliza, reanimando ni eligiendo carta en grupo. `hurt` 0 la apaga |
+| `stillness` (en la raíz, 2026-11-16) | «La Estática te alcanza»: `warn` s dentro de un círculo de `radius` avisan; desde `hurt` s hace daño (`damage` + `growth` por segundo, hasta `max`, × vida máxima por segundo) y bloquea toda curación hasta salir. No cuenta en la baliza, saqueando una nave abandonada ni reanimando; en grupo sí cuenta con una carta abierta, porque se puede mover mientras elige. `hurt` 0 la apaga |
+
+| `events` (en la raíz, 2026-11-16) | eventos de la incursión que da la semilla: cada capa tira cada `slot` una vez (probabilidad `chance`, un momento entre `from` y `to` s y un tipo según `weights`, con los de cada sector en `sectors`). Un evento empieza `gap` s después de que acabe el anterior (y lejos del satélite) y termina `endBy` s antes del Núcleo, o no sale. Tipos: `wreck` (nave abandonada: `hold` s dentro de `radius` la saquean), `capsule` (cápsula: aterriza en `warn` s y espera `life` s a que la toquen) y `bounty` (cazarrecompensas: un enemigo con `hp` × la vida que huye a `speed` durante `seconds`). Botín de cada uno: `coins`, `dust` y `components` × (1 + `perLayer` × (capa − 1)), sin suerte, para que el servidor lo acote desde la semilla (`eventLootUpTo`). Peligros, sin botín: `meteors` (lluvia: cada `every` s cae un meteorito a menos de `spread` de una sonda, avisado `warn` s antes, con `damage` × vida máxima), `storm` (tormenta: un círculo de `radius` que sigue a la sonda más cercana a `speed`, con `damage` × vida máxima por segundo dentro), `ambush` (emboscada: tras `warn` s, un anillo de `count` + `perLayer` por capa de la fauna del sector a `distance`) y `well` (pozo: atrae sondas y botín en `radius`, hasta `pull` por segundo en el centro, y en `core` hace `damage` × vida máxima por segundo). Los nombres de cada sector están en `copy.arena.events.bySector`. `slots: []` los apaga |
 
 **Perfiles de calibración** (`difficulty.test.ts`): `novato`, `medio`, `veterano` y `avanzado` juegan; `quieto` se queda quieto el 80 % del tiempo; `plantado` no se mueve nunca y `campero` solo se mueve en el sitio (los dos deben durar como mucho el 25 % de `avanzado`), y `sifon` coge el Sifón primero (como mucho un 15 % más que `avanzado`).
 
-**Para calibrar:** `GALAXY_CALIBRATE=1` con `GALAXY_SECTOR`, `GALAXY_PROFILE` y `GALAXY_CURVE_TRY=<json>`, que prueba valores sin tocar el código (sectores, Núcleos, enemigos, `enemyHpScale`, `bossHpScale` y `hitCap`). Cada corrida es lenta: lánzalas de pocas en pocas y con prioridad baja, o el equipo se queda sin CPU.
+**Para calibrar:** `GALAXY_CALIBRATE=1` con `GALAXY_SECTOR`, `GALAXY_PROFILE` y `GALAXY_CURVE_TRY=<json>`, que prueba valores sin tocar el código (sectores, Núcleos, enemigos, `enemyHpScale`, `bossHpScale`, `hitCap`, `healing` y `stillness`). Cada corrida es lenta: lánzalas de pocas en pocas y con prioridad baja, o el equipo se queda sin CPU.
 
 ### A9. Rasgos de galaxia y `ENGINE_VERSION`
 

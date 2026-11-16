@@ -42,6 +42,8 @@ export function tinyContent(over?: (c: Content) => void): Content {
   // Pinned too (2026-11-16): healing has no budget and the Static never comes, unless a test turns them on.
   c.healing = { base: 1000, perLifesteal: 0, burst: 1 };
   c.stillness = { ...c.stillness, warn: 0, hurt: 0 };
+  // No in-run events either (2026-11-16): run-events.test.ts turns them on.
+  c.events = { ...c.events, slots: [] };
   c.weapons.find((w) => w.id === 'pulse')!.levels.forEach((l) => (l.cooldown = 0.9));
   over?.(c);
   return contentSchema.parse(c);

@@ -116,6 +116,15 @@ export function stateHash(sim: Sim): string {
     h.num(s.y);
     h.num(s.hp);
   }
+  // In-run events (SIM 1.17.0).
+  for (const ev of sim.world.active) {
+    h.str(ev.kind);
+    h.num(ev.x);
+    h.num(ev.y);
+    h.num(ev.t);
+    h.num(ev.progress);
+    h.num(ev.n);
+  }
   for (const b of sim.blasts) {
     h.num(b.x);
     h.num(b.y);

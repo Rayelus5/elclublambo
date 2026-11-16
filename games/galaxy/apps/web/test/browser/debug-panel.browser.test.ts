@@ -81,6 +81,39 @@ test.each([
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/debug-${width}.png` });
 });
 
+// Centre-screen notices (2026-11-16): «Avanzas a la capa 2» in the middle, under the HUD's top row, inside the screen.
+test.each([
+  [1280, 720],
+  [2560, 1440],
+])('el aviso del centro a %ix%i: visible, dentro y sin tapar la fila de arriba', async (width, height) => {
+  await page.viewport(width, height);
+  document.body.style.margin = '0';
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  let sim: Sim | null = null;
+  root = createRoot(host);
+  root.render(createElement(ArenaScreen, { run, onEnd: () => {}, onSim: (s: Sim) => (sim ??= s), debug: { test: true, draft: false, markTest: async () => {} } }));
+  await vi.waitFor(() => expect(sim).not.toBeNull(), { timeout: 20_000 });
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F2', key: 'F2' }));
+  await vi.waitFor(() => expect(document.querySelector('.debug-panel')).not.toBeNull());
+  button(copy.arena.debug.layer)?.click();
+  button(copy.arena.debug.close)?.click();
+  document.querySelector<HTMLButtonElement>('.debug-x')?.click();
+  const notice = await vi.waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.run-notice');
+    if (!el) throw new Error('sin aviso');
+    return el;
+  });
+  await new Promise((r) => setTimeout(r, 450));
+  expect(notice.textContent).toBe(copy.arena.notices.layer(2));
+  const box = notice.getBoundingClientRect();
+  const top = document.querySelector<HTMLElement>('.hud-top')!.getBoundingClientRect();
+  expect(box.left).toBeGreaterThanOrEqual(0);
+  expect(box.right).toBeLessThanOrEqual(width);
+  expect(box.top).toBeGreaterThan(top.bottom);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/run-notice-${width}.png` });
+});
+
 // A pending minor (2026-11-16): on a short screen the read-out does not fit, so it scrolls inside itself (and takes the
 // wheel and the pointer over it).
 test('en una pantalla baja la información se desplaza por dentro', async () => {
@@ -106,4 +139,3 @@ test('en una pantalla baja la información se desplaza por dentro', async () => 
   info.scrollTop = info.scrollHeight;
   expect(info.scrollTop).toBeGreaterThan(0);
 });
-

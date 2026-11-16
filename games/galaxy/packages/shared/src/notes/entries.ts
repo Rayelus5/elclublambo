@@ -7,6 +7,21 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-37-eventos-en-la-incursion',
+    version: '1.37',
+    date: '2026-11-16',
+    title: 'Eventos en la incursión',
+    summary: 'Naves abandonadas, cápsulas, cazarrecompensas y peligros: cada capa trae algo que perseguir o de lo que huir',
+    items: [
+      { kind: 'nuevo', text: 'Naves abandonadas: quédate unos segundos dentro para saquearlas. Cada sector tiene la suya' },
+      { kind: 'nuevo', text: 'Cápsulas de suministros que caen del cielo: tócalas para abrirlas' },
+      { kind: 'nuevo', text: 'Cazarrecompensas: un enemigo marcado que huye con botín; derríbalo antes de que escape' },
+      { kind: 'nuevo', text: 'Peligros con el sello de cada sector: lluvias de meteoritos, tormentas que te siguen, emboscadas y pozos de gravedad' },
+      { kind: 'mejora', text: 'Una flecha en el borde de la pantalla te guía hasta cada evento y te dice a qué distancia está, también hasta los satélites' },
+      { kind: 'mejora', text: 'Avisos en el centro de la pantalla: nueva capa, Núcleo, baliza, eventos y el botín que sueltan. Se apagan en los ajustes de la incursión' },
+    ],
+  },
+  {
     id: 'v1-36-la-estatica-te-alcanza',
     version: '1.36',
     date: '2026-11-16',
@@ -14,7 +29,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     summary: 'Quedarse quieto ya no sale gratis, y el Sifón deja de hacer inmortal a una sonda',
     items: [
       { kind: 'equilibrio', text: 'Si te quedas quieto en una zona pequeña, la Estática te avisa; poco después te hace daño, cada vez más, y no te curas hasta que te muevas' },
-      { kind: 'equilibrio', text: 'La Estática no cuenta mientras defiendes la baliza, reanimas a un compañero o eliges carta en grupo' },
+      { kind: 'equilibrio', text: 'La Estática no cuenta mientras defiendes la baliza o reanimas a un compañero' },
       { kind: 'equilibrio', text: 'El Sifón y la vida robada a los enemigos curan solo del daño que de verdad haces, con un tope por segundo que sube con el nivel del Sifón' },
       { kind: 'mejora', text: 'Un anillo en el suelo marca la zona donde estás parado, y la barra de vida avisa cuando no puedes curarte' },
     ],

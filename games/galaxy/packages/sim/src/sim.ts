@@ -23,6 +23,7 @@ import { SpatialGrid } from './world/grid';
 import { createPools } from './world/pools';
 import { healBudget } from './systems/healing';
 import { updateStillness } from './systems/stillness';
+import { updateRunEvents } from './systems/run-events';
 
 // The run simulation (GDD §5, §5.7, §18.4): a fixed 60 Hz step fed with one input per probe per tick. Same options and
 // same inputs → the same run, on every machine. While a level-up choice is open the world is frozen: only choices
@@ -229,6 +230,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   rebuildGrid(sim);
   syncProps(sim);
   updateWorld(sim);
+  updateRunEvents(sim);
   for (const p of sim.probes) {
     moveDash(sim, p);
     fireWeapons(sim, p);

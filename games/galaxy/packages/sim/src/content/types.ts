@@ -501,6 +501,8 @@ export interface Content {
   anomalies: AnomalyDef[];
   props: PropsTuning;
   satellites: SatellitesTuning;
+  /** In-run events (2026-11-16): an abandoned ship, a supply capsule, a bounty hunter. */
+  events: EventsTuning;
   dash: DashTuning;
 }
 
@@ -542,6 +544,52 @@ export interface SatellitesTuning {
   hp: number;
   hpPerLayer: number;
   radius: number;
+}
+
+/** The in-run events' kinds (2026-11-16): the ones that bring loot, and the hazards (nothing to win but the way out). */
+export const LOOT_KINDS = ['wreck', 'capsule', 'bounty'] as const;
+export const HAZARD_KINDS = ['meteors', 'storm', 'ambush', 'well'] as const;
+export const EVENT_KINDS = [...LOOT_KINDS, ...HAZARD_KINDS] as const;
+export type LootKind = (typeof LOOT_KINDS)[number];
+export type HazardKind = (typeof HAZARD_KINDS)[number];
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+/** What a loot event gives: coins, dust and components, × (1 + perLayer × (layer − 1)), floored. */
+export interface EventLoot {
+  coins: number;
+  dust: number;
+  components: number;
+  perLayer: number;
+}
+
+/**
+ * In-run events (2026-11-16), fixed by the run's seed. Each layer rolls each `slot` once (its chance, a moment between
+ * `from` and `to` seconds, and a kind by `weights`, with each sector's own on top); an event comes `gap` seconds after the
+ * previous one (and the satellite) ends, and ends `endBy` seconds before the Núcleo is due, or does not come.
+ */
+export interface EventsTuning {
+  slots: { from: number; to: number; chance: number }[];
+  gap: number;
+  endBy: number;
+  weights: Record<EventKind, number>;
+  sectors: Record<string, Partial<Record<EventKind, number>>>;
+  /** An abandoned ship: stay `hold` seconds within `radius` to loot it; it stays `life` seconds. */
+  wreck: EventLoot & { distance: number; radius: number; hold: number; life: number };
+  /** A supply capsule: it lands `warn` seconds after it is announced, then waits `life` seconds for a touch. */
+  capsule: EventLoot & { distance: number; radius: number; warn: number; life: number };
+  /** A bounty hunter: a marked enemy (× `hp` the sector's life) that flees at `speed` for `seconds`; kill it. */
+  bounty: EventLoot & { distance: number; seconds: number; hp: number; speed: number };
+  /**
+   * A meteor shower: for `seconds`, every `every` s a meteor falls within `spread` of a probe, warned `warn` s before on a
+   * circle of `radius`; it hits the probes inside for `damage` × their maximum life (the hit cap and armour count).
+   */
+  meteors: { seconds: number; every: number; warn: number; radius: number; damage: number; spread: number };
+  /** A Static storm: a circle of `radius` that drifts to the nearest probe at `speed` (slower than any probe) for `seconds`; inside, `damage` × maximum life a second. */
+  storm: { distance: number; seconds: number; radius: number; speed: number; damage: number };
+  /** An ambush: warned `warn` s before, a ring of `count` (+ `perLayer` a layer past the first) of the sector's fauna closes round a probe at `distance`. */
+  ambush: { distance: number; warn: number; count: number; perLayer: number };
+  /** A gravity well: for `seconds`, pulls probes and loot within `radius` (up to `pull` a second at its heart, so a probe gets away); within `core`, `damage` × maximum life a second. */
+  well: { distance: number; seconds: number; radius: number; pull: number; core: number; damage: number };
 }
 
 export interface PropsTuning {

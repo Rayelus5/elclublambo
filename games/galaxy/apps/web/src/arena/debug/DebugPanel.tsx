@@ -1,4 +1,4 @@
-import type { Content, DebugGrant } from '@galaxy/sim';
+import { type Content, type DebugGrant, EVENT_KINDS, type EventKind } from '@galaxy/sim';
 import { type MouseEvent, useMemo, useState } from 'react';
 import { copy } from '../../copy/es';
 import { grantOptions, searchGrants } from './grant-options';
@@ -44,6 +44,7 @@ export function DebugPanel({
   onClear,
   onCore,
   onLayer,
+  onEvent,
   onGrant,
   replacing,
   onCancelReplace,
@@ -72,6 +73,8 @@ export function DebugPanel({
   onClear: () => void;
   onCore: () => void;
   onLayer: () => void;
+  /** Brings an in-run event now (2026-11-16). */
+  onEvent: (kind: EventKind) => void;
   onGrant: (g: DebugGrant) => void;
   /** An upgrade waiting for the slot it replaces (the slots were full). */
   replacing: DebugGrant | null;
@@ -155,6 +158,17 @@ export function DebugPanel({
           <button type="button" className="debug-btn" onClick={press(paused ? onResume : onPause)}>
             {paused ? t.resume : t.pause}
           </button>
+        </div>
+      </section>
+
+      <section className="debug-section" aria-label={t.events}>
+        <h3>{t.events}</h3>
+        <div className="debug-row">
+          {EVENT_KINDS.map((k) => (
+            <button key={k} type="button" className="debug-btn" disabled={choosing} onClick={press(() => onEvent(k))}>
+              {copy.arena.events[k].name}
+            </button>
+          ))}
         </div>
       </section>
 

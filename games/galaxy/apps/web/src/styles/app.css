@@ -1134,6 +1134,13 @@
   /* «La Estática te alcanza» (2026-11-16): the life bar striped while the healing is blocked, and the warning under the
      HUD's top row, in the middle (the Núcleo's bar sits lower, at 86 px). */
   .hud-hp.blocked i { background: repeating-linear-gradient(135deg, var(--color-nova) 0 8px, #6b1d33 8px 14px); }
+  /* Centre-screen notices (2026-11-16): one at a time, at 30 % of the height (between the HUD's top row and the
+     cards), never catching the pointer. */
+  .run-notice { position: absolute; top: 30%; left: 50%; translate: -50% 0; z-index: 20; max-inline-size: min(720px, calc(100vw - 40px)); box-sizing: border-box; padding: 10px 22px; border-radius: 16px; background: rgb(11 12 36 / .82); border: 2px solid rgb(255 255 255 / .1); color: var(--color-ink); font: 700 clamp(16px, 1.4vw, 22px) var(--font-sans); text-align: center; text-wrap: balance; pointer-events: none; box-shadow: 0 4px 0 rgb(0 0 0 / .4); animation: run-notice-in .35s var(--ease-bounce) both; }
+  .run-notice.reward { border-color: var(--color-solar); color: var(--color-solar); }
+  .run-notice.danger { border-color: var(--color-static); color: #ffd1db; }
+  @keyframes run-notice-in { from { opacity: 0; translate: -50% -10px; scale: .96; } }
+  @media (prefers-reduced-motion: reduce) { .run-notice { animation: none; } }
   .hud-static { position: absolute; top: 152px; left: 50%; translate: -50% 0; padding: 6px 14px; border-radius: 999px; font: 700 14px var(--font-sans); white-space: nowrap; pointer-events: none; box-shadow: 0 3px 0 rgb(0 0 0 / .45); }
   .hud-static.level-1 { background: rgb(255 201 74 / .92); color: var(--color-on-solar); }
   .hud-static.level-2 { background: var(--color-static); color: #2b0712; animation: hud-static-pulse 1s ease-in-out infinite; }
@@ -1433,10 +1440,16 @@
   .hud-boss-bar i { display: block; height: 100%; width: var(--p); background: linear-gradient(90deg, var(--color-nova-lip), var(--color-static)); transition: width .2s ease; }
   .hud-beacon { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
   /* Plan «skins, perfil y entorno», part E: an abandoned satellite off screen, in the deep scanner's cyan. */
-  .hud-satellite { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
-  .hud-satellite-arrow { width: 0; height: 0; border-left: 14px solid var(--color-static-cyan, #6fe3ff); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px rgb(111 227 255 / .7)); }
-  .hud-satellite-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: rgb(6 30 48 / .9); border: 2px solid #1f7aa8; color: var(--color-ink); font-size: 12px; white-space: nowrap; }
-  .hud-satellite-label b { color: #6fe3ff; font-size: 13px; }
+  /* Something to go for (a satellite, the in-run events): each kind its colour. */
+  .hud-event { --ev: #6fe3ff; --ev-bg: rgb(6 30 48 / .9); --ev-line: #1f7aa8; position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
+  .hud-event.wreck { --ev: var(--color-solar, #ffc94a); --ev-bg: rgb(40 26 4 / .9); --ev-line: #a0661a; }
+  .hud-event.capsule { --ev: var(--color-terminal, #45e3a6); --ev-bg: rgb(4 40 28 / .9); --ev-line: #17b07e; }
+  .hud-event.bounty { --ev: #ff4d6d; --ev-bg: rgb(44 6 16 / .9); --ev-line: #9c2238; }
+  .hud-event.storm, .hud-event.well { --ev: #e05cff; --ev-bg: rgb(30 8 44 / .9); --ev-line: #8e2bb3; }
+  .hud-event.meteors, .hud-event.ambush { --ev: #ff4d6d; --ev-bg: rgb(44 6 16 / .9); --ev-line: #9c2238; }
+  .hud-event-arrow { width: 0; height: 0; border-left: 14px solid var(--ev); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px var(--ev)); }
+  .hud-event-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: var(--ev-bg); border: 2px solid var(--ev-line); color: var(--color-ink); font-size: 12px; white-space: nowrap; }
+  .hud-event-label b { color: var(--ev); font-size: 13px; }
   .result-paid-note { align-self: center; font-size: 13px; color: var(--color-ink-soft); }
   .hud-beacon-arrow { width: 0; height: 0; border-left: 16px solid var(--color-terminal); border-top: 10px solid transparent; border-bottom: 10px solid transparent; filter: drop-shadow(0 0 6px rgb(69 227 166 / .7)); }
   .hud-beacon-label { display: grid; justify-items: center; padding: 6px 10px; border-radius: 12px; background: rgb(4 40 28 / .9); border: 2px solid var(--color-terminal-2); color: var(--color-ink); font-size: 13px; white-space: nowrap; }
@@ -2749,6 +2762,10 @@
   .settings-shell.in-run { min-block-size: 456px; }
   .settings-shell.in-run .settings-pane { padding: 20px 26px 22px; }
   .settings-shell.in-run .setting { padding: 12px 0; }
+  /* Two switches side by side (the run's settings in the pause, 2026-11-16), each with its own line above. */
+  .setting-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+  .setting-pair > .setting { border-block-start: 0; }
+  @media (max-width: 720px) { .setting-pair { grid-template-columns: minmax(0, 1fr); } }
   .settings-shell.in-run .settings-tab { block-size: 48px; }
   @media (max-width: 760px) {
     .settings-shell { grid-template-columns: minmax(0, 1fr); min-block-size: 0; }

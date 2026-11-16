@@ -24,12 +24,12 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
   {
     name: 'una sonda en el primer sector',
     options: () => ({ seed: '9001', content: C, sector: C.sectors[0]!.id, probes: [{ probe: C.probes[0]!.id, relics: [] }] }),
-    hashes: ['1200:85b31e95c9fb0731', '2400:d36c46c0725b7225', '3600:3fd13bd1d610b2df', '4800:015558a7aef37498', '6000:4b9fb237653f7ee9', '7200:bcfda5e432565717'],
+    hashes: ['1200:85b31e95c9fb0731', '2400:d36c46c0725b7225', '3600:3fd13bd1d610b2df', '4800:015558a7aef37498', '6000:b5407c88212eda63', '7200:a325a528be6bc5ab'],
   },
   {
     name: 'otra sonda en otro sector',
     options: () => ({ seed: '31337', content: C, sector: C.sectors[2]!.id, probes: [{ probe: C.probes[2]!.id, relics: [] }] }),
-    hashes: ['1200:73b28e285bbaf867', '2400:ed06547631595086', '3600:2da904d8d981f702', '4800:1e073be731281233', '6000:90a85b7c05a71a20', '7200:b6747866bdf10b7e'],
+    hashes: ['1200:73b28e285bbaf867', '2400:ed06547631595086', '3600:2da904d8d981f702', '4800:1e073be731281233', '6000:90a85b7c05a71a20', '7200:6717bf170e3f136c'],
   },
   {
     name: 'dos sondas',
@@ -42,7 +42,7 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
         { probe: C.probes[3]!.id, relics: [] },
       ],
     }),
-    hashes: ['1200:1ee3c7d8151aeb38', '2400:e4624a45d73965fc', '3600:b9b08fdbd13c5208', '4800:ce81e7f70ec25f43', '6000:1874cdeb9e5c0de7', '7200:156da04cb48176d4'],
+    hashes: ['1200:1ee3c7d8151aeb38', '2400:e4624a45d73965fc', '3600:b9b08fdbd13c5208', '4800:ce81e7f70ec25f43', '6000:1874cdeb9e5c0de7', '7200:b798aaa9361a46b7'],
   },
 ];
 
@@ -89,7 +89,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '2718', content: c, sector: c.sectors[1]!.id, coop: DEFAULT_COOP_RULES, probes: [0, 1, 2, 3].map((i) => ({ probe: c.probes[i]!.id, relics: [], bonuses: STRONG })) };
     },
-    hashes: ['3600:c84ad2cd0288e25a', '7200:93ffe41d1d85fd70', '10800:651dec48522d1fb5', '14400:3d23d5593e740c70', '18000:2b47589278f9b6ee', '21600:f747adf72c393c4a', '25200:26ee2b3bf9021cc1', '28800:16aedab502428fb4', '32400:e0360b8ae567dedf', '36000:adaee1dc2c1acb85'],
+    hashes: ['3600:c84ad2cd0288e25a', '7200:93ffe41d1d85fd70', '10800:651dec48522d1fb5', '14400:0efe4c495db1b0ff', '18000:2b47589278f9b6ee', '21600:f747adf72c393c4a', '25200:f85610139249feda', '28800:42ec6cc498c371fd', '32400:73b2ce8047473c01', '36000:60ffe1a752ea973f'],
   },
 ];
 

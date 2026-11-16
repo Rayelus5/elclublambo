@@ -1,6 +1,7 @@
 import { CELL, CELLET, HIVE, MITE, RAY, SHELL, SPITTER } from './fauna';
 import { BOSSES } from './bosses';
 import { DECOR } from './decor';
+import { EVENT_ART } from './event-art';
 import { FAUNA2 } from './fauna2';
 import { FORMS } from './forms';
 import { ICONS } from './icons';
@@ -28,6 +29,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   ...FORMS,
   ...DECOR,
   ...ITEMS,
+  ...EVENT_ART,
   ...PROPS,
   ...ICONS,
 };

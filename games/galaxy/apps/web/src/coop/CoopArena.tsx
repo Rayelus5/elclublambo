@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AddFriendButton } from '../social/AddFriendButton';
 import { hudInsets } from './hud-insets';
 import { announceFor } from '../arena/announce';
+import { createNoticeQueue, noticesFor, type RunNotice as Notice } from '../arena/notices';
+import { RunNotice } from '../arena/hud/RunNotice';
 import { playEvents } from '../arena/arena-sfx';
 import { musicStinger, setMusicScene, startMusic } from '../audio/music';
 import { deepLayer, runScene } from '../audio/music/state';
-import { BeaconMarker, BossBar, SatelliteMarker } from '../arena/hud/Overlays';
+import { BeaconMarker, BossBar, EventMarkers } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
 import { DASH_BUTTONS, dashWaits, emptyInput, mouseCode, pointerAngle, readInput } from '../arena/input';
@@ -292,6 +294,10 @@ function CoopWorld({
   const colorVision = usePrefs((p) => p.colorVision);
   const probeGlow = usePrefs((p) => p.probeGlow);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, slot));
+  // Centre-screen notices (2026-11-16): mine (my pickups, my Static) and the run's.
+  const runNotices = usePrefs((p) => p.runNotices);
+  const [notices] = useState(createNoticeQueue);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
   const [menu, setMenu] = useState(false);
@@ -364,6 +370,7 @@ function CoopWorld({
       }
       const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
+      notices.push(noticesFor(events, slot, start.content, sim.sector.id), Date.now());
     };
     const loop = createLockstep({
       now: clock.now,
@@ -440,6 +447,7 @@ function CoopWorld({
   // The HUD a few times per second; friends see the layer.
   useEffect(() => {
     const id = setInterval(() => {
+      setNotice(notices.current(Date.now()));
       const h = hudSnapshot(sim, slot);
       hudRef.current = h;
       setHud(h);
@@ -465,7 +473,7 @@ function CoopWorld({
       clearInterval(id);
       if (!viewer) setMusicScene({ kind: 'menu' });
     };
-  }, [sim, slot, watch, viewer]);
+  }, [sim, slot, watch, viewer, notices]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);
@@ -703,8 +711,9 @@ function CoopWorld({
       ) : null}
       <TeamPanel hud={hud} players={start.players} slot={slot} />
       {hud.boss && <BossBar boss={hud.boss} />}
+      {runNotices ? <RunNotice notice={notice} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
-      {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
+      <EventMarkers hud={hud} sector={sim.sector.id} camera={camera} width={size.w} height={size.h} />
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />

@@ -33,7 +33,7 @@ import {
   type RunFlag,
   TEST_FLAG,
 } from '@galaxy/shared';
-import { type Content, decodeLog, fromBase64, logTicks, satelliteSignalsUpTo } from '@galaxy/sim';
+import { type Content, decodeLog, eventLootUpTo, fromBase64, logTicks, satelliteSignalsUpTo } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { madridDay } from '../economy/day';
@@ -279,11 +279,12 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
 
   const { inputs: _inputs, test: _test, ...claimed } = req;
   const sector = ctx.content.sectors.find((s) => s.id === run.sector);
-  const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick });
-  // A solo run is not replayed here: its satellites are bounded by the ones its seed had in the layers it reached and
-  // whose time had come in the ticks it played, with the content it started with.
+  // A solo run is not replayed here: its satellites and its in-run events (2026-11-16) are bounded by the ones its seed
+  // had in the layers it reached and whose time had come in the ticks it played, with the content it started with.
   const started = await contentAt(trx, run.content_version, ctx.content);
   const layerSeconds = started.sectors.find((s) => s.id === run.sector)?.layerSeconds ?? sector?.layerSeconds ?? 300;
+  const bonus = (depth: number, ticks: number) => eventLootUpTo(String(run.seed), started, run.sector, { depth, ticks, layerSeconds });
+  const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick, bonus });
   const satellites = satelliteSignalsUpTo(String(run.seed), started.satellites, { depth: check.claim.depth, ticks: check.claim.ticks, layerSeconds });
   return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1, satellites, sector: { id: run.sector, factor: run.sector_factor } }, key, ctx);
 }
