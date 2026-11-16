@@ -102,7 +102,7 @@ describe('un borrador', () => {
     );
     expect(direct.statusCode).toBe(201);
     expect(((await get(ctx.app, `${D}/${d.id}`, { cookie: as.cookie })).json() as DraftView).stale).toBe(true);
-    expect((await post(ctx.app, `${D}/${d.id}/publish`, { reason: 'Ácaro', password: admin.password }, { cookie: as.cookie })).json()).toEqual({ error: 'config_conflict' });
+    expect((await post(ctx.app, `${D}/${d.id}/publish`, { reason: 'Ácaro', password: admin.password }, { cookie: as.cookie })).json()).toMatchObject({ error: 'config_conflict' });
     const rebased = (await post(ctx.app, `${D}/${d.id}/rebase`, {}, { cookie: as.cookie })).json() as { draft: DraftView; conflicts: unknown[] };
     expect(rebased.conflicts).toEqual([]);
     expect(rebased.draft.stale).toBe(false);

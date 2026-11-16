@@ -73,9 +73,12 @@ async function trail(accountId: string, cookie: string, runId: string) {
 let admin: Awaited<ReturnType<typeof staff>>;
 /** An admin with no run at all, logged in before the clock moves on (its TOTP session is dated by it). */
 let fresh: Awaited<ReturnType<typeof staff>>;
+/** An admin who tries config drafts (the content editor, 2026-11-16), logged in before the clock moves on too. */
+let drafter: Awaited<ReturnType<typeof staff>>;
 beforeAll(async () => {
   admin = await staff('admin');
   fresh = await staff('admin');
+  drafter = await staff('admin');
 });
 
 describe('quién puede', () => {
@@ -225,7 +228,7 @@ describe('una incursión de prueba no cuenta como jugada', () => {
 // it included (before anyone can open it). Admins only, and only as a test run.
 describe('una incursión de prueba con un borrador', () => {
   test('juega el contenido del borrador, también un sector nuevo que nadie tiene abierto', async () => {
-    const a = await staff('admin');
+    const a = drafter;
     const draft = (await post(ctx.app, '/galaxy/api/admin/config-drafts', { title: 'Sector de prueba' }, { cookie: a.cookie })).json() as { id: string };
     const sector = { ...DEFAULT_CONTENT.sectors[0]!, id: 'draft-sector', name: 'Sector del borrador' };
     expect((await put(ctx.app, `/galaxy/api/admin/config-drafts/${draft.id}/field`, { key: 'content', field: 'sectors', value: [...DEFAULT_CONTENT.sectors, sector], revision: 0 }, { cookie: a.cookie })).statusCode).toBe(200);
@@ -244,7 +247,7 @@ describe('una incursión de prueba con un borrador', () => {
   });
 
   test('sin «prueba» no vale, y un jugador no puede', async () => {
-    const a = await staff('admin');
+    const a = drafter;
     const draft = (await post(ctx.app, '/galaxy/api/admin/config-drafts', { title: 'Sin prueba' }, { cookie: a.cookie })).json() as { id: string };
     const send = (cookie: string, extra: object) =>
       post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION, draft: draft.id, ...extra }, { cookie, headers: { 'idempotency-key': randomUUID() } });
