@@ -9,6 +9,7 @@ import { copy } from '../copy/es';
 import { ResultsScreen } from '../hangar/ResultsScreen';
 import { Avatar } from '../hub/Avatar';
 import { MailboxDialog } from '../mail/Mailbox';
+import { MAIL_TYPE_LOOK } from '../mail/types';
 import { useUi } from '../state/ui';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
@@ -141,8 +142,8 @@ function NoticeToast({ toast, notice }: { toast: LiveToast; notice: LiveNotice }
       return (
         <Shell
           toast={toast}
-          face={<IconFace name="mail" />}
-          title={n.mail}
+          face={<IconFace name={notice.type ? MAIL_TYPE_LOOK[notice.type].icon : 'mail'} />}
+          title={notice.gift ? n.mailGift : n.mail}
           detail={notice.title}
           actions={
             <button

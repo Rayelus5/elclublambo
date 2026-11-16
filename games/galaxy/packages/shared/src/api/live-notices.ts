@@ -1,4 +1,5 @@
 import type { Tier, Wallet } from '../gacha/types';
+import type { MailType } from '../gifts/library';
 import type { PlayerLook } from './cosmetics';
 
 // What the live socket tells a player happened to them elsewhere (real-time notices plan, 2026-11-12): a trade, a
@@ -18,8 +19,8 @@ export type LiveNotice =
   | { kind: 'trade'; event: TradeNoticeEvent; trade: string; from: NoticePlayer }
   /** My market listing sold: what it fetched, what I got and my wallet now. */
   | { kind: 'sale'; listing: string; galaxy: { id: string; name: string; tier: Tier }; price: number; net: number; buyer: NoticePlayer; wallet: Wallet }
-  /** A new mail in my box. */
-  | { kind: 'mail'; id: string; title: string }
+  /** A new mail in my box (mail v2: its kind and whether it brings a gift; absent from an older server). */
+  | { kind: 'mail'; id: string; title: string; type?: MailType; gift?: boolean }
   /** My clan: a request to join it (to its leader and officers), or what was done to me (`who`: by whom; null when automatic). */
   | { kind: 'clan'; event: ClanNoticeEvent; clan: { tag: string; name: string }; who: NoticePlayer | null }
   /** An achievement unlocked, waiting to be collected. */

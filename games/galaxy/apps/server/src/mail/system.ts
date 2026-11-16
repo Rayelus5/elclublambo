@@ -35,6 +35,6 @@ export async function sendSystemMail(
     .returning('id')
     .executeTakeFirstOrThrow();
   await trx.insertInto('galaxy.mailbox_receipts').values({ message_id: m.id, account_id: account.id }).execute();
-  out?.add(account.id, { kind: 'mail', id: m.id, title: mail.title });
+  out?.add(account.id, { kind: 'mail', id: m.id, title: mail.title, type: mail.type ?? 'system', gift: Object.keys(cleanGifts(mail.gifts ?? {})).length > 0 });
   return m.id;
 }

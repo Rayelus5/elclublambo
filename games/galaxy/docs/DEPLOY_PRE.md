@@ -1514,3 +1514,28 @@ Comprueba con `rayelus`:
   - el estado Programado, con su hora.
 
 **Para probarlo en PRE:** programa un mensaje para dentro de dos minutos. No sale en el buzón hasta su hora; después llega, con su aviso en directo.
+
+## Buzón v2, P6: el buzón del jugador
+
+**Qué cambia.** Sobre todo la web del jugador. El servidor solo añade datos a lo que ya respondía:
+- lo recogido trae la semilla de cada galaxia, para dibujar su carta;
+- el buzón trae los nombres de los eventos y de la moneda de temporada;
+- el aviso en directo de un correo dice su tipo y si trae regalo.
+
+No hay migraciones ni configuración que publicar.
+
+**El código ya trae, en el buzón:**
+- **Navegación:** Bandeja y Archivo, filtro por tipo con cuántos hay de cada uno y «Cargar más».
+- **Cada mensaje** lleva el icono y el color de su tipo y las marcas «Nuevo», «Con regalo» y «Caduca pronto».
+- **Acciones:**
+  - «Recoger todo»;
+  - «Archivar» y «Devolver a la bandeja»;
+  - «Borrar», que no se puede con un regalo sin recoger.
+- **Revelación de lo recogido:**
+  - cada regalo aparece con su dibujo, uno tras otro;
+  - lo que ya tenía el jugador lo dice;
+  - las galaxias salen como su carta, con el camino a la colección;
+  - con movimiento reducido, todo a la vez y quieto.
+- **El aviso en directo** dice «Tienes un regalo en el buzón» cuando lo trae, con el icono de su tipo.
+
+**Para probarlo en PRE:** envíate un regalo con una galaxia. En el buzón, «Recoger todo» enseña la revelación; «Ver en la colección» lleva a ella.

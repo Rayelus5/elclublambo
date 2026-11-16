@@ -2049,6 +2049,7 @@ export const copy = {
     sale: (galaxy: string) => `Has vendido ${galaxy}`,
     saleDetail: (buyer: string, net: number) => `${buyer} la ha comprado · recibes ${fmt(net)} monedas`,
     mail: 'Tienes correo nuevo',
+    mailGift: 'Tienes un regalo en el buzón',
     clan: {
       request: (name: string) => `${name} quiere unirse a tu clan`,
       accepted: (clan: string) => `Ya eres de ${clan}`,
@@ -2702,6 +2703,28 @@ export const copy = {
     claimed: 'Recogido',
     expires: (d: string) => `Caduca el ${d}`,
     close: 'Cerrar',
+    // Mail v2, P6: the inbox and the archive, the kinds, collecting everything, archiving and deleting.
+    boxesLabel: 'Bandejas',
+    boxes: { inbox: 'Bandeja', archive: 'Archivo' },
+    archiveEmpty: 'El archivo está vacío. Archiva aquí los mensajes que quieras guardar',
+    typesLabel: 'Filtrar por tipo',
+    allTypes: 'Todos',
+    typeFilterOf: (name: string, n: number) => `${name}, ${n}`,
+    warn: 'Caduca pronto',
+    claimAll: (n: number) => `Recoger todo (${n})`,
+    archive: 'Archivar',
+    unarchive: 'Devolver a la bandeja',
+    delete: 'Borrar',
+    deleteBlocked: 'Recoge antes su regalo para poder borrarlo',
+    loadMore: 'Cargar más',
+    noneOfType: 'No hay mensajes de este tipo',
+    reveal: {
+      title: 'Has recogido',
+      owned: 'Ya lo tenías',
+      skipped: 'No se pudo dar',
+      toCollection: 'Ver en la colección',
+      close: 'Seguir',
+    },
   },
   // The kinds of message (mail v2, 2026-11-16): each with its name, what it is for (the panel) and its stamp (the letter).
   mailTypes: {

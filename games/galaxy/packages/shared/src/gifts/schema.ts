@@ -61,7 +61,7 @@ export type MailContents = z.output<typeof mailContentsSchema>;
 export interface GrantedItem {
   gift: Gift;
   outcome: 'granted' | 'owned' | 'skipped';
-  /** The galaxies a galaxy gift made. */
-  galaxies?: { id: string; name: string; tier: number; finish: string }[];
+  /** The galaxies a galaxy gift made (mail v2, P6: with what the reveal draws them from; absent in older claims). */
+  galaxies?: { id: string; name: string; tier: number; finish: string; seed?: string; designation?: string; traits?: Record<string, string> }[];
   why?: string;
 }

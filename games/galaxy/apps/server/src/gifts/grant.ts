@@ -79,7 +79,7 @@ export async function grantGifts(trx: Kysely<DB>, accountId: string, gifts: read
           .values(galaxyValues(g, { owner: accountId, tier, finish: gift.finish, origin: 'grant' }))
           .returning(['id', 'name'])
           .executeTakeFirstOrThrow();
-        made.push({ id: row.id, name: row.name, tier, finish: gift.finish });
+        made.push({ id: row.id, name: row.name, tier, finish: gift.finish, seed: g.seed.toString(), designation: g.designation, traits: { ...(g.traits as unknown as Record<string, string>) } });
       }
       if (made.length === 0) Object.assign(item, { outcome: 'skipped', why: 'galaxy_unreachable' });
       else {
