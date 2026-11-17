@@ -33,6 +33,7 @@ export function DebugInfo({ sim, rates, now, speed, content }: { sim: Sim; rates
     [t.rows.rate, d.rate.toFixed(2).replace('.', ',')],
     [t.rows.teamLevel, String(d.teamLevel)],
     [t.rows.levelFactor, x(d.levelFactor)],
+    [t.rows.truce, t.truce[d.truce]],
     [t.rows.enemyHp, x(d.scale.hp)],
     [t.rows.enemyDamage, x(d.scale.damage)],
     [t.rows.elite, `${Math.round(d.scale.elite * 100)} %`],

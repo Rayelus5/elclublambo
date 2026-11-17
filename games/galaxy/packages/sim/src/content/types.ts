@@ -332,6 +332,14 @@ export interface SectorDef {
     coreRise: number;
     /** The most the life per level multiplies, however high the level (1000: no ceiling in practice). */
     hpLevelMax: number;
+    /** Minute of the run the fauna's life growth freezes at its value then (the truce, 2026-11-18). */
+    hpHoldFrom: number;
+    /** Minute the frozen life starts growing again (≤ hpHoldFrom: no truce). */
+    hpHoldUntil: number;
+    /** From hpHoldUntil on, the minutes the fauna's life takes to double. */
+    hpDoubleEvery: number;
+    /** A fixed ceiling on the frozen life multiplier (0: none, only the freeze). */
+    hpHoldMax: number;
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
   /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */

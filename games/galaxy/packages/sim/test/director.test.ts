@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { curseOf, dealDamage, DEFAULT_CONTENT, levelFactor, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
+import { contentSchema, curseOf, dealDamage, DEFAULT_CONTENT, holdLife, levelFactor, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
 import { quietSim, run } from './fixtures';
 
 // The spawn director (GDD §5.5–5.6): species join the sector over the first layer, density grows with time, waves
@@ -312,3 +312,126 @@ describe('techo de la vida por nivel', () => {
   });
 });
 
+
+// The truce of life (the owner, 2026-11-18): enemies piled up because their life outgrew any build (minute × layer ×
+// the team's compounding level). From `hpHoldFrom` the growth freezes at the value it had then, until `hpHoldUntil`;
+// from there it doubles every `hpDoubleEvery` minutes, until extracting or dying is the only way out. The sector, the
+// group and the anomaly still multiply on top; the Núcleos keep their own life.
+describe('tregua de vida', () => {
+  const truce = (over: Partial<typeof sector.scaling> = {}) =>
+    quietSim((c) => {
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, hpPerLevel: 0.1, levelFrom: 1, hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0, ...over };
+    });
+  /** The life the sector's growth reaches now without the truce: (1 + 0.08·min) × (1 + 0.5·(layer − 1)) × 1.1^(level − 1). */
+  const raw = (sim: Sim) => {
+    let level = 1;
+    for (let l = sim.probes[0]!.level; l > 1; l--) level *= 1.1;
+    return (1 + 0.08 * (sim.tick / 3600)) * (1 + 0.5 * (sim.layer - 1)) * level;
+  };
+
+  test('antes del minuto de la tregua la vida crece como siempre', () => {
+    const sim = truce();
+    sim.tick = 5 * 3600;
+    sim.probes[0]!.level = 6;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(raw(sim), 12);
+    expect(sim.clocks['hpHeld'] ?? 0).toBe(0);
+  });
+
+  test('del minuto 8 al 30 se queda la del minuto 8, aunque suban el nivel y la capa', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 10;
+    sim.layer = 2;
+    const atEight = raw(sim);
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+    sim.tick = 20 * 3600;
+    sim.layer = 4;
+    sim.probes[0]!.level = 40;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+    sim.tick = 30 * 3600 - 1;
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+  });
+
+  test('desde el minuto 30 se dobla cada 5 minutos, sin saltos entre medias', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600;
+    holdLife(sim);
+    const held = scaleAt(sim).hp;
+    sim.tick = 35 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 2, 12);
+    sim.tick = 40 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 4, 12);
+    sim.tick = 32.5 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 1.5, 12);
+    let last = 0;
+    for (let t = 30 * 3600; t <= 50 * 3600; t += 600) {
+      sim.tick = t;
+      const hp = scaleAt(sim).hp;
+      expect(hp, String(t)).toBeGreaterThanOrEqual(last);
+      last = hp;
+    }
+  });
+
+  test('hpHoldMax pone un tope fijo a la vida congelada', () => {
+    const sim = truce({ hpHoldMax: 1.2 });
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 10;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBe(1.2);
+    sim.tick = 35 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(2.4, 12);
+  });
+
+  test('con hpHoldUntil antes o igual que hpHoldFrom no hay tregua: crece como siempre', () => {
+    const sim = truce({ hpHoldFrom: 8, hpHoldUntil: 8 });
+    sim.tick = 20 * 3600;
+    sim.layer = 3;
+    sim.probes[0]!.level = 12;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(raw(sim), 12);
+  });
+
+  test('el sector, el grupo y la anomalía siguen multiplicando encima', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0 };
+      c.sectors[0]!.enemyHp = 2;
+    });
+    sim.tick = 8 * 3600;
+    holdLife(sim);
+    const held = scaleAt(sim).hp;
+    sim.tick = 20 * 3600;
+    expect(scaleAt(sim).hp).toBe(held);
+    expect(held).toBeCloseTo(2 * (1 + 0.08 * 8), 12);
+  });
+
+  test('el director toma la vida al llegar al minuto, una sola vez', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600 - 1;
+    holdLife(sim);
+    expect(sim.clocks['hpHeld'] ?? 0).toBe(0);
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 5;
+    holdLife(sim);
+    const held = sim.clocks['hpHeld']!;
+    sim.probes[0]!.level = 30;
+    sim.tick = 9 * 3600;
+    holdLife(sim);
+    expect(sim.clocks['hpHeld']).toBe(held);
+  });
+
+  test('por defecto: tregua del minuto 8 al 30 y doble cada 5, en todos los sectores', () => {
+    for (const s of DEFAULT_CONTENT.sectors) {
+      expect([s.scaling.hpHoldFrom, s.scaling.hpHoldUntil, s.scaling.hpDoubleEvery, s.scaling.hpHoldMax], s.id).toEqual([8, 30, 5, 0]);
+    }
+  });
+
+  test('un contenido publicado antes, sin los campos de la tregua, la toma por defecto', () => {
+    const old = structuredClone(DEFAULT_CONTENT) as unknown as { sectors: { scaling: Record<string, unknown> }[] };
+    for (const s of old.sectors) for (const k of ['hpHoldFrom', 'hpHoldUntil', 'hpDoubleEvery', 'hpHoldMax']) delete s.scaling[k];
+    const parsed = contentSchema.parse(old);
+    expect(parsed.sectors[0]!.scaling).toMatchObject({ hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0 });
+  });
+});

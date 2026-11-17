@@ -165,6 +165,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 ### 5.6 Dificultad [C]
 
 - La curva sube por tiempo y capa: densidad, élites, velocidad y nuevas familias.
+- **Tregua de vida (2026-11-18):** la vida de la fauna crece con los minutos, la capa y el nivel del equipo hasta el minuto 8. Del 8 al 30 se queda congelada, y desde el 30 se dobla cada 5 minutos, para que una incursión larga acabe en extraer o caer. Los minutos y el ritmo se ajustan en el panel (CONTENIDO A8 bis). Los Núcleos siguen su propia regla.
 - Se calibra con simulación (bots que juegan con builds tipo) para que una partida normal llegue a la capa 2–4 en el rango de 5 a 20 minutos.
 
 ### 5.7 Preparado para el cooperativo [U+D]

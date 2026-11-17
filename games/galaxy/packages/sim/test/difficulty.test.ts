@@ -122,7 +122,12 @@ export interface Outcome {
   fights: { layer: number; seconds: number }[];
   /** Reached the time limit in a Núcleo fight that had lasted over 5 minutes: neither side could win it. */
   stuck: boolean;
+  /** Fauna alive at minutes 10, 20, 30 and 40 (null: the run had ended), to see the pile-up (the truce of life, 2026-11-18). */
+  crowd: (number | null)[];
 }
+
+/** The minutes the crowd is sampled at. */
+const CROWD_AT = [10, 20, 30, 40];
 
 /** The bot's card, or the profile's preferred upgrade when the card offers it. */
 function pickFor(p: Profile, offer: readonly Offer[]): number {
@@ -144,11 +149,14 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
   let beatBoss = false;
   let bossAt = -1;
   const fights: Outcome['fights'] = [];
+  const crowd: Outcome['crowd'] = CROWD_AT.map(() => null);
   while (sim.tick < maxMinutes * 3600 && (sim.status === 'running' || sim.status === 'choosing')) {
     const probe = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: probe.offer ? pickFor(p, probe.offer) : -1 }]);
     else if (p.wiggle) step(sim, [{ ...IDLE, mx: Math.floor(sim.tick / Math.max(1, Math.round(p.wiggle / 2))) % 2 === 0 ? 127 : -127 }]);
     else step(sim, [idles(p, sim.tick) ? IDLE : botInput(sim, 0, 99)]);
+    const at = CROWD_AT.indexOf(sim.tick / 3600);
+    if (at >= 0) crowd[at] = sim.enemies.count - (sim.boss ? 1 : 0);
     for (const e of sim.events) {
       if (e.t === 'bossSpawn') {
         bossAt = sim.tick;
@@ -161,7 +169,7 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
     }
   }
   const stuck = sim.status !== 'dead' && sim.phase === 'boss' && bossAt >= 0 && sim.tick - bossAt > 300 * 60;
-  return { minutes: sim.tick / 3600, layer: sim.layer, level: Math.max(...sim.probes.map((q) => q.level)), sawBoss, beatBoss, fights, stuck };
+  return { minutes: sim.tick / 3600, layer: sim.layer, level: Math.max(...sim.probes.map((q) => q.level)), sawBoss, beatBoss, fights, stuck, crowd };
 }
 
 /** The mean of the middle half (a trimmed mean): steadier than a median with the bot's long tails. */
@@ -204,7 +212,8 @@ describe.skipIf(!LONG)('curva de dificultad (GALAXY_CALIBRATE=1)', () => {
         const fights = fightsByLayer(runs);
         const levels = runs.map((r) => r.level);
         const stuck = runs.filter((r) => r.stuck).length;
-        if (OUT) appendFileSync(OUT, JSON.stringify({ profile, sector, median: m, minutes: runs.map((r) => +r.minutes.toFixed(2)), layers: runs.map((r) => r.layer), levels, saw, beat, fights, stuck }) + String.fromCharCode(10));
+        const crowd = CROWD_AT.map((_, k) => runs.map((r) => r.crowd[k]).filter((c): c is number => c !== null));
+        if (OUT) appendFileSync(OUT, JSON.stringify({ profile, sector, median: m, minutes: runs.map((r) => +r.minutes.toFixed(2)), layers: runs.map((r) => r.layer), levels, saw, beat, fights, stuck, crowd }) + String.fromCharCode(10));
         console.log(
           `curva ${profile} ${sector}: mediana ${m.toFixed(1)} min · capas ${runs.map((r) => r.layer).join(',')} · niveles ${levels.join(',')} · ven el Núcleo ${saw}/${SEEDS.length}, lo vencen ${beat}/${SEEDS.length} · combates ${Object.entries(fights)
             .map(([l, s]) => `c${l} ${s.toFixed(0)} s`)

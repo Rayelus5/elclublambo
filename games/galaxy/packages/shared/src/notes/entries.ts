@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-44-tregua-de-vida',
+    version: '1.44',
+    date: '2026-11-18',
+    title: 'Tregua de vida a mitad de incursión',
+    summary: 'Los enemigos dejan de hacerse más duros durante un rato, y al final la Estática ya no para',
+    items: [
+      { kind: 'equilibrio', text: 'A mitad de incursión los enemigos dejan de ganar vida durante un buen rato, aunque subas de nivel o de capa. Ya no se acumulan hasta tapar la pantalla' },
+      { kind: 'equilibrio', text: 'Pasada esa tregua su vida vuelve a crecer cada vez más rápido: en las incursiones largas toca extraer a tiempo o caer' },
+    ],
+  },
+  {
     id: 'v1-43-nueva-casa',
     version: '1.43',
     date: '2026-11-17',

@@ -40,13 +40,58 @@ export function levelFactor(sim: Sim): number {
   return f;
 }
 
+/** The fauna's life growth now, before the truce: the run's minutes × the layer × the team's level. */
+export function lifeGrowth(sim: Sim): number {
+  const s = sim.sector.scaling;
+  return (1 + s.hpPerMinute * (sim.tick / 3600)) * (1 + s.hpPerLayer * (sim.layer - 1)) * levelFactor(sim);
+}
+
+function truceOn(sim: Sim): boolean {
+  const s = sim.sector.scaling;
+  return s.hpHoldUntil > s.hpHoldFrom;
+}
+
+/**
+ * The truce of life (the owner, 2026-11-18): on the first tick of minute `hpHoldFrom` the director keeps the life
+ * growth of that moment in `clocks.hpHeld`, once. Sim state: replays and co-op lockstep take it at the same tick.
+ */
+export function holdLife(sim: Sim): void {
+  if (!truceOn(sim) || (sim.clocks['hpHeld'] ?? 0) > 0) return;
+  if (sim.tick >= sim.sector.scaling.hpHoldFrom * 3600) sim.clocks['hpHeld'] = lifeGrowth(sim);
+}
+
+/** 2^x for x ≥ 0 without Math.pow (not the same bits in every engine): whole doublings, then a straight line between them. */
+function doublings(x: number): number {
+  const whole = Math.floor(x);
+  let f = 1;
+  for (let i = 0; i < whole; i++) f *= 2;
+  return f * (1 + (x - whole));
+}
+
+/**
+ * The fauna's life multiplier with the truce: the growth as always until minute `hpHoldFrom`; from there the value it
+ * had then (at most `hpHoldMax` when set) until minute `hpHoldUntil`; after it, doubling every `hpDoubleEvery` minutes,
+ * so a long run ends in extracting or falling. Without the truce (hpHoldUntil ≤ hpHoldFrom), the growth as always.
+ */
+export function truceGrowth(sim: Sim): number {
+  const s = sim.sector.scaling;
+  const minutes = sim.tick / 3600;
+  if (!truceOn(sim) || minutes < s.hpHoldFrom) return lifeGrowth(sim);
+  // The director keeps it on the minute's first tick; something scaled earlier in that same tick reads the same value.
+  let held = sim.clocks['hpHeld'] ?? 0;
+  if (held <= 0) held = lifeGrowth(sim);
+  if (s.hpHoldMax > 0 && held > s.hpHoldMax) held = s.hpHoldMax;
+  if (minutes < s.hpHoldUntil) return held;
+  return held * doublings((minutes - s.hpHoldUntil) / s.hpDoubleEvery);
+}
+
 export function scaleAt(sim: Sim): Scale & { elite: number } {
   const s = sim.sector.scaling;
   const minutes = sim.tick / 3600;
   const deeper = sim.layer - 1;
   const elite = Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes);
   const scale = {
-    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper) * levelFactor(sim),
+    hp: truceGrowth(sim),
     damage: (1 + s.damagePerMinute * minutes) * (1 + s.damagePerLayer * deeper),
     speed: 1 + s.speedPerLayer * deeper,
     elite,
@@ -201,6 +246,7 @@ export function spawnRate(sim: Sim): number {
 
 /** One tick of the director. */
 export function direct(sim: Sim): void {
+  holdLife(sim);
   let acc = (sim.clocks['spawnAcc'] ?? 0) + spawnRate(sim) / 60;
   while (acc >= 1) {
     acc -= 1;
