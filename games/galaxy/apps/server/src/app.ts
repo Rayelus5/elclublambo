@@ -60,6 +60,7 @@ import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
 import { registerHealth, registerPing } from './health';
+import { createLoadMonitor, processReaders, registerLoadRoutes } from './admin/load';
 import { registerMaintenanceGate } from './maintenance';
 import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
@@ -177,6 +178,19 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerRoomRoutes(api, { db: deps.db, config, live, rooms, coop, trustCfIp: deps.env.TRUST_CF_IP });
     registerCoopPlayRoutes(api, { coop, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
+    // The server's load for Moderación › Salas en vivo (2026-11-17): a sample every 15 s, the last hour in memory.
+    const load = createLoadMonitor(
+      {
+        rooms: () => ({ ...rooms.manager.counts(), max: rooms.limits().maxRooms, players: rooms.manager.all().reduce((n, r) => n + r.members.length, 0) }),
+        coop: () => coop.liveStats(),
+        solo: () => soloFeeds.list().length,
+        sockets: () => live.size(),
+      },
+      { readers: processReaders() },
+    );
+    load.start();
+    api.addHook('onClose', async () => load.stop());
+    registerLoadRoutes(api, load);
     registerPlayerReportRoutes(api, { db: deps.db, trustCfIp: deps.env.TRUST_CF_IP });
     // A ban or closed sessions drop the live socket (the chats arrive on it); the statistics count its sockets.
     const sockets = { dropAccount: (id: string) => live.dropAccount(id), size: () => live.size(), online: () => live.onlineIds() };

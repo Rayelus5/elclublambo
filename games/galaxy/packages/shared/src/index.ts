@@ -41,6 +41,7 @@ export * from './api/friends';
 export * from './api/live-notices';
 export * from './api/rooms';
 export * from './api/servers';
+export * from './api/admin-load';
 export * from './api/coop';
 export * from './market/rules';
 export * from './api/market';

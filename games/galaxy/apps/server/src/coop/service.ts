@@ -65,6 +65,26 @@ export class CoopService {
   }
 
   /**
+   * The group runs playing now, for the admin's server load (2026-11-17): how many, their players with the run open, the
+   * share of a CPU core their referees take together and the worst step's p99 (ms).
+   */
+  liveStats(): { runs: number; connected: number; coreShare: number; p99: number } {
+    let runs = 0;
+    let connected = 0;
+    let coreShare = 0;
+    let p99 = 0;
+    for (const run of this.runs.values()) {
+      if (run.ended) continue;
+      runs++;
+      connected += run.connectedCount();
+      const cpu = run.cpu();
+      coreShare += cpu.coreShare;
+      p99 = Math.max(p99, cpu.p99);
+    }
+    return { runs, connected, coreShare, p99 };
+  }
+
+  /**
    * Launches a room's run: every member's hangar probe and loadout snapshotted, the run and one row per player kept,
    * and the clock started a moment later. The room's checks (leader, everyone ready, sector) are the caller's.
    */
