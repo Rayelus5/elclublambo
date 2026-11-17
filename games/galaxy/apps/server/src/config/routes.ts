@@ -97,7 +97,9 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
   });
 
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/validate', { bodyLimit: CONFIG_BODY_LIMIT }, async (req) => {
-    requireAdmin(req);
+    const admin = requireAdmin(req);
+    // Rate limited (security review): some keys' checks cost (whether a pack's galaxy can be made).
+    await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     const key = keyOf(req.params.key);
     // The draft over what is live, exactly as a publish would see it.
     const { data: active } = (await deps.config.active()).find((r) => r.key === key) ?? { data: {} };

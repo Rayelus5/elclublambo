@@ -72,7 +72,14 @@ export function galaxyCount(gifts: readonly Gift[]): number {
 // The generator is deterministic: whether a tier with a trait can be made never changes, so it is found once.
 const REACHABLE = new Map<string, boolean>();
 
-/** Whether a galaxy of that tier with that trait can be made (a plain one of any tier always can). */
+/**
+ * How many candidates a gifted galaxy may take to come out (the security review, 2026-11-16): each one is made, on the
+ * live server, when it is claimed. A plain mythic or a legendary with a trait come out well within it; a mythic with
+ * a trait, so rare it takes most of a second each, does not and cannot be given.
+ */
+export const GIFT_CANDIDATES = 20_000;
+
+/** Whether a galaxy of that tier with that trait can be made within the gift's budget (a plain one below mythic always can). */
 export function galaxyReachable(tier: number, trait: { key: string; value: string } | null): boolean {
   if (!trait && tier < TIERS.indexOf('mythic')) return true;
   if (trait && !traitKnown(trait.key, trait.value)) return false;
@@ -81,7 +88,7 @@ export function galaxyReachable(tier: number, trait: { key: string; value: strin
   if (known !== undefined) return known;
   let ok = true;
   try {
-    for (const seed of REACH_SEEDS) generateGalaxy(seed, tier, trait ? { trait: trait.key as never, value: trait.value } : undefined);
+    for (const seed of REACH_SEEDS) generateGalaxy(seed, tier, trait ? { trait: trait.key as never, value: trait.value } : undefined, GIFT_CANDIDATES);
   } catch {
     ok = false;
   }

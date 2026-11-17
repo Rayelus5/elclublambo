@@ -53,7 +53,7 @@ function Featured({ product, firstPercent, reduced, onBuy }: { product: ShopProd
     <article className="lip panel shop-featured">
       <div className="shop-featured-art">
         <span className="shop-rays" aria-hidden="true" />
-        <PackCanvas product={product} reduced={reduced} className="shop-featured-canvas" />
+        <PackCanvas product={product} reduced={reduced} className="shop-featured-canvas" pieceSize={product.pieces ? 96 : undefined} />
       </div>
       <div className="shop-featured-body">
         <div className="shop-tags">

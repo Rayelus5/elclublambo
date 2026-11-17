@@ -40,9 +40,9 @@ export function purchaseGrants(p: ShopProduct, now: Date, first: boolean, cfg: P
   return { base, extra, total: totalOut };
 }
 
-/** The tab it shows in: a pack in its currency's, bundles and the welcome pack in «packs». */
+/** The tab it shows in: a pack in its currency's, bundles and the welcome pack in «packs», pieces and sets in «Estilo». */
 export function productTab(p: ShopProduct): 'coins' | 'dust' | 'components' | 'packs' | 'style' {
-  if (p.kind === 'cosmetic') return 'style';
+  if (p.kind === 'cosmetic' || p.kind === 'set') return 'style';
   if (p.kind !== 'pack') return 'packs';
   return SHOP_CURRENCIES.find((c) => p.grants[c] + p.bonus[c] > 0) ?? 'packs';
 }
@@ -50,9 +50,22 @@ export function productTab(p: ShopProduct): 'coins' | 'dust' | 'components' | 'p
 /** Why an account cannot buy a product now (null: it can). `daily_limit` is the server's: what is left of today's. */
 export type ShopBlock = 'unavailable' | 'once_used' | 'daily_limit';
 
-export function productBlock(p: ShopProduct, ctx: { staff: boolean; bought: number }): ShopBlock | null {
+/** Whether it is within its sales window at `now` (start included, end not; a missing end is open). */
+export function onSale(p: Pick<ShopProduct, 'availableFrom' | 'availableUntil'>, now: Date): boolean {
+  const t = now.getTime();
+  return (!p.availableFrom || t >= Date.parse(p.availableFrom)) && (!p.availableUntil || t < Date.parse(p.availableUntil));
+}
+
+/** How many times one account can buy it: the welcome pack, a piece and a set once. */
+export function maxPerAccount(p: Pick<ShopProduct, 'kind' | 'maxPerAccount'>): number | null {
+  return p.kind === 'welcome' || p.kind === 'cosmetic' || p.kind === 'set' ? 1 : p.maxPerAccount;
+}
+
+/** `now` checks its sales window (left out: the window is not checked). */
+export function productBlock(p: ShopProduct, ctx: { staff: boolean; bought: number; now?: Date }): ShopBlock | null {
   if (!p.enabled || (p.staffOnly && !ctx.staff)) return 'unavailable';
-  const max = p.kind === 'welcome' || p.kind === 'cosmetic' ? 1 : p.maxPerAccount;
+  if (ctx.now && !onSale(p, ctx.now)) return 'unavailable';
+  const max = maxPerAccount(p);
   if (max !== null && ctx.bought >= max) return 'once_used';
   return null;
 }

@@ -178,13 +178,19 @@ export async function dispatchDue(deps: CommunicationDeps, max = 50): Promise<nu
         return { id: m.id, title: m.title, type: m.type, gift: false, to: [] as string[] };
       };
       if (new Date(m.expires_at) <= now) return refuse('expired');
+      // Its writer must still be staff that may send (security review): deleted, banned or without the role, it stops.
+      const writer = m.created_by
+        ? await trx.selectFrom('galaxy.accounts').select('banned_until').where('id', '=', m.created_by).executeTakeFirst()
+        : undefined;
+      const writerRoles = m.created_by ? await rolesOf(trx, m.created_by) : [];
+      const banned = !!writer?.banned_until && new Date(writer.banned_until) > now;
+      if (!writer || banned || !writerRoles.some((r) => r === 'admin' || r === 'superadmin')) return refuse('writer_revoked');
       const to = reached(await accounts({ ...deps, db: trx }), m.audience as MailAudience, now);
       const gifts = allGifts(readContents(m.gifts).contents);
       if (gifts.length > 0) {
         const [limits, cosmetics] = await Promise.all([deps.config.get('mailLimits'), deps.config.get('cosmetics')]);
         const big = bigGiftReasons(gifts, to.length, limits, cosmetics);
-        const roles = m.created_by ? await rolesOf(trx, m.created_by) : [];
-        if (big.length > 0 && !roles.includes('superadmin')) return refuse('big', { big });
+        if (big.length > 0 && !writerRoles.includes('superadmin')) return refuse('big', { big });
       }
       for (let k = 0; k < to.length; k += 1000) {
         await trx
@@ -217,9 +223,9 @@ export async function withdrawMail(deps: CommunicationDeps, actor: AuditActor, i
   });
 }
 
-/** The latest 50 messages the admins sent (not the game's own notes to one player), with how many they reached, read and claimed. */
+/** The latest 50 messages the admins sent, and the scheduled ones still waiting (not the game's own notes to one player), with how many they reached, read and claimed. */
 export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]> {
-  const rows = await deps.db
+  const query = deps.db
     .selectFrom('galaxy.mailbox_messages as m')
     .leftJoin('galaxy.accounts as b', 'b.id', 'm.created_by')
     .select((eb) => [
@@ -244,10 +250,14 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       sql<string>`(select count(*) from galaxy.mailbox_receipts r, jsonb_array_elements(coalesce(r.granted, '[]'::jsonb)) e where r.message_id = m.id and e->>'outcome' = 'owned')`.as('o_owned'),
       sql<string>`(select count(*) from galaxy.mailbox_receipts r, jsonb_array_elements(coalesce(r.granted, '[]'::jsonb)) e where r.message_id = m.id and e->>'outcome' = 'skipped')`.as('o_skipped'),
     ])
-    .where('m.created_by', 'is not', null)
-    .orderBy('m.created_at', 'desc')
-    .limit(50)
-    .execute();
+    .where('m.created_by', 'is not', null);
+  // The latest fifty, and every scheduled one still waiting (security review: always there to withdraw).
+  const [latest, pending] = await Promise.all([
+    query.orderBy('m.created_at', 'desc').limit(50).execute(),
+    query.where('m.sent_at', 'is', null).where('m.withdrawn_at', 'is', null).execute(),
+  ]);
+  const seen = new Set(latest.map((r) => r.id));
+  const rows = [...pending.filter((r) => !seen.has(r.id)), ...latest];
   return rows.map((r) => {
     const { contents } = readContents(r.gifts);
     return {

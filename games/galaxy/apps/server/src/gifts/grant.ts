@@ -26,6 +26,9 @@ export interface GrantContext {
   auditAction?: string;
 }
 
+/** At most this many candidates per attempt when a gift's galaxy is made (only giftable ones are sent: see GIFT_CANDIDATES). */
+const CLAIM_CANDIDATES = 60_000;
+
 /** A galaxy gift's seed: the claim's key, its place and its number (the same claim always makes the same galaxies). */
 function giftSeed(key: string, index: number, n: number, attempt: number): bigint {
   const h = createHash('sha256').update(`${key}|${index}|${n}|${attempt}`).digest();
@@ -68,7 +71,7 @@ export async function grantGifts(trx: Kysely<DB>, accountId: string, gifts: read
         let g: ReturnType<typeof generateGalaxy> | null = null;
         for (let attempt = 0; attempt < 3 && !g; attempt++) {
           try {
-            g = generateGalaxy(giftSeed(ctx.seedKey ?? ctx.key, index, n, attempt), tier, gift.trait ? { trait: gift.trait.key, value: gift.trait.value } : undefined);
+            g = generateGalaxy(giftSeed(ctx.seedKey ?? ctx.key, index, n, attempt), tier, gift.trait ? { trait: gift.trait.key, value: gift.trait.value } : undefined, CLAIM_CANDIDATES);
           } catch {
             g = null;
           }

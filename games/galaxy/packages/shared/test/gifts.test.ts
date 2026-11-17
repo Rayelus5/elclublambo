@@ -6,6 +6,7 @@ import {
   type Gift,
   galaxyCount,
   galaxyReachable,
+  GIFT_CANDIDATES,
   MAX_GALAXIES,
   giftIssues,
   type GiftLive,
@@ -192,5 +193,19 @@ describe('cuántas galaxias (revisión de P3)', () => {
 
   test('un pack con una galaxia que no se puede conseguir no se publica', () => {
     expect(() => parseConfig('mail', { packs: [{ id: 'imposible', name: 'Imposible', art: 'star', items: [{ kind: 'galaxy', tier: 'legendary', finish: 'normal', trait: { key: 'galaxy_type', value: 'no-es-un-tipo' }, count: 1 }] }] })).toThrow();
+  });
+});
+
+describe('cuánto cuesta hacer una galaxia regalada (repaso de seguridad)', () => {
+  test('una mítica con rasgo, tan rara que tarda demasiado, no se regala; y saberlo es rápido', () => {
+    const t0 = performance.now();
+    expect(galaxyReachable(5, { key: 'galaxy_type', value: 'lenticular' })).toBe(false);
+    expect(performance.now() - t0).toBeLessThan(3000);
+  });
+
+  test('una mítica normal y una legendaria con rasgo sí', () => {
+    expect(galaxyReachable(5, null)).toBe(true);
+    expect(galaxyReachable(4, { key: 'galaxy_type', value: 'spiral' })).toBe(true);
+    expect(GIFT_CANDIDATES).toBeLessThanOrEqual(20_000);
   });
 });

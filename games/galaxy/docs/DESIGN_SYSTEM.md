@@ -981,40 +981,126 @@ Las acciones en bloque sobre alertas quedan fuera, porque en la beta habrá poca
 
 ## 8 vicies. Buzón y avisos
 
-El buzón de la barra de arriba, los avisos de la pantalla de título y `/admin/comunicacion` (GDD §4 y §16.5, M6d-1).
+El buzón de la barra de arriba, los avisos de la pantalla de título, `/admin/comunicacion` y la biblioteca de packs (GDD §4 y §16.5; M6d-1; buzón v2, 2026-11-16).
 
-Consulta de ui-ux-pro-max: se aplicaron tres guías:
-- **Un contador se dice en una sola etiqueta:** el botón se llama «Buzón, 2 sin leer», y la insignia es solo visual, sin una región en vivo que compita;
-- **Cada acción se ve hecha:** «Recoger» pasa a «Recogido» con su marca Terminal, y el monedero de arriba suma al momento;
+Consulta de ui-ux-pro-max (M6d-1 y buzón v2): se aplicaron estas guías:
+- **Un contador se dice en una sola etiqueta:** el botón se llama «Buzón, 2 sin leer», y la insignia es solo visual, sin una región en vivo que compita.
+- **Cada acción se ve hecha:** «Recoger» pasa a «Recogido» con su marca Terminal, y lo recogido se revela regalo a regalo.
 - **Un aviso se puede cerrar,** con su propio botón «Cerrar aviso».
+- **Pestañas y grupos con teclado:** las pestañas y los grupos de opciones siguen el patrón WAI-ARIA (flechas, Inicio y Fin); los tipos y los dibujos son radios nativos.
+- **El color nunca va solo:** cada tipo, rareza y acabado lleva también su nombre.
+- **Avisos al momento y junto a su causa:** el regalo grande y los regalos que fallan se dicen en una región en vivo.
 
-**El botón del buzón:**
-- el icono de carta;
-- con mensajes sin leer, una insignia Solar de 22 px en su esquina con el número (9+ desde 10).
+### Tipos de mensaje
 
-**El buzón** es un diálogo de 880 px como mucho:
-- **a la izquierda, la lista:** cada mensaje con su título, su fecha y, en palabras, «Nuevo» (Solar, con una barra Solar a su izquierda) y «Con regalo» (Terminal);
-- **a la derecha, la carta abierta:** el título en Bungee, la fecha y cuándo caduca, y el texto tal cual se escribió;
-- **un regalo es un recuadro con un brillo Solar:**
-  - el paquete pintado en Aseprite: 32×32 a ×3, una caja Hielo con cinta y lazo Solar, un destello que baja por la cinta y una chispa que parpadea; quieto con movimiento reducido;
-  - lo que da, en pastillas con el icono y el color de cada moneda (monedas en Solar, polvo en Hielo, señales en Nova);
-  - «Recoger»;
-  - una vez recogido, el paquete se apaga y dice «Recogido»;
-- vacío: «Tu buzón está vacío. Aquí llegan las noticias y los regalos del equipo»;
-- con menos de 760 px de ancho, la carta baja bajo la lista.
+Cada mensaje tiene un tipo con su icono y su color (`apps/web/src/mail/types.ts`):
 
-**Los avisos de la pantalla de título:** sobre el logo, una línea cada uno, como el aviso de mantenimiento:
-- los importantes en Solar con el icono de alerta;
-- los informativos en Hielo con un cometa;
+| Tipo | Icono | Color | Para qué |
+|---|---|---|---|
+| Anuncio | megáfono | Cielo | Noticias y novedades |
+| Regalo | estrella | Solar | Un detalle del equipo |
+| Compensación | llave | Terminal | Un fallo, una caída o una espera |
+| Evento | calendario | Nova | El anuncio y los premios de un evento |
+| Recompensa | trofeo | UV | Un premio ganado |
+| Personal | carta | Hielo | Un mensaje para uno o unos pocos |
+| Referidos | invitar | Terminal | Los regalos por invitar (los envía el juego) |
+| Tienda | tienda | Solar | Lo que pasa con una compra (los envía el juego) |
+| Sistema | información | Hielo | Lo que el juego avisa por su cuenta |
+
+El tipo sale en la tarjeta del panel, en el sello de la carta, en la lista y el filtro del buzón, y en el aviso en directo.
+
+### Regalos y packs
+
+**Un regalo siempre va dibujado y con sus palabras** (`apps/web/src/gifts/GiftArt.tsx`, `words.ts`):
+- **una moneda:** su icono en su color (monedas y la moneda de temporada en Solar o Cielo, polvo en UV, señales en Hielo, señales de evento en Nova, material y componentes en Terminal);
+- **una pieza:**
+  - el avatar o la skin dibujados;
+  - el marco alrededor de una cara;
+  - un título, como un pergamino, con su texto en sus palabras;
+- **una galaxia:** una carta sellada en el color de su rareza, con el brillo de su acabado (holo, prismático, braille, corrupto o fisura) y «×N» si son varias;
+- **una sonda:** volando; **experiencia y puntos de temporada:** su insignia.
+
+En tiras pequeñas (packs, lista de enviados) las piezas y las sondas van como icono.
+
+**Un pack** es un grupo de regalos de la biblioteca, con su nombre y su dibujo:
+- seis dibujos de 32×32 en cuatro fotogramas, quietos con movimiento reducido: paquete (`paint-gift.lua`), cofre, cápsula, estrella, caja de suministros y regalo (`art/mail/paint-packs.lua`);
+- al enviarlo, se copia en el mensaje: cambiar el pack después no toca lo ya enviado.
+
+### El buzón
+
+**El botón:** el icono de carta y, con mensajes sin leer, una insignia Solar de 22 px con el número (9+ desde 10).
+
+**El diálogo** mide 1040 px como mucho:
+- **arriba:**
+  - las pestañas Bandeja y Archivo;
+  - con regalos por recoger, «Recoger todo (N)» en Solar;
+  - los tipos que hay, como fichas con su icono y cuántos, más «Todos»: filtran la lista;
+- **a la izquierda, la lista:**
+  - cada mensaje con el icono de su tipo, su título y su fecha;
+  - en palabras: «Nuevo» (Solar, con una barra del color de su tipo), «Con regalo» (Terminal) y «Caduca pronto» (Nova);
+  - «Cargar más» si hay más;
+- **a la derecha, la carta:**
+  - el sello de su tipo, el título en Bungee, la fecha, cuándo caduca y el texto tal cual se escribió;
+  - **el regalo, en un recuadro con brillo Solar:** el paquete animado, cada regalo dibujado y, debajo de su nombre, los de cada pack, y «Recoger»; recogido, el paquete se apaga y dice «Recogido»;
+  - si caduca pronto, una línea Nova;
+  - abajo, «Archivar» (o «Devolver a la bandeja») y «Borrar», que no se puede con un regalo sin recoger y lo explica;
+- **vacío:** «Tu buzón está vacío…»; el archivo vacío dice para qué sirve;
+- con menos de 720 px de ancho, la carta baja bajo la lista.
+
+**La revelación** (`GiftReveal`) se abre al recoger:
+- cada regalo entra uno tras otro, dibujado y con un brillo Solar;
+- lo que ya tenía el jugador dice «Ya lo tenías» y lo que no se pudo dar, «No se pudo dar» en Nova;
+- las galaxias salen como su carta, con «Ver en la colección», que cierra el buzón;
+- con movimiento reducido, todo a la vez y quieto.
+
+**El aviso en directo** de un correo lleva el icono de su tipo y dice «Tienes un regalo en el buzón» cuando lo trae.
+
+**Los avisos de la pantalla de título:** sobre el logo, una línea cada uno:
+- los importantes en Solar, con el icono de alerta;
+- los informativos en Hielo, con un cometa;
 - cada uno con su botón de cerrar.
 
-**Comunicación (panel):**
-- **«Enviar un mensaje»:** título, mensaje, Para (todas, una lista de cuentas, o por nivel y fecha de alta), «Llega a N cuentas» en Hielo, los regalos en su recuadro, la caducidad y el motivo;
-  - con regalo, la contraseña y el botón en Nova;
-  - el botón dice a cuántas cuentas envía: «Enviar a 2 cuentas»;
-- **la tabla de enviados:** para quién, regalos, llega a, leído, recogido, estado y «Retirar»;
-- **«Publicar un aviso»:** texto, tono, empieza y termina;
-- **la tabla de avisos:** «En curso» (Terminal), «Programado» (Hielo) o «Terminado», y «Terminar».
+### Comunicación (panel)
+
+**«Enviar un mensaje»** se reparte en dos columnas desde 1240 px: el formulario a la izquierda y, fija a la derecha, la carta tal como la verá el jugador.
+
+- **El formulario:**
+  1. si hay plantillas, «Empezar con una plantilla»;
+  2. el tipo, en tarjetas con su icono, color y para qué sirve;
+  3. título, mensaje y para quién, con «Llega a N cuentas» en Hielo;
+  4. **los regalos:**
+     - la bandeja con lo elegido, cuántos caben y, en Nova, qué falla de cada uno, con «Quitar»;
+     - el selector por pestañas:
+       - Recursos: una fila por moneda, con su cantidad y «Añadir»;
+       - Estilo: la galería de piezas dibujadas, filtrada por pieza, por origen y por nombre;
+       - Galaxias: la rareza y el acabado, en muestras con su color y su nombre; el rasgo, cuántas y una muestra a petición;
+       - Sondas, Progreso y Packs, con el enlace a la biblioteca;
+  5. cuándo: «Ahora» o «Programar», con la fecha y la hora;
+  6. la caducidad y el motivo.
+- **La columna de la carta:**
+  - la vista previa;
+  - el aviso de regalo grande:
+    - en Nova, «Solo lo puede enviar un superadmin», si no lo eres;
+    - en Solar, «Lo puedes enviar porque eres superadmin», si lo eres;
+    - en los dos casos, con cada motivo y su límite;
+  - la contraseña, si da algo;
+  - el botón («Enviar a N cuentas» o «Programar el envío»), en Nova cuando da algo;
+  - «Guardar como plantilla».
+- **La tabla de enviados:**
+  - el tipo en su ficha, para quién y los regalos dibujados, con «Grande» si lo era;
+  - las barras de leídos y recogidos («600 de 1200»), con cuántos regalos ya tenían los jugadores y cuántos no se pudieron dar;
+  - el estado: En el buzón (Terminal), Programado (Hielo, con su hora), Caducado o Retirado;
+  - «Duplicar» y «Retirar».
+- **«Publicar un aviso» y la tabla de avisos:** sin cambios. Cada aviso dice En curso (Terminal), Programado (Hielo) o Terminado, y se puede terminar.
+
+**La biblioteca de packs** (`/admin/configuracion/mail`, la página de la clave `mail`):
+- una rejilla de tarjetas: el dibujo animado, el nombre, cuántos regalos lleva con su tira, «Apagado» si lo está, «Editar» y la papelera; al final, la tarjeta de rayas «Nuevo pack»;
+- **el editor:**
+  - el dibujo grande, el nombre y el identificador, que sale del nombre y no cambia después;
+  - «Activo»;
+  - los seis dibujos como radios con su nombre;
+  - lo que da, con la misma bandeja y el mismo selector, sin packs;
+- **los cambios sin publicar** se cuentan («2 cambios sin publicar»), se descartan o se publican con motivo y contraseña.
 
 ## 8 unvicies. Estadísticas
 
