@@ -11,7 +11,7 @@ export interface Dict {
   meta: { title: string; description: string; siteName: string; ogImageAlt: string; skip: string };
   nav: { label: string; items: { href: string; label: string }[]; menu: string };
   cta: { play: string; login: string; follow: string };
-  hero: { h1: [string, string]; lead: string; facts: string[] };
+  hero: { h1: [string, string]; lead: string };
   clips: { lobby: string; horde: string; boss: string; extract: string; collection: string; coop: string };
   hangar: Stop & { points: string[] };
   run: Stop;

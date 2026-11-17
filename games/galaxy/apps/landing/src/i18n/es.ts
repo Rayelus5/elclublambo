@@ -34,8 +34,7 @@ export const ES: Dict = {
   cta: { play: 'Jugar gratis', login: 'Ya tengo cuenta', follow: 'Seguir a la sonda' },
   hero: {
     h1: ['Sobrevive a', 'la Estática'],
-    lead: 'Un roguelite de hordas gratis en tu navegador. Pilota tu sonda contra la corrupción del cielo, rescata galaxias únicas y vuelve a tu estación con el botín',
-    facts: ['Gratis', 'En el navegador', 'Hasta 4 en grupo', 'En español'],
+    lead: 'Un roguelite de hordas gratis en tu navegador',
   },
   clips: {
     lobby: 'El hangar del juego, con la sonda elegida y el mapa de sectores',

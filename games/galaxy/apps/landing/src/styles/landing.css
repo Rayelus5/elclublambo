@@ -157,8 +157,6 @@ html.js .txt.in, html.js .in > .txt { opacity: 1; transform: none; }
 .hero h1 span { color: var(--solar); display: block; }
 .hero .lead { color: var(--ink-soft); font-size: clamp(18px, 1.4vw, 22px); max-width: 42ch; margin: 0 auto 30px; }
 .ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-.facts { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; list-style: none; padding: 0; margin: 28px 0 0; }
-.facts li { padding: 7px 14px; border-radius: 99px; background: rgb(255 255 255 / .07); color: var(--ink-soft); font-size: .95rem; font-weight: 500; }
 .pad { position: absolute; left: 50%; bottom: 30px; translate: -50% 0; width: 320px; height: 128px; background: url('../../../web/src/hangar/lobby-art/launchpad.png') 0 0 / 2560px 128px no-repeat; image-rendering: pixelated; animation: pad-run 1s steps(8) infinite; }
 @keyframes pad-run { to { background-position-x: -2560px; } }
 .planet { position: absolute; right: 6%; top: 18%; width: 320px; height: 240px; background: url('../../../web/src/hangar/lobby-art/planet.png') center / contain no-repeat; image-rendering: pixelated; opacity: .9; transform: translateY(calc(var(--sy) * .15px)); }

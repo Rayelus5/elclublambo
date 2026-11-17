@@ -260,3 +260,11 @@ test('el aviso de la mudanza: su título, su botón al dominio nuevo y nada que 
   expect(css.type).toBe('text/css; charset=utf-8');
   expect(css.body).toContain("url('/galaxy/fonts/bungee-latin.woff2')");
 });
+
+// The hero says only what the game is (the owner, 2026-11-17: the rest «es información innecesaria», and the tags go).
+test('el inicio solo dice qué es el juego: una frase y sin etiquetas', () => {
+  const h = byFile('index.html').body;
+  const hero = h.slice(h.indexOf('<section class="hero"'), h.indexOf('</section>', h.indexOf('<section class="hero"')));
+  expect(textOf(hero.match(/<p class="lead">([\s\S]*?)<\/p>/)![1]!)).toBe('Un roguelite de hordas gratis en tu navegador');
+  expect(hero).not.toContain('class="facts"');
+});
