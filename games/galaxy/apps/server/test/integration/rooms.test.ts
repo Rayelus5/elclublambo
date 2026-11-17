@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type LiveEvent, PROBE_TEST, type RoomsView, type RoomView } from '@galaxy/shared';
+import { type AdminLoadView, type LiveEvent, PROBE_TEST, type RoomsView, type RoomView } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
@@ -227,6 +227,26 @@ describe('límites del servidor', () => {
     expect(res.statusCode).toBe(204);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body).toBe('');
+  });
+});
+
+describe('carga del servidor', () => {
+  test('el personal ve la carga del servidor (salas, partidas, sockets, CPU, memoria); un jugador no', async () => {
+    const p = await player();
+    expect((await get(ctx.app, '/galaxy/api/admin/load', { cookie: p.cookie })).statusCode).toBe(403);
+    await create(p, 'private');
+    const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'moderator');
+    const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
+    const staff = sessionCookie(await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) }));
+    const res = await get(ctx.app, '/galaxy/api/admin/load', { cookie: staff });
+    expect(res.statusCode).toBe(200);
+    const v = res.json() as AdminLoadView;
+    expect(v.now.rooms.lobby).toBeGreaterThanOrEqual(1);
+    expect(v.now.rooms.max).toBe(500);
+    expect(v.now.players).toBeGreaterThanOrEqual(1);
+    expect(v.now.memory.rss).toBeGreaterThan(0);
+    expect(v.sampleMs).toBe(15_000);
+    expect(Array.isArray(v.history)).toBe(true);
   });
 });
 

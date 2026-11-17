@@ -6,6 +6,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useModDialog } from './ModerationScreen';
 import { useContentNames } from '../api/content-names';
+import { ServerLoad } from './ServerLoad';
 
 // Moderación › Salas en vivo (multiplayer plan, phase 5): every open room with its code, kind, sector, state, players
 // (connected or not) and how long since anything changed; a moderator closes one with a reason (audited), and its
@@ -22,6 +23,7 @@ export function LiveRooms() {
   const rows = rooms.data?.rooms ?? [];
   return (
     <div className="mod-pane">
+      <ServerLoad />
       <p className="panel-note">
         {r.live}
         {rooms.data ? `, ${r.count(rows.length)}` : ''}

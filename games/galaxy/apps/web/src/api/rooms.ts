@@ -1,4 +1,4 @@
-import type { RoomKind, RoomsView, RoomView, SoloLiveList } from '@galaxy/shared';
+import type { AdminLoadView, RoomKind, RoomsView, RoomView, SoloLiveList } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -75,6 +75,11 @@ export type AdminRoom = RoomView & { idleSeconds: number };
 /** The solo runs being played now (plan «escáner pro», part G), every 5 seconds. */
 export function useAdminSoloLive() {
   return useQuery({ queryKey: ['admin', 'solo-live'], queryFn: () => api<SoloLiveList>('/admin/solo/live'), refetchInterval: 5000 });
+}
+
+/** The server's load (2026-11-17): the samples of the last hour and the one now, every five seconds. */
+export function useAdminLoad() {
+  return useQuery({ queryKey: ['admin', 'load'], queryFn: () => api<AdminLoadView>('/admin/load'), refetchInterval: 5000 });
 }
 
 export function useAdminRooms() {
