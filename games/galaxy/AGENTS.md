@@ -22,7 +22,8 @@ Desde el 2026-11-10 es una **beta abierta en PRE** (`pre.elclub.party/galaxy`), 
 | `packages/shared` | Esquemas Zod y reglas puras que comparten servidor y web: tipos de la API, **registro de configuración viva** (`src/config/registry.ts`), gacha, economía, misiones, temporada |
 | `apps/server` | Fastify 5 + Kysely (Postgres de Supabase, esquema `galaxy`). Una carpeta por dominio en `src/`. Sirve la API en `/galaxy/api/*` y la web compilada. CLI en `src/cli.ts` |
 | `apps/web` | React 19, React Router 7, TanStack Query, Zustand y Tailwind v4. La arena se pinta con PixiJS 8 (`src/arena`) y el inspector 3D con three.js. Textos en `src/copy/es.ts` |
-| `art/` | Fuentes de Aseprite y scripts `paint-*.lua` |
+| `apps/landing` | La portada de galaxysurvivor.es y sus páginas legales: HTML generado al compilar desde un diccionario (`src/i18n/es.ts`), con Vite. El servidor la sirve en la raíz (`apps/server/src/landing.ts`). Comprobación en Chromium: `node scripts/check.mjs` (DEPLOY_PRE, «La portada») |
+| `art/` | Fuentes de Aseprite, scripts `paint-*.lua` y los iconos de la marca (`brand/brand.py`) |
 | `ops/` | Configuración publicada o por publicar (`launch/`), plantillas (`plantillas/`) y el borrado de la beta (`reset-beta.sql`, que solo usa el propietario) |
 | `tools/` | Goldens del motor y prueba de carga |
 | `docs/` | Ver la tabla de documentos |

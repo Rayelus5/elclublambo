@@ -11,6 +11,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Mapa del repositorio
 
 - **Raíz:** la web de elclub.party (Next.js, Supabase, Vercel). Sus reglas de proceso están en `INSTRUCCIONES_PROYECTO.md`; sus entornos, en `docs/deploy/`.
-- **`games/galaxy/`:** el juego Galaxy Survivor, que vive en `/galaxy`. Es un workspace pnpm aparte, con su propio lockfile: sus comandos se lanzan con `pnpm -C games/galaxy …`. **Antes de tocar el juego, lee `games/galaxy/AGENTS.md`.** Para crear contenido (habilidades, reliquias, enemigos, sectores, sondas, temporadas, eventos) están las skills `.claude/skills/galaxy-*` y la guía `games/galaxy/docs/CONTENIDO.md`.
+- **`games/galaxy/`:** el juego Galaxy Survivor, que vive en `/galaxy`, y su portada pública de galaxysurvivor.es (`apps/landing`). Es un workspace pnpm aparte, con su propio lockfile: sus comandos se lanzan con `pnpm -C games/galaxy …`. **Antes de tocar el juego, lee `games/galaxy/AGENTS.md`.** Para crear contenido (habilidades, reliquias, enemigos, sectores, sondas, temporadas, eventos) están las skills `.claude/skills/galaxy-*` y la guía `games/galaxy/docs/CONTENIDO.md`.
 - **`supabase/migrations/`:** compartido por la web y el juego (las del juego llevan `_galaxy_`).
 - **Ramas:** `develop` despliega PRE (pre.elclub.party) y `main` despliega producción, que nunca se toca sin el propietario.
