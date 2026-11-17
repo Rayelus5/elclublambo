@@ -2,7 +2,7 @@ import type { PulledGalaxy, Tier } from '@galaxy/shared';
 import { gsap } from 'gsap';
 import { expect, test } from 'vitest';
 import { buildScript, GUION } from '../src/scanner/pro/script';
-import { buildTimeline, CINEMA, createRig, GRID, RING, ringSpot, SINGLE } from '../src/scanner/pro/timeline';
+import { buildTimeline, CINEMA, createRig, GRID, gridFor, RING, ringSpot, SINGLE } from '../src/scanner/pro/timeline';
 
 // The pro scanner's timeline (plan «escáner pro», part B): one paused GSAP timeline, built from the script, that moves
 // a plain «rig» of numbers the 3D scene and the overlays read every frame. Real GSAP: its labels sit where the script
@@ -176,6 +176,26 @@ test('diez: reparto en la rejilla boca abajo, cascada de giros, primeros planos 
   expect(rig.dim).toBeCloseTo(0, 2);
   tl.time(at('final').at + 0.4);
   rig.cards.forEach((c) => expect(c.rotY).toBeCloseTo(Math.PI, 2));
+});
+
+test('cinco (2026-11-17): una sola fila centrada, simétrica, y las cartas se reparten en ella', () => {
+  const five = gridFor(5);
+  const xs = [0, 1, 2, 3, 4].map((slot) => five.x(slot));
+  expect(xs[2]).toBeCloseTo(0, 5);
+  expect(xs[0]).toBeCloseTo(-xs[4]!, 5);
+  expect(xs[1]).toBeCloseTo(-xs[3]!, 5);
+  expect(new Set([0, 1, 2, 3, 4].map((slot) => five.y(slot))).size).toBe(1);
+  // The ten keep their 5 × 2.
+  expect(gridFor(10)).toBe(GRID);
+  const pulls = [pull('common'), pull('rare'), pull('common'), pull('uncommon'), pull('epic')];
+  const { rig, tl, at } = setup(pulls);
+  tl.time(at('giro-0').at);
+  rig.cards.forEach((c, slot) => {
+    expect(c.alpha).toBeCloseTo(1, 2);
+    expect(c.x).toBeCloseTo(five.x(slot), 2);
+    expect(c.y).toBeCloseTo(five.y(slot), 2);
+    expect(c.scale).toBeCloseTo(five.scale, 2);
+  });
 });
 
 test('movimiento reducido: ni salto ni temblor ni destellos; las cartas aparecen y se descubren con fundidos', () => {

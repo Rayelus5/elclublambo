@@ -14,7 +14,7 @@ import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 const t = copy.workshop;
 const lumenDef = DEFAULT_CONTENT.probes.find((p) => p.id === 'lumen')!;
 const wallet = (components = 100, coins = 2000) => ({ coins, dust: 0, signal: 0, components });
-const gacha = (w = wallet()) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: w });
+const gacha = (w = wallet()) => ({ banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: w });
 /** The hangar with Lumen at `level` (and its chosen weapon). */
 const at = (level: number, variant: string | null = null) => view({ probes: PROBES.map((p) => (p.id === 'lumen' ? { ...p, ...levelOne(lumenDef, level, variant) } : p)) });
 const open = (path = '/taller') => renderAt(path, { '/taller': <WorkshopScreen /> });

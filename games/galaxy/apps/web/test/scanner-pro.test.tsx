@@ -49,7 +49,7 @@ afterEach(() => {
 
 const view = (over: Partial<GachaView> = {}): GachaView => ({
   banners: [{ id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', currency: 'signal', nextRates: [0.5, 0.28, 0.13, 0.06, 0.03], sinceLegendary: 3, untilGuarantee: 7, welcome: false }],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 2500, dust: 0, signal: 30 },
   ...over,

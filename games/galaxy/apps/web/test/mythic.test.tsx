@@ -35,7 +35,7 @@ const counts = { common: 5, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic:
 const page = (items: GalaxySummary[]): CollectionPage => ({ items, counts, fusion: { count: 5, dust: [20, 50, 120, 300] } });
 const gacha = (over: Partial<GachaView['banners'][number]> = {}): GachaView => ({
   banners: [{ id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', currency: 'signal', nextRates: [0.4998, 0.27986, 0.12993, 0.05997, 0.02999, 0.0005], sinceLegendary: 3, untilGuarantee: 7, welcome: false, ...over }],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 0, dust: 400, signal: 0 },
 });

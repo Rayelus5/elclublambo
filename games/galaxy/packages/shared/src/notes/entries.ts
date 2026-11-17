@@ -7,6 +7,21 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-41-el-escaner-vivo',
+    version: '1.41',
+    date: '2026-11-17',
+    title: 'El escáner, vivo',
+    summary: 'Tiradas de 5, un cielo que se barre en directo, lo que puede salirte y los últimos hallazgos de todos',
+    items: [
+      { kind: 'nuevo', text: 'Tiradas de 5 en los dos escáneres. Con monedas cuestan un poco menos que cinco sueltas, y la marca «Mejor precio» te dice qué tirada te sale más barata por escaneo' },
+      { kind: 'nuevo', text: 'El monitor del escáner barre el cielo con un radar: sus destellos tienen el color de cada rareza y salen según tus probabilidades del próximo escaneo' },
+      { kind: 'nuevo', text: '«Puede salirte»: las legendarias y míticas que se están encontrando, como cartas. En el escáner de evento, la galaxia destacada sale en grande' },
+      { kind: 'nuevo', text: '«Últimos hallazgos»: una cinta con las legendarias y míticas que han sacado los demás jugadores, y tus mejores tiradas de la semana' },
+      { kind: 'mejora', text: 'La Legendaria segura es ahora un núcleo que se carga con cada escaneo y brilla más cuanto más cerca está' },
+      { kind: 'mejora', text: 'La tirada de 5 tiene su propia cinemática: las cinco cartas caen en una fila y las mejores pasan a primer plano' },
+    ],
+  },
+  {
     id: 'v1-40-lobby-y-salas',
     version: '1.40',
     date: '2026-11-17',

@@ -7,7 +7,8 @@ import type { Finish, Tier, Wallet } from '../gacha/types';
 export const pullRequestSchema = z
   .object({
     banner: z.string().regex(/^[a-z0-9-]{1,32}$/),
-    count: z.union([z.literal(1), z.literal(10)]),
+    // x1, x5 (2026-11-17) or x10: gacha/costs.ts PULL_COUNTS.
+    count: z.union([z.literal(1), z.literal(5), z.literal(10)]),
     pay: z.enum(['coins', 'signal', 'free']),
   })
   .strict();
@@ -123,7 +124,7 @@ export interface LeftoverView {
 
 export interface GachaView {
   banners: BannerView[];
-  costs: { coins: number; coinsTen: number; signals: number };
+  costs: { coins: number; coinsFive: number; coinsTen: number; signals: number };
   freePullAvailable: boolean;
   wallet: Wallet;
   /** Conversions the player has not seen yet. */

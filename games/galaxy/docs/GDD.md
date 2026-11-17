@@ -322,7 +322,8 @@ Tabla de partida, ajustable:
   - Si sale un fenómeno: «Fenómeno detectado».
   - Una Legendaria hace fallar la pantalla y suena un acorde.
   - Sello sonoro: el clac de una máquina Perkins de braille.
-  - Tiradas múltiples (x10) con revelado en secuencia y opción de saltar.
+  - Tiradas múltiples (x5 y x10) con revelado en secuencia y opción de saltar. Con señales cuestan una por escaneo; con monedas, cada tamaño su precio (100, 475 y 900 por defecto, `gacha.costs`), y «Mejor precio» marca el que menos cuesta por escaneo (2026-11-17).
+  - La pantalla enseña también lo que puede salir («Puede salirte»: legendarias y míticas encontradas, completadas con ejemplos) y los últimos hallazgos de todos (cuentas visibles, sin bloqueados, 14 días), con tus mejores de la semana (2026-11-17).
 
 ---
 

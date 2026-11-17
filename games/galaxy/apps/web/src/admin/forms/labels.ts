@@ -146,6 +146,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     ...pity('featured'),
     costs: { label: 'Precios' },
     'costs.coins': { label: 'Un escaneo con monedas' },
+    'costs.coinsFive': { label: 'Cinco escaneos con monedas', hint: 'Por defecto 475: un 5 % menos que cinco sueltos' },
     'costs.coinsTen': { label: 'Diez escaneos con monedas' },
     'costs.signals': { label: 'Señales por escaneo' },
     dailyFree: { label: 'Escaneo gratis cada día' },

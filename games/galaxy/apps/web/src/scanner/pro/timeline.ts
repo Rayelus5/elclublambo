@@ -22,6 +22,21 @@ export const GRID = {
   y: (slot: number) => (slot < 5 ? 1.42 : -1.42),
 } as const;
 
+export interface Grid {
+  scale: number;
+  x: (slot: number) => number;
+  y: (slot: number) => number;
+}
+
+/**
+ * Where a multi-pull's cards stand: the ten's 5 × 2, or (the 5-pull, 2026-11-17) one row centred on the screen, a little
+ * bigger, rarest on the right.
+ */
+export function gridFor(count: number): Grid {
+  if (count > 5) return GRID;
+  return { scale: 0.4, x: (slot) => (slot - (count - 1) / 2) * 2.15, y: () => 0 };
+}
+
 /**
  * A fusion's ring (plan «fusión pro»): the galaxies going in sit on an ellipse round the core (`rx` × `ry` at ring 1,
  * the first on top), close in to `close` along the orbit while it turns `spin` radians, then sink into the core.
@@ -122,6 +137,7 @@ const ABOVE = 6;
 /** The rig at the very start (black, closed), with every card hidden above its place. */
 export function createRig(s: Script): Rig {
   const ten = s.count > 1;
+  const grid = gridFor(s.count);
   const fusion = s.intro === 'fusion';
   return {
     bars: 1,
@@ -153,10 +169,10 @@ export function createRig(s: Script): Rig {
     inputs: s.inputs.map(() => ({ alpha: 0, absorb: 0, glow: 0 })),
     // A fusion's new card is born small in the core; a scan's falls from above its place.
     cards: Array.from({ length: s.count }, (_, slot) => ({
-      x: ten ? GRID.x(slot) : SINGLE.x,
-      y: (ten ? GRID.y(slot) : SINGLE.y) + (fusion ? 0 : ABOVE),
+      x: ten ? grid.x(slot) : SINGLE.x,
+      y: (ten ? grid.y(slot) : SINGLE.y) + (fusion ? 0 : ABOVE),
       z: fusion ? -1 : -3,
-      scale: ten ? GRID.scale * 0.6 : SINGLE.scale * (fusion ? 0.05 : 0.6),
+      scale: ten ? grid.scale * 0.6 : SINGLE.scale * (fusion ? 0.05 : 0.6),
       rotY: 0,
       rotZ: 0,
       alpha: 0,
@@ -188,6 +204,7 @@ function untexts(tl: Timeline, rig: Rig, at: number, dur: number) {
 export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline {
   const tl = gsap.timeline({ paused: true });
   const ten = s.count > 1;
+  const grid = gridFor(s.count);
   const fusion = s.intro === 'fusion';
   const T = GUION.ten;
   const F = GUION.fusion;
@@ -316,11 +333,11 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         rig.cards.forEach((c, slot) => {
           const d = s.reduced ? dur : Math.max(0.2, dur - 0.06 * (rig.cards.length - 1));
           if (s.reduced) {
-            tl.set(c, { x: GRID.x(slot), y: GRID.y(slot), z: 0, scale: GRID.scale }, at);
+            tl.set(c, { x: grid.x(slot), y: grid.y(slot), z: 0, scale: grid.scale }, at);
             tl.to(c, { alpha: 1, duration: d, ease: 'power1.out' }, at);
           } else {
             tl.to(c, { alpha: 1, duration: 0.2, ease: 'power1.out' }, at + slot * 0.06);
-            tl.to(c, { x: GRID.x(slot), y: GRID.y(slot), z: 0, scale: GRID.scale, rotZ: 0, duration: d, ease: 'power3.out' }, at + slot * 0.06);
+            tl.to(c, { x: grid.x(slot), y: grid.y(slot), z: 0, scale: grid.scale, rotZ: 0, duration: d, ease: 'power3.out' }, at + slot * 0.06);
           }
         });
         break;
@@ -355,7 +372,7 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         }
         texts(tl, rig, s, slot, face, featured, back);
         if (phenomenon) tl.fromTo(rig, { phenomenon: 0 }, { phenomenon: 1, duration: 0.35, ease: 'back.out(1.6)', immediateRender: false }, face + 0.4);
-        tl.to(c, { x: GRID.x(slot), y: GRID.y(slot), z: 0, scale: GRID.scale, glow: 0.35, duration: T.solo.volver, ease: 'power3.inOut' }, back);
+        tl.to(c, { x: grid.x(slot), y: grid.y(slot), z: 0, scale: grid.scale, glow: 0.35, duration: T.solo.volver, ease: 'power3.inOut' }, back);
         tl.to(rig, { dim: 0, duration: T.solo.volver, ease: 'power2.in' }, back);
         untexts(tl, rig, back, T.solo.volver * 0.8);
         break;

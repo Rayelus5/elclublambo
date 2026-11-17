@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { atLeast, leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
+import { atLeast, type FindsView, leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
@@ -7,6 +7,7 @@ import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
 import { withNotices } from '../realtime/notices';
 import { countStats, missionConfigs } from '../missions/service';
+import { forgetFinds, gachaFinds } from './finds';
 import { markLeftoversSeen } from './leftovers';
 import { enabledGacha, pull, visit, type GachaDeps } from './service';
 import type { SessionInfo } from '../auth/sessions';
@@ -34,6 +35,12 @@ export function registerGachaRoutes(
     return deps.shopFlag ? { ...view, shop: await deps.shopFlag(s) } : view;
   });
 
+  // What is found (2026-11-17): the scanner's «Últimos hallazgos», my best scans and the showcase (gacha/finds.ts).
+  api.get('/galaxy/api/gacha/finds', async (req): Promise<FindsView> => {
+    const s = requireSession(req);
+    return gachaFinds(deps.db, await deps.config.get('gacha'), s.accountId, deps.now());
+  });
+
   // The player has seen the window telling them their leftover event signals became star dust.
   api.post('/galaxy/api/gacha/leftovers/seen', async (req, reply) => {
     const s = requireSession(req);
@@ -54,7 +61,10 @@ export function registerGachaRoutes(
     return withNotices(deps.live, (out) =>
       runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
         const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
-        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => atLeast(p.tier, 'legendary')).length }, deps.now(), out);
+        const legendaries = r.pulls.filter((p) => atLeast(p.tier, 'legendary')).length;
+        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries }, deps.now(), out);
+        // A new find for everyone's «Últimos hallazgos».
+        if (legendaries > 0) forgetFinds();
         return r;
       }),
     );

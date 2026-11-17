@@ -323,6 +323,8 @@ Un id nunca se reutiliza ni cambia de significado:
   - `featured: { trait, value }`;
   - las fechas del evento.
 - Tras el evento, las señales que sobran se convierten en polvo (`gacha.leftoverDust`, 50 por defecto).
+- **Precios de las tiradas** (`gacha.costs`, para todos los escáneres): con señales, `signals` por escaneo (x1, x5, x10); con monedas, `coins` (x1, 100), `coinsFive` (x5, 475, desde 2026-11-17) y `coinsTen` (x10, 900). Una carpeta antigua sin `coinsFive` sigue valiendo: toma 475. «Mejor precio» sale solo en el tamaño que de verdad ahorra por escaneo.
+- **Galaxia destacada en el escáner:** si nadie la ha encontrado aún, el escáner enseña un ejemplo con su rasgo (una legendaria generada con él), marcado «Ejemplo»; en cuanto alguien saca una, sale esa.
 
 **Metas:**
 - Usan las stats de `MISSION_STATS`: `runs, minutes, kills, bossKills, extractions, depth, pulls, legendaries, fusions, disintegrations, components, coopRuns, revives`. Una stat nueva es código.

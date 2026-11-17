@@ -217,7 +217,12 @@ Desde M2a el fondo de acceso son **galaxias reales del motor** (`packages/engine
 
 El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilidades de cada rareza en la próxima tirada (suerte creciente incluida), cuánto falta para la Legendaria segura con su barra, la suerte de bienvenida y, en eventos, la destacada y su garantía. Se paga con el escaneo gratis del día (Terminal), señales (Solar) o monedas (oscuro); sin saldo, el botón se ve apagado antes de pulsar.
 
-- **Terminal CRT:** bisel con relieve y pantalla curva oscura con líneas de escaneo y viñeta. En reposo, braille de hielo que respira y «Listo para escanear».
+- **Terminal CRT:** bisel con relieve y pantalla curva oscura con líneas de escaneo y viñeta, a todo el ancho del panel (un panorama). En reposo, **cielo vivo** (2026-11-17): estrellas que se desplazan, un radar que barre cada 4 s (1,1 s mientras se escanea) y 12 destellos del color de cada rareza, tantos como dicen las probabilidades del próximo escaneo y siempre una legendaria; se encienden al paso del barrido. «Listo para escanear» abajo, sin título encima. En el de evento, en violeta y con la misma altura (2026-11-17).
+- **Detrás de la página:** una nebulosa que se mueve despacio (azul; violeta y rosa en el de evento), en su capa recortada para no ensanchar la página.
+- **Garantía:** un núcleo (anillo que se llena con los escaneos sin Legendaria y un orbe que brilla más cuanto más cerca); desde el 80 % se calienta y late. `progressbar` con su nombre.
+- **Botones:** x1, x5 y x10 en cada fila (señales y monedas), con el número en la letra de título; «Mejor precio», una cinta Nova, en el tamaño que menos cuesta por escaneo, solo si de verdad ahorra.
+- **«Puede salirte»:** tarjetas de 92 px en una tira que se desplaza por dentro, con su nombre, su rareza y su rasgo más llamativo; los ejemplos llevan «Ejemplo». En el de evento, la galaxia destacada sale en grande en su tarjeta.
+- **«Últimos hallazgos»:** una cinta bajo el escáner que avanza sola de derecha a izquierda («vega encontró una Legendaria Aena, hace 2 min») y se para al pasar el ratón o con el teclado; al final, «Tus mejores» de la semana. Es una lista de verdad para el lector de pantalla (la copia que hace el bucle va oculta) y nada se anuncia al moverse. Con movimiento reducido, todo queda quieto.
 - **Secuencia** (`revealSequence`, pura y probada), por tirada:
   1. **Estática:** ruido tenue redibujado unas 12 veces por segundo (0,9 s la primera, 0,32 s las siguientes; nunca un destello).
   2. **Señal:** suben tantas barras como pasos de rareza (1 Común … 5 Legendaria), en su color; más barras, más espera (0,52 s + 0,17 s por paso) y suena el clac de la Perkins.
@@ -225,7 +230,7 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
   4. **Fenómeno detectado** con su nombre, si lo tiene (1,3 s).
   5. **Fallo de pantalla** solo en Legendaria: dos sacudidas con separación RGB en 0,9 s, por debajo de 3 destellos por segundo (WCAG 2.3.1).
   6. **Carta:** sale de la pantalla girando, por encima del bisel, sobre un halo de su rareza, y suena su acorde (más brillante cuanto más rara; arpegio en Legendaria).
-- **Ritmo:** una tirada espera al jugador en su carta; en una de diez las cartas siguen solas (1,9 s). Pulsar la pantalla o «Seguir» lleva a la carta de la tirada actual o a la siguiente; «Saltar» va al resumen. El resumen ordena de más a menos rara.
+- **Ritmo:** una tirada espera al jugador en su carta; en una de cinco o de diez las cartas siguen solas (1,9 s). Pulsar la pantalla o «Seguir» lleva a la carta de la tirada actual o a la siguiente; «Saltar» va al resumen. El resumen ordena de más a menos rara.
 - **Accesibilidad:** cada carta revelada se anuncia («Legendaria: Kathra») en una región educada; el sonido se silencia con un botón y se recuerda; todo con teclado.
 - **Movimiento reducido:** sin fallo de pantalla ni sacudidas, estática quieta, la imagen aparece con un fundido y cada carta espera al jugador.
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
@@ -254,6 +259,7 @@ Plan «escáner pro», parte B. Activada por defecto [U, 2026-11-12]; se apaga e
 6. **Impacto:** un parón, dos ondas expansivas, un resplandor y chispas.
 7. **Las cartas:**
    - **Una tirada:** la carta sube boca abajo y gira. En la banda inferior, el nombre se escribe letra a letra y la rareza se estampa con sus rombos (1–5).
+   - **Cinco** (2026-11-17): igual que diez, en una sola fila centrada y un poco más grandes.
    - **Diez:** las cartas caen boca abajo en una rejilla de 5×2, de menor a mayor rareza. Giran en cascada, con el canto encendido en su color justo antes. Épicas y legendarias pasan a primer plano, la legendaria con rayos dorados.
    - **«¡Destacada!»** bajo la banda superior y **«Fenómeno detectado»** dentro de ella.
 8. **Resumen:** el mismo de la clásica, sobre el cielo apagado.

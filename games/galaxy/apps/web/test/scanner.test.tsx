@@ -1,4 +1,4 @@
-import type { GachaView, PulledGalaxy, PullResponse, Tier } from '@galaxy/shared';
+import type { FindsView, GachaView, PulledGalaxy, PullResponse, Tier } from '@galaxy/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -25,7 +25,7 @@ const view = (over: Partial<GachaView> = {}): GachaView => ({
       welcome: true,
     },
   ],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 250, dust: 0, signal: 10 },
   ...over,
@@ -348,3 +348,101 @@ test('durante el tutorial del escáner, el resumen solo deja «Cerrar»', async 
   expect(within(stage).queryByRole('button', { name: new RegExp(copy.scanner.again(1)) })).toBeNull();
 });
 
+
+// The scanner made more attractive (2026-11-17, the owner): the 5-pull with its own price, «Mejor precio» where it
+// really saves, the guarantee as a charging core, the showcase of what can come out and the latest finds.
+const finds = (over: Partial<FindsView> = {}): FindsView => ({
+  recent: [{ id: 'f1', by: 'vega', at: new Date(Date.now() - 120_000).toISOString(), banner: 'deep-scan', galaxy: pulled(31, 'legendary') }],
+  mine: [pulled(32, 'epic')],
+  showcase: [pulled(33, 'legendary'), { ...pulled(34, 'mythic'), example: true }],
+  featured: {},
+  ...over,
+});
+
+test('x5 en las dos filas a su precio, y «Mejor precio» solo en x10 con monedas', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet: { coins: 1000, dust: 0, signal: 10 } })), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(5)}.*${copy.scanner.costSignals(5)}`) })).toBeEnabled();
+  const five = screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(5)}.*${copy.scanner.costCoins(475)}`) });
+  expect(five).toBeEnabled();
+  expect(five).not.toHaveTextContent(copy.scanner.bestValue);
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costCoins(900)}`) })).toHaveTextContent(copy.scanner.bestValue);
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) })).not.toHaveTextContent(copy.scanner.bestValue);
+});
+
+test('escanear 5 con monedas pide 5 y lo cobra a su precio', async () => {
+  const response: PullResponse = { pulls: Array.from({ length: 5 }, (_, i) => pulled(40 + i)), wallet: { coins: 525, dust: 0, signal: 10 }, view: view() };
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet: { coins: 1000, dust: 0, signal: 10 } })),
+    'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()),
+    'POST /galaxy/api/gacha/pull': () => jsonResponse(200, response),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(5)}.*${copy.scanner.costCoins(475)}`) }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/gacha/pull')).toBe(true));
+  const post = fetch.mock.calls.find(([u]) => u === '/galaxy/api/gacha/pull')!;
+  expect(JSON.parse(String(post[1]?.body))).toEqual({ banner: 'deep-scan', count: 5, pay: 'coins' });
+});
+
+test('la garantía es un núcleo que se carga, y brilla más cuando está cerca', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  const core = await screen.findByRole('progressbar', { name: copy.scanner.pityLabel });
+  expect(core).toHaveAttribute('aria-valuenow', '3');
+  expect(core).toHaveAttribute('aria-valuemax', '10');
+  expect(core.closest('.pity')).not.toHaveAttribute('data-hot');
+});
+
+test('con la garantía casi llena el núcleo se calienta', async () => {
+  const hot = view();
+  hot.banners[0] = { ...hot.banners[0]!, sinceLegendary: 9, untilGuarantee: 1 };
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, hot), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  const core = await screen.findByRole('progressbar', { name: copy.scanner.pityLabel });
+  expect(core.closest('.pity')).toHaveAttribute('data-hot', 'true');
+});
+
+test('el escaparate enseña lo que puede salir (los ejemplos, marcados) y la cinta, los últimos hallazgos y tus mejores', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  const showcase = await screen.findByRole('region', { name: copy.scanner.showcase.title });
+  const cards = within(showcase).getAllByRole('listitem');
+  expect(cards).toHaveLength(2);
+  expect(cards[0]).toHaveTextContent('Nueva 33');
+  expect(cards[0]).not.toHaveTextContent(copy.scanner.showcase.example);
+  expect(cards[1]).toHaveTextContent(copy.scanner.showcase.example);
+  const band = screen.getByRole('region', { name: copy.scanner.finds.title });
+  // One real list for screen readers (the crawl's copy is hidden from them).
+  const list = within(band).getAllByRole('list')[0]!;
+  expect(band.querySelectorAll('.finds-list')).toHaveLength(2);
+  expect(band.querySelectorAll('.finds-list')[1]).toHaveAttribute('aria-hidden', 'true');
+  // The crawl stops on keyboard focus too (WCAG 2.2.2): its view takes focus.
+  expect(band.querySelector('.finds-view')).toHaveAttribute('tabindex', '0');
+  expect(within(list).getByRole('listitem')).toHaveTextContent(copy.scanner.finds.found('vega', copy.tiers.legendary));
+  expect(within(list).getByRole('listitem')).toHaveTextContent('Nueva 31');
+  expect(within(band).getByRole('list', { name: copy.scanner.finds.mine })).toHaveTextContent('Nueva 32');
+});
+
+test('el monitor no lleva título encima del radar (el propietario, 2026-11-17)', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(document.querySelector('.sky-hud')).toBeNull();
+  expect(screen.queryByText(/Barrido/)).toBeNull();
+});
+
+test('mientras llegan los hallazgos, la cinta no dice que no hay ninguno (revisión)', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => new Promise<Response>(() => {}) as unknown as Response });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(screen.getByRole('region', { name: copy.scanner.finds.title })).toBeInTheDocument();
+  expect(screen.queryByText(copy.scanner.finds.none)).toBeNull();
+});
+
+test('sin hallazgos recientes la cinta lo dice', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds({ recent: [], mine: [] })) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  expect(await screen.findByText(copy.scanner.finds.none)).toBeInTheDocument();
+});

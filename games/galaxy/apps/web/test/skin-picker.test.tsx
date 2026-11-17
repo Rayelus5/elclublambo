@@ -12,7 +12,7 @@ import { jsonResponse, mockApi, renderAt } from './render';
 // player has go on at once; the rest are locked and say how they are won (Chatarra with its runs so far).
 
 const t = copy.workshop;
-const gacha = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 0, signal: 0, components: 0 } };
+const gacha = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 0, signal: 0, components: 0 } };
 const cosmetics: CosmeticsView = { equipped: { avatar: null, frame: null, title: null, banner: null, backdrop: [] }, owned: { avatars: [], frames: [], titles: [], skins: ['skin-lumen-coral'] }, catalog: DEFAULT_COSMETICS };
 const withSkins = (skin: string | null) => view({ probes: PROBES.map((p) => (p.id === 'lumen' ? { ...p, skin, skins: ['skin-lumen-coral'], runs: 12 } : p)) });
 

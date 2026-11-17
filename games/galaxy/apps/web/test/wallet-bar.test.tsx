@@ -37,7 +37,7 @@ const gacha = (): GachaView => ({
       featuredEvery: 45,
     },
   ],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet,
 });

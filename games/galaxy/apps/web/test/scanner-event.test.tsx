@@ -31,7 +31,7 @@ const event = {
 };
 const view = (over: Partial<GachaView> = {}): GachaView => ({
   banners: [standard, event],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 250, dust: 0, signal: 10, 'signal:primer-contacto': 4 },
   ...over,

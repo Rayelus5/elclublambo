@@ -72,6 +72,18 @@ test('con «Pro» se reproduce la cinemática pro, como siempre', async () => {
   expect(stage.querySelector('.crt')).toBeNull();
 });
 
+test('se ensaya también la tirada de 5 (2026-11-17): las cinco más raras de la tanda elegida', async () => {
+  const user = userEvent.setup();
+  open();
+  await user.click(screen.getByRole('radio', { name: t.counts.five }));
+  await user.click(screen.getByRole('button', { name: t.play }));
+  const stage = await screen.findByRole('dialog', { name: t.title });
+  await waitFor(() => expect(within(stage).getByTestId('cinema')).toHaveTextContent('5'));
+  const tiers = vi.mocked(fabricatePulls).mock.calls.at(-1)![0].tiers;
+  expect(tiers).toHaveLength(5);
+  expect(tiers.at(-1)).toBe('legendary');
+});
+
 test('«Una mítica» y una sola tirada de una mítica se ensayan también en la clásica', async () => {
   const user = userEvent.setup();
   open();

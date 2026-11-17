@@ -139,7 +139,7 @@ function mount(el: ReturnType<typeof createElement>, over: Record<string, unknow
     vi.fn(async (url: string) => {
       const known: Record<string, unknown> = {
         '/hangar': view,
-        '/gacha': { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
+        '/gacha': { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
         '/auth/me': { id: 'a1', username: 'piloto_rayo', roles: [], mfa: false, level: 4 },
         '/rooms': { mine: null, rooms: { count: 2, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 },
         '/friends': friendsView,

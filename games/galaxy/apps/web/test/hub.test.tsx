@@ -24,7 +24,7 @@ const view = (free: boolean): GachaView => ({
       welcome: true,
     },
   ],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: free,
   wallet: { coins: 1250, dust: 40, signal: 10 },
 });

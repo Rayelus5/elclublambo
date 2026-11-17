@@ -195,11 +195,13 @@ export const configSchemas = {
       costs: z
         .object({
           coins: z.number().int().min(0).max(1_000_000),
+          // The 5-pull (2026-11-17, the owner: 475, 5 % off); a config published before it gets this.
+          coinsFive: z.number().int().min(0).max(5_000_000).default(475),
           coinsTen: z.number().int().min(0).max(10_000_000),
           signals: z.number().int().min(1).max(100),
         })
         .strict()
-        .default({ coins: 100, coinsTen: 900, signals: 1 }),
+        .default({ coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }),
       dailyFree: z.boolean().default(true),
       finishes: distribution([0.85, 0.1, 0.035, 0.013, 0.002]),
       banners: z

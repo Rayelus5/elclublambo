@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals());
 const t = copy.trades;
 const b = t.board;
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
-const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 5000, dust: 0, signal: 0 } };
+const gacha: GachaView = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 5000, dust: 0, signal: 0 } };
 const pub = (id: string, name: string, tier: PublicGalaxy['tier'] = 'rare'): PublicGalaxy => ({ id, seed: '9', tier, finish: 'normal', traits: {}, name, designation: `GX-${id.toUpperCase()}`, featured: false, level: 1 });
 const mineG = (id: string, name: string): GalaxySummary => ({ ...pub(id, name), createdAt: '2026-11-01T10:00:00.000Z' });
 const rules = {

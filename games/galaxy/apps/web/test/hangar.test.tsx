@@ -503,7 +503,7 @@ test('sin el test de la sonda, el Hangar lleva al test', async () => {
 
 
 describe('la siguiente ranura de reliquia (M4c-1)', () => {
-  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
+  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
 
   test('sin el hito, la ranura 3 enseña lo que la abre con su barra; las demás siguen cerradas', async () => {
     mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)) });

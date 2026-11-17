@@ -18,7 +18,7 @@ test('el icono de Escáner, Estación y Eventos queda centrado en su recuadro', 
   host.style.width = '700px';
   document.body.append(host);
   const client = new QueryClient();
-  client.setQueryData(GACHA_KEY, { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: true, wallet: { coins: 0, dust: 0, signal: 0 }, shop: { open: true, offer: true } });
+  client.setQueryData(GACHA_KEY, { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: true, wallet: { coins: 0, dust: 0, signal: 0 }, shop: { open: true, offer: true } });
   flushSync(() => createRoot(host).render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(MainMenu, { galaxies: 3 })))));
   const chips = host.querySelectorAll<HTMLElement>('.mode .chip, .event .chip');
   expect(chips.length).toBeGreaterThanOrEqual(3);
