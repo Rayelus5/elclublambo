@@ -341,8 +341,18 @@ describe('la pantalla de carga tapa la salida', () => {
     const { clock } = await mount({}, { gate: { connected: [true, true], startsIn: -5_000 }, to: 300 });
     expect(loading()).not.toBeNull();
     expect(screen.queryByLabelText(/^Despegue en/)).toBeNull();
+    // Not the start: it says it is syncing (review).
+    expect(within(loading()!).getByText(L.steps.sync).closest('li')).toHaveAttribute('aria-current', 'step');
     clock.frames(30);
     await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+  });
+
+  test('si la partida se pierde durante la espera, la pantalla de carga se va y deja ver «Volver» (revisión)', async () => {
+    const { ws } = await mount({}, { gate: { connected: [true, false], startsIn: null } });
+    expect(loading()).not.toBeNull();
+    act(() => ws.onclose?.({ code: 4404 }));
+    await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+    expect(screen.getByRole('button', { name: t.back })).toBeInTheDocument();
   });
 
   test('si el mundo acaba mientras se pone al día, la pantalla de carga no se queda encima', async () => {

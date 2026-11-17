@@ -157,7 +157,8 @@ export class CoopRun {
     this.offlineSince[slot] = null;
     if (this.presence[slot] === PRESENCE_AWAY) this.seal(slot, PRESENCE, PRESENCE_UP, 0, 0);
     socket.send(JSON.stringify(this.hello(slot, now)));
-    if (this.startAt === null) this.tellGate(now);
+    // Until the first tick everyone hears who is in, the countdown included (review: a late one joining in it).
+    if (this.closed === 0) this.tellGate(now);
   }
 
   /** The run so far, as a socket needs it to start: the start (with the slot it plays or looks at), the log, the tick. */
@@ -202,7 +203,7 @@ export class CoopRun {
     if (this.offlineSince[slot] === null) this.offlineSince[slot] = now;
     // Its last socket closed: the probe stops where it is (it may be gone for a while).
     this.input(slot, 0, 0, -1);
-    if (this.startAt === null) this.tellGate(now);
+    if (this.closed === 0) this.tellGate(now);
   }
 
   /** A player's movement and aim: sealed only when it changes what is in effect. */
@@ -220,7 +221,8 @@ export class CoopRun {
 
   /** A card picked on the offer the player saw (the referee ignores it if that offer is gone). */
   pick(slot: number, index: number, seq: number): void {
-    if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
+    // Nothing to pick before the first tick (the countdown).
+    if (this.ended || this.closed === 0 || this.presence[slot] === PRESENCE_LEFT) return;
     this.withdraw(slot, PICK_SEQ);
     this.pending.push(this.closed + 1, slot, PICK_SEQ, index, seq, 0);
   }
@@ -230,7 +232,8 @@ export class CoopRun {
    * same open tick replaces it). The referee decides whether it can (a charge, past the pause, standing).
    */
   dash(slot: number, angle: number): void {
-    if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
+    // A dash pressed during the countdown is dropped (review: it fired on tick 1 and spent a charge).
+    if (this.ended || this.closed === 0 || this.presence[slot] === PRESENCE_LEFT) return;
     this.withdraw(slot, DASH);
     this.pending.push(this.closed + 1, slot, DASH, angle, 0, 0);
   }

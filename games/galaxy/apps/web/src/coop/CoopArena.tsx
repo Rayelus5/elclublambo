@@ -111,17 +111,18 @@ export function CoopArena({
       on = false;
     };
   }, [startAt, loading, clock]);
-  const loadingStep: LoadingStep = !world ? 'connect' : !stageReady ? 'arena' : gate && gate.startAt === null ? 'team' : 'count';
   const gated = gate !== null;
+  const loadingStep: LoadingStep = !world ? 'connect' : !stageReady ? 'arena' : !gated ? 'sync' : gate.startAt === null ? 'team' : 'count';
   useEffect(() => {
     if (!stageReady || loading !== 'on') return;
     // With a start gate it stays until my world runs (the countdown ends on the first tick); an older server: as before,
     // a few frames of catching up. Always at least LOADING_MIN_MS, and gone at once if the run is already over.
-    if (gated && !live && !result) return;
+    // A run that is gone (it never started here, a restart): the screen goes and its «Volver» shows (review).
+    if (gated && !live && !result && link !== 'gone') return;
     const wait = Math.max(LOADING_MIN_MS - (Date.now() - loadingSince.current), gated ? 0 : 350);
     const id = setTimeout(() => setLoading('leaving'), wait);
     return () => clearTimeout(id);
-  }, [stageReady, loading, gated, live, result]);
+  }, [stageReady, loading, gated, live, result, link]);
   useEffect(() => {
     if (loading !== 'leaving') return;
     const id = setTimeout(() => setLoading('off'), LOADING_FADE_MS);
@@ -186,7 +187,8 @@ export function CoopArena({
           for (const v of missed) sealed.current.push(v);
           known.current = Math.max(known.current, events.length);
           closed.current = Math.max(closed.current, msg.to);
-          if (msg.gate) takeGate(msg.gate);
+          // A run already going (a reload, a staff watch): no countdown, it catches up as before (review).
+          if (msg.gate && (msg.gate.startsIn === null || msg.gate.startsIn >= 0)) takeGate(msg.gate);
           setLink('live');
           setEpoch((e) => e + 1);
         } else if (msg.t === 'gate') {
@@ -283,6 +285,8 @@ export function CoopArena({
         see={stageReady}
         countdown={gate && !live ? countdown : null}
         connected={gate?.connected ?? null}
+        rejoin={!gated && stageReady}
+        note={link === 'lost' ? t.lost : null}
       />
     ) : null}
     </>

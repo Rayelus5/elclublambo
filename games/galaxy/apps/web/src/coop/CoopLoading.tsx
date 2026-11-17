@@ -12,8 +12,10 @@ import { copy } from '../copy/es';
 
 const t = copy.coop.loading;
 
-export type LoadingStep = 'connect' | 'arena' | 'team' | 'count' | 'done';
-const STEPS: Exclude<LoadingStep, 'done'>[] = ['connect', 'arena', 'team', 'count'];
+export type LoadingStep = 'connect' | 'arena' | 'team' | 'count' | 'sync' | 'done';
+/** The start's steps; back into a run already going (or an older server), arena then catching up. */
+const START: Exclude<LoadingStep, 'done'>[] = ['connect', 'arena', 'team', 'count'];
+const REJOIN: Exclude<LoadingStep, 'done'>[] = ['connect', 'arena', 'sync'];
 /** The least it shows, and how long its fade lasts (ms). */
 export const LOADING_MIN_MS = 1200;
 export const LOADING_FADE_MS = 300;
@@ -25,6 +27,8 @@ export function CoopLoading({
   see = false,
   countdown = null,
   connected = null,
+  rejoin = false,
+  note = null,
 }: {
   start: CoopRunStart | null;
   step: LoadingStep;
@@ -35,7 +39,12 @@ export function CoopLoading({
   countdown?: number | null;
   /** Who has the run open, by slot (null: not known, an older server). */
   connected?: boolean[] | null;
+  /** Not a start: a run already going (its steps end in catching up). */
+  rejoin?: boolean;
+  /** A line under the steps (the connection lost while it loads). */
+  note?: string | null;
 }) {
+  const STEPS = rejoin ? REJOIN : START;
   const sector = start?.content.sectors.find((s) => s.id === start.sector) ?? null;
   const look = BIOME_LOOK[sector?.biome ?? 'nebula'];
   const at = step === 'done' ? STEPS.length : STEPS.indexOf(step);
@@ -83,6 +92,7 @@ export function CoopLoading({
         <div className="coop-loading-bar" aria-hidden="true">
           <i />
         </div>
+        {note ? <p className="coop-loading-note">{note}</p> : null}
       </div>
     </div>
   );

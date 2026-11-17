@@ -1,5 +1,5 @@
 import { COOP_SUM_EVERY, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
-import { CoopFeed, createSim, DASH, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
+import { CoopFeed, createSim, DASH, DEFAULT_CONTENT, MOVE, PICK_SEQ, PRESENCE, stateHash, step } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_RESYNCS, START_GATE, type StartGate, TICK_MS } from '../../src/coop/relay';
 
@@ -325,4 +325,29 @@ test('si no llega nadie, la salida espera y, pasado el tiempo de todos fuera, la
   expect(r.ended).toBe(false);
   pumpRange(r, T0 + START_GATE.waitMs + 5000, T0 + ALL_GONE_MS + 2000);
   expect(r.ended).toBe(true);
+});
+
+test('durante la cuenta atrás se sigue diciendo quién entra y quién se va (revisión)', () => {
+  const r = run(2, CALM, START_GATE);
+  const [a, b] = [socket(), socket()];
+  r.attach(0, a, T0);
+  r.attach(1, b, T0);
+  pumpRange(r, T0, T0 + 16);
+  r.detach(1, b, T0 + 1000);
+  const last = got(a, 'gate').at(-1)!;
+  expect(last['connected']).toEqual([true, false]);
+  expect(last['startsIn']).toBe(2000);
+});
+
+test('un impulso o una carta antes del primer tick no se sellan: la cuenta atrás no gasta cargas (revisión)', () => {
+  const r = run(2, CALM, START_GATE);
+  r.attach(0, socket(), T0);
+  r.attach(1, socket(), T0);
+  pumpRange(r, T0, T0 + 1000);
+  r.dash(0, 100);
+  r.pick(0, 0, 1);
+  pumpRange(r, T0 + 1000, T0 + 5000);
+  expect(r.closed).toBeGreaterThan(50);
+  expect(kinds(r, DASH)).toEqual([]);
+  expect(kinds(r, PICK_SEQ)).toEqual([]);
 });

@@ -55,8 +55,9 @@ test('los seis iconos de la barra del lobby son blancos con contorno oscuro, sea
   const shift = new DOMMatrix(getComputedStyle(back).transform);
   expect(shift.e).toBeLessThan(-0.5);
   expect(shift.f).toBeGreaterThan(0.5);
-  expect(Number(getComputedStyle(back).opacity)).toBeGreaterThan(0.3);
-  expect(Number(getComputedStyle(back).opacity)).toBeLessThan(0.8);
+  // Light (the owner, twice: «menos oscuro», «más clarito»): about a third of the dark.
+  expect(Number(getComputedStyle(back).opacity)).toBeGreaterThan(0.15);
+  expect(Number(getComputedStyle(back).opacity)).toBeLessThanOrEqual(0.35);
   expect(parseFloat(getComputedStyle(back.firstElementChild!).strokeWidth)).toBeGreaterThanOrEqual(5.5);
   if (import.meta.env['VITE_ICON_SHOTS']) {
     // After the rail's entrance; the second shot is a close-up (zoom 3) to judge the rim.
