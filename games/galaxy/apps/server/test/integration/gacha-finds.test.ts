@@ -64,8 +64,11 @@ test('las legendarias recientes de otros salen con quién y cuándo; las mías d
   expect(mine).toMatchObject({ by: a.username, banner: 'deep-scan', galaxy: { tier: 'legendary' } });
   expect(new Date(mine.at).getTime()).toBeGreaterThan(Date.now() - 5 * 60_000);
   expect(v.mine.map((g) => g.id)).toEqual([epic]);
-  // The showcase has it, and examples fill it up.
-  expect(v.showcase.some((g) => g.id === legend)).toBe(true);
+  // The showcase: the latest distinct finds first (other tests may add newer ones meanwhile, so no particular one is
+  // asserted), then examples up to six; mythics only while they can come out (none by default).
+  const real = v.showcase.filter((g) => !g.example).map((g) => g.id);
+  const latest = [...new Set(v.recent.filter((f) => f.galaxy.tier !== 'mythic').map((f) => f.galaxy.id))];
+  expect(real).toEqual(latest.slice(0, real.length));
   expect(v.showcase.length).toBeGreaterThanOrEqual(6);
   expect(v.showcase.filter((g) => g.example).every((g) => g.tier === 'legendary')).toBe(true);
 });
