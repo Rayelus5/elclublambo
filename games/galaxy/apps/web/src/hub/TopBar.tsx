@@ -61,7 +61,7 @@ export function TopBar({
       <nav className="group" aria-label={copy.hub.shortcuts}>
         {scanner ? (
           <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
-            <Icon name="radar" />
+            <Icon name="radar" outline />
             <span>{copy.hub.scanner}</span>
             {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
           </Link>

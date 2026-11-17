@@ -28,7 +28,7 @@ export function Rail() {
           <li key={zone.to}>
             <Link to={zone.to} className={`lip lobby-zone ${zone.tone}`} data-sfx="hover" title={zone.name} style={{ '--i': i } as CSSProperties}>
               <span className="lobby-zone-icon">
-                <Icon name={zone.icon} />
+                <Icon name={zone.icon} outline />
               </span>
               <b className="lobby-zone-name">{zone.name}</b>
               {zone.to === '/coleccion' && ready > 0 ? (

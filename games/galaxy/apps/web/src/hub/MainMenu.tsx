@@ -21,7 +21,7 @@ function Mode({ kind, icon, title, hint, d, to, tour, badge }: { kind: string; i
     return (
       <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" data-tour={tour} style={style({ '--d': d })}>
         <span className="chip">
-          <Icon name={icon} />
+          <Icon name={icon} outline />
         </span>
         <span className="text">
           <b>{title}</b>
@@ -34,7 +34,7 @@ function Mode({ kind, icon, title, hint, d, to, tour, badge }: { kind: string; i
   return (
     <button type="button" className={`lip mode ${kind} locked enter`} style={style({ '--d': d })} disabled title={copy.hub.soon}>
       <span className="chip">
-        <Icon name={icon} />
+        <Icon name={icon} outline />
       </span>
       <span className="text">
         <b>{title}</b>
@@ -54,7 +54,7 @@ function EventButton() {
     return (
       <button type="button" className="lip event locked enter" style={style({ '--d': '1s' })} disabled>
         <span className="chip">
-          <Icon name="comet" />
+          <Icon name="comet" outline />
         </span>
         <span className="text">
           <b>{copy.hub.event}</b>
@@ -66,7 +66,7 @@ function EventButton() {
   return (
     <Link to="/misiones?pestana=evento" className="lip event enter" data-sfx="hover" style={style({ '--d': '1s' })}>
       <span className="chip">
-        <Icon name="comet" />
+        <Icon name="comet" outline />
       </span>
       <span className="text">
         <b>{event.name}</b>

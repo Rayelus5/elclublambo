@@ -142,7 +142,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
             return (
               <li key={i} className="lobby-slot empty" data-tour={i === firstEmpty ? 'relic-slot' : undefined}>
                 <button type="button" className="lobby-slot-add" onClick={() => setPicking(i)}>
-                  <Icon name="plus" />
+                  <Icon name="plus" outline />
                   <span>{copy.hangar.chooseRelic}</span>
                 </button>
               </li>

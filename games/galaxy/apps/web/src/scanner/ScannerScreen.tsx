@@ -340,7 +340,7 @@ export function ScannerScreen() {
                   disabled={busy}
                   onClick={() => scan(1, "free")}
                 >
-                  <Icon name="radar" />
+                  <Icon name="radar" outline />
                   <span>
                     <b>{copy.scanner.free}</b>
                     <span>{copy.scanner.freeHint}</span>
