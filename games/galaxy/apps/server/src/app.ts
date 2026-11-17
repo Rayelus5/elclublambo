@@ -67,7 +67,7 @@ import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
 import { registerHostRedirects } from './security/host';
 import { registerOriginGuard } from './security/origin';
-import { registerStatic, sendSpaShell, wantsSpaShell } from './static';
+import { registerStatic, wantsSpaShell } from './static';
 
 export type AppDeps = {
   env: Env;
@@ -118,11 +118,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     req.log.error({ err: { name: (err as Error).name, code: (err as { code?: unknown }).code } }, 'unhandled');
     return reply.code(500).send({ error: 'internal' });
   });
-  const hasWeb = await registerStatic(app, deps.env.WEB_DIST);
+  // The game's shell carries each screen's title and its own head (galaxysurvivor.es plan, PR 2).
+  const shell = await registerStatic(app, deps.env.WEB_DIST, deps.env.GALAXY_CANONICAL_ORIGIN);
   // The landing of galaxysurvivor.es at the site root (plan «galaxysurvivor.es», PR 4); /galaxy stays the game's.
   const landing = await registerLanding(app, deps.env.LANDING_DIST, deps.env.legal);
   app.setNotFoundHandler((req, reply) => {
-    if (hasWeb && wantsSpaShell(req)) return sendSpaShell(reply);
+    if (shell && wantsSpaShell(req)) return shell(req, reply);
     const path = req.url.split('?')[0] ?? '';
     const game = path === '/galaxy' || path.startsWith('/galaxy/');
     if (landing && !game && (req.method === 'GET' || req.method === 'HEAD')) return landing.notFound(req, reply);

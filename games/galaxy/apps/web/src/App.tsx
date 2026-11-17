@@ -57,6 +57,7 @@ import { Entrar } from './routes/Entrar';
 import { Recuperar } from './routes/Recuperar';
 import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
+import { DocumentTitle } from './shell/DocumentTitle';
 import { MissionsScreen } from './missions/MissionsScreen';
 import { CatalogScreen } from './collection/CatalogScreen';
 import { RevealRehearsal } from './admin/RevealRehearsal';
@@ -124,6 +125,7 @@ export function App() {
   return (
     <>
       <MusicStarter />
+      <DocumentTitle />
       <UiSounds />
       <TourProvider />
       <Routes>

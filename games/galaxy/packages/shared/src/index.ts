@@ -81,3 +81,4 @@ export * from './api/admin-shop';
 export * from './gacha/simulate';
 export * from './gifts/index';
 export * from './links';
+export * from './web/titles';
