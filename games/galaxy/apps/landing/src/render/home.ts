@@ -45,7 +45,6 @@ function hero(l: Locale) {
 <h1>${esc(d.hero.h1[0])} <span>${esc(d.hero.h1[1])}</span></h1>
 <p class="lead">${esc(d.hero.lead)}</p>
 <div class="ctas">${playLink(l, 'lip btn btn-xl btn-solar')}<a class="lip btn btn-ghost" href="#hangar">${esc(d.cta.follow)}</a></div>
-<ul class="facts">${d.hero.facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
 </div>
 <div class="pad" aria-hidden="true"></div>
 </section>`;
