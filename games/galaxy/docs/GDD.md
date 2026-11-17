@@ -24,7 +24,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 
 ### 1.1 Jugadores y éxito
 
-- **Primeros jugadores [U]:** amigos del usuario, de 16 a 30 años, en PRE (`pre.elclub.party/galaxy`).
+- **Primeros jugadores [U]:** amigos del usuario, de 16 a 30 años, en PRE (desde el 2026-11-17 en `galaxysurvivor.es/galaxy`; antes `pre.elclub.party/galaxy`).
 - **Ambición [U]:** si el juego se siente espectacular, vivo y profesional, abrirlo al público. Referentes de calidad: PokéBonk y PokeSurvivor; esencia del género: Vampire Survivors.
 - **Éxito [U]:** que sea adictivo y tenga sentido real: metas claras, rejugabilidad, builds variadas, colección que apetece completar.
 - **La beta [U]:** es el juego **completo y algo pulido**, no una versión recortada. Los amigos entran cuando estén todos los hitos.

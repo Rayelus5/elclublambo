@@ -7,6 +7,9 @@ import type { FastifyInstance } from 'fastify';
 //   the assets, of a web route (no file extension: the fonts and the favicon stay), from a navigation (Sec-Fetch-Dest
 //   absent or `document`). Open tabs keep loading their chunks, fonts and workers and keep their API and sockets on the
 //   old host, and Stripe's old webhook URL keeps working.
+// The move (the owner, 2026-11-17): with a notice configured, a browser's page load on an old host (Sec-Fetch-Dest
+// `document`) gets the notice «Galaxy Survivor se ha mudado» instead, with its button to the same page on the new domain;
+// crawlers and tools (no Sec-Fetch-Dest) still get the 301, so the search engines move the old addresses over.
 // Redirects are private (never kept by Cloudflare's edge, which caches a 301 on a static extension by its URL alone) and
 // cached for a day, so going back (switch off) does not stick in browsers. The target is always built on the canonical
 // origin and checked to stay there: a request path can never send a player to another host.
@@ -22,6 +25,8 @@ export interface HostRedirectConfig {
   canonicalOrigin: string | null;
   /** Old hosts (lowercase, no port) whose page loads move to the canonical origin. Empty: the switch is off. */
   legacyHosts: string[];
+  /** The notice for a browser on an old host, with its button to `location` (apps/landing's moved page), or null. */
+  notice?: (location: string) => string | null;
 }
 
 /** What the decision needs from a request: the raw request target (path and query, as sent) and two headers. */
@@ -35,6 +40,8 @@ export interface RedirectRequest {
 export interface Redirect {
   status: 301 | 308;
   location: string;
+  /** A browser's page load on an old host: it may get the notice instead of the 301. */
+  notice?: true;
 }
 
 /** The host's name: lowercase, without its port or a final dot (`[::1]:8080` keeps its brackets). */
@@ -83,7 +90,8 @@ export function redirectTarget(req: RedirectRequest, cfg: HostRedirectConfig): R
   if (req.secFetchDest !== undefined && req.secFetchDest !== 'document') return null;
   const path = req.url.split('?')[0] ?? '';
   if (!under(path, '/galaxy') || under(path, '/galaxy/api') || under(path, '/galaxy/assets') || isFile(path)) return null;
-  return { status: 301, location: onCanonical(canonical, req.url) };
+  const location = onCanonical(canonical, req.url);
+  return req.secFetchDest === 'document' ? { status: 301, location, notice: true } : { status: 301, location };
 }
 
 /**
@@ -97,6 +105,10 @@ export function registerHostRedirects(app: FastifyInstance, cfg: HostRedirectCon
     const dest = req.headers['sec-fetch-dest'];
     const target = redirectTarget({ method: req.method, host: req.headers.host, url: req.url, secFetchDest: typeof dest === 'string' ? dest : undefined }, cfg);
     if (!target) return;
+    const notice = target.notice ? cfg.notice?.(target.location) : null;
+    if (notice) {
+      return reply.code(200).type('text/html; charset=utf-8').header('cache-control', 'no-store').header('x-robots-tag', 'noindex').send(notice);
+    }
     reply.code(target.status).header('location', target.location).header('cache-control', REDIRECT_CACHE);
     // A WebSocket upgrade never becomes a socket here: the client is told the connection ends with this reply.
     if (req.headers.upgrade) reply.header('connection', 'close');

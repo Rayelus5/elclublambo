@@ -87,6 +87,11 @@ function TermsDialog({ shop, onClose }: { shop: ShopView; onClose: () => void })
         ))}
         <li>{t.limit(eur(shop.limits.dailyCents))}</li>
       </ul>
+      <p className="shop-terms-full">
+        <a href="/condiciones#compras" target="_blank" rel="noopener">
+          {t.legal.full}
+        </a>
+      </p>
       <button type="button" className="lip pill" onClick={onClose} data-autofocus>
         {copy.shop.checkout.close}
       </button>

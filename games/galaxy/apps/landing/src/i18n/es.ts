@@ -175,6 +175,12 @@ export const ES: Dict = {
     text: 'La página que buscas no existe o se la ha comido la Estática',
     back: 'Volver a la portada',
   },
+  moved: {
+    title: 'Galaxy Survivor se ha mudado',
+    text: 'Ahora vivimos en galaxysurvivor.es. Tu cuenta, tus galaxias y tu progreso siguen intactos: solo tienes que volver a entrar',
+    button: 'Ir a galaxysurvivor.es',
+    note: 'Guarda la dirección nueva en tus marcadores. Desde allí también puedes instalar el juego como app',
+  },
   legal: {
     home: 'Inicio',
     crumbs: 'Ruta de navegación',

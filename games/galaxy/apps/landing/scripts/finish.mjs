@@ -12,14 +12,14 @@ const site = JSON.parse(readFileSync(here('../gen/site.json'), 'utf8'));
 for (const f of site) {
   const out = dist + f.file;
   mkdirSync(dirname(out), { recursive: true });
-  if (f.type.startsWith('text/html')) renameSync(dist + 'gen/' + f.file, out);
+  if (f.page) renameSync(dist + 'gen/' + f.file, out);
   else writeFileSync(out, f.body);
 }
 if (existsSync(dist + 'gen')) rmSync(dist + 'gen', { recursive: true });
 
 const TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const known = new Set(site.map((f) => f.file));
-const files = site.map(({ route, file, type }) => ({ route, file, type }));
+const files = site.map(({ route, file, type, role }) => ({ route, file, type, ...(role ? { role } : {}) }));
 const walk = (dir) =>
   readdirSync(dir).flatMap((name) => {
     const full = join(dir, name);

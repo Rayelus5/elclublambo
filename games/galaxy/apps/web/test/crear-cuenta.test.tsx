@@ -108,3 +108,14 @@ test('username_taken se muestra en la alerta del formulario', async () => {
   await user.click(f.submit);
   expect(await screen.findByRole('alert')).toHaveTextContent(copy.errors.username_taken);
 });
+
+// The terms and the privacy policy at the moment the data is collected (RGPD art. 13; the move, 2026-11-17): the
+// landing's legal pages, in a new tab so the half-filled form is not lost.
+test('al crear la cuenta se dice que aceptas las condiciones y la privacidad, con sus enlaces', () => {
+  mockApi({});
+  renderAt('/crear-cuenta', { '/crear-cuenta': <CrearCuenta /> });
+  const terms = screen.getByRole('link', { name: copy.crear.accept.terms });
+  expect(terms).toHaveAttribute('href', '/condiciones');
+  expect(terms).toHaveAttribute('target', '_blank');
+  expect(screen.getByRole('link', { name: copy.crear.accept.privacy })).toHaveAttribute('href', '/privacidad');
+});

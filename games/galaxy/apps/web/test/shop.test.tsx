@@ -222,6 +222,10 @@ test('las condiciones de compra con el vendedor y el límite del servidor', asyn
   const d = await screen.findByRole('dialog', { name: t.legal.title });
   expect(within(d).getByText(t.legal.seller('Vendedor de prueba', 'contacto@ejemplo.es'))).toBeInTheDocument();
   expect(within(d).getByText(plain(t.limit(eur(10_000))))).toBeInTheDocument();
+  // The full terms on galaxysurvivor.es (the move, 2026-11-17), in a new tab so the purchase is not lost.
+  const full = within(d).getByRole('link', { name: t.legal.full });
+  expect(full).toHaveAttribute('href', '/condiciones#compras');
+  expect(full).toHaveAttribute('target', '_blank');
 });
 
 // Complete skin packs (2026-11-17): the card shows its eight probes, how many the player has, and until when it sells.

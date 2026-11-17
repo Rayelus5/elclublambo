@@ -124,6 +124,16 @@ export function CrearCuenta() {
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           onBlur={() => code && touch('code')}
         />
+        <p className="accept">
+          {copy.crear.accept.before}
+          <a href="/condiciones" target="_blank" rel="noopener">
+            {copy.crear.accept.terms}
+          </a>
+          {copy.crear.accept.and}
+          <a href="/privacidad" target="_blank" rel="noopener">
+            {copy.crear.accept.privacy}
+          </a>
+        </p>
         <PrimaryButton type="submit" busy={register.isPending} className="mt">
           {copy.crear.submit}
         </PrimaryButton>

@@ -123,6 +123,8 @@ export const copy = {
     codeError: 'Escribe un código de 4 a 20 letras, números o guiones',
     submit: 'Crear cuenta',
     foot: 'Sin email y sin dinero real. Tu contraseña se guarda cifrada con argon2',
+    // The landing's legal pages at sign-up (RGPD art. 13; the move to galaxysurvivor.es, 2026-11-17).
+    accept: { before: 'Al crear tu cuenta aceptas las ', terms: 'Condiciones de uso', and: ' y la ', privacy: 'Política de privacidad' },
   },
   verificar: {
     title: 'Confirma que eres tú',
@@ -141,6 +143,8 @@ export const copy = {
     back: 'Volver a entrar',
   },
   desktop: {
+    // The landing of galaxysurvivor.es, which tells a phone visitor what the game is (the move, 2026-11-17).
+    landing: 'Conoce el juego',
     title: 'Galaxy Survivor se juega en ordenador',
     body: 'Abre el juego en una pantalla de al menos 1280×720 con ratón o trackpad.',
   },
@@ -2230,6 +2234,8 @@ export const copy = {
     },
     legal: {
       title: 'Condiciones de compra',
+      // The full terms on the landing (the move to galaxysurvivor.es, 2026-11-17).
+      full: 'Leer las condiciones completas',
       seller: (seller: string, contact: string) => `Vende ${seller}${contact ? `. Contacto: ${contact}` : ''}`,
       lines: [
         'Los precios incluyen el IVA. El pago lo procesa Stripe con tarjeta, Apple Pay o Google Pay',

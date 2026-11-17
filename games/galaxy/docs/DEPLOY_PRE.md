@@ -1127,9 +1127,18 @@ curl -sI 'https://www.galaxysurvivor.es/galaxy/entrar?ref=x'   # 301 a https://g
 curl -s https://galaxysurvivor.es/galaxy/api/health             # {"ok":true,"db":"up"}
 ```
 
-**La mudanza.** Un PR propio pone `GALAXY_LEGACY_REDIRECT_FROM: pre.elclub.party` en compose. Al integrarlo, el despliegue vuelve a crear el contenedor con el interruptor puesto. Comprobación:
+**La mudanza (hecha el 2026-11-17).** `GALAXY_LEGACY_REDIRECT_FROM: pre.elclub.party` en compose.
+
+- **El navegador** que abre una página de `pre.elclub.party/galaxy` (`Sec-Fetch-Dest: document`) ve el aviso «Galaxy Survivor se ha mudado», con el botón «Ir a galaxysurvivor.es» a la misma ruta y query. Lo decidió el propietario: solo el aviso, sin salto automático.
+  - Lo genera `apps/landing` (`render/moved.ts`, sin JS, con su hoja en `/galaxy/mudanza.css` y las fuentes de `/galaxy/fonts`, que existen en el host antiguo).
+  - Se sirve con un 200, `no-store` y `noindex`.
+- **Los rastreadores y las herramientas** (sin `Sec-Fetch-Dest`) reciben el 301, para que los buscadores pasen las direcciones al dominio nuevo.
+- **Las pestañas abiertas** terminan lo que juegan: la API, los sockets y los archivos del host antiguo siguen respondiendo.
+
+Comprobación:
 
 ```bash
+curl -s -H 'Sec-Fetch-Dest: document' 'https://pre.elclub.party/galaxy/entrar?ref=abc' | grep -o 'href="https://galaxysurvivor.es[^"]*"'   # el aviso, con su botón
 curl -sI 'https://pre.elclub.party/galaxy/entrar?ref=abc'          # 301 a https://galaxysurvivor.es/galaxy/entrar?ref=abc
 curl -sI https://pre.elclub.party/galaxy/fonts/bungee-latin.woff2   # 200: los archivos se quedan
 curl -s https://pre.elclub.party/galaxy/api/health                  # sigue respondiendo JSON

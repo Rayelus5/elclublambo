@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-43-nueva-casa',
+    version: '1.43',
+    date: '2026-11-17',
+    title: 'El juego estrena casa propia',
+    summary: 'Ahora vive en galaxysurvivor.es, se instala en tu ordenador y estrena portada',
+    items: [
+      { kind: 'nuevo', text: 'El juego vive ahora en galaxysurvivor.es. Tu cuenta, tus galaxias y tu progreso siguen intactos: la primera vez solo tienes que volver a entrar. La dirección antigua te avisa y te trae aquí' },
+      { kind: 'nuevo', text: 'Instala el juego en tu ordenador con Chrome o Edge y juega en su propia ventana, como una app más. Lo tienes en Ajustes › Pantalla y en el pie de la pantalla de título' },
+      { kind: 'nuevo', text: 'La portada de galaxysurvivor.es cuenta el juego a quien no lo conoce, con el aviso legal, la privacidad, las cookies y las condiciones' },
+      { kind: 'mejora', text: 'Si el juego instalado se abre sin conexión, te sale una página para volver a intentarlo' },
+    ],
+  },
+  {
     id: 'v1-42-pantalla-completa',
     version: '1.42',
     date: '2026-11-17',

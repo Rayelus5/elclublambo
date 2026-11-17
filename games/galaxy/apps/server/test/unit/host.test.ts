@@ -244,3 +244,56 @@ describe('el hook en la raíz', () => {
     await a.close();
   });
 });
+
+// The move (the owner, 2026-11-17: «que se muestre un popup únicamente diciendo que el dominio se ha renovado»): a
+// browser opening a page of the old host gets the notice with its button to the same page on the new domain; crawlers
+// and tools (no Sec-Fetch-Dest) still get the 301, so the search engines move the old addresses over.
+describe('la mudanza: el aviso en el host antiguo', () => {
+  test('un navegador que abre una página del host antiguo recibe el aviso; un rastreador, el 301 de siempre', () => {
+    expect(redirectTarget(req({ url: '/galaxy/entrar?ref=x', secFetchDest: 'document' }), ON)).toEqual({ status: 301, location: 'https://galaxysurvivor.es/galaxy/entrar?ref=x', notice: true });
+    expect(redirectTarget(req({ url: '/galaxy/entrar?ref=x' }), ON)).toEqual({ status: 301, location: 'https://galaxysurvivor.es/galaxy/entrar?ref=x' });
+  });
+
+  test('www nunca enseña el aviso: es el mismo sitio y va directo', () => {
+    expect(redirectTarget(req({ host: 'www.galaxysurvivor.es', url: '/galaxy/', secFetchDest: 'document' }), ON)).toEqual({ status: 301, location: 'https://galaxysurvivor.es/galaxy/' });
+  });
+
+  const NOTICE = (href: string) => `<!doctype html><title>Galaxy Survivor se ha mudado</title><a href="${href.replace(/&/g, '&amp;')}">Ir</a>`;
+
+  test('el hook sirve el aviso con un 200, sin caché y sin indexar; HEAD sin cuerpo', async () => {
+    const app = Fastify();
+    registerHostRedirects(app, { ...ON, notice: NOTICE });
+    app.get('/galaxy/*', async () => 'game');
+    const res = await app.inject({ method: 'GET', url: '/galaxy/entrar?ref=a&b=2', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'document' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('text/html; charset=utf-8');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['x-robots-tag']).toBe('noindex');
+    expect(res.body).toContain('href="https://galaxysurvivor.es/galaxy/entrar?ref=a&amp;b=2"');
+    const head = await app.inject({ method: 'HEAD', url: '/galaxy/', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'document' } });
+    expect(head.statusCode).toBe(200);
+    expect(head.body).toBe('');
+    await app.close();
+  });
+
+  test('sin aviso compilado, el navegador recibe el 301 igualmente', async () => {
+    const app = Fastify();
+    registerHostRedirects(app, { ...ON, notice: () => null });
+    const res = await app.inject({ method: 'GET', url: '/galaxy/entrar', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'document' } });
+    expect(res.statusCode).toBe(301);
+    expect(res.headers.location).toBe('https://galaxysurvivor.es/galaxy/entrar');
+    await app.close();
+  });
+
+  test('el aviso no toca la API ni los archivos del host antiguo: las pestañas abiertas terminan lo que juegan', async () => {
+    const app = Fastify();
+    registerHostRedirects(app, { ...ON, notice: NOTICE });
+    app.get('/galaxy/api/health', async () => ({ ok: true }));
+    app.get('/galaxy/fonts/bungee-latin.woff2', async () => 'font');
+    const api = await app.inject({ method: 'GET', url: '/galaxy/api/health', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'empty' } });
+    expect(api.json()).toEqual({ ok: true });
+    const font = await app.inject({ method: 'GET', url: '/galaxy/fonts/bungee-latin.woff2', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'font' } });
+    expect(font.body).toBe('font');
+    await app.close();
+  });
+});

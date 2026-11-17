@@ -29,6 +29,12 @@ export function fillLegal(html: string, legal: LegalIdentity): string {
   return out;
 }
 
+/** The old address's notice with the new address in each {{href}}, escaped (a function replacer: `$` is just text). */
+export function fillMoved(html: string, href: string): string {
+  const value = esc(href);
+  return html.replaceAll('{{href}}', () => value);
+}
+
 /** The holder's data the legal pages lack (logged once at start-up: legal_identity_missing). */
 export function missingLegal(legal: LegalIdentity): (typeof TOKENS)[number][] {
   return TOKENS.filter((t) => !legal[t]);
@@ -38,6 +44,8 @@ interface Entry {
   route: string | null;
   file: string;
   type: string;
+  /** 'moved': the old address's notice, filled per request (apps/server/src/security/host.ts). */
+  role?: 'moved';
 }
 interface Served {
   body: Buffer;
@@ -48,6 +56,8 @@ interface Served {
 export interface Landing {
   /** The answer for a GET/HEAD that matched nothing on the site (outside /galaxy): a clean-path redirect or the 404. */
   notFound(req: FastifyRequest, reply: FastifyReply): FastifyReply;
+  /** The old address's notice with its button to `location`, or null when the build has none. */
+  moved(location: string): string | null;
 }
 
 function served(body: Buffer, type: string): Served {
@@ -68,10 +78,15 @@ export async function registerLanding(app: FastifyInstance, dist: string, legal:
   if (missing.length) app.log.warn({ missing }, 'legal_identity_missing');
 
   let notFoundPage: Served | null = null;
+  let movedTemplate: string | null = null;
   // Page routes by their clean path, to send /x.html and /x/ there.
   const pages = new Set<string>();
   for (const f of files) {
     const raw = readFileSync(join(dist, f.file));
+    if (f.role === 'moved') {
+      movedTemplate = raw.toString('utf8');
+      continue;
+    }
     const isHtml = f.type.startsWith('text/html');
     const s = served(isHtml ? Buffer.from(fillLegal(raw.toString('utf8'), legal)) : raw, f.type);
     if (f.route === null) {
@@ -98,7 +113,9 @@ export async function registerLanding(app: FastifyInstance, dist: string, legal:
   }
 
   const page404 = notFoundPage;
+  const moved = movedTemplate;
   return {
+    moved: (location) => (moved ? fillMoved(moved, location) : null),
     notFound(req, reply) {
       const [path = '/', query] = req.url.split('?');
       // /index.html → /, /x.html → /x, /x/ → /x, when /x is a page.
