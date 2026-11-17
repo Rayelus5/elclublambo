@@ -1083,6 +1083,52 @@ Con tu OK, se prepara `shop` con `audience: everyone` (y el producto de prueba d
 
 Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y todo lo demás funciona igual. No hay modo de pruebas: la interfaz del pago se prueba con Stripe simulado en los tests (`apps/web/test/shop.test.tsx`).
 
+## Dominio propio
+
+El juego también responde en `galaxysurvivor.es`, siempre bajo `/galaxy`: `https://galaxysurvivor.es/galaxy/`, con la API en `/galaxy/api`. La cookie, las rutas y la CSP no cambian. Lo deciden dos variables públicas, sin secretos, en el `environment:` del servicio `galaxy` de `deploy/preprod/docker-compose.yml` (no en `galaxy.env`), para que cada cambio se revise y se revierta con un PR:
+
+| Variable | Valor | Qué hace |
+|---|---|---|
+| `GALAXY_CANONICAL_ORIGIN` | `https://galaxysurvivor.es` | El origen propio del juego. Se suma a `GALAXY_PUBLIC_ORIGINS`, que no se toca, así que la guarda CSRF y los sockets lo aceptan. Su `www` redirige a él. Si no es un origen limpio (`https://host`, sin barra ni ruta), se ignora con el aviso `canonical_origin_invalid` y el contenedor arranca igual |
+| `GALAXY_LEGACY_REDIRECT_FROM` | vacía | El interruptor de la mudanza: hosts antiguos separados por comas (`pre.elclub.party`) cuyas páginas pasan al dominio nuevo. Vacía, no redirige nada. Lo que no es un host (`https://…`, con puerto o el propio dominio nuevo) se ignora con `legacy_host_invalid` |
+
+**Las redirecciones** (`apps/server/src/security/host.ts`, antes que los estáticos, la guarda CSRF y la API):
+- **`www` → dominio sin `www`**, siempre, con la misma ruta y query: 301 en GET y HEAD, 308 en el resto.
+- **Host antiguo → dominio nuevo**, solo con el interruptor puesto y si se cumple todo esto:
+  - GET o HEAD;
+  - la ruta es `/galaxy` o `/galaxy/…`, pero no `/galaxy/api/…` ni `/galaxy/assets/…`;
+  - `Sec-Fetch-Dest` falta o es `document`: una página, no un script, una fuente o un worker.
+
+  Así las pestañas abiertas siguen cargando sus trozos y usando su API y sus sockets en el host antiguo, y la URL antigua del webhook de Stripe sigue cobrando.
+- Llevan `Cache-Control: max-age=86400`, para que una vuelta atrás llegue a los navegadores en un día como mucho.
+- El destino siempre se monta sobre el origen canónico. Una ruta que intentase salir de él (`//otro.com`) acaba en `https://galaxysurvivor.es/galaxy/`.
+
+**La vuelta de Stripe.** Cada pago vuelve al host donde empezó, el `Origin` de la petición ya validado; sin él, al origen canónico. Un pago abierto en un host y retomado desde el otro se cierra en Stripe y se abre otro.
+
+**Comprobar tras desplegar:**
+
+```bash
+docker logs elclub-pre-galaxy-1 2>&1 | grep -m1 '"msg":"domain"'
+```
+
+Debe salir `"canonical":"https://galaxysurvivor.es"` y `"legacy":[]`. Los avisos `canonical_origin_invalid`, `legacy_host_invalid` o `legacy_redirect_without_canonical` dicen qué valor se ignoró.
+
+Con el DNS del dominio apuntando al túnel (`CNAME @` y `CNAME www` a `<UUID>.cfargotunnel.com`, con proxy):
+
+```bash
+curl -sI 'https://www.galaxysurvivor.es/galaxy/entrar?ref=x'   # 301 a https://galaxysurvivor.es/galaxy/entrar?ref=x
+curl -s https://galaxysurvivor.es/galaxy/api/health             # {"ok":true,"db":"up"}
+```
+
+**La mudanza.** Un PR propio pone `GALAXY_LEGACY_REDIRECT_FROM: pre.elclub.party` en compose. Al integrarlo, el despliegue vuelve a crear el contenedor con el interruptor puesto. Comprobación:
+
+```bash
+curl -sI 'https://pre.elclub.party/galaxy/entrar?ref=abc'   # 301 a https://galaxysurvivor.es/galaxy/entrar?ref=abc
+curl -s https://pre.elclub.party/galaxy/api/health           # sigue respondiendo JSON
+```
+
+**Volver atrás.** Se revierte ese PR y el interruptor vuelve a quedar vacío. El host antiguo vuelve entero, porque su API nunca se apagó, y los 301 que guardaron los navegadores caducan en un día. Para quitar el dominio del todo se revierte también el PR que lo trajo: `GALAXY_CANONICAL_ORIGIN` y las dos reglas del túnel.
+
 ## Operación
 
 | Tarea | Cómo |

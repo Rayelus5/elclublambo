@@ -30,7 +30,8 @@ export function registerShopRoutes(api: FastifyInstance, deps: ShopDeps): void {
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'shop_checkout', 10, 600);
     // The config is read now, not inside the transaction.
     await deps.config.get('shop');
-    return openCheckout(deps, s, body, key, requestHash(body));
+    // The payment returns to the host it started on: the Origin the CSRF guard let through (galaxysurvivor.es plan).
+    return openCheckout(deps, s, body, key, requestHash(body), req.headers.origin);
   });
 
   api.get('/galaxy/api/shop/purchases/:id', async (req): Promise<ShopPurchaseView> => {

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { loadEnv } from '../../src/env';
 
 // Fake keys with the real shapes: never real ones in the repo.
@@ -63,4 +63,57 @@ test.each([
   const env = loadEnv({ ...base, ...keys });
   expect(env.stripe).toBeNull();
   expect(env.stripeIssue).toBe('stripe_env_incomplete');
+});
+
+// The game's own domain (galaxysurvivor.es plan, PR 1): two optional, public values that live in compose.
+describe('dominio propio', () => {
+  test('sin dominio propio nada cambia: ni orígenes nuevos ni redirecciones', () => {
+    const env = loadEnv(base);
+    expect(env.GALAXY_CANONICAL_ORIGIN).toBeNull();
+    expect(env.GALAXY_LEGACY_REDIRECT_FROM).toEqual([]);
+    expect(env.GALAXY_PUBLIC_ORIGINS).toEqual(['https://pre.elclub.party', 'http://localhost:5173']);
+    expect(env.domainIssues).toEqual([]);
+    expect(loadEnv({ ...base, GALAXY_CANONICAL_ORIGIN: '', GALAXY_LEGACY_REDIRECT_FROM: '' })).toMatchObject({ GALAXY_CANONICAL_ORIGIN: null, GALAXY_LEGACY_REDIRECT_FROM: [], domainIssues: [] });
+  });
+
+  test('el origen canónico se une a los orígenes permitidos, detrás de los de siempre y sin repetirse', () => {
+    const env = loadEnv({ ...base, GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es' });
+    expect(env.GALAXY_CANONICAL_ORIGIN).toBe('https://galaxysurvivor.es');
+    expect(env.GALAXY_PUBLIC_ORIGINS).toEqual(['https://pre.elclub.party', 'http://localhost:5173', 'https://galaxysurvivor.es']);
+    expect(env.domainIssues).toEqual([]);
+    const again = loadEnv({ ...base, GALAXY_PUBLIC_ORIGINS: 'https://galaxysurvivor.es,https://pre.elclub.party', GALAXY_CANONICAL_ORIGIN: ' https://galaxysurvivor.es ' });
+    expect(again.GALAXY_PUBLIC_ORIGINS).toEqual(['https://galaxysurvivor.es', 'https://pre.elclub.party']);
+  });
+
+  test.each(['galaxysurvivor.es', 'https://galaxysurvivor.es/', 'https://galaxysurvivor.es/galaxy', 'https://GalaxySurvivor.es', 'ftp://galaxysurvivor.es', 'https://user@galaxysurvivor.es', 'no es una url'])(
+    'un origen canónico que no es un origen limpio (%s) se ignora con su aviso, sin tumbar el arranque',
+    (value) => {
+      const env = loadEnv({ ...base, GALAXY_CANONICAL_ORIGIN: value, GALAXY_LEGACY_REDIRECT_FROM: 'pre.elclub.party' });
+      expect(env.GALAXY_CANONICAL_ORIGIN).toBeNull();
+      expect(env.GALAXY_PUBLIC_ORIGINS).toEqual(['https://pre.elclub.party', 'http://localhost:5173']);
+      expect(env.GALAXY_LEGACY_REDIRECT_FROM).toEqual([]);
+      expect(env.domainIssues).toEqual(['canonical_origin_invalid', 'legacy_redirect_without_canonical']);
+    },
+  );
+
+  test('el interruptor de la mudanza es una lista de hosts, en minúsculas', () => {
+    const env = loadEnv({ ...base, GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: ' PRE.elclub.party , otro.example ,' });
+    expect(env.GALAXY_LEGACY_REDIRECT_FROM).toEqual(['pre.elclub.party', 'otro.example']);
+    expect(env.domainIssues).toEqual([]);
+    // It never changes the allowed origins: the old host keeps its own entry in GALAXY_PUBLIC_ORIGINS.
+    expect(env.GALAXY_PUBLIC_ORIGINS).toEqual(['https://pre.elclub.party', 'http://localhost:5173', 'https://galaxysurvivor.es']);
+  });
+
+  test('un host del interruptor que no lo es, o el propio dominio nuevo, se ignora con su aviso', () => {
+    const env = loadEnv({ ...base, GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: 'https://pre.elclub.party,galaxysurvivor.es,pre.elclub.party:443,pre.elclub.party' });
+    expect(env.GALAXY_LEGACY_REDIRECT_FROM).toEqual(['pre.elclub.party']);
+    expect(env.domainIssues).toEqual(['legacy_host_invalid']);
+  });
+
+  test('el interruptor sin origen canónico no hace nada y lo avisa', () => {
+    const env = loadEnv({ ...base, GALAXY_LEGACY_REDIRECT_FROM: 'pre.elclub.party' });
+    expect(env.GALAXY_CANONICAL_ORIGIN).toBeNull();
+    expect(env.GALAXY_LEGACY_REDIRECT_FROM).toEqual([]);
+    expect(env.domainIssues).toEqual(['legacy_redirect_without_canonical']);
+  });
 });
