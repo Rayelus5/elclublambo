@@ -372,6 +372,22 @@ describe('los packs de skins (2026-11-17)', () => {
     expect((await checkout(cookie, 'skins-leyenda')).json()).toEqual({ error: 'shop_once_used' });
   });
 
+  test('si mientras paga le llegan las ocho, no se le vende otra vez, el pago se entrega vacío y avisa al admin', async () => {
+    const { cookie, id } = await player();
+    const p = await opened(cookie, 'skins-leyenda');
+    for (const s of LEYENDA) await grantCosmetics(ctx.db, id, { skin: s.id });
+    // Pressing «Comprar» again does not carry on with the open payment, nor close it: they have every piece now.
+    const again = await checkout(cookie, 'skins-leyenda');
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toEqual({ error: 'shop_once_used' });
+    gateway.pay(p);
+    expect((await deliver(gateway.webhook('checkout.session.completed', p))).statusCode).toBe(200);
+    expect(await ctx.db.selectFrom('galaxy.shop_purchases').select(['status', 'granted_pieces']).where('id', '=', p).executeTakeFirstOrThrow()).toEqual({ status: 'paid', granted_pieces: [] });
+    const alerts = await ctx.db.selectFrom('galaxy.shop_alerts').select(['kind', 'details']).where('purchase_id', '=', p).execute();
+    expect(alerts).toEqual([{ kind: 'unfulfilled', details: { reason: 'already_owned', pieces: LEYENDA } }]);
+    expect((await purchase(cookie, p)).pieces).toEqual([]);
+  });
+
   test('quien ya tiene las ocho no lo compra', async () => {
     const { cookie, id } = await player();
     for (const s of LEYENDA) await grantCosmetics(ctx.db, id, { skin: s.id });

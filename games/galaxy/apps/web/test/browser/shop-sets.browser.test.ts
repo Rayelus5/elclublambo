@@ -59,7 +59,8 @@ const view: ShopView = {
   closed: null,
   publishableKey: 'pk_live_shots',
   products: [
-    set('leyenda', 'Pack Leyenda', 0, { badge: 'limited', availableUntil: '2027-01-06T23:00:00.000Z' }),
+    set('leyenda', 'Pack Leyenda', 0, { badge: 'limited', availableUntil: '2027-01-10T23:00:00.000Z' }),
+    set('chatarra', 'Pack Chatarra', 0, { featured: true }),
     set('aurora', 'Pack Aurora', 3),
     set('coral', 'Pack Coral', 8, { block: 'once_used' }),
     productView('style-skin-prism'),
@@ -98,9 +99,9 @@ for (const [w, h] of [
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     root = createRoot(host);
     root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/tienda?pestana=estilo'] }, createElement(ShopScreen))));
-    await expect.poll(() => document.querySelectorAll('.shop-grid .pack-card').length, { timeout: 5000 }).toBe(4);
+    await expect.poll(() => document.querySelectorAll('.shop-grid .pack-card').length, { timeout: 5000 }).toBe(5);
     const cards = [...document.querySelectorAll<HTMLElement>('.shop-grid .pack-card')].filter((c) => c.querySelector('.set-art'));
-    expect(cards).toHaveLength(3);
+    expect(cards).toHaveLength(4);
     for (const card of cards) {
       const box = card.getBoundingClientRect();
       const pieces = [...card.querySelectorAll<HTMLElement>('.set-piece')];
@@ -114,7 +115,18 @@ for (const [w, h] of [
         expect(p.querySelector('img')!.getBoundingClientRect().width).toBe(48);
       }
     }
-    expect(cards[1]!.querySelectorAll('.set-piece.owned')).toHaveLength(3);
+    expect(cards.find((c) => c.textContent!.includes('Pack Aurora'))!.querySelectorAll('.set-piece.owned')).toHaveLength(3);
+    // A featured set fits its art box (200 px up to 1400 wide, 250 above), never over the text beside it.
+    const art = document.querySelector<HTMLElement>('.shop-featured-art')!.getBoundingClientRect();
+    const featured = [...document.querySelectorAll<HTMLElement>('.shop-featured .set-piece')];
+    expect(featured).toHaveLength(8);
+    for (const p of featured) {
+      const r = p.getBoundingClientRect();
+      expect(r.left).toBeGreaterThanOrEqual(art.left - 1);
+      expect(r.right).toBeLessThanOrEqual(art.right + 1);
+      expect(r.top).toBeGreaterThanOrEqual(art.top - 1);
+      expect(r.bottom).toBeLessThanOrEqual(art.bottom + 1);
+    }
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     if (import.meta.env['VITE_SHOP_SHOTS']) await page.screenshot({ path: `__shots__/shop-sets-${w}.png` });
   }, 60_000);

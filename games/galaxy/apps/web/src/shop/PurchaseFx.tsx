@@ -96,7 +96,7 @@ export function usePurchaseFx(reduced: boolean) {
               <button type="button" className="shop-celebrate" onClick={() => setShown(null)} aria-label={copy.shop.celebrate.continue}>
                 <Celebration
                   title={amountsText(shown.grants) || shown.name}
-                  subtitle={shown.pieces?.length ? copy.shop.celebrate.pieces(shown.pieces.length) : copy.shop.celebrate.sub(shown.name)}
+                  subtitle={shown.pieces ? (shown.pieces.length > 0 ? copy.shop.celebrate.pieces(shown.pieces.length) : copy.shop.celebrate.owned) : copy.shop.celebrate.sub(shown.name)}
                   reduced={reduced}
                 />
               </button>

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ART_AVATARS, ART_FRAMES, ART_SKINS } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, titleText } from '../cosmetics/catalog';
 
 // The resource shop (shop and lab plan, F4): coins, star dust and components for real money, paid with Stripe. Its
 // catalogue is live config (`shop`), so the admin edits everything: what each product gives, its price shown and the
@@ -194,9 +194,9 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
 const total = (p: Pick<ShopProduct, 'grants' | 'bonus'>, c: ShopCurrency) => p.grants[c] + p.bonus[c];
 
 const ART: Record<'avatar' | 'frame' | 'skin', readonly string[]> = { avatar: ART_AVATARS, frame: ART_FRAMES, skin: ART_SKINS };
-/** A piece the game can draw (a title is only words). */
+/** A piece the game can draw, or a title that fits where titles are kept (30 letters). */
 function hasArt(piece: ShopPiece): boolean {
-  return piece.kind === 'title' || ART[piece.kind].includes(piece.id);
+  return piece.kind === 'title' ? titleText.safeParse(piece.id).success : ART[piece.kind].includes(piece.id);
 }
 
 /** The checks across the catalogue: ids and Stripe prices once, packs of one currency, and an open shop charges in Stripe. */
@@ -217,6 +217,8 @@ function shopIssues(shop: { enabled: boolean; limits: { dailyCents: number }; pr
     const setOk = p.kind === 'set' ? p.pieces.length >= SET_PIECES.min && keys.size === p.pieces.length && p.pieces.every(hasArt) : p.pieces.length === 0;
     if (!setOk) ctx.addIssue({ code: 'custom', path: [...at, 'pieces'], message: 'shop_set_pieces' });
     if (styled && given.length > 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'shop_cosmetic_grants' });
+    // A piece or a set has no currency to add to: neither the first purchase's extra nor a «+X %» offer.
+    if (styled && (p.firstBonus || p.offer?.kind === 'bonus')) ctx.addIssue({ code: 'custom', path: [...at, p.firstBonus ? 'firstBonus' : 'offer'], message: 'shop_piece_extra' });
     if (!styled && given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
     if (p.availableFrom && p.availableUntil && Date.parse(p.availableUntil) <= Date.parse(p.availableFrom)) ctx.addIssue({ code: 'custom', path: [...at, 'availableUntil'], message: 'shop_window' });
     if (p.kind === 'pack' && given.length > 1) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'Un pack da un solo recurso (para varios, un pack combinado)' });

@@ -39,9 +39,9 @@ type Piece = { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string };
  * pieces that purchase gave, never one the player had before.
  */
 async function takePiece(trx: Db, account: string, snapshot: unknown, grantedPieces: unknown): Promise<void> {
-  const piece = (snapshot as { cosmetic?: Piece | null } | null)?.cosmetic;
-  if (piece) await revokeCosmetic(trx, account, piece.kind, piece.id);
-  for (const p of (grantedPieces as Piece[] | null) ?? []) await revokeCosmetic(trx, account, p.kind, p.id);
+  // What the purchase gave, written down at delivery (2026-11-17); a cosmetic paid before that, its piece.
+  const given = (grantedPieces as Piece[] | null) ?? [(snapshot as { cosmetic?: Piece | null } | null)?.cosmetic].filter((p): p is Piece => !!p);
+  for (const p of given) await revokeCosmetic(trx, account, p.kind, p.id);
 }
 
 async function blockShop(trx: Db, account: string, purchase: string, reason: string): Promise<void> {

@@ -279,3 +279,17 @@ test('celebrar un pack dice cuántas skins nuevas llegaron al Taller', async () 
   );
   expect(await screen.findByText(t.celebrate.pieces(2))).toBeInTheDocument();
 });
+
+test('si el pack no trajo nada nuevo, la celebración no dice que llegó algo', async () => {
+  const purchase = '00000000-0000-4000-8000-0000000000ae';
+  open(
+    view({}, [setView(8, { block: 'once_used' })]),
+    {
+      [`GET /galaxy/api/shop/purchases/${purchase}`]: () =>
+        jsonResponse(200, { id: purchase, product: 'skins-leyenda', name: 'Pack Leyenda', status: 'paid', amountCents: 1699, grants: { coins: 0, dust: 0, components: 0 }, pieces: [], createdAt: now.toISOString(), paidAt: now.toISOString(), wallet }),
+    },
+    `/tienda?compra=${purchase}`,
+  );
+  expect(await screen.findByText(t.celebrate.owned)).toBeInTheDocument();
+  expect(screen.queryByText(t.celebrate.sub('Pack Leyenda'))).toBeNull();
+});

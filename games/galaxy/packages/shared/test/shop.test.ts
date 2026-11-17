@@ -177,6 +177,22 @@ describe('los packs de piezas', () => {
     expect(issues({ ...product('style-skin-lumen'), pieces: leyenda })).toContain('shop_set_pieces');
   });
 
+  test('un título de más de 30 letras no cabe, ni suelto ni en un pack (la base de datos guarda 30)', () => {
+    const long = 'x'.repeat(31);
+    expect(issues({ ...set, pieces: [leyenda[0], { kind: 'title', id: long }] })).toContain('shop_set_pieces');
+    expect(issues({ ...product('style-patron'), cosmetic: { kind: 'title', id: long } })).toContain('shop_cosmetic_piece');
+    expect(issues({ ...set, pieces: [leyenda[0], { kind: 'title', id: 'x'.repeat(30) }] })).toEqual([]);
+  });
+
+  test('una pieza o un pack no anuncian extras que no pueden dar', () => {
+    const when = { startsAt: '2026-12-01T00:00:00.000Z', endsAt: '2026-12-05T00:00:00.000Z' };
+    expect(issues({ ...set, firstBonus: true })).toContain('shop_piece_extra');
+    expect(issues({ ...product('style-star-fox'), firstBonus: true })).toContain('shop_piece_extra');
+    expect(issues({ ...set, offer: { kind: 'bonus', percent: 20, ...when } })).toContain('shop_piece_extra');
+    // A lower price is fine.
+    expect(issues({ ...set, offer: { kind: 'price', priceCents: 1299, stripePriceId: null, ...when } })).toEqual([]);
+  });
+
   test('las fechas de venta: fuera de ellas no se ve ni se compra', () => {
     const xmas = { ...set, enabled: true, availableFrom: '2026-11-30T23:00:00.000Z', availableUntil: '2027-01-06T23:00:00.000Z' };
     expect(issues(xmas)).toEqual([]);

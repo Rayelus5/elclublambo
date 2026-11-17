@@ -260,6 +260,21 @@ test('devolver un cosmético lo quita y, si lo llevabas puesto, también (plan d
   expect(await blocked(account)).toBe(true);
 });
 
+test('devolver un cosmético que le regalaron mientras pagaba no se lo quita (2026-11-17)', async () => {
+  const { cookie, id: account } = await player();
+  const res = await post(ctx.app, '/galaxy/api/shop/checkout', { product: 'style-star-fox', consent: true, terms: 'v1' }, { cookie, headers: { 'idempotency-key': randomUUID() } });
+  expect(res.statusCode, res.body).toBe(200);
+  const id = (res.json() as ShopCheckout).purchase;
+  await grantCosmetics(ctx.db, account, { avatar: 'shop-star-fox' });
+  gateway.pay(id);
+  expect((await deliver(gateway.webhook('checkout.session.completed', id))).statusCode).toBe(200);
+  expect((await row(id)).granted_pieces).toEqual([]);
+  const p = PRODUCTS.find((x) => x.id === 'style-star-fox')!;
+  expect((await deliver(gateway.refund(id, p.priceCents))).statusCode).toBe(200);
+  const owned = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'avatar').execute();
+  expect(owned.map((o) => o.value)).toContain('shop-star-fox');
+});
+
 test('devolver un pack de skins quita solo las que dio esa compra, nunca las que ya tenía (2026-11-17)', async () => {
   const { cookie, id: account } = await player();
   for (const s of LEYENDA.slice(0, 3)) await grantCosmetics(ctx.db, account, { skin: s.id });

@@ -2190,6 +2190,7 @@ export const copy = {
     celebrate: {
       sub: (name: string) => `${name} ya está en tu monedero`,
       pieces: (n: number) => (n === 1 ? 'Una skin nueva en tu Taller' : `${n} skins nuevas en tu Taller`),
+      owned: 'Ya tenías todo lo que trae. El equipo lo revisará',
       continue: 'Pulsa para seguir',
     },
     legal: {

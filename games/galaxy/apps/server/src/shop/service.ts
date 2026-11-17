@@ -32,7 +32,6 @@ import { runOperation } from '../economy/operations';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import type { GatewayPrice, GatewaySession, ShopGateway } from './gateway';
-import { grantCosmetics } from '../cosmetics/service';
 
 // The resource shop on the server (shop and lab plan, F4). Paying is two steps:
 // 1. `openCheckout` keeps the purchase in an idempotent operation under the account's shop lock: the shop open for it,
@@ -276,6 +275,14 @@ async function ownedOf(db: Db, accountId: string, pieces: readonly ShopPiece[]):
     .execute();
 }
 
+/** Whether the player has a cosmetic's piece, or every piece of a set (false for the rest). */
+async function ownsAll(db: Db, accountId: string, product: ShopProduct): Promise<boolean> {
+  if (product.cosmetic) return ownsPiece(db, accountId, product.cosmetic);
+  if (product.kind !== 'set') return false;
+  const mine = await ownedOf(db, accountId, product.pieces);
+  return product.pieces.every((x) => has(mine, x));
+}
+
 /** Gives a set's pieces the player lacks and says which (a piece already owned stays as it was, and is not listed). */
 async function grantPieces(trx: Db, accountId: string, pieces: readonly ShopPiece[]): Promise<ShopPiece[]> {
   if (pieces.length === 0) return [];
@@ -390,6 +397,7 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
   if (body.terms !== cfg.legal.termsVersion) throw new HttpError(409, 'shop_terms_outdated');
   const product = cfg.products.find((p) => p.id === body.product);
   if (!product || productBlock(product, { staff, bought: 0, now }) === 'unavailable') throw new HttpError(409, 'shop_unavailable');
+  if (await ownsAll(deps.db, accountId, product)) throw new HttpError(409, 'shop_once_used');
   const price = effectivePrice(product, now);
   if (!price.stripePriceId) throw new HttpError(409, 'shop_unavailable');
 
@@ -446,6 +454,9 @@ async function reserve(
   const block = productBlock(product, { staff, bought: c.bought, now });
   if (block === 'once_used') throw new HttpError(409, 'shop_once_used');
   if (block) throw new HttpError(409, 'shop_unavailable');
+  // A piece already owned (bought, or earned another way), or a set whose every piece the player has, is not sold
+  // again, not even by carrying on with a payment opened before they got it. A set with some of them gives the rest.
+  if (await ownsAll(trx, accountId, product)) throw new HttpError(409, 'shop_once_used');
   const first = product.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
   // Pressing «Comprar» again carries on with the unfinished payment of this product (its limits already count it).
   const open = (await openOf(trx, accountId, product.id, now)).find((r) => resumable(r, product, price, first, terms, now));
@@ -453,13 +464,6 @@ async function reserve(
   if ((await openPayments(trx, accountId, now)) >= cfg.limits.pendingMax) throw new HttpError(409, 'shop_pending_limit');
   if ((await spentToday(trx, accountId, now)) + price.cents > cfg.limits.dailyCents) throw new HttpError(409, 'shop_daily_limit');
   const { base, extra, total } = purchaseGrants(product, now, first, cfg);
-  // A piece already owned (bought, or earned another way) is not sold again.
-  if (product.cosmetic && (await ownsPiece(trx, accountId, product.cosmetic))) throw new HttpError(409, 'shop_once_used');
-  // A set whose every piece the player has already is not sold; one with some of them gives the rest.
-  if (product.kind === 'set') {
-    const mine = await ownedOf(trx, accountId, product.pieces);
-    if (product.pieces.every((x) => has(mine, x))) throw new HttpError(409, 'shop_once_used');
-  }
   const snapshot: Snapshot = {
     product: { id: product.id, name: product.name, kind: product.kind, art: product.art },
     ...(product.cosmetic ? { cosmetic: product.cosmetic } : {}),
@@ -567,9 +571,17 @@ export async function fulfil(deps: ShopDeps, purchaseId: string, session: Gatewa
     const now = deps.now();
     const ref = { purchase: r.id, product: r.product };
     for (const c of SHOP_CURRENCIES) if (snap.total[c] > 0) await credit(trx, r.account_id, c, snap.total[c], 'shop', ref, key);
-    // A cosmetic gives its piece (Nov plan C5); a set, the pieces the player still lacks, written down for a refund.
-    if (snap.cosmetic) await grantCosmetics(trx, r.account_id, { [snap.cosmetic.kind]: snap.cosmetic.id });
-    const given = snap.pieces ? await grantPieces(trx, r.account_id, snap.pieces) : null;
+    // A cosmetic gives its piece (Nov plan C5); a set, the pieces the player still lacks. What it gave is written down,
+    // so a refund takes back only that. If the player got everything meanwhile (a gift while paying), it is paid and
+    // gives nothing: the admin is told, to give the money back.
+    const wanted = snap.pieces ?? (snap.cosmetic ? [snap.cosmetic] : null);
+    const given = wanted ? await grantPieces(trx, r.account_id, wanted) : null;
+    if (wanted && given!.length === 0) {
+      await trx
+        .insertInto('galaxy.shop_alerts')
+        .values({ kind: 'unfulfilled', account_id: r.account_id, purchase_id: r.id, details: JSON.stringify({ reason: 'already_owned', pieces: wanted }) })
+        .execute();
+    }
     await trx
       .updateTable('galaxy.shop_purchases')
       .set({
