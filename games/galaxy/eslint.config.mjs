@@ -5,7 +5,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 
 export default defineConfig([
-  globalIgnores(['**/dist/**', '**/node_modules/**', '**/test-results/**', '**/playwright-report/**']),
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', 'apps/landing/gen/**', '**/node_modules/**', '**/test-results/**', '**/playwright-report/**']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
