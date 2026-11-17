@@ -16,6 +16,9 @@ const stopMarket = startMarketJobs(db, app.log);
 // The shop's keys: a code, never the keys (shop and lab plan, F4).
 if (env.stripe) app.log.info({ mode: env.stripe.mode }, 'stripe_ready');
 else app.log.info({ issue: env.stripeIssue ?? 'stripe_off' }, env.stripeIssue ?? 'stripe_off');
+// The game's own domain (galaxysurvivor.es plan): public values; one that did not fit was left out, never fatal.
+app.log.info({ canonical: env.GALAXY_CANONICAL_ORIGIN, legacy: env.GALAXY_LEGACY_REDIRECT_FROM }, 'domain');
+for (const issue of env.domainIssues) app.log.warn({ issue }, issue);
 
 let closing = false;
 async function shutdown(signal: string) {

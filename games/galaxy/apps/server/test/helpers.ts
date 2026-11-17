@@ -30,6 +30,9 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     TRUST_CF_IP: true,
     stripe: null,
     stripeIssue: null,
+    GALAXY_CANONICAL_ORIGIN: null,
+    GALAXY_LEGACY_REDIRECT_FROM: [],
+    domainIssues: [],
     ...overrides,
   };
 }

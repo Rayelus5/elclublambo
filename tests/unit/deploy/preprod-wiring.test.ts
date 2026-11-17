@@ -224,6 +224,19 @@ describe("tunnel ingress", () => {
     expect(rules[rules.length - 1]).toEqual({ service: "http_status:404" });
     expect(code(tunnel)).not.toMatch(/studio|5432|54323/i);
   });
+
+  it("sends the game's own domain and its www to the galaxy container, whole host, right before the final 404", () => {
+    const rules = ingressRules();
+    // galaxysurvivor.es: the game server owns the whole host (its www → apex redirect lives in the server).
+    expect(rules.slice(-3)).toEqual([
+      { hostname: "galaxysurvivor.es", service: "http://galaxy:8080" },
+      { hostname: "www.galaxysurvivor.es", service: "http://galaxy:8080" },
+      { service: "http_status:404" },
+    ]);
+    // After every elclub.party rule, so their order does not change.
+    const lastElclub = rules.map((r) => r.hostname ?? "").findLastIndex((h) => h.endsWith("elclub.party"));
+    expect(lastElclub).toBeLessThan(rules.length - 3);
+  });
 });
 
 describe("cron crontab", () => {
