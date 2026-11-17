@@ -2,7 +2,7 @@ import type {
   CollectionSort,
   AutoFusionCriteria,
   AutoFusionPreview,
-  AutoFusionResult, CollectionPage, DisintegrateManyPreview, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
+  AutoFusionResult, CollectionPage, DisintegrateManyPreview, FindsView, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 import { syncWallet } from './wallet';
@@ -173,6 +173,12 @@ export function useLeftoversSeen() {
   });
 }
 
+/** What the scanner shows of what is found (2026-11-17): on opening, every minute while it shows, and after my scans. */
+export const FINDS_KEY = ['gacha-finds'] as const;
+export function useFinds() {
+  return useQuery({ queryKey: FINDS_KEY, queryFn: () => api<FindsView>('/gacha/finds'), staleTime: 30_000, refetchInterval: 60_000 });
+}
+
 export function usePull() {
   const qc = useQueryClient();
   return useMutation({
@@ -180,6 +186,7 @@ export function usePull() {
     onSuccess: (res) => {
       qc.setQueryData<GachaView>(GACHA_KEY, { ...res.view, wallet: res.wallet });
       void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
+      void qc.invalidateQueries({ queryKey: FINDS_KEY });
     },
     onError: () => refresh(qc),
     onSettled: (_res, error, req) => endIntent(pullIntent(req), error),

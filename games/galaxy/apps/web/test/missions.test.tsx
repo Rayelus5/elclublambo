@@ -64,7 +64,7 @@ const withEvent: MissionsView = {
 test('la pestaña del evento dice cuántas señales de evento tienes y lleva a gastarlas en el escáner de evento', async () => {
   mockApi({
     'GET /galaxy/api/missions': () => jsonResponse(200, withEvent),
-    'GET /galaxy/api/gacha': () => jsonResponse(200, { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 0, signal: 0, 'signal:cometas': 3 } }),
+    'GET /galaxy/api/gacha': () => jsonResponse(200, { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 0, signal: 0, 'signal:cometas': 3 } }),
   });
   renderAt('/misiones', { '/misiones': <MissionsScreen /> });
   await userEvent.click(await screen.findByRole('tab', { name: t.tabs.events }));

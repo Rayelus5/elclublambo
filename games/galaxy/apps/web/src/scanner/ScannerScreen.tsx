@@ -1,12 +1,22 @@
 import {
+  bestValue,
+  pullCost,
   TIERS,
   type BannerView,
+  type GachaView,
   type PulledGalaxy,
+  type PullCount,
   type PullRequest,
+  type ShownGalaxy,
 } from "@galaxy/shared";
+import type { CSSProperties } from "react";
 import { useEffect, useId, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { useGacha, usePull } from "../api/economy";
+import { useFinds, useGacha, usePull } from "../api/economy";
+import { GalaxyCard } from "../cards/GalaxyCard";
+import { FindsTicker } from "./FindsTicker";
+import { Showcase } from "./Showcase";
+import { SkyRadar } from "./SkyRadar";
 import { errorText } from "../auth/useMe";
 import { copy, fmt } from "../copy/es";
 import { WalletBar } from "../hub/WalletBar";
@@ -34,6 +44,8 @@ const traitValues = copy.traitValues as Record<string, Record<string, string>>;
 
 function Odds({ banner }: { banner: BannerView }) {
   const total = banner.sinceLegendary + banner.untilGuarantee;
+  // The guarantee as a charging core (2026-11-17): fuller and brighter as it nears; hot from 80 %.
+  const charge = total > 0 ? banner.sinceLegendary / total : 0;
   return (
     <div className="odds" data-tour="odds">
       <table aria-label={copy.scanner.odds}>
@@ -54,17 +66,29 @@ function Odds({ banner }: { banner: BannerView }) {
             ))}
         </tbody>
       </table>
-      <div className="pity" data-tour="pity">
+      <div
+        className="pity"
+        data-tour="pity"
+        data-hot={charge >= 0.8 ? "true" : undefined}
+        style={{ "--charge": charge.toFixed(3) } as CSSProperties}
+      >
+        <div
+          className="pity-core"
+          role="progressbar"
+          aria-label={copy.scanner.pityLabel}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={banner.sinceLegendary}
+        >
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle className="pity-track" cx="24" cy="24" r="20" pathLength={100} />
+            <circle className="pity-fill" cx="24" cy="24" r="20" pathLength={100} />
+          </svg>
+          <span className="pity-orb" aria-hidden="true" />
+        </div>
         <div className="pity-head">
           <b>{copy.scanner.untilGuarantee(banner.untilGuarantee)}</b>
           <span>{copy.scanner.sinceLegendary(banner.sinceLegendary)}</span>
-        </div>
-        <div className="pity-bar" aria-hidden="true">
-          <i
-            style={{
-              width: `${total > 0 ? Math.round((banner.sinceLegendary / total) * 100) : 0}%`,
-            }}
-          />
         </div>
       </div>
     </div>
@@ -75,7 +99,7 @@ function Odds({ banner }: { banner: BannerView }) {
  * An event scanner's featured galaxy, announced big (open beta): the trait in large letters, how many scans until it
  * is certain (the number set apart) and the way already walked towards it.
  */
-function FeaturedCard({ banner }: { banner: BannerView }) {
+function FeaturedCard({ banner, galaxy }: { banner: BannerView; galaxy?: ShownGalaxy }) {
   const id = useId();
   const f = banner.featured!;
   const until = banner.untilFeatured;
@@ -85,8 +109,15 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
   const num = until !== undefined ? fmt(until) : "";
   const parts = sentence && sentence.includes(num) ? sentence.split(num) : null;
   return (
-    <section className="scan-featured" aria-labelledby={id}>
+    <section className={`scan-featured${galaxy ? " with-galaxy" : ""}`} aria-labelledby={id}>
       <span className="scan-featured-shine" aria-hidden="true" />
+      {galaxy ? (
+        // The featured galaxy, big (2026-11-17): the last one found, or an example with its trait.
+        <div className="scan-featured-galaxy">
+          <GalaxyCard galaxy={galaxy} size={118} columns={96} />
+          {galaxy.example ? <span className="showcase-example">{copy.scanner.showcase.example}</span> : null}
+        </div>
+      ) : null}
       <div className="scan-featured-main">
         <p className="scan-featured-kicker">
           <Icon name="starOn" />
@@ -143,31 +174,82 @@ function PullButton({
   solar,
   event,
   tour,
+  best,
 }: {
-  count: 1 | 10;
+  count: PullCount;
   cost: string;
   disabled: boolean;
   onClick: () => void;
   solar?: boolean;
   event?: boolean;
   tour?: string;
+  /** The size that costs least per scan (gacha/costs.ts bestValue): «Mejor precio». */
+  best?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`lip pull-btn${solar ? " solar" : ""}${event ? " pull-event" : ""}`}
+      className={`lip pull-btn${solar ? " solar" : ""}${event ? " pull-event" : ""}${best ? " best" : ""}`}
       disabled={disabled}
       onClick={onClick}
       data-tour={tour}
+      data-count={count}
     >
+      {best ? <span className="pull-best">{copy.scanner.bestValue}</span> : null}
       <b>{copy.scanner.pull(count)}</b>
       <span>{cost}</span>
     </button>
   );
 }
 
+const SIZES: readonly PullCount[] = [1, 5, 10];
+
+/** One row of pull buttons (x1, x5, x10) for one way of paying, each at its price; the best value marked. */
+function PullRow({
+  costs,
+  pay,
+  have,
+  busy,
+  onScan,
+  solar,
+  event,
+  tour,
+}: {
+  costs: GachaView["costs"];
+  pay: "coins" | "signal";
+  have: number;
+  busy: boolean;
+  onScan: (count: PullCount) => void;
+  solar?: boolean;
+  event?: boolean;
+  tour?: string;
+}) {
+  const best = bestValue(costs, pay);
+  return (
+    <>
+      {SIZES.map((n) => {
+        const cost = pullCost(costs, n, pay);
+        return (
+          <PullButton
+            key={n}
+            count={n}
+            cost={pay === "signal" ? copy.scanner.costSignals(cost) : copy.scanner.costCoins(cost)}
+            disabled={busy || have < cost}
+            onClick={() => onScan(n)}
+            solar={solar}
+            event={event}
+            tour={n === 10 ? tour : undefined}
+            best={best === n}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 export function ScannerScreen() {
   const gacha = useGacha();
+  const finds = useFinds().data;
   const pull = usePull();
   const [bannerId, setBannerId] = useState<string | null>(null);
   // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
@@ -177,7 +259,7 @@ export function ScannerScreen() {
   const [revealed, setRevealed] = useState<{
     pulls: PulledGalaxy[] | null;
     last: PulledGalaxy[] | null;
-    count: 1 | 10;
+    count: PullCount;
     pay: PullRequest["pay"];
     banner: string;
     failed?: boolean;
@@ -207,7 +289,7 @@ export function ScannerScreen() {
   const wallet = view?.wallet;
 
   function scan(
-    count: 1 | 10,
+    count: PullCount,
     pay: PullRequest["pay"],
     on: string | undefined = banner?.id,
   ): void {
@@ -252,7 +334,11 @@ export function ScannerScreen() {
         )
       : null;
   return (
-    <div className="screen-root collection-root scanner-root">
+    <div className={`screen-root collection-root scanner-root${isEvent ? " is-event" : ""}`}>
+      {/* A nebula drifting behind the page (2026-11-17): blue, or violet for an event. */}
+      <div className="scanner-nebula" aria-hidden="true">
+        <i />
+      </div>
       <div className={`collection scanner${isEvent ? " is-event" : ""}`}>
         <header className="collection-bar">
           <BackLink fallback="/" />
@@ -302,8 +388,7 @@ export function ScannerScreen() {
             >
               <div className="crt idle" aria-hidden="true">
                 <div className="crt-screen">
-                  <span className="idle-braille">⠎⠉⠁⠝</span>
-                  <span className="idle-text">{copy.scanner.ready}</span>
+                  <SkyRadar rates={banner.nextRates} busy={busy} event={isEvent} />
                 </div>
               </div>
               <div className="banner-head">
@@ -322,7 +407,8 @@ export function ScannerScreen() {
                   </span>
                 ) : null}
               </div>
-              {banner.featured ? <FeaturedCard banner={banner} /> : null}
+              {banner.featured ? <FeaturedCard banner={banner} galaxy={finds?.featured[banner.id]} /> : null}
+              <Showcase galaxies={finds?.showcase ?? []} />
             </section>
 
             <aside className="lip panel scanner-side">
@@ -355,19 +441,12 @@ export function ScannerScreen() {
                       ? copy.scanner.withSignals
                       : copy.scanner.withEventSignals(signals)}
                   </span>
-                  <PullButton
-                    count={1}
-                    cost={copy.scanner.costSignals(view.costs.signals)}
-                    disabled={busy || signals < view.costs.signals}
-                    onClick={() => scan(1, "signal")}
-                    solar={!isEvent}
-                    event={isEvent}
-                  />
-                  <PullButton
-                    count={10}
-                    cost={copy.scanner.costSignals(view.costs.signals * 10)}
-                    disabled={busy || signals < view.costs.signals * 10}
-                    onClick={() => scan(10, "signal")}
+                  <PullRow
+                    costs={view.costs}
+                    pay="signal"
+                    have={signals}
+                    busy={busy}
+                    onScan={(n) => scan(n, "signal")}
                     solar={!isEvent}
                     event={isEvent}
                     tour="pull10"
@@ -376,21 +455,19 @@ export function ScannerScreen() {
               ) : null}
               <div className="pull-row">
                 <span className="pull-label">{copy.scanner.withCoins}</span>
-                <PullButton
-                  count={1}
-                  cost={copy.scanner.costCoins(view.costs.coins)}
-                  disabled={busy || (wallet?.coins ?? 0) < view.costs.coins}
-                  onClick={() => scan(1, "coins")}
-                />
-                <PullButton
-                  count={10}
-                  cost={copy.scanner.costCoins(view.costs.coinsTen)}
-                  disabled={busy || (wallet?.coins ?? 0) < view.costs.coinsTen}
-                  onClick={() => scan(10, "coins")}
+                <PullRow
+                  costs={view.costs}
+                  pay="coins"
+                  have={wallet?.coins ?? 0}
+                  busy={busy}
+                  onScan={(n) => scan(n, "coins")}
                 />
               </div>
             </aside>
           </main>
+        ) : null}
+        {banner && view ? (
+          <FindsTicker recent={finds?.recent ?? []} mine={finds?.mine ?? []} />
         ) : gacha.isError ? (
           <p className="summary error" role="alert">
             <Icon name="alert" />

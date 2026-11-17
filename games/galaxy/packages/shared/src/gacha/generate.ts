@@ -16,6 +16,19 @@ export interface GeneratedGalaxy {
   designation: string;
 }
 
+/**
+ * A galaxy from its own seed (2026-11-17, the scanner's showcase): the same traits, name and designation the engine
+ * draws for that seed, and the tier its score falls in. generateGalaxy's seeds come back exactly.
+ */
+export function galaxyOfSeed(seed: bigint): GeneratedGalaxy & { tier: number } {
+  const traits = drawTraits(subRng(seed, 'traits'));
+  const score = scoreTraits(traits);
+  const hasPhenomenon = traits.phenomenon !== 'none';
+  const tier = isMythicScore(score, hasPhenomenon) ? MYTHIC : tierOfScore(score, hasPhenomenon);
+  const id = dna(traits);
+  return { seed, traits, dna: id, score, name: galaxyName(seed), designation: `GX-${id.slice(0, 6).toUpperCase()}`, tier };
+}
+
 export function generateGalaxy(
   pullSeed: bigint,
   tier: number,

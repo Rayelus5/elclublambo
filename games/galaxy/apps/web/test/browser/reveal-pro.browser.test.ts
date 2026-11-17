@@ -86,6 +86,8 @@ const going = [pull('epic'), pull('epic', { finish: 'holo' }), pull('epic'), pul
 for (const [label, pulls, extra] of [
   ['una-legendaria', () => [pull('legendary', { featured: true, finish: 'holo', traits: { phenomenon: 'pulsar', palette: 'nebula' } })], {}],
   ['diez', () => [pull('common'), pull('rare'), pull('common'), pull('uncommon'), pull('epic', { finish: 'prismatic' }), pull('common'), pull('legendary'), pull('common'), pull('uncommon'), pull('common')], {}],
+  // The 5-pull (2026-11-17): one centred row.
+  ['cinco', () => [pull('common'), pull('rare'), pull('common'), pull('uncommon'), pull('epic', { finish: 'holo' })], {}],
   ['fusion', () => [pull('legendary', { traits: { phenomenon: 'comet', palette: 'nebula' } })], { intro: 'fusion', inputs: going }],
 ] as const satisfies readonly (readonly [string, () => PulledGalaxy[], Extra])[]) {
   test(`la cinemática pro (${label}) dibuja cada fase dentro de la pantalla y Saltar lleva al resumen`, async () => {
@@ -132,7 +134,7 @@ for (const [label, pulls, extra] of [
       await wait(220);
       const canvas = document.querySelector<HTMLCanvasElement>('.pro-canvas')!;
       expect(canvas.clientWidth).toBe(1600);
-      if (import.meta.env['VITE_REVEAL_SHOTS'] && (label !== 'diez' || /^(salto|ascenso|caida|impacto|reparto|solo-9|solo-8|final|giro-4)$/.test(p.label))) {
+      if (import.meta.env['VITE_REVEAL_SHOTS'] && (!['diez', 'cinco'].includes(label) || /^(salto|ascenso|caida|impacto|reparto|solo-9|solo-8|solo-4|final|giro-4)$/.test(p.label))) {
         await page.screenshot({ path: `__shots__/pro-${label}-${String(control.script.phases.indexOf(p) + 1).padStart(2, '0')}-${p.label}.png` });
       }
       control.resume();

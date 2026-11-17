@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals());
 const t = copy.market;
 const o = t.offers;
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
-const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 5000, dust: 0, signal: 0 } };
+const gacha: GachaView = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 5000, dust: 0, signal: 0 } };
 const galaxy = (id: string): GalaxySummary => ({ id, seed: '12345', tier: 'rare', finish: 'normal', traits: {}, name: `Vega ${id}`, designation: `GX-${id.toUpperCase()}`, featured: false, level: 1, createdAt: '2026-11-01T10:00:00.000Z' });
 const rules: MarketRules = {
   commission: 0.07,

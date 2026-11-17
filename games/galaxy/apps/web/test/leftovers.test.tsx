@@ -14,7 +14,7 @@ const t = copy.leftovers;
 const me: MeResponse = { id: 'p1', username: 'vega', roles: [], mfa: false, level: 6 };
 const view = (over: Partial<GachaView> = {}): GachaView => ({
   banners: [{ id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', currency: 'signal', nextRates: [0.5, 0.28, 0.13, 0.06, 0.03], sinceLegendary: 0, untilGuarantee: 10, welcome: false }],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 10, dust: 200, signal: 1 },
   leftovers: [],

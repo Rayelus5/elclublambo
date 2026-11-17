@@ -706,7 +706,8 @@
   /* ---------- Deep scanner (DESIGN_SYSTEM §8 bis) ---------- */
   .scanner-main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: start; gap: 28px; }
   .scanner-terminal { --r: 30px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-  .scanner-terminal .crt { align-self: center; width: min(100%, calc((100vh - 290px) * 4 / 3)); aspect-ratio: 4 / 3; }
+  /* A panorama of the sky (2026-11-17): the whole panel wide, as tall as the screen leaves room for under it. */
+  .scanner-terminal .crt { align-self: stretch; block-size: clamp(190px, calc(100vh - 470px), 620px); }
   .banner-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .banner-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; }
   .banner-ends { font-size: 14px; color: var(--color-ink-mute); }
@@ -718,20 +719,36 @@
   .odds th { text-align: left; font-weight: 600; border-radius: 12px 0 0 12px; }
   .odds td { text-align: right; font-weight: 700; color: var(--tc); font-variant-numeric: tabular-nums; border-radius: 0 12px 12px 0; }
   .odds th i { display: inline-block; width: 10px; height: 10px; margin-right: 10px; border-radius: 3px; transform: rotate(45deg); background: var(--tc); }
-  .pity { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgb(255 201 74 / .08); border: 2px solid rgb(255 201 74 / .25); }
+  .pity { margin-top: 10px; padding: 10px 14px 10px 10px; border-radius: 16px; background: rgb(255 201 74 / .08); border: 2px solid rgb(255 201 74 / .25); display: flex; align-items: center; gap: 14px; }
+  /* The guarantee as a charging core (2026-11-17, the owner: «Garantía y botones con carácter»): a ring that fills with
+     the scans since the last Legendary and an orb that glows brighter as it nears; from 80 % it is hot and pulses. */
+  .pity-core { position: relative; flex: none; inline-size: 58px; block-size: 58px; }
+  .pity-core svg { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; transform: rotate(-90deg); }
+  .pity-track, .pity-fill { fill: none; stroke-width: 5; }
+  .pity-track { stroke: rgb(0 0 0 / .35); }
+  .pity-fill { stroke: var(--pity-c, var(--color-solar)); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--charge, 0) * 100); filter: drop-shadow(0 0 4px var(--pity-c, var(--color-solar))); transition: stroke-dashoffset .6s var(--ease-bounce); }
+  .pity-orb { position: absolute; inset: 15px; border-radius: 50%; background: radial-gradient(circle at 38% 35%, #fff 0, var(--pity-c, var(--color-solar)) 45%, color-mix(in srgb, var(--pity-c, var(--color-solar)) 40%, #000) 100%);
+    opacity: calc(.35 + var(--charge, 0) * .65); box-shadow: 0 0 calc(6px + var(--charge, 0) * 22px) color-mix(in srgb, var(--pity-c, var(--color-solar)) 80%, transparent); }
+  .pity[data-hot] .pity-orb { animation: pity-hot 1.1s ease-in-out infinite alternate; }
+  .pity[data-hot] { border-color: color-mix(in srgb, var(--pity-c, var(--color-solar)) 60%, transparent); }
+  @keyframes pity-hot { to { transform: scale(1.12); filter: brightness(1.25); } }
+  .pity-head { min-inline-size: 0; }
   .pity-head b { display: block; font-size: 16px; color: var(--color-solar); }
   .pity-head span { font-size: 13.5px; color: var(--color-ink-mute); }
-  .pity-bar { height: 10px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgb(0 0 0 / .3); }
-  .pity-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+
   .pull-free { --r: 20px; --lip-c: var(--color-terminal-lip); display: flex; align-items: center; gap: 14px; padding: 12px 16px; text-align: left; color: var(--color-on-terminal); background: linear-gradient(160deg, var(--color-terminal), var(--color-terminal-2)); }
   .pull-free .ico { font-size: 30px; }
   .pull-free b { display: block; font-size: 18px; }
   .pull-free span span { font-size: 13.5px; font-weight: 500; }
-  .pull-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pull-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .pull-label { grid-column: 1 / -1; font-size: 13.5px; font-weight: 600; color: var(--color-ink-mute); }
-  .pull-btn { --r: 18px; --lip-h: 5px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--color-panel-2); color: var(--color-ink); }
-  .pull-btn b { font-size: 17px; }
-  .pull-btn span { font-size: 13.5px; color: var(--color-ink-soft); }
+  .pull-btn { --r: 18px; --lip-h: 5px; position: relative; height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-inline: 6px; background: var(--color-panel-2); color: var(--color-ink); }
+  .pull-btn b { font: 400 17px var(--font-display); white-space: nowrap; }
+  .pull-btn span { font-size: 13px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
+  .pull-btn[data-count='10'] b { font-size: 18px; }
+  /* «Mejor precio»: a Nova ribbon over the size that costs least per scan. */
+  .pull-btn .pull-best { position: absolute; top: -9px; right: 6px; padding: 2px 8px; border-radius: 99px; background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: #fff; font: 800 10.5px var(--font-sans); letter-spacing: .02em; box-shadow: 0 2px 0 var(--color-nova-lip), 0 0 12px rgb(255 107 122 / .45); opacity: 1; }
+  .pull-btn.best { box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), inset 0 -3px 0 rgb(0 0 0 / .18), 0 var(--lip-h) 0 var(--lip-c, var(--color-panel-lip)), 0 0 0 2px color-mix(in srgb, var(--color-nova) 55%, transparent), 0 14px 26px rgb(0 0 0 / .35); }
   .pull-btn.solar { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
   .pull-btn.solar span { color: var(--color-on-solar); opacity: .8; }
   .pull-btn.pull-event { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 45%, var(--color-uv-2)); }
@@ -752,11 +769,11 @@
   .scanner-tab-badge .ico { font-size: 16px; color: #d7ccff; }
   .banner-sub { font-size: 14px; font-weight: 700; color: var(--color-uv-soft); }
   .scanner.is-event .scanner-terminal, .scanner.is-event .scanner-side { background-image: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--color-uv) 30%, transparent), transparent 70%); outline: 2px solid color-mix(in srgb, var(--color-uv-soft) 40%, transparent); outline-offset: -2px; }
-  .scanner.is-event .scanner-terminal .crt { width: min(100%, calc((100vh - 500px) * 4 / 3)); background: linear-gradient(160deg, #3d2c84, #1b1446); }
+  .scanner.is-event .scanner-terminal .crt { block-size: clamp(170px, calc(100vh - 690px), 460px); background: linear-gradient(160deg, #3d2c84, #1b1446); }
   .scanner.is-event .banner-head h2 { color: #efe9ff; text-shadow: 0 0 18px color-mix(in srgb, var(--color-uv) 80%, transparent); }
   .scanner.is-event .pity { background: color-mix(in srgb, var(--color-uv) 12%, transparent); border-color: color-mix(in srgb, var(--color-uv-soft) 35%, transparent); }
   .scanner.is-event .pity-head b { color: var(--color-uv-soft); }
-  .scanner.is-event .pity-bar i { background: linear-gradient(90deg, var(--color-uv-2), var(--color-uv-soft)); }
+  .scanner.is-event .pity { --pity-c: var(--color-uv-soft); }
   .scan-featured { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .9fr); align-items: center; gap: 10px 28px; padding: 18px 24px 20px; border-radius: 22px; text-align: start;
     background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-solar) 26%, transparent), transparent 55%), radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--color-nova) 26%, transparent), transparent 60%), linear-gradient(140deg, #3a237f, #1d1450);
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 55%, transparent), 0 0 26px color-mix(in srgb, var(--color-uv) 55%, transparent);
@@ -781,7 +798,7 @@
   .pull-btn:disabled, .pull-free:disabled { opacity: .45; box-shadow: none; filter: saturate(.5); }
   @media (max-height: 820px) {
     .odds th, .odds td { padding: 4px 12px; }
-    .pull-btn { height: 54px; }
+    .pull-btn { height: 56px; }
   }
 
   /* The CRT terminal: a bezel with relief, a curved dark screen with scan lines and a vignette. */
@@ -796,6 +813,94 @@
   .idle-text { font-size: 16px; font-weight: 600; color: var(--color-ink-soft); }
   @keyframes idle-breathe { 50% { opacity: .55; } }
   .crt-static { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; opacity: .5; }
+
+  /* ---------- The scanner made attractive (2026-11-17, the owner; DESIGN_SYSTEM §8 bis) ---------- */
+  /* A nebula drifting behind the whole page: deep blue for the deep scanner, violet and pink for an event. */
+  .scanner-root { isolation: isolate; }
+  /* Its own clipped layer: the drift never makes the page wider. */
+  .scanner-nebula { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .scanner-nebula i { position: absolute; inset: -12%;
+    background: radial-gradient(38% 34% at 16% 24%, rgb(60 110 255 / .30), transparent 70%), radial-gradient(34% 40% at 84% 28%, rgb(80 210 255 / .18), transparent 70%),
+      radial-gradient(46% 40% at 58% 88%, rgb(110 80 255 / .24), transparent 70%);
+    animation: scanner-nebula 46s ease-in-out infinite alternate; }
+  .scanner-root.is-event .scanner-nebula i { background: radial-gradient(38% 34% at 16% 24%, rgb(140 90 255 / .34), transparent 70%), radial-gradient(34% 40% at 84% 28%, rgb(255 80 170 / .20), transparent 70%),
+      radial-gradient(46% 40% at 58% 88%, rgb(255 190 80 / .14), transparent 70%); }
+  @keyframes scanner-nebula { to { transform: translate3d(-3%, 2%, 0) scale(1.06) rotate(1.5deg); } }
+  .collection.scanner { padding-bottom: 40px; }
+
+  /* «Cielo vivo»: the monitor sweeps the sky. Stars drift, a radar turns every 4 s and its blips (the next scan's odds,
+     each in its tier's colour) light up as the sweep passes. Faster while a scan is out. */
+  .sky { position: absolute; inset: 0; overflow: hidden; }
+  .sky-stars { position: absolute; inset: -40%; opacity: .75;
+    background-image: radial-gradient(1.4px 1.4px at 12% 18%, #fff, transparent 60%), radial-gradient(1px 1px at 46% 72%, #cfe2ff, transparent 60%), radial-gradient(1.2px 1.2px at 78% 34%, #fff, transparent 60%), radial-gradient(1px 1px at 30% 52%, #bcd2ff, transparent 60%), radial-gradient(1.6px 1.6px at 88% 86%, #fff3c4, transparent 60%);
+    background-size: 210px 150px; animation: sky-drift 70s linear infinite; }
+  .sky-stars.far { opacity: .45; background-size: 120px 96px; animation-duration: 140s; }
+  @keyframes sky-drift { to { transform: translate3d(-24%, 9%, 0); } }
+  .radar { position: absolute; left: 50%; top: 50%; block-size: 86%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; }
+  .radar-rings { position: absolute; inset: 0; border-radius: 50%;
+    background: repeating-radial-gradient(circle closest-side, transparent 0 calc(25% - 1px), rgb(111 183 255 / .24) calc(25% - 1px) 25%),
+      linear-gradient(rgb(111 183 255 / .16), rgb(111 183 255 / .16)) center / 1px 100% no-repeat, linear-gradient(rgb(111 183 255 / .16), rgb(111 183 255 / .16)) center / 100% 1px no-repeat;
+    box-shadow: 0 0 0 1.5px rgb(111 183 255 / .4), inset 0 0 50px rgb(60 130 255 / .2); }
+  .radar-sweep { position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg 270deg, rgb(111 214 255 / .04) 290deg, rgb(111 214 255 / .4) 356deg, rgb(220 245 255 / .95) 360deg);
+    animation: radar-turn 4s linear infinite; }
+  @keyframes radar-turn { to { transform: rotate(360deg); } }
+  .radar-blip { position: absolute; inline-size: 8px; block-size: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--tc); box-shadow: 0 0 10px 2px var(--tc); opacity: .2;
+    animation: radar-blip 4s linear infinite; animation-delay: var(--d, 0s); }
+  .radar-blip:is([data-tier='legendary'], [data-tier='mythic']) { inline-size: 12px; block-size: 12px; margin: -6px 0 0 -6px; }
+  .radar-blip[data-tier='mythic'] { background: conic-gradient(var(--color-iris-1), var(--color-iris-2), var(--color-iris-3), var(--color-iris-4), var(--color-iris-1)); }
+  @keyframes radar-blip { 0% { opacity: 1; transform: scale(1.6); } 10% { opacity: .95; transform: scale(1); } 55% { opacity: .3; } 100% { opacity: .2; } }
+  .sky[data-busy] .radar-sweep, .sky[data-busy] .radar-blip { animation-duration: 1.1s; }
+  .sky[data-event] .radar-rings { background: repeating-radial-gradient(circle closest-side, transparent 0 calc(25% - 1px), rgb(185 166 255 / .26) calc(25% - 1px) 25%),
+      linear-gradient(rgb(185 166 255 / .18), rgb(185 166 255 / .18)) center / 1px 100% no-repeat, linear-gradient(rgb(185 166 255 / .18), rgb(185 166 255 / .18)) center / 100% 1px no-repeat;
+    box-shadow: 0 0 0 1.5px rgb(185 166 255 / .45), inset 0 0 50px rgb(140 90 255 / .25); }
+  .sky[data-event] .radar-sweep { background: conic-gradient(from 0deg, transparent 0deg 270deg, rgb(200 170 255 / .04) 290deg, rgb(200 170 255 / .42) 356deg, rgb(255 236 200 / .95) 360deg); }
+  .sky-hud { position: absolute; top: 10px; left: 16px; font: 800 11px var(--font-sans); letter-spacing: .16em; text-transform: uppercase; color: rgb(150 205 255 / .75); }
+  .sky[data-event] .sky-hud { color: rgb(205 190 255 / .8); }
+  .sky-ready { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 3px 12px; border-radius: 99px; background: rgb(3 4 12 / .6); font-size: 13.5px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
+
+  /* «Escaparate de premios»: what can come out, as cards in a strip that scrolls inside itself. */
+  .showcase { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-inline-size: 0; }
+  .showcase h3 { margin: 0; font: 400 16px var(--font-display); color: var(--color-ink); }
+  .showcase-row { display: flex; gap: 14px; margin: 0; padding: 8px 2px 6px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .showcase-item { position: relative; flex: none; display: grid; justify-items: center; gap: 6px; inline-size: 110px; }
+  .showcase-text { display: grid; justify-items: center; text-align: center; max-inline-size: 100%; }
+  .showcase-text b { font-size: 13px; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tc); }
+  .showcase-text small { font-size: 11.5px; color: var(--color-ink-mute); max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .showcase-example { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); padding: 1px 8px; border-radius: 99px; background: rgb(11 12 36 / .85); border: 1px solid rgb(255 255 255 / .18); font-size: 10.5px; font-weight: 800; color: var(--color-ink-soft); white-space: nowrap; }
+  .showcase-wait { margin: 0; color: var(--color-ink-mute); }
+
+  /* The event's featured galaxy, big, beside its trait. */
+  .scan-featured.with-galaxy { grid-template-columns: auto minmax(0, 1fr) minmax(200px, .8fr); }
+  .scan-featured-galaxy { position: relative; }
+
+  /* «Últimos hallazgos»: a band under the scanner, the finds crawling right to left; my best of the week at its end. */
+  .finds { display: flex; align-items: center; gap: 14px; min-inline-size: 0; padding: 8px 10px 8px 16px; border-radius: 18px; background: rgb(11 12 36 / .72); border: 2px solid rgb(255 255 255 / .07); }
+  .finds-title { display: inline-flex; align-items: center; gap: 8px; flex: none; margin: 0; font: 400 15px var(--font-display); color: var(--color-solar); white-space: nowrap; }
+  .finds-title .ico { font-size: 18px; }
+  .finds-view { position: relative; flex: 1 1 auto; min-inline-size: 0; overflow: hidden; mask: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+  .finds-track { display: flex; inline-size: max-content; animation: finds-crawl var(--crawl, 40s) linear infinite; }
+  .finds:is(:hover, :focus-within) .finds-track { animation-play-state: paused; }
+  @keyframes finds-crawl { to { transform: translateX(-50%); } }
+  .finds-list { display: flex; gap: 28px; margin: 0; padding: 0 28px 0 0; list-style: none; }
+  .finds-list li { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--color-ink-soft); }
+  .finds-list li > i, .finds-mine li > i { inline-size: 9px; block-size: 9px; border-radius: 2px; transform: rotate(45deg); background: var(--tc); box-shadow: 0 0 8px var(--tc); }
+  .finds-list b { color: var(--tc); }
+  .finds-list time { color: var(--color-ink-mute); font-weight: 500; }
+  .finds-none { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--color-ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .finds-mine { display: flex; align-items: center; gap: 10px; flex: none; padding-inline-start: 14px; border-inline-start: 1px solid rgb(255 255 255 / .1); }
+  .finds-mine > span { font-size: 12.5px; font-weight: 800; color: var(--color-ink-mute); white-space: nowrap; }
+  .finds-mine ul { display: flex; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .finds-mine li { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+  .finds-mine b { color: var(--tc); }
+  @media (max-width: 1400px) { .finds-mine li:nth-child(n + 2) { display: none; } }
+
+  :where(:root[data-motion='reduced']) {
+    .scanner-nebula i, .sky-stars, .radar-sweep, .radar-blip, .pity[data-hot] .pity-orb, .finds-track { animation: none; }
+    .radar-sweep { transform: rotate(45deg); }
+    .radar-blip { opacity: .7; }
+    .finds-copy { display: none; }
+  }
 
   .reveal-stage { width: min(100%, 980px); padding: 18px 22px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: #0b0d26; }
   /* While a pull is revealed the stage always fits the screen: the beams turning behind an epic or legendary card

@@ -26,7 +26,7 @@ import {
 import { FOIL_FRAGMENT, FOIL_VERTEX } from '../../inspector/foil';
 import { drawMask } from '../../inspector/textures';
 import { GUION, raySets, type Script, type TrailTint } from './script';
-import { GRID, RING, type Rig, ringSpot, SINGLE } from './timeline';
+import { gridFor, RING, type Rig, ringSpot, SINGLE } from './timeline';
 
 /** The four tones the mythic's iridescent frame turns through (styles/app.css --color-iris-1…4). */
 const IRIS = ['#ff4fd8', '#6fe3ff', '#ffc94a', '#b39dff'] as const;
@@ -389,7 +389,8 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
 
   // Where the cards land (and the shooting stars fall).
   const ten = s.count > 1;
-  const landing = (slot: number) => (ten ? { x: GRID.x(slot), y: GRID.y(slot) } : { x: SINGLE.x, y: SINGLE.y });
+  const grid = gridFor(s.count);
+  const landing = (slot: number) => (ten ? { x: grid.x(slot), y: grid.y(slot) } : { x: SINGLE.x, y: SINGLE.y });
 
   // The shooting stars: a streak and a head each, the first in the strongest colour.
   const streakTex = tex(streakTexture());

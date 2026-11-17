@@ -117,7 +117,7 @@ export function RevealRehearsal() {
   const [going, setGoing] = useState<(typeof INPUT_COUNTS)[number]>('5');
   // What was made for the take playing, and as what (the controls may change while the next one is being made).
   const [shot, setShot] = useState<{ intro: 'scan' | 'fusion'; inputs: PulledGalaxy[]; presentation: 'classic' | 'pro' }>({ intro: 'scan', inputs: [], presentation: 'pro' });
-  const [count, setCount] = useState<'one' | 'ten'>('ten');
+  const [count, setCount] = useState<'one' | 'five' | 'ten'>('ten');
   const [tier, setTier] = useState<Tier>('legendary');
   const [preset, setPreset] = useState<RehearsalPreset>('variada');
   const [finish, setFinish] = useState<Finish>('normal');
@@ -141,7 +141,8 @@ export function RevealRehearsal() {
   async function play() {
     setBusy(true);
     try {
-      const tiers = fusion || count === 'one' ? [asked] : [...REHEARSAL_PRESETS[preset]];
+      // A 5-pull (2026-11-17): the batch's last five, where its rarest are.
+      const tiers = fusion || count === 'one' ? [asked] : count === 'five' ? REHEARSAL_PRESETS[preset].slice(-5) : [...REHEARSAL_PRESETS[preset]];
       // The classic reveal has no ring of galaxies going in: only the pro one needs them made.
       const inputs = fusion && pro ? await fabricatePulls({ tiers: fusionInputs(asked, Number(going)) }, randomSeed()) : [];
       const made = await fabricatePulls({
@@ -174,7 +175,11 @@ export function RevealRehearsal() {
   const script = JSON.stringify(
     fusion
       ? { origen: 'fusion', entran: Number(going), rareza: asked, duraciones: used }
-      : { tiradas: count === 'one' ? 1 : 10, rarezas: count === 'one' ? [tier] : REHEARSAL_PRESETS[preset], duraciones: used },
+      : {
+          tiradas: count === 'one' ? 1 : count === 'five' ? 5 : 10,
+          rarezas: count === 'one' ? [tier] : count === 'five' ? REHEARSAL_PRESETS[preset].slice(-5) : REHEARSAL_PRESETS[preset],
+          duraciones: used,
+        },
     null,
     2,
   );
@@ -206,7 +211,16 @@ export function RevealRehearsal() {
           ) : (
             <div className="rehearsal-field">
               <span id={`${ids}-count`}>{t.count}</span>
-              <Segmented aria-labelledby={`${ids}-count`} value={count} options={[{ value: 'one', label: t.counts.one }, { value: 'ten', label: t.counts.ten }]} onChange={setCount} />
+              <Segmented
+                aria-labelledby={`${ids}-count`}
+                value={count}
+                options={[
+                  { value: 'one', label: t.counts.one },
+                  { value: 'five', label: t.counts.five },
+                  { value: 'ten', label: t.counts.ten },
+                ]}
+                onChange={setCount}
+              />
             </div>
           )}
           {fusion || count === 'one' ? (

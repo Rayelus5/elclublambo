@@ -54,6 +54,19 @@ test('x1 y x10 cobran lo justo y cada galaxia queda en la colección', async () 
   expect((signals.json() as PullResponse).wallet.signal).toBe(0); // the 10 welcome signals
 });
 
+test('x5 cobra su precio (475 por defecto) o 5 señales, y deja 5 galaxias (2026-11-17)', async () => {
+  const { cookie, id } = await player();
+  await grantCoins(id, 500);
+  const five = await pull(cookie, { banner: 'deep-scan', count: 5, pay: 'coins' });
+  expect(five.statusCode, five.body).toBe(200);
+  const body = five.json() as PullResponse;
+  expect(body.pulls).toHaveLength(5);
+  expect(body.wallet.coins).toBe(25);
+  expect(await ctx.db.selectFrom('galaxy.gacha_pulls').select('id').where('account_id', '=', id).execute()).toHaveLength(5);
+  // The 10 welcome signals pay two 5-pulls, one each scan.
+  expect(((await pull(cookie, { banner: 'deep-scan', count: 5, pay: 'signal' })).json() as PullResponse).wallet.signal).toBe(5);
+});
+
 test('sin saldo es 402 y no cambia nada', async () => {
   const { cookie, id } = await player();
   const res = await pull(cookie, { banner: 'deep-scan', count: 1, pay: 'coins' });

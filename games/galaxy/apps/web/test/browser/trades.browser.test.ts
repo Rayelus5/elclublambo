@@ -13,7 +13,7 @@ import '../../src/styles/app.css';
 // and the coins; at 1280×720 and 1920×1080, nothing sideways. Screenshots with VITE_TRADE_SHOTS=1.
 
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
-const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 48_210, dust: 1340, signal: 6 } };
+const gacha: GachaView = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 48_210, dust: 1340, signal: 6 } };
 const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
 const NAMES = ['Orsel', 'Kathra', 'Selem', 'Thaselos', 'Zenreila', 'Vaelith'];
 const pub = (i: number): PublicGalaxy => ({

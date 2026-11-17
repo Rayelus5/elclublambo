@@ -17,7 +17,9 @@ describe('configuración del gachapón', () => {
     expect(g.standard).toEqual({ base: 0.03, softStart: 8, softStep: 0.06, hard: 20 });
     expect(g.welcome).toEqual({ base: 0.06, softStart: 5, softStep: 0.15, hard: 10, signals: 10 });
     expect(g.featured).toEqual({ base: 0.005, softStart: 30, softStep: 0.04, hard: 45 });
-    expect(g.costs).toEqual({ coins: 100, coinsTen: 900, signals: 1 });
+    // The 5-pull (2026-11-17, the owner): 475 coins, 5 % off; a published config without it gets that.
+    expect(g.costs).toEqual({ coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 });
+    expect(parseConfig('gacha', { costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 } }).costs.coinsFive).toBe(475);
     expect(g.dailyFree).toBe(true);
     expect(g.finishes).toEqual([0.85, 0.1, 0.035, 0.013, 0.002]);
     expect(g.banners).toEqual([
@@ -62,13 +64,14 @@ describe('configuración del gachapón', () => {
 });
 
 describe('peticiones', () => {
-  test('una tirada es x1 o x10 y se paga con monedas, señales o la gratis', () => {
+  test('una tirada es x1, x5 o x10 y se paga con monedas, señales o la gratis', () => {
     expect(pullRequestSchema.parse({ banner: 'deep-scan', count: 10, pay: 'coins' })).toEqual({
       banner: 'deep-scan',
       count: 10,
       pay: 'coins',
     });
-    expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 5, pay: 'coins' })).toThrow();
+    expect(pullRequestSchema.parse({ banner: 'deep-scan', count: 5, pay: 'signal' }).count).toBe(5);
+    expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 3, pay: 'coins' })).toThrow();
     expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 1, pay: 'gems' })).toThrow();
   });
 

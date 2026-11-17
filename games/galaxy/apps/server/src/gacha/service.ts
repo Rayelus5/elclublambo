@@ -5,6 +5,7 @@ import {
   drawPull,
   FINISHES,
   generateGalaxy,
+  pullCost,
   TIERS,
   type Banner,
   type BannerView,
@@ -162,10 +163,10 @@ export async function pull(
       .executeTakeFirst();
     if (!used) throw new HttpError(409, 'free_pull_used');
   } else if (req.pay === 'coins') {
-    const cost = req.count === 10 ? cfg.costs.coinsTen : cfg.costs.coins;
-    await debit(trx, accountId, 'coins', cost, 'gacha', ref, opKey);
+    // Each size its own price (x1, x5, x10: gacha/costs.ts).
+    await debit(trx, accountId, 'coins', pullCost(cfg.costs, req.count, 'coins'), 'gacha', ref, opKey);
   } else {
-    await debit(trx, accountId, banner.currency, cfg.costs.signals * req.count, 'gacha', ref, opKey);
+    await debit(trx, accountId, banner.currency, pullCost(cfg.costs, req.count, 'signal'), 'gacha', ref, opKey);
   }
 
   let state = await readState(trx, accountId, banner.pityGroup, true);

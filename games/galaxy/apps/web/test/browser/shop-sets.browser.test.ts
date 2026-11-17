@@ -89,7 +89,7 @@ for (const [w, h] of [
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        const body = url.endsWith('/gacha') ? { banners: [], wallet: view.wallet, costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false } : view;
+        const body = url.endsWith('/gacha') ? { banners: [], wallet: view.wallet, costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false } : view;
         return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
       }),
     );

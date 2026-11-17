@@ -90,7 +90,7 @@ function mount(path: string, route: string, screen: ReactElement, api: (url: str
 
 const gacha: GachaView = {
   banners: [{ id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', currency: 'signal', nextRates: [0.4998, 0.27986, 0.12993, 0.05997, 0.02999, 0.0005], sinceLegendary: 6, untilGuarantee: 14, welcome: false }],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: true,
   wallet: { coins: 4200, dust: 860, signal: 12 },
 };
@@ -102,7 +102,7 @@ const collection: CollectionPage = {
 const notFound = () => json({ error: 'not_found' }, 404);
 const noOverflow = () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
-  for (const el of document.querySelectorAll<HTMLElement>('.screen-root, .screen-root > *')) expect(el.scrollWidth, el.className).toBeLessThanOrEqual(el.clientWidth + 1);
+  for (const el of document.querySelectorAll<HTMLElement>('.screen-root, .screen-root > :not([aria-hidden="true"])')) expect(el.scrollWidth, el.className).toBeLessThanOrEqual(el.clientWidth + 1);
 };
 
 test('en el perfil, el recuento por rareza cabe con su sexta columna', { timeout: 60_000 }, async () => {
