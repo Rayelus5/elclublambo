@@ -2356,7 +2356,12 @@ export const copy = {
       unknown: 'Buscando el sector',
       team: 'Equipo',
       you: 'Tú',
-      steps: { connect: 'Conectando', arena: 'Preparando la arena', sync: 'Sincronizando' },
+      // The start (2026-11-17): the arena, then the team (who is in), then a 3-2-1 on the server's clock.
+      // Back into a run already going: arena, then catching up (sync).
+      steps: { connect: 'Conectando', arena: 'Preparando la arena', team: 'Esperando al equipo', count: 'Despegue', sync: 'Sincronizando' },
+      online: 'Conectado',
+      joining: 'Conectando',
+      countLabel: (n: number) => `Despegue en ${n}`,
     },
     arena: {
       connecting: 'Conectando con la partida',

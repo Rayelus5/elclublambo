@@ -18,6 +18,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'mejora', text: 'Cuando todas las salas están ocupadas, el lobby te lo dice: únete a una con hueco o juega en solitario' },
       { kind: 'mejora', text: 'Una sala parada se cierra a los 10 minutos y deja su hueco libre' },
       { kind: 'mejora', text: '«Salir de la sala» ocupa todo el ancho, como el chat de la sala' },
+      { kind: 'mejora', text: 'Al despegar en grupo, la pantalla de carga espera a que entréis todos, te dice quién está conectado y cuenta 3, 2, 1 con la arena ya a la vista detrás. La partida empieza a la vez para todos, sin ese momento de mundo congelado' },
       { kind: 'mejora', text: 'Los iconos de los botones de colores (la barra del lobby, el escáner, la estación, Solo y En grupo…) son blancos con un borde oscuro: se leen igual sobre cualquier color y todos se ven iguales' },
     ],
   },
