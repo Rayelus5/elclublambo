@@ -49,11 +49,22 @@ test('el Taller enseña las skins bajo «Equipar», en mini tarjetas: la de seri
   await user.hover(fire.closest('label')!);
   expect(caption).toHaveTextContent('Exclusiva del Pack Fuego');
   expect(within(caption).getByRole('link', { name: t.skinShop })).toHaveAttribute('href', '/tienda?pestana=estilo');
+  // The bay's big probe previews the one pointed at, locked or not (the owner: every skin seen in full).
+  const bayProbe = () => document.querySelector('.workshop-probe')!;
+  expect(bayProbe()).toHaveAttribute('data-drawing', 'skin-lumen-fuego');
+  expect(screen.getByText(t.preview('Lumen de fuego'))).toBeInTheDocument();
+  // Pressing a locked one keeps it in the bay after the pointer leaves; one of mine puts it on and ends the preview.
+  await user.click(fire);
+  await user.unhover(fire.closest('label')!);
+  expect(bayProbe()).toHaveAttribute('data-drawing', 'skin-lumen-fuego');
   // One it has goes on at once.
   const coral = within(group).getByRole('radio', { name: 'Lumen de coral' });
   await user.click(coral);
   await waitFor(() => expect(fetch.mock.calls.some(([u, init]) => u === '/galaxy/api/hangar/probes/lumen/skin' && init?.method === 'PUT' && String(init.body).includes('skin-lumen-coral'))).toBe(true));
   expect(await within(group).findByRole('radio', { name: 'Lumen de coral' })).toBeChecked();
+  await user.unhover(coral.closest('label')!);
+  await waitFor(() => expect(bayProbe()).toHaveAttribute('data-drawing', 'skin-lumen-coral'));
+  expect(screen.queryByText(t.preview('Lumen de fuego'))).toBeNull();
 });
 
 test('en el lobby, la sonda grande cambia de skin al momento entre las que tienes, y sin skins no hay selector', async () => {

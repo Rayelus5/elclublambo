@@ -4093,19 +4093,21 @@
   .workshop-equip-hint { color: var(--color-ink-soft); font-size: 14px; }
   /* The probe's skins under «Equipar» (2026-11-17): mini cards in rows, the worn one in solar with a tick, the locked
      ones dimmed with a padlock, and a line under them that tells the one pointed at (or worn). */
-  .skin-grid { display: grid; justify-items: center; justify-self: center; gap: 10px; inline-size: min(100%, 640px); }
+  .skin-grid { display: grid; justify-items: center; justify-self: center; gap: 12px; inline-size: 100%; }
   .skin-grid-title { color: var(--color-ink-soft); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-  .skin-grid-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-inline-size: 424px; }
-  .skin-mini { position: relative; display: grid; place-items: center; inline-size: 64px; block-size: 64px; border-radius: 16px; background: rgb(0 0 0 / .28); box-shadow: inset 0 0 0 2px var(--color-panel-2); cursor: pointer; transition: transform .18s var(--ease-bounce), box-shadow .18s; }
+  .skin-grid-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-inline-size: 698px; }
+  .skin-mini { position: relative; display: grid; place-items: center; inline-size: 108px; block-size: 108px; border-radius: 20px; background: rgb(0 0 0 / .28); box-shadow: inset 0 0 0 2px var(--color-panel-2); cursor: pointer; transition: transform .18s var(--ease-bounce), box-shadow .18s; }
   .skin-mini img { display: block; image-rendering: pixelated; }
   .skin-mini:hover, .skin-mini:has(input:focus-visible) { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--color-sky); }
   .skin-mini:has(input:focus-visible) { outline: 2px solid var(--color-sky); outline-offset: 3px; }
   .skin-mini.on { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 18px rgb(255 201 74 / .25); background: rgb(255 201 74 / .08); }
   .skin-mini.locked { cursor: help; }
   .skin-mini.locked img { opacity: .42; filter: grayscale(.6); }
-  .skin-mini-badge { position: absolute; inset-inline-end: -5px; inset-block-start: -5px; width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: var(--color-panel); color: var(--color-solar); }
+  .skin-mini-badge { position: absolute; inset-inline-end: -6px; inset-block-start: -6px; width: 24px; height: 24px; padding: 2px; border-radius: 50%; background: var(--color-panel); color: var(--color-solar); }
   .skin-mini-badge.lock { color: var(--color-ink-soft); }
-  .skin-grid-caption { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; min-block-size: 24px; margin: 0; text-align: center; font-size: 14px; }
+  .skin-grid-caption { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; min-block-size: 26px; margin: 0; text-align: center; font-size: 16px; }
+  /* The bay previewing a skin that is not the worn one (2026-11-17). */
+  .workshop-preview-tag { position: absolute; z-index: 2; inset-block-start: 14px; inset-inline-start: 50%; translate: -50% 0; padding: 6px 14px; border-radius: 999px; background: rgb(7 10 28 / .8); box-shadow: inset 0 0 0 2px var(--color-sky); color: var(--color-ink); font-size: 15px; font-weight: 700; white-space: nowrap; }
   .skin-grid-caption span { color: var(--color-ink-soft); }
   .skin-grid-shop { color: var(--color-solar); font-weight: 700; }
 

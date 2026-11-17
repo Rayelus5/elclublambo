@@ -342,6 +342,14 @@ for (const [w, h] of [
       expect(r.right).toBeLessThanOrEqual(column.right);
     }
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    // Big cards: the skin at ×4 (96 px).
+    expect(picker.querySelector<HTMLElement>('.skin-mini img')!.getBoundingClientRect().width).toBe(96);
+    // Pointing at a locked skin previews it in the bay, big.
+    const fire = picker.querySelector<HTMLInputElement>('input[value="skin-lumen-fuego"]')!.closest('label')!;
+    fire.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+    fire.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }));
+    await expect.poll(() => document.querySelector('.workshop-probe')?.getAttribute('data-drawing')).toBe('skin-lumen-fuego');
+    expect(document.querySelector('.workshop-preview-tag')).not.toBeNull();
     picker.scrollIntoView({ block: 'center' });
     if (import.meta.env['VITE_ARENA_SHOTS']) {
       await page.screenshot({ path: `__shots__/workshop-skins-${w}.png` });

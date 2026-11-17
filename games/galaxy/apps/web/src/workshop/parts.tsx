@@ -1,5 +1,4 @@
 import { DEFAULT_COSMETICS, type ProbeCard, SCRAP_SKIN_RUNS, skinParts } from '@galaxy/shared';
-import { useState } from 'react';
 import { Link } from 'react-router';
 import { useCosmeticsView } from '../api/cosmetics';
 import { SpriteLoop } from '../ui/SpriteLoop';
@@ -143,7 +142,18 @@ export function WeaponPicker({ probe }: { probe: ProbeCard }) {
  * pointer) to read under the grid what it is and how it is won; only the owned ones go on, at once. A locked skin of
  * the shop leads to its tab. The one worn and the one pointed at move; the rest stay still.
  */
-export function SkinPicker({ probe }: { probe: ProbeCard }) {
+/** What the bay previews (2026-11-17): the skin pointed at, or the one pressed among the locked ones; else the worn one. */
+export interface SkinPreview {
+  hover?: string | null;
+  pin?: string | null;
+}
+
+/** The drawing the bay shows: the one previewed, or the one worn. */
+export function previewed(preview: SkinPreview, worn: string | null): string | null {
+  return preview.hover !== undefined ? preview.hover : preview.pin !== undefined ? preview.pin : worn;
+}
+
+export function SkinPicker({ probe, preview, onPreview }: { probe: ProbeCard; preview: SkinPreview; onPreview: (next: SkinPreview) => void }) {
   const t = copy.workshop;
   const choose = useChooseSkin();
   const reduced = useReducedMotion();
@@ -152,8 +162,9 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
   const skins = [...all.filter((k) => probe.skins.includes(k.id)), ...all.filter((k) => !probe.skins.includes(k.id))];
   // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
   const chosen = choose.isPending ? choose.variables.skin : probe.skin;
-  const [peek, setPeek] = useState<string | null | undefined>(undefined);
+  // Putting one on ends the preview.
   const pick = (skin: string | null) => {
+    onPreview({});
     if (skin !== probe.skin) choose.mutate({ probe: probe.id, skin });
   };
   const hint = (id: string, fallback: string) => {
@@ -161,9 +172,14 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
     if (probe.skins.includes(id)) return t.skinLines[line] ?? fallback;
     return line === 'chatarra' ? t.scrapProgress(probe.runs, SCRAP_SKIN_RUNS, probe.name) : fallback;
   };
-  const shown = peek === undefined ? chosen : peek;
+  const shown = previewed(preview, chosen);
   const item = shown ? skins.find((k) => k.id === shown) : null;
-  const point = (id: string | null) => ({ onPointerEnter: () => setPeek(id), onPointerLeave: () => setPeek(undefined), onFocus: () => setPeek(id), onBlur: () => setPeek(undefined) });
+  const point = (id: string | null) => ({
+    onPointerEnter: () => onPreview({ ...preview, hover: id }),
+    onPointerLeave: () => onPreview({ pin: preview.pin }),
+    onFocus: () => onPreview({ ...preview, hover: id }),
+    onBlur: () => onPreview({ pin: preview.pin }),
+  });
   return (
     <div className="skin-grid">
       <span className="skin-grid-title" id={`skins-${probe.id}`}>
@@ -172,7 +188,7 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
       <div role="radiogroup" aria-labelledby={`skins-${probe.id}`} className="skin-grid-cards">
         <label className={`skin-mini${chosen === null ? ' on' : ''}`} {...point(null)}>
           <input className="sr-only" type="radio" name={`skin-${probe.id}`} value="" aria-label={t.skinBase} checked={chosen === null} onChange={() => pick(null)} />
-          <img src={spriteDataUrl(probe.sprite, 2)} alt="" width={48} height={48} />
+          <img src={spriteDataUrl(probe.sprite, 4)} alt="" width={96} height={96} />
           {chosen === null ? <Icon name="check" className="ico skin-mini-badge" /> : null}
         </label>
         {skins.map((k) => {
@@ -188,9 +204,9 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
                 aria-label={k.name}
                 aria-disabled={owned ? undefined : true}
                 checked={on}
-                onChange={() => (owned ? pick(k.id) : setPeek(k.id))}
+                onChange={() => (owned ? pick(k.id) : onPreview({ hover: preview.hover, pin: k.id }))}
               />
-              <SpriteLoop id={k.id} scale={2} reduced={reduced || !(on || shown === k.id)} width={48} height={48} />
+              <SpriteLoop id={k.id} scale={4} reduced={reduced || !(on || shown === k.id)} width={96} height={96} />
               {on ? <Icon name="check" className="ico skin-mini-badge" /> : !owned ? <Icon name="lock" className="ico skin-mini-badge lock" /> : null}
             </label>
           );
