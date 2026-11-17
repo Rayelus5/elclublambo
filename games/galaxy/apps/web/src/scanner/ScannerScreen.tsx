@@ -166,56 +166,84 @@ function FeaturedCard({ banner, galaxy }: { banner: BannerView; galaxy?: ShownGa
   );
 }
 
+const SIZES: readonly PullCount[] = [1, 5, 10];
+
+/** The smallest pull this balance does not reach, and how much it lacks; null when every size can be paid. */
+export function shortOf(costs: GachaView["costs"], pay: "coins" | "signal", have: number): { size: PullCount; missing: number } | null {
+  for (const n of SIZES) {
+    const cost = pullCost(costs, n, pay);
+    if (have < cost) return { size: n, missing: cost - have };
+  }
+  return null;
+}
+
+type PullLook = "solar" | "pull-event" | "pull-coins";
+
+/**
+ * A pull button «Sobres» (2026-11-17, the owner's pick): the cards it opens (one, five in a fan, a deck of ten), its
+ * number and its price in a dark pill with the currency's icon. Its name says it whole («Escanear 10, 10 señales»).
+ */
 function PullButton({
   count,
   cost,
+  pay,
   disabled,
   onClick,
-  solar,
-  event,
+  look,
   tour,
   best,
 }: {
   count: PullCount;
-  cost: string;
+  cost: number;
+  pay: "coins" | "signal";
   disabled: boolean;
   onClick: () => void;
-  solar?: boolean;
-  event?: boolean;
+  look: PullLook;
   tour?: string;
   /** The size that costs least per scan (gacha/costs.ts bestValue): «Mejor precio». */
   best?: boolean;
 }) {
+  const costText = pay === "signal" ? copy.scanner.costSignals(cost) : copy.scanner.costCoins(cost);
   return (
     <button
       type="button"
-      className={`lip pull-btn${solar ? " solar" : ""}${event ? " pull-event" : ""}${best ? " best" : ""}`}
+      className={`lip pull-btn ${look}${best ? " best" : ""}`}
       disabled={disabled}
       onClick={onClick}
       data-tour={tour}
       data-count={count}
+      aria-label={`${copy.scanner.pull(count)}, ${costText}${best ? `, ${copy.scanner.bestValue}` : ""}`}
     >
-      {best ? <span className="pull-best">{copy.scanner.bestValue}</span> : null}
-      {/* «Escanear» small over the big number (the name still reads «Escanear 10»). */}
-      <b>
-        <span className="pull-word">{copy.scanner.pullWord}</span> <span className="pull-n">{count}</span>
-      </b>
-      <span className="pull-cost">{cost}</span>
+      <span className="pull-shine" aria-hidden="true" />
+      {best ? (
+        <span className="pull-best" aria-hidden="true">
+          {copy.scanner.bestValue}
+        </span>
+      ) : null}
+      <span className="pull-fan" data-count={count} aria-hidden="true">
+        {Array.from({ length: count === 1 ? 1 : 5 }, (_, i) => (
+          <i key={i} style={count === 10 ? ({ "--k": i - 2 } as CSSProperties) : undefined} />
+        ))}
+      </span>
+      <span className="pull-n" aria-hidden="true">
+        ×{count}
+      </span>
+      <span className="pull-price" aria-hidden="true">
+        <Icon name={pay === "signal" ? "ticket" : "coin"} />
+        {fmt(cost)}
+      </span>
     </button>
   );
 }
 
-const SIZES: readonly PullCount[] = [1, 5, 10];
-
-/** One row of pull buttons (x1, x5, x10) for one way of paying, each at its price; the best value marked. */
+/** One way of paying: ×1, ×5 and ×10 at their prices, the best value marked, and what the balance lacks under them. */
 function PullRow({
   costs,
   pay,
   have,
   busy,
   onScan,
-  solar,
-  event,
+  look,
   tour,
 }: {
   costs: GachaView["costs"];
@@ -223,30 +251,35 @@ function PullRow({
   have: number;
   busy: boolean;
   onScan: (count: PullCount) => void;
-  solar?: boolean;
-  event?: boolean;
+  look: PullLook;
   tour?: string;
 }) {
   const best = bestValue(costs, pay);
+  const short = busy ? null : shortOf(costs, pay, have);
   return (
-    <>
+    <div className="pull-row">
       {SIZES.map((n) => {
         const cost = pullCost(costs, n, pay);
         return (
           <PullButton
             key={n}
             count={n}
-            cost={pay === "signal" ? copy.scanner.costSignals(cost) : copy.scanner.costCoins(cost)}
+            cost={cost}
+            pay={pay}
             disabled={busy || have < cost}
             onClick={() => onScan(n)}
-            solar={solar}
-            event={event}
+            look={look}
             tour={n === 10 ? tour : undefined}
             best={best === n}
           />
         );
       })}
-    </>
+      {short ? (
+        <p className="pull-short">
+          {copy.scanner.shortFor(pay === "signal" ? copy.scanner.missingSignals(short.missing) : copy.scanner.missingCoins(short.missing), short.size)}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -437,36 +470,39 @@ export function ScannerScreen() {
                   </span>
                 </button>
               ) : null}
-              {banner.currency === "signal" ||
-              banner.currency.startsWith("signal:") ? (
-                <div className="pull-row">
-                  <span className="pull-label">
-                    {banner.currency === "signal"
-                      ? copy.scanner.withSignals
-                      : copy.scanner.withEventSignals(signals)}
+              {/* «Escanear» once, with what you hold (2026-11-17): the buttons need no labels of their own. */}
+              <div className="pull-head">
+                <span className="pull-title">{copy.scanner.pullTitle}</span>
+                <span className="pull-have">
+                  <span className={`pull-have-item ${isEvent ? "pull-have-uv" : "pull-have-signal"}`}>
+                    <Icon name="ticket" />
+                    <b aria-hidden="true">{fmt(signals)}</b>
+                    <span className="sr-only">{isEvent ? copy.hub.resource.eventSignal(signals) : copy.hub.resource.signal(signals)}</span>
                   </span>
-                  <PullRow
-                    costs={view.costs}
-                    pay="signal"
-                    have={signals}
-                    busy={busy}
-                    onScan={(n) => scan(n, "signal")}
-                    solar={!isEvent}
-                    event={isEvent}
-                    tour="pull10"
-                  />
-                </div>
-              ) : null}
-              <div className="pull-row">
-                <span className="pull-label">{copy.scanner.withCoins}</span>
-                <PullRow
-                  costs={view.costs}
-                  pay="coins"
-                  have={wallet?.coins ?? 0}
-                  busy={busy}
-                  onScan={(n) => scan(n, "coins")}
-                />
+                  <span className="pull-have-item pull-have-coins">
+                    <Icon name="coin" />
+                    <b aria-hidden="true">{fmt(wallet?.coins ?? 0)}</b>
+                    <span className="sr-only">{copy.hub.resource.coins(wallet?.coins ?? 0)}</span>
+                  </span>
+                </span>
               </div>
+              <PullRow
+                costs={view.costs}
+                pay="signal"
+                have={signals}
+                busy={busy}
+                onScan={(n) => scan(n, "signal")}
+                look={isEvent ? "pull-event" : "solar"}
+                tour="pull10"
+              />
+              <PullRow
+                costs={view.costs}
+                pay="coins"
+                have={wallet?.coins ?? 0}
+                busy={busy}
+                onScan={(n) => scan(n, "coins")}
+                look="pull-coins"
+              />
             </aside>
           </main>
         ) : null}

@@ -723,7 +723,7 @@
   /* The guarantee as a charging core (2026-11-17, the owner: «Garantía y botones con carácter»): a ring that fills with
      the scans since the last Legendary and an orb that glows brighter as it nears; from 80 % it is hot and pulses. */
   .pity-core { position: relative; flex: none; inline-size: 58px; block-size: 58px; }
-  .pity-core svg { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; transform: rotate(-90deg); }
+  .pity-core svg { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; transform: rotate(-90deg); overflow: visible; }
   .pity-track, .pity-fill { fill: none; stroke-width: 5; }
   .pity-track { stroke: rgb(0 0 0 / .35); }
   .pity-fill { stroke: var(--pity-c, var(--color-solar)); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--charge, 0) * 100); filter: drop-shadow(0 0 4px var(--pity-c, var(--color-solar))); transition: stroke-dashoffset .6s var(--ease-bounce); }
@@ -740,20 +740,57 @@
   .pull-free .ico { font-size: 30px; }
   .pull-free b { display: block; font-size: 18px; }
   .pull-free span span { font-size: 13.5px; font-weight: 500; }
+  /* The pull buttons «Sobres» (2026-11-17, the owner's pick among three mock-ups): «Escanear» once over the block with
+     what you hold; each button the cards it opens (one, five in a fan, a deck of ten), its number and its price in a dark
+     pill with the currency's icon. Signals in Solar (UV in an event), coins in deep blue with a dark blue lip. */
+  .pull-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pull-title { font: 400 15px var(--font-display); letter-spacing: .04em; color: var(--color-ink); }
+  .pull-have { display: inline-flex; align-items: center; gap: 12px; font-size: 13.5px; font-weight: 700; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
+  .pull-have-item { display: inline-flex; align-items: center; gap: 5px; }
+  .pull-have-item .ico { font-size: 16px; }
+  .pull-have-signal .ico { color: var(--color-nova); }
+  .pull-have-uv .ico { color: var(--color-uv-soft); }
+  .pull-have-coins .ico { color: var(--color-solar); }
   .pull-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-  .pull-label { grid-column: 1 / -1; font-size: 13.5px; font-weight: 600; color: var(--color-ink-mute); }
-  .pull-btn { --r: 18px; --lip-h: 5px; position: relative; height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-inline: 6px; background: var(--color-panel-2); color: var(--color-ink); }
-  .pull-btn b { display: flex; flex-direction: column; align-items: center; line-height: 1; white-space: nowrap; }
-  .pull-btn .pull-word { font: 800 10.5px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; opacity: .8; color: inherit; }
-  .pull-btn .pull-n { margin-block-start: 1px; font: 400 24px var(--font-display); color: inherit; }
-  .pull-btn .pull-cost { font-size: 12.5px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
+  .pull-btn { --r: 18px; --lip-h: 5px; position: relative; display: grid; justify-items: center; align-content: center; gap: 7px; min-block-size: 124px; padding: 12px 6px 11px; color: var(--color-ink); }
+  .pull-btn .pull-n { font: 400 22px/1 var(--font-display); color: inherit; }
+  .pull-btn .pull-price { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; background: rgb(0 0 0 / .2); font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pull-btn .pull-price .ico { font-size: 15px; }
+  .pull-btn.pull-coins .pull-price, .pull-btn.pull-event .pull-price { background: rgb(0 0 0 / .3); }
+  .pull-btn.pull-coins .pull-price .ico { color: var(--color-solar); filter: drop-shadow(0 0 4px rgb(255 201 74 / .6)); }
   /* «Mejor precio»: a Nova ribbon over the size that costs least per scan. */
-  .pull-btn .pull-best { position: absolute; top: -15px; right: 6px; padding: 2px 8px; border-radius: 99px; background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: #fff; font: 800 10.5px var(--font-sans); letter-spacing: .02em; box-shadow: 0 2px 0 var(--color-nova-lip), 0 0 12px rgb(255 107 122 / .45); opacity: 1; }
-  .pull-btn.best { box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), inset 0 -3px 0 rgb(0 0 0 / .18), 0 var(--lip-h) 0 var(--lip-c, var(--color-panel-lip)), 0 0 0 2px color-mix(in srgb, var(--color-nova) 55%, transparent), 0 14px 26px rgb(0 0 0 / .35); }
+  .pull-btn .pull-best { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); z-index: 2; padding: 2px 10px; border-radius: 99px; background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: #fff; font: 700 11px var(--font-sans); white-space: nowrap; box-shadow: 0 2px 0 var(--color-nova-lip), 0 0 14px rgb(255 107 122 / .5); }
   .pull-btn.solar { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
-  .pull-btn.solar .pull-cost { color: var(--color-on-solar); opacity: .8; }
-  .pull-btn.pull-event { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 45%, var(--color-uv-2)); }
-  .pull-btn.pull-event .pull-cost { color: #fff; opacity: .85; }
+  .pull-btn.pull-event { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 50%, var(--color-uv-2)); }
+  .pull-btn.pull-coins { --lip-c: #0d1036; color: #fff3cf; background: linear-gradient(160deg, #3b3f86, #2a2d66 55%, var(--color-panel-2)); }
+  /* The cards: one, five in a fan that opens under the pointer, a deck of ten that spreads; coloured by the button. */
+  .pull-fan { position: relative; inline-size: 64px; block-size: 46px; }
+  .pull-fan i { position: absolute; left: 50%; bottom: 0; inline-size: 26px; block-size: 38px; margin-left: -13px; border-radius: 5px; border: 2px solid rgb(255 255 255 / .85); background: linear-gradient(160deg, #6a5cff, #2b2780); box-shadow: 0 2px 0 rgb(0 0 0 / .3); transform-origin: 50% 120%; transition: transform .3s var(--ease-bounce); }
+  .pull-fan i::after { content: ''; position: absolute; inset: 5px; border-radius: 3px; background: radial-gradient(circle at 50% 45%, rgb(255 255 255 / .9) 0 2px, transparent 3px), repeating-radial-gradient(circle at 50% 45%, rgb(191 227 255 / .5) 0 1px, transparent 1px 4px); }
+  .pull-btn.solar .pull-fan i { border-color: #7a3c00; background: linear-gradient(160deg, #fff1b8, #ffb84a); }
+  .pull-btn.solar .pull-fan i::after { background: radial-gradient(circle at 50% 45%, #7a3c00 0 2px, transparent 3px), repeating-radial-gradient(circle at 50% 45%, rgb(122 60 0 / .35) 0 1px, transparent 1px 4px); }
+  .pull-btn.pull-event .pull-fan i { border-color: #2a1f7a; background: linear-gradient(160deg, #e9e2ff, #b6a4ff); }
+  .pull-btn.pull-event .pull-fan i::after { background: radial-gradient(circle at 50% 45%, #2a1f7a 0 2px, transparent 3px), repeating-radial-gradient(circle at 50% 45%, rgb(42 31 122 / .35) 0 1px, transparent 1px 4px); }
+  .pull-fan[data-count='5'] i:nth-child(1) { transform: rotate(-24deg); }
+  .pull-fan[data-count='5'] i:nth-child(2) { transform: rotate(-12deg); }
+  .pull-fan[data-count='5'] i:nth-child(4) { transform: rotate(12deg); }
+  .pull-fan[data-count='5'] i:nth-child(5) { transform: rotate(24deg); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='5'] i:nth-child(1) { transform: rotate(-34deg); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='5'] i:nth-child(2) { transform: rotate(-17deg); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='5'] i:nth-child(4) { transform: rotate(17deg); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='5'] i:nth-child(5) { transform: rotate(34deg); }
+  .pull-fan[data-count='10'] i { transform: translate(calc(var(--k) * 2.4px), calc(var(--k) * -2.4px)); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='10'] i { transform: translate(calc(var(--k) * 3.4px), calc(var(--k) * -3.4px)); }
+  .pull-btn:hover:not(:disabled) .pull-fan[data-count='1'] i { transform: translateY(-4px) rotate(-6deg); }
+  /* A shine passes now and then, each size a little later. */
+  .pull-shine { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+  .pull-shine::after { content: ''; position: absolute; inset-block: -40%; inline-size: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / .32), transparent); transform: skewX(-18deg); animation: pull-shine 4.2s ease-in-out infinite; }
+  .pull-btn[data-count='5'] .pull-shine::after { animation-delay: .5s; }
+  .pull-btn[data-count='10'] .pull-shine::after { animation-delay: 1s; }
+  .pull-btn:disabled .pull-shine { display: none; }
+  @keyframes pull-shine { 0%, 60% { left: -60%; } 85%, 100% { left: 130%; } }
+  .pull-short { grid-column: 1 / -1; margin: -2px 0 0; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--color-nova); }
+  :where(:root[data-motion='reduced']) { .pull-shine::after { animation: none; } .pull-fan i { transition: none; } }
 
   /* The two scanners (open beta): big tabs, the standard one in Solar and the event one in UV with its «Evento» badge.
      The event scanner tints the whole screen purple, pays with its purple tickets, and announces its featured galaxy
@@ -800,7 +837,7 @@
   .pull-btn:disabled, .pull-free:disabled { opacity: .45; box-shadow: none; filter: saturate(.5); }
   @media (max-height: 820px) {
     .odds th, .odds td { padding: 4px 12px; }
-    .pull-btn { height: 56px; }
+    .pull-btn { min-block-size: 108px; gap: 5px; padding-block: 9px 9px; }
   }
 
   /* The CRT terminal: a bezel with relief, a curved dark screen with scan lines and a vignette. */

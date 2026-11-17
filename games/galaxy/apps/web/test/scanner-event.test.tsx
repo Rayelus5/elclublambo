@@ -52,7 +52,8 @@ test('el escáner de evento se distingue: su pestaña dice «Escáner de evento�
   expect(screen.getByRole('heading', { level: 1, name: t.eventTab })).toBeInTheDocument();
   expect(screen.getByText(event.name)).toBeInTheDocument();
   expect(document.querySelector('.scanner.is-event')).not.toBeNull();
-  expect(screen.getByText(t.withEventSignals(4))).toBeInTheDocument();
+  // The pay block's head says what you hold: the event signals by their icon and number (2026-11-17, «Sobres»).
+  expect(within(document.querySelector<HTMLElement>('.pull-head')!).getByText(copy.hub.resource.eventSignal(4))).toBeInTheDocument();
 });
 
 test('la destacada del evento se anuncia en grande: el rasgo, cuántos escaneos faltan para que sea segura y el camino hecho', async () => {
