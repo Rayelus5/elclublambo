@@ -31,6 +31,7 @@ import { madridDay } from '../economy/day';
 import { runOperation } from '../economy/operations';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { isAllowedOrigin } from '../security/origin';
 import type { GatewayPrice, GatewaySession, ShopGateway } from './gateway';
 
 // The resource shop on the server (shop and lab plan, F4). Paying is two steps:
@@ -50,8 +51,10 @@ export interface ShopDeps {
   config: Pick<ConfigService, 'get' | 'getVersioned' | 'versions'>;
   now: () => Date;
   gateway: ShopGateway | null;
-  /** The first is the shop's public origin (Stripe's return URL is built from it, never from the request). */
+  /** The game's origins (env.GALAXY_PUBLIC_ORIGINS): Stripe's return URL is only ever built on one of them. */
   origins: string[];
+  /** The game's own origin: a payment returns to it when the request brought none of ours. */
+  canonicalOrigin?: string | null;
   live?: { send(accountId: string, event: LiveEvent): void };
   log?: { info(obj: object, msg: string): void; warn(obj: object, msg: string): void };
 }
@@ -83,6 +86,24 @@ interface Snapshot {
   total: ShopAmounts;
   priceCents: number;
   offer: ShopProduct['offer'];
+  /** The origin Stripe's payment returns to (galaxysurvivor.es plan); absent in older purchases (they used the first). */
+  returnOrigin?: string;
+}
+
+/**
+ * Where a payment returns (galaxysurvivor.es plan, PR 1): the host it started on, when the request's Origin is one of
+ * ours (the CSRF guard already checked it; checked again here, so no other value ever reaches Stripe); otherwise the
+ * canonical origin, and then the first configured one.
+ */
+export function checkoutReturnOrigin(requestOrigin: string | undefined, deps: Pick<ShopDeps, 'origins' | 'canonicalOrigin'>): string {
+  if (requestOrigin && isAllowedOrigin(requestOrigin, deps.origins)) return requestOrigin;
+  return deps.canonicalOrigin ?? deps.origins[0]!;
+}
+
+/** Where this payment returns now, and where older purchases (without it in their snapshot) returned. */
+interface ReturnTo {
+  origin: string;
+  legacy: string | undefined;
 }
 
 /** The shop's own lock per account (checkouts of one account never race on its limits). */
@@ -144,14 +165,19 @@ async function openOf(db: Db, accountId: string, product: string, now: Date): Pr
     .execute();
 }
 
-/** Whether an unfinished payment can simply carry on: the same price, extra, terms and name, and time left. */
-function resumable(r: OpenRow, product: ShopProduct, price: { cents: number; stripePriceId: string | null }, first: boolean, terms: string, now: Date): boolean {
+/**
+ * Whether an unfinished payment can simply carry on: the same price, extra, terms and name, time left, and the same
+ * return host (Stripe's session is opened again with the same request, its idempotency key being the purchase).
+ */
+function resumable(r: OpenRow, product: ShopProduct, price: { cents: number; stripePriceId: string | null }, first: boolean, terms: string, now: Date, back: ReturnTo): boolean {
+  const snapshot = r.snapshot as Snapshot;
   return (
     r.amount_cents === price.cents &&
     r.stripe_price_id === price.stripePriceId &&
     r.first_bonus === first &&
     r.terms_version === terms &&
-    (r.snapshot as Snapshot).product.name === product.name &&
+    snapshot.product.name === product.name &&
+    (snapshot.returnOrigin ?? back.legacy) === back.origin &&
     r.expires_at.getTime() - now.getTime() > RESUME_MS
   );
 }
@@ -385,10 +411,13 @@ interface Reservation {
   priceId: string;
   product: string;
   name: string;
+  /** Where its payment returns; absent in a reservation kept before it existed (those used the first origin). */
+  returnOrigin?: string;
 }
 
-export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: ShopCheckoutRequest, key: string, hash: string): Promise<ShopCheckout> {
+export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: ShopCheckoutRequest, key: string, hash: string, requestOrigin?: string): Promise<ShopCheckout> {
   const cfg = await deps.config.get('shop');
+  const back: ReturnTo = { origin: checkoutReturnOrigin(requestOrigin, deps), legacy: deps.origins[0] };
   const gateway = deps.gateway;
   const now = deps.now();
   const staff = isStaff(session);
@@ -418,12 +447,12 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
   const done = (await purchaseCounts(deps.db, accountId)).get(product.id) ?? { bought: 0, firstUsed: false };
   const first = product.firstBonus && cfg.firstPurchase.enabled && !done.firstUsed;
   for (const r of await openOf(deps.db, accountId, product.id, now)) {
-    if (!resumable(r, product, price, first, body.terms, now)) await closeOpen(deps, gateway, r);
+    if (!resumable(r, product, price, first, body.terms, now, back)) await closeOpen(deps, gateway, r);
   }
   // Unfinished payments never take up the limits: when they would leave this purchase out (of the daily limit or of
   // the open payments allowed), the oldest are closed first, in Stripe too, so what gets paid always stays within them
   // (one paid meanwhile is delivered and counts). Carrying on with this product's own payment needs no room.
-  const carriesOn = (await openOf(deps.db, accountId, product.id, now)).some((r) => resumable(r, product, price, first, body.terms, now));
+  const carriesOn = (await openOf(deps.db, accountId, product.id, now)).some((r) => resumable(r, product, price, first, body.terms, now, back));
   if (!carriesOn) {
     await expireStale(deps.db, accountId, now);
     for (const r of await allOpen(deps.db, accountId, now)) {
@@ -433,7 +462,7 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
     }
   }
 
-  const reservation = await runOperation(deps.db, accountId, key, 'shop.checkout', hash, (trx) => reserve(trx, cfg, product, accountId, staff, now, body.terms, price));
+  const reservation = await runOperation(deps.db, accountId, key, 'shop.checkout', hash, (trx) => reserve(trx, cfg, product, accountId, staff, now, body.terms, price, back));
   return startSession(deps, gateway, reservation, accountId);
 }
 
@@ -446,6 +475,7 @@ async function reserve(
   now: Date,
   terms: string,
   price: { cents: number; stripePriceId: string | null },
+  back: ReturnTo,
 ): Promise<Reservation> {
   await lockShop(trx, accountId);
   await expireStale(trx, accountId, now);
@@ -459,8 +489,8 @@ async function reserve(
   if (await ownsAll(trx, accountId, product)) throw new HttpError(409, 'shop_once_used');
   const first = product.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
   // Pressing «Comprar» again carries on with the unfinished payment of this product (its limits already count it).
-  const open = (await openOf(trx, accountId, product.id, now)).find((r) => resumable(r, product, price, first, terms, now));
-  if (open) return { purchase: open.id, priceId: open.stripe_price_id, product: product.id, name: product.name };
+  const open = (await openOf(trx, accountId, product.id, now)).find((r) => resumable(r, product, price, first, terms, now, back));
+  if (open) return { purchase: open.id, priceId: open.stripe_price_id, product: product.id, name: product.name, returnOrigin: back.origin };
   if ((await openPayments(trx, accountId, now)) >= cfg.limits.pendingMax) throw new HttpError(409, 'shop_pending_limit');
   if ((await spentToday(trx, accountId, now)) + price.cents > cfg.limits.dailyCents) throw new HttpError(409, 'shop_daily_limit');
   const { base, extra, total } = purchaseGrants(product, now, first, cfg);
@@ -473,6 +503,7 @@ async function reserve(
     total,
     priceCents: price.cents,
     offer: activeOffer(product, now),
+    returnOrigin: back.origin,
   };
   const row = await trx
     .insertInto('galaxy.shop_purchases')
@@ -492,7 +523,7 @@ async function reserve(
     })
     .returning('id')
     .executeTakeFirstOrThrow();
-  return { purchase: row.id, priceId: price.stripePriceId!, product: product.id, name: product.name };
+  return { purchase: row.id, priceId: price.stripePriceId!, product: product.id, name: product.name, returnOrigin: back.origin };
 }
 
 /** Opens (or, repeated, finds again: Stripe's idempotency) the purchase's payment session. */
@@ -507,7 +538,7 @@ async function startSession(deps: ShopDeps, gateway: ShopGateway, r: Reservation
       productId: r.product,
       productName: r.name,
       priceId: r.priceId,
-      returnUrl: `${deps.origins[0]}/galaxy/tienda?compra=${r.purchase}`,
+      returnUrl: `${r.returnOrigin ?? deps.origins[0]}/galaxy/tienda?compra=${r.purchase}`,
       // Fixed by the purchase, so a repeated call sends the same request.
       expiresAt: new Date(row.created_at.getTime() + SESSION_MS),
     });

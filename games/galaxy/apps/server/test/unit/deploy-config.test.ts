@@ -20,6 +20,28 @@ test('el túnel manda /galaxy al contenedor galaxy antes que la regla general de
   expect(ingress[catchAll]!.service).toBe('http://web:3000');
 });
 
+test('el túnel manda galaxysurvivor.es y www al contenedor galaxy, sin ruta, justo antes del 404 final', () => {
+  const ingress = load('deploy/preprod/cloudflared/config.yml').ingress as Rule[];
+  const own = ingress.slice(-3, -1);
+  expect(own).toEqual([
+    { hostname: 'galaxysurvivor.es', service: 'http://galaxy:8080' },
+    { hostname: 'www.galaxysurvivor.es', service: 'http://galaxy:8080' },
+  ]);
+  expect(ingress.at(-1)).toEqual({ service: 'http_status:404' });
+  // After every pre.elclub.party rule: the old host's order does not change.
+  const lastPre = ingress.findLastIndex((r) => r.hostname === 'pre.elclub.party');
+  expect(ingress.length - 3).toBeGreaterThan(lastPre);
+});
+
+test('el dominio propio va en el environment de compose, apagado, y cada clave está en DEPLOY_PRE', () => {
+  const g = load('deploy/preprod/docker-compose.yml').services.galaxy;
+  // Public values only (never a secret: those live in galaxy.env). The cutover switch stays empty until its own PR.
+  expect(g.environment).toEqual({ GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: '' });
+  const guide = readFileSync(root + 'games/galaxy/docs/DEPLOY_PRE.md', 'utf8');
+  for (const key of Object.keys(g.environment)) expect(guide, key).toContain(`\`${key}\``);
+  expect(guide).toContain('## Dominio propio');
+});
+
 test('el servicio galaxy de compose está endurecido y en la red de Supabase', () => {
   const compose = load('deploy/preprod/docker-compose.yml');
   const g = compose.services.galaxy;

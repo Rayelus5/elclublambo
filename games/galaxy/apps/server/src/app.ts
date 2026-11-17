@@ -64,6 +64,7 @@ import { createLoadMonitor, processReaders, registerLoadRoutes } from './admin/l
 import { registerMaintenanceGate } from './maintenance';
 import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
+import { registerHostRedirects } from './security/host';
 import { registerOriginGuard } from './security/origin';
 import { registerStatic, sendSpaShell, wantsSpaShell } from './static';
 
@@ -95,6 +96,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(cookie);
   // The chats' socket (M5b-2): small frames only (it pushes; clients send nothing but pongs).
   await app.register(websocket, { options: { maxPayload: 4096 } });
+  // The game's own domain (galaxysurvivor.es plan): www → apex, and the old host's page loads when the cutover switch is
+  // on. After the websocket plugin (its hook marks an upgrade, so a redirected upgrade's socket is closed, not leaked) and
+  // before the static files, the CSRF guard and the API, so it runs for every request, unknown paths too.
+  registerHostRedirects(app, { canonicalOrigin: deps.env.GALAXY_CANONICAL_ORIGIN, legacyHosts: deps.env.GALAXY_LEGACY_REDIRECT_FROM });
   registerSecurityHeaders(app);
   registerOriginGuard(app, deps.env.GALAXY_PUBLIC_ORIGINS);
 
@@ -221,7 +226,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
     // The resource shop's routes and its admin (shop and lab plan, F4).
-    const shop = { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, live, log: app.log };
+    const shop = { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, canonicalOrigin: deps.env.GALAXY_CANONICAL_ORIGIN, live, log: app.log };
     registerShopRoutes(api, shop);
     registerShopAdminRoutes(api, { ...shop, trustCfIp: deps.env.TRUST_CF_IP });
   });

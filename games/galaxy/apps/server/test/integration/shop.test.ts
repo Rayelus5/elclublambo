@@ -80,6 +80,14 @@ describe('la tienda abierta', () => {
     expect((await view(cookie)).products.find((p) => p.id === 'coins-1')).toMatchObject({ first: true, bought: 0 });
   });
 
+  test('el pago vuelve al host donde empezó: la URL de vuelta sale del Origin de la petición', async () => {
+    const { cookie } = await player();
+    const res = await post(ctx.app, '/galaxy/api/shop/checkout', { product: 'coins-2', consent: true, terms: 'v1' }, { cookie, origin: 'http://localhost:8080', headers: { 'idempotency-key': randomUUID() } });
+    expect(res.statusCode, res.body).toBe(200);
+    const c = res.json() as ShopCheckout;
+    expect(gateway.created.at(-1)!).toMatchObject({ purchaseId: c.purchase, returnUrl: `http://localhost:8080/galaxy/tienda?compra=${c.purchase}` });
+  });
+
   test('repetir la misma petición no abre otra compra ni otro pago', async () => {
     const { cookie } = await player();
     const key = randomUUID();
@@ -306,6 +314,22 @@ describe('los pagos sin terminar', () => {
     const p = await opened(cookie, 'coins-2');
     expect((await view(cookie)).products.find((x) => x.id === 'coins-2')).toMatchObject({ first: true, bought: 0 });
     expect(await opened(cookie, 'coins-2')).toBe(p);
+  });
+
+  test('volver a pulsar desde otro host cierra el pago en Stripe y abre otro que vuelve a ese host', async () => {
+    // Stripe's idempotency key is the purchase: the same purchase with another return URL would be refused by Stripe.
+    const { cookie } = await player();
+    const p1 = await opened(cookie, 'dust-2');
+    const res = await post(ctx.app, '/galaxy/api/shop/checkout', { product: 'dust-2', consent: true, terms: 'v1' }, { cookie, origin: 'http://localhost:8080', headers: { 'idempotency-key': randomUUID() } });
+    expect(res.statusCode, res.body).toBe(200);
+    const p2 = (res.json() as ShopCheckout).purchase;
+    expect(p2).not.toBe(p1);
+    expect(gateway.sessionOfPurchase(p1).status).toBe('expired');
+    expect((await purchase(cookie, p1)).status).toBe('expired');
+    expect(gateway.created.at(-1)!).toMatchObject({ purchaseId: p2, returnUrl: `http://localhost:8080/galaxy/tienda?compra=${p2}` });
+    // From that host again, it carries on with the same payment.
+    const again = await post(ctx.app, '/galaxy/api/shop/checkout', { product: 'dust-2', consent: true, terms: 'v1' }, { cookie, origin: 'http://localhost:8080', headers: { 'idempotency-key': randomUUID() } });
+    expect((again.json() as ShopCheckout).purchase).toBe(p2);
   });
 
   test('volver a un pago que está a punto de caducar lo cierra en Stripe y abre otro', async () => {

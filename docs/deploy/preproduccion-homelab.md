@@ -819,9 +819,11 @@ El ingress del repo:
 
 | Hostname | Ruta | Va a |
 |---|---|---|
-| `pre.elclub.party` | todas | `http://web:3000` |
+| `pre.elclub.party` | `/galaxy` y `/galaxy/…` | `http://galaxy:8080` |
+| `pre.elclub.party` | todas las demás | `http://web:3000` |
 | `pre-api.elclub.party` | `/auth/v1/`, `/rest/v1/`, `/realtime/v1/`, `/storage/v1/` | `http://kong:8000` |
 | `pre-api.elclub.party` | cualquier otra (Studio, `/pg/`, `/`) | `http_status:404` |
+| `galaxysurvivor.es`, `www.galaxysurvivor.es` | todas | `http://galaxy:8080` (el juego; ver `games/galaxy/docs/DEPLOY_PRE.md`, «Dominio propio») |
 | cualquier otro | — | `http_status:404` |
 
 ### 8.1 Requisito
