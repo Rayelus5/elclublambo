@@ -1,3 +1,6 @@
+import type { AddressInfo } from 'node:net';
+import { connect } from 'node:net';
+import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { describe, expect, test } from 'vitest';
 import { type HostRedirectConfig, REDIRECT_CACHE, redirectTarget, registerHostRedirects } from '../../src/security/host';
@@ -9,6 +12,8 @@ import { type HostRedirectConfig, REDIRECT_CACHE, redirectTarget, registerHostRe
 const CANONICAL = 'https://galaxysurvivor.es';
 const ON: HostRedirectConfig = { canonicalOrigin: CANONICAL, legacyHosts: ['pre.elclub.party'] };
 const OFF: HostRedirectConfig = { canonicalOrigin: CANONICAL, legacyHosts: [] };
+
+const CRLF = '\r\n';
 
 type Req = Parameters<typeof redirectTarget>[0];
 const req = (over: Partial<Req>): Req => ({ method: 'GET', host: 'pre.elclub.party', url: '/galaxy/', secFetchDest: undefined, ...over });
@@ -67,14 +72,28 @@ describe('host antiguo al nuevo, con el interruptor puesto', () => {
   });
 
   test('la API y los assets no se redirigen: las pestañas abiertas siguen funcionando', () => {
-    for (const url of ['/galaxy/api/health', '/galaxy/api', '/galaxy/api/shop/webhook', '/galaxy/assets/a-1234.js', '/galaxy/assets', '/galaxy/assets/fonts/x.woff2']) {
+    for (const url of ['/galaxy/api/health', '/galaxy/api', '/galaxy/api/shop/webhook', '/galaxy/assets/a-1234.js', '/galaxy/assets']) {
       expect(redirectTarget(req({ url }), ON), url).toBeNull();
+    }
+  });
+
+  test('los archivos de la web fuera de /galaxy/assets no se redirigen, aunque falte Sec-Fetch-Dest (curl, rastreadores)', () => {
+    // apps/web/public: the fonts and the favicon. Only the SPA's routes (no file extension) move.
+    for (const url of ['/galaxy/fonts/bungee-latin.woff2', '/galaxy/fonts/OFL-Bungee.txt', '/galaxy/favicon.svg', '/galaxy/index.html', '/galaxy/favicon.svg?v=2']) {
+      expect(redirectTarget(req({ url }), ON), url).toBeNull();
+      expect(redirectTarget(req({ url, secFetchDest: 'document' }), ON), url).toBeNull();
+    }
+  });
+
+  test('las rutas de la web, con parámetros o query, sí se redirigen', () => {
+    for (const url of ['/galaxy/coleccion/0b6c7a52-3f1e-4c55-9d4b-1f2e3d4c5b6a', '/galaxy/incursion?modo=grupo', '/galaxy/perfil/rayelus_5', '/galaxy/tienda/?compra=x.y']) {
+      expect(redirectTarget(req({ url }), ON)?.location, url).toBe(CANONICAL + url);
     }
   });
 
   test('lo que no es una página (Sec-Fetch-Dest) no se redirige', () => {
     for (const secFetchDest of ['script', 'font', 'worker', 'serviceworker', 'style', 'image', 'manifest', 'empty', 'iframe']) {
-      expect(redirectTarget(req({ url: '/galaxy/favicon.svg', secFetchDest }), ON), secFetchDest).toBeNull();
+      expect(redirectTarget(req({ url: '/galaxy/entrar', secFetchDest }), ON), secFetchDest).toBeNull();
     }
   });
 
@@ -131,10 +150,14 @@ describe('nunca sale del dominio nuevo', () => {
   });
 
   test('rutas raras bajo /galaxy se quedan en nuestro host', () => {
-    for (const url of ['/galaxy/..//evil.com', '/galaxy/../\\evil.com', '/galaxy/%2F%2Fevil.com', '/galaxy/@evil.com']) {
+    // Without a dot they look like web routes and are redirected; with one (`evil.com`) they look like files and stay.
+    for (const url of ['/galaxy/..//evil', '/galaxy/../\\evil', '/galaxy/%2F%2Fevil', '/galaxy/@evil', '/galaxy/..//evil.com/x']) {
       const r = redirectTarget(req({ url }), ON);
       expect(r, url).not.toBeNull();
       expect(new URL(r!.location).origin, url).toBe(CANONICAL);
+    }
+    for (const url of ['/galaxy/..//evil.com', '/galaxy/../\\evil.com', '/galaxy/%2F%2Fevil.com', '/galaxy/@evil.com']) {
+      expect(redirectTarget(req({ url }), ON), url).toBeNull();
     }
     // Not a /galaxy path for the old host; www keeps it on our host.
     expect(redirectTarget(req({ url: '/galaxy\\@evil.com' }), ON)).toBeNull();
@@ -158,7 +181,8 @@ describe('el hook en la raíz', () => {
     expect(www.statusCode).toBe(301);
     expect(www.headers.location).toBe('https://galaxysurvivor.es/?a=1');
     expect(www.headers['cache-control']).toBe(REDIRECT_CACHE);
-    expect(REDIRECT_CACHE).toBe('max-age=86400');
+    // private: Cloudflare caches a 301 on a static extension by its URL alone; the edge must never keep ours.
+    expect(REDIRECT_CACHE).toBe('private, max-age=86400');
     const post = await a.inject({ method: 'POST', url: '/galaxy/api/thing', headers: { host: 'www.galaxysurvivor.es' }, payload: { x: 1 } });
     expect(post.statusCode).toBe(308);
     expect(post.headers.location).toBe('https://galaxysurvivor.es/galaxy/api/thing');
@@ -178,6 +202,38 @@ describe('el hook en la raíz', () => {
     expect((await a.inject({ method: 'GET', url: '/galaxy/', headers: { host: 'pre.elclub.party', 'sec-fetch-dest': 'script' } })).body).toBe('shell');
     expect((await a.inject({ method: 'POST', url: '/galaxy/api/thing', headers: { host: 'pre.elclub.party' }, payload: {} })).json()).toEqual({ ok: true });
     await a.close();
+  });
+
+  test('una petición de WebSocket a www recibe la redirección y su conexión se cierra', async () => {
+    // As in app.ts: after @fastify/websocket, whose own hooks mark the upgrade and destroy its socket after the reply.
+    const a = Fastify();
+    await a.register(websocket);
+    registerHostRedirects(a, ON);
+    a.get('/galaxy/api/live/ws', { websocket: true }, (socket) => socket.close());
+    await a.listen({ host: '127.0.0.1', port: 0 });
+    const { port } = a.server.address() as AddressInfo;
+    const result = await new Promise<{ data: string; closed: boolean }>((resolve) => {
+      const s = connect(port, '127.0.0.1');
+      let data = '';
+      const timer = setTimeout(() => {
+        s.destroy();
+        resolve({ data, closed: false });
+      }, 2000);
+      s.on('data', (d) => (data += String(d)));
+      s.on('close', () => {
+        clearTimeout(timer);
+        resolve({ data, closed: true });
+      });
+      s.write(
+        ['GET /galaxy/api/live/ws HTTP/1.1', 'Host: www.galaxysurvivor.es', 'Connection: Upgrade', 'Upgrade: websocket', 'Sec-WebSocket-Version: 13', 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==', '', ''].join(CRLF),
+      );
+    });
+    await a.close();
+    const head = result.data.toLowerCase().split(CRLF);
+    expect(head[0]).toMatch(/^http\/1\.1 301 /);
+    expect(head).toContain('location: https://galaxysurvivor.es/galaxy/api/live/ws');
+    expect(head).toContain('connection: close');
+    expect(result.closed).toBe(true);
   });
 
   test('sin origen canónico el hook ni se registra', async () => {

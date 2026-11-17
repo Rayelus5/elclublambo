@@ -4,13 +4,15 @@ import type { FastifyInstance } from 'fastify';
 // - `www.` + the canonical host always goes to the canonical origin (301 for GET and HEAD, 308 for the rest, which
 //   keeps the method and the body);
 // - an old host (the cutover switch) moves only its page loads: GET or HEAD of /galaxy or /galaxy/…, outside the API and
-//   the assets, from a navigation (Sec-Fetch-Dest absent or `document`). Open tabs keep loading their chunks, fonts and
-//   workers and keep their API and sockets on the old host, and Stripe's old webhook URL keeps working.
-// Redirects are cached for a day only, so going back (switch off) does not stick in browsers. The target is always
-// built on the canonical origin and checked to stay there: a request path can never send a player to another host.
+//   the assets, of a web route (no file extension: the fonts and the favicon stay), from a navigation (Sec-Fetch-Dest
+//   absent or `document`). Open tabs keep loading their chunks, fonts and workers and keep their API and sockets on the
+//   old host, and Stripe's old webhook URL keeps working.
+// Redirects are private (never kept by Cloudflare's edge, which caches a 301 on a static extension by its URL alone) and
+// cached for a day, so going back (switch off) does not stick in browsers. The target is always built on the canonical
+// origin and checked to stay there: a request path can never send a player to another host.
 
-/** Cache-Control of every redirect: a day, so a rollback reaches browsers soon. */
-export const REDIRECT_CACHE = 'max-age=86400';
+/** Cache-Control of every redirect: browsers only (never the edge), for a day, so a rollback reaches them soon. */
+export const REDIRECT_CACHE = 'private, max-age=86400';
 /** Where a request path that would leave the canonical origin lands instead: the game. */
 const FALLBACK_PATH = '/galaxy/';
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
@@ -41,6 +43,11 @@ function hostnameOf(host: string | undefined): string {
   const end = h.startsWith('[') ? h.indexOf(']') + 1 : h.indexOf(':');
   if (end > 0) h = h.slice(0, end);
   return h.endsWith('.') ? h.slice(0, -1) : h;
+}
+
+/** A file of the web (`favicon.svg`, `fonts/x.woff2`), not a route: its last segment has an extension. */
+function isFile(path: string): boolean {
+  return /\.[^/.]+$/.test(path.slice(path.lastIndexOf('/') + 1));
 }
 
 /** Exactly `prefix`, or anything under `prefix/`. */
@@ -75,13 +82,14 @@ export function redirectTarget(req: RedirectRequest, cfg: HostRedirectConfig): R
   if (!safe || !cfg.legacyHosts.includes(host)) return null;
   if (req.secFetchDest !== undefined && req.secFetchDest !== 'document') return null;
   const path = req.url.split('?')[0] ?? '';
-  if (!under(path, '/galaxy') || under(path, '/galaxy/api') || under(path, '/galaxy/assets')) return null;
+  if (!under(path, '/galaxy') || under(path, '/galaxy/api') || under(path, '/galaxy/assets') || isFile(path)) return null;
   return { status: 301, location: onCanonical(canonical, req.url) };
 }
 
 /**
- * The redirects as a root `onRequest` hook: register it before everything else (static files, the CSRF guard, the API),
- * so it runs for every request, unknown paths included. Without a canonical origin it is not registered at all.
+ * The redirects as a root `onRequest` hook. Register it right after @fastify/websocket (whose own hook marks an upgrade,
+ * so its socket is destroyed after our reply) and before everything else (static files, the CSRF guard, the API), so it
+ * runs for every request, unknown paths included. Without a canonical origin it is not registered at all.
  */
 export function registerHostRedirects(app: FastifyInstance, cfg: HostRedirectConfig): void {
   if (!cfg.canonicalOrigin) return;
@@ -89,6 +97,9 @@ export function registerHostRedirects(app: FastifyInstance, cfg: HostRedirectCon
     const dest = req.headers['sec-fetch-dest'];
     const target = redirectTarget({ method: req.method, host: req.headers.host, url: req.url, secFetchDest: typeof dest === 'string' ? dest : undefined }, cfg);
     if (!target) return;
-    return reply.code(target.status).header('location', target.location).header('cache-control', REDIRECT_CACHE).send();
+    reply.code(target.status).header('location', target.location).header('cache-control', REDIRECT_CACHE);
+    // A WebSocket upgrade never becomes a socket here: the client is told the connection ends with this reply.
+    if (req.headers.upgrade) reply.header('connection', 'close');
+    return reply.send();
   });
 }
