@@ -58,7 +58,6 @@ export function SkyRadar({ rates, busy, event = false }: { rates: readonly numbe
           return <i key={i} className="radar-blip" data-tier={tier} style={style} />;
         })}
       </div>
-      <span className="sky-hud">{event ? copy.scanner.sky.event : copy.scanner.sky.deep}</span>
       <span className="sky-ready">{busy ? copy.scanner.scanning : copy.scanner.ready}</span>
     </div>
   );

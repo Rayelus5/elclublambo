@@ -770,7 +770,8 @@
   .scanner-tab-badge .ico { font-size: 16px; color: #d7ccff; }
   .banner-sub { font-size: 14px; font-weight: 700; color: var(--color-uv-soft); }
   .scanner.is-event .scanner-terminal, .scanner.is-event .scanner-side { background-image: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--color-uv) 30%, transparent), transparent 70%); outline: 2px solid color-mix(in srgb, var(--color-uv-soft) 40%, transparent); outline-offset: -2px; }
-  .scanner.is-event .scanner-terminal .crt { block-size: clamp(170px, calc(100vh - 690px), 460px); background: linear-gradient(160deg, #3d2c84, #1b1446); }
+  /* As tall as the deep scanner's (the owner, 2026-11-17); only its bezel turns violet. */
+  .scanner.is-event .scanner-terminal .crt { background: linear-gradient(160deg, #3d2c84, #1b1446); }
   .scanner.is-event .banner-head h2 { color: #efe9ff; text-shadow: 0 0 18px color-mix(in srgb, var(--color-uv) 80%, transparent); }
   .scanner.is-event .pity { background: color-mix(in srgb, var(--color-uv) 12%, transparent); border-color: color-mix(in srgb, var(--color-uv-soft) 35%, transparent); }
   .scanner.is-event .pity-head b { color: var(--color-uv-soft); }
@@ -856,8 +857,6 @@
       linear-gradient(rgb(185 166 255 / .18), rgb(185 166 255 / .18)) center / 1px 100% no-repeat, linear-gradient(rgb(185 166 255 / .18), rgb(185 166 255 / .18)) center / 100% 1px no-repeat;
     box-shadow: 0 0 0 1.5px rgb(185 166 255 / .45), inset 0 0 50px rgb(140 90 255 / .25); }
   .sky[data-event] .radar-sweep { background: conic-gradient(from 0deg, transparent 0deg 270deg, rgb(200 170 255 / .04) 290deg, rgb(200 170 255 / .42) 356deg, rgb(255 236 200 / .95) 360deg); }
-  .sky-hud { position: absolute; top: 10px; left: 16px; font: 800 11px var(--font-sans); letter-spacing: .16em; text-transform: uppercase; color: rgb(150 205 255 / .75); }
-  .sky[data-event] .sky-hud { color: rgb(205 190 255 / .8); }
   .sky-ready { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 3px 12px; border-radius: 99px; background: rgb(3 4 12 / .6); font-size: 13.5px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
 
   /* «Escaparate de premios»: what can come out, as cards in a strip that scrolls inside itself. */
@@ -882,6 +881,7 @@
   .finds-view { position: relative; flex: 1 1 auto; min-inline-size: 0; overflow: hidden; mask: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
   .finds-track { display: flex; inline-size: max-content; animation: finds-crawl var(--crawl, 40s) linear infinite; }
   .finds:is(:hover, :focus-within) .finds-track { animation-play-state: paused; }
+  .finds-view:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; border-radius: 8px; }
   @keyframes finds-crawl { to { transform: translateX(-50%); } }
   .finds-list { display: flex; gap: 28px; margin: 0; padding: 0 28px 0 0; list-style: none; }
   .finds-list li { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--color-ink-soft); }
@@ -901,6 +901,8 @@
     .radar-sweep { transform: rotate(45deg); }
     .radar-blip { opacity: .7; }
     .finds-copy { display: none; }
+    /* Still: what does not fit scrolls inside the band. */
+    .finds-view { overflow-x: auto; mask: none; }
   }
 
   .reveal-stage { width: min(100%, 980px); padding: 18px 22px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: #0b0d26; }

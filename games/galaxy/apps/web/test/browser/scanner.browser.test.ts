@@ -103,7 +103,10 @@ for (const [width, height] of [
       await page.viewport(width, height);
       mount(which === 'evento' ? event : deep, which === 'evento' ? '/escaner?tipo=evento' : '/escaner');
       await vi.waitFor(() => expect(document.querySelectorAll('.showcase-item').length).toBe(6), { timeout: 30_000, interval: 200 });
+      // Its images load only near the screen: on a short screen the showcase is further down.
+      document.querySelector('.showcase')!.scrollIntoView({ block: 'center' });
       await vi.waitFor(() => expect(document.querySelectorAll('.showcase-item article[data-image="ready"]').length).toBeGreaterThan(0), { timeout: 60_000, interval: 200 });
+      document.querySelector<HTMLElement>('.collection')!.scrollTop = 0;
       // The sky: 12 blips and the sweep.
       expect(document.querySelectorAll('.radar-blip')).toHaveLength(12);
       expect(document.querySelector('.radar-sweep')).not.toBeNull();
@@ -112,6 +115,10 @@ for (const [width, height] of [
       expect(document.querySelectorAll('.pull-best')).toHaveLength(1);
       expect(document.querySelector('.pity-core')).not.toBeNull();
       if (which === 'evento') expect(document.querySelector('.scan-featured-galaxy article')).not.toBeNull();
+      // The sky is as tall in both scanners (the owner, 2026-11-17): the screen's height less 470 px, 190 to 620 px.
+      const zoom = width >= 2560 ? 1.25 : 1;
+      const crt = document.querySelector<HTMLElement>('.scanner-terminal .crt')!.getBoundingClientRect().height;
+      expect(crt / zoom).toBeCloseTo(Math.min(620, Math.max(190, height / zoom - 470)), 0);
       noOverflow();
       await new Promise((r) => setTimeout(r, 900));
       if (shots) await page.screenshot({ path: `__shots__/scanner-${which}-${width}.png` });

@@ -12,7 +12,7 @@ import {
   TIERS,
   type Finish,
 } from '@galaxy/shared';
-import type { Kysely } from 'kysely';
+import { type ExpressionBuilder, type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { openBanners } from './service';
 
@@ -37,10 +37,27 @@ const DAY = 86_400_000;
 
 type Recent = FindView & { accountId: string };
 let cached: { at: number; rows: Promise<Recent[]> } | null = null;
+/** Each event scanner's last featured finds (a few, so a blocked finder still leaves one to show). */
+const featuredCache = new Map<string, { at: number; rows: Promise<Recent[]> }>();
+const FEATURED_KEEP = 5;
 
 /** A legendary or a mythic came out: the next look at the finds reads them again. */
 export function forgetFinds(): void {
   cached = null;
+  featuredCache.clear();
+}
+
+/**
+ * Who may show in the finds: an account not deleted, not hidden from the rankings, not banned now, and not one that hid
+ * its status from others (review of #240: a find says when its finder played).
+ */
+function visible(eb: ExpressionBuilder<DB & { a: DB['galaxy.accounts']; sp: DB['galaxy.social_prefs'] }, 'a' | 'sp'>, now: Date) {
+  return eb.and([
+    eb('a.deleted_at', 'is', null),
+    eb('a.leaderboard_excluded', '=', false),
+    eb.or([eb('a.banned_until', 'is', null), eb('a.banned_until', '<', now)]),
+    eb.or([eb('sp.show_status', 'is', null), eb('sp.show_status', '=', true)]),
+  ]);
 }
 
 type GalaxyRow = { gid: string; seed: string; traits: Record<string, string>; name: string; designation: string; tier: number; finish: string; featured: boolean };
@@ -49,21 +66,36 @@ function pulled(r: GalaxyRow): PulledGalaxy {
   return { id: r.gid, seed: String(r.seed), tier: TIERS[r.tier]!, finish: r.finish as Finish, traits: r.traits, name: r.name, designation: r.designation, featured: r.featured };
 }
 
-async function recent(db: Kysely<DB>, now: Date): Promise<Recent[]> {
-  const rows = await db
+/** Finds by visible accounts, newest first: the rare ones (the partial index on tier >= 4), or one banner's featured ones. */
+async function finds(db: Kysely<DB>, now: Date, which: { banner: string } | null, limit: number): Promise<Recent[]> {
+  let q = db
     .selectFrom('galaxy.gacha_pulls as p')
     .innerJoin('galaxy.accounts as a', 'a.id', 'p.account_id')
     .innerJoin('galaxy.galaxies as g', 'g.id', 'p.galaxy_id')
+    .leftJoin('galaxy.social_prefs as sp', 'sp.account_id', 'p.account_id')
     .select(['p.id', 'p.account_id', 'p.banner', 'p.created_at', 'p.tier', 'p.finish', 'p.featured', 'a.username', 'g.id as gid', 'g.seed', 'g.traits', 'g.name', 'g.designation'])
-    .where('p.tier', '>=', LEGENDARY)
     .where('p.created_at', '>', new Date(now.getTime() - RECENT_DAYS * DAY))
-    .where('a.deleted_at', 'is', null)
-    .where('a.leaderboard_excluded', '=', false)
-    .where((eb) => eb.or([eb('a.banned_until', 'is', null), eb('a.banned_until', '<', now)]))
-    .orderBy('p.created_at', 'desc')
-    .limit(RECENT_MAX)
-    .execute();
+    .where((eb) => visible(eb, now));
+  // Literals, so the planner always matches the partial indexes (gacha_pulls_top_recent, gacha_pulls_featured_recent).
+  q = which ? q.where('p.banner', '=', which.banner).where('p.featured', '=', sql.lit(true)) : q.where('p.tier', '>=', sql.lit(LEGENDARY));
+  const rows = await q.orderBy('p.created_at', 'desc').limit(limit).execute();
   return rows.map((r) => ({ id: r.id, accountId: r.account_id, by: r.username, at: new Date(r.created_at).toISOString(), banner: r.banner, galaxy: pulled(r) }));
+}
+
+function recent(db: Kysely<DB>, now: Date): Promise<Recent[]> {
+  return finds(db, now, null, RECENT_MAX);
+}
+
+/** One event scanner's last featured finds, kept 30 s like the recent ones. */
+function featuredFinds(db: Kysely<DB>, banner: string, now: Date): Promise<Recent[]> {
+  const hit = featuredCache.get(banner);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.rows;
+  const entry = { at: Date.now(), rows: finds(db, now, { banner }, FEATURED_KEEP) };
+  featuredCache.set(banner, entry);
+  entry.rows.catch(() => {
+    if (featuredCache.get(banner) === entry) featuredCache.delete(banner);
+  });
+  return entry.rows;
 }
 
 function recentCached(db: Kysely<DB>, now: Date): Promise<Recent[]> {
@@ -76,13 +108,23 @@ function recentCached(db: Kysely<DB>, now: Date): Promise<Recent[]> {
   return entry.rows;
 }
 
-/** An event scanner's featured example: a legendary with its trait, the same for everyone (made once per trait). */
-const examples = new Map<string, ShownGalaxy>();
-function featuredExample(trait: string, value: string): ShownGalaxy {
+/**
+ * An event scanner's featured example: a legendary with its trait, the same for everyone, made once per trait. The
+ * search is bounded (review of #240: a featured value no legendary can carry, a config mistake, searched 200 000
+ * candidates on every request and failed the whole endpoint): past the bound there is no example, and that is kept too.
+ */
+const FEATURED_CANDIDATES = 30_000;
+const examples = new Map<string, ShownGalaxy | null>();
+export function featuredExample(trait: string, value: string): ShownGalaxy | null {
   const key = `${trait}=${value}`;
-  const hit = examples.get(key);
-  if (hit) return hit;
-  const g = generateGalaxy(20261117n, LEGENDARY, { trait: trait as never, value });
+  if (examples.has(key)) return examples.get(key)!;
+  let g: ReturnType<typeof generateGalaxy>;
+  try {
+    g = generateGalaxy(20261117n, LEGENDARY, { trait: trait as never, value }, FEATURED_CANDIDATES);
+  } catch {
+    examples.set(key, null);
+    return null;
+  }
   const ex: ShownGalaxy = {
     id: `example-${g.seed}`,
     seed: g.seed.toString(),
@@ -136,11 +178,13 @@ export async function gachaFinds(db: Kysely<DB>, cfg: GachaConfig, accountId: st
     showcase.push(showcaseExample(s));
   }
 
+  // Each event scanner's featured galaxy: its last find (its own query, review of #240), else an example, else none.
   const featured: Record<string, ShownGalaxy> = {};
   for (const b of openBanners(cfg, now)) {
     if (!b.featured) continue;
-    const found = seen.find((r) => r.banner === b.id && r.galaxy.featured);
-    featured[b.id] = found?.galaxy ?? featuredExample(b.featured.trait, b.featured.value);
+    const found = (await featuredFinds(db, b.id, now)).find((r) => !hidden.has(r.accountId));
+    const shown = found?.galaxy ?? featuredExample(b.featured.trait, b.featured.value);
+    if (shown) featured[b.id] = shown;
   }
 
   return {

@@ -13,7 +13,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     title: 'El escáner, vivo',
     summary: 'Tiradas de 5, un cielo que se barre en directo, lo que puede salirte y los últimos hallazgos de todos',
     items: [
-      { kind: 'nuevo', text: 'Tiradas de 5 en los dos escáneres: 5 señales, o 475 monedas, un poco más baratas que cinco sueltas. La tirada de 10 con monedas lleva la marca «Mejor precio»' },
+      { kind: 'nuevo', text: 'Tiradas de 5 en los dos escáneres. Con monedas cuestan un poco menos que cinco sueltas, y la marca «Mejor precio» te dice qué tirada te sale más barata por escaneo' },
       { kind: 'nuevo', text: 'El monitor del escáner barre el cielo con un radar: sus destellos tienen el color de cada rareza y salen según tus probabilidades del próximo escaneo' },
       { kind: 'nuevo', text: '«Puede salirte»: las legendarias y míticas que se están encontrando, como cartas. En el escáner de evento, la galaxia destacada sale en grande' },
       { kind: 'nuevo', text: '«Últimos hallazgos»: una cinta con las legendarias y míticas que han sacado los demás jugadores, y tus mejores tiradas de la semana' },

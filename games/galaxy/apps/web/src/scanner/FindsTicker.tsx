@@ -42,7 +42,7 @@ function useMinuteClock(): number {
   return now;
 }
 
-export function FindsTicker({ recent, mine, now: fixed }: { recent: readonly FindView[]; mine: readonly PulledGalaxy[]; now?: number }) {
+export function FindsTicker({ recent, mine, now: fixed, loading = false }: { recent: readonly FindView[]; mine: readonly PulledGalaxy[]; now?: number; loading?: boolean }) {
   const clock = useMinuteClock();
   const now = fixed ?? clock;
   const id = useId();
@@ -56,8 +56,9 @@ export function FindsTicker({ recent, mine, now: fixed }: { recent: readonly Fin
         <Icon name="starOn" outline />
         <span>{t.title}</span>
       </h3>
-      <div className="finds-view">
-        {items.length === 0 ? (
+      {/* Focusable, so the keyboard stops the crawl too (WCAG 2.2.2; review of #240). */}
+      <div className="finds-view" tabIndex={items.length > 0 ? 0 : undefined}>
+        {loading ? null : items.length === 0 ? (
           <p className="finds-none">{t.none}</p>
         ) : (
           <div className="finds-track" style={style}>

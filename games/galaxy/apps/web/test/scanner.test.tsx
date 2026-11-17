@@ -414,11 +414,31 @@ test('el escaparate enseña lo que puede salir (los ejemplos, marcados) y la cin
   expect(cards[0]).not.toHaveTextContent(copy.scanner.showcase.example);
   expect(cards[1]).toHaveTextContent(copy.scanner.showcase.example);
   const band = screen.getByRole('region', { name: copy.scanner.finds.title });
-  // One real list for screen readers (the crawl's copy is hidden).
+  // One real list for screen readers (the crawl's copy is hidden from them).
   const list = within(band).getAllByRole('list')[0]!;
+  expect(band.querySelectorAll('.finds-list')).toHaveLength(2);
+  expect(band.querySelectorAll('.finds-list')[1]).toHaveAttribute('aria-hidden', 'true');
+  // The crawl stops on keyboard focus too (WCAG 2.2.2): its view takes focus.
+  expect(band.querySelector('.finds-view')).toHaveAttribute('tabindex', '0');
   expect(within(list).getByRole('listitem')).toHaveTextContent(copy.scanner.finds.found('vega', copy.tiers.legendary));
   expect(within(list).getByRole('listitem')).toHaveTextContent('Nueva 31');
   expect(within(band).getByRole('list', { name: copy.scanner.finds.mine })).toHaveTextContent('Nueva 32');
+});
+
+test('el monitor no lleva título encima del radar (el propietario, 2026-11-17)', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(document.querySelector('.sky-hud')).toBeNull();
+  expect(screen.queryByText(/Barrido/)).toBeNull();
+});
+
+test('mientras llegan los hallazgos, la cinta no dice que no hay ninguno (revisión)', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => new Promise<Response>(() => {}) as unknown as Response });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(screen.getByRole('region', { name: copy.scanner.finds.title })).toBeInTheDocument();
+  expect(screen.queryByText(copy.scanner.finds.none)).toBeNull();
 });
 
 test('sin hallazgos recientes la cinta lo dice', async () => {

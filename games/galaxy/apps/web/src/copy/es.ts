@@ -3178,7 +3178,6 @@ export const copy = {
     bestValue: 'Mejor precio',
     pullWord: 'Escanear',
     pityLabel: 'Carga hasta la Legendaria segura',
-    sky: { deep: 'Barrido del cielo profundo', event: 'Barrido del evento' },
     showcase: { title: 'Puede salirte', example: 'Ejemplo' },
     finds: {
       title: 'Últimos hallazgos',

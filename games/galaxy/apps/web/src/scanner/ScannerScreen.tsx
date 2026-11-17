@@ -252,7 +252,8 @@ function PullRow({
 
 export function ScannerScreen() {
   const gacha = useGacha();
-  const finds = useFinds().data;
+  const findsQuery = useFinds();
+  const finds = findsQuery.data;
   const pull = usePull();
   const [bannerId, setBannerId] = useState<string | null>(null);
   // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
@@ -470,7 +471,7 @@ export function ScannerScreen() {
           </main>
         ) : null}
         {banner && view ? (
-          <FindsTicker recent={finds?.recent ?? []} mine={finds?.mine ?? []} />
+          <FindsTicker recent={finds?.recent ?? []} mine={finds?.mine ?? []} loading={!finds && !findsQuery.isError} />
         ) : gacha.isError ? (
           <p className="summary error" role="alert">
             <Icon name="alert" />

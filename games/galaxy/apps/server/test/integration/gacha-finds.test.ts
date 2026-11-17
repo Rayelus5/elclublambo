@@ -24,23 +24,23 @@ async function player() {
 type P = Awaited<ReturnType<typeof player>>;
 
 let n = 0;
-/** A pull of this tier found by `p` (its galaxy and its audit row), `minutesAgo` ago. */
-async function found(p: P, tier: number, minutesAgo = 1) {
+/** A pull of this tier found by `p` (its galaxy and its audit row), `minutesAgo` ago; optionally an event's featured one. */
+async function found(p: P, tier: number, minutesAgo = 1, featuredIn: string | null = null) {
   const g = generateGalaxy(BigInt(Date.now()) * 100n + BigInt(++n), tier);
   const row = await ctx.db
     .insertInto('galaxy.galaxies')
-    .values(galaxyValues(g, { owner: p.id, tier, finish: 'normal', origin: 'pull' }))
+    .values(galaxyValues(g, { owner: p.id, tier, finish: 'normal', origin: 'pull', featured: featuredIn !== null }))
     .returning('id')
     .executeTakeFirstOrThrow();
   await ctx.db
     .insertInto('galaxy.gacha_pulls')
     .values({
       account_id: p.id,
-      banner: 'deep-scan',
-      pity_group: 'standard',
+      banner: featuredIn ?? 'deep-scan',
+      pity_group: featuredIn ? `event-${featuredIn}` : 'standard',
       seed: '1',
       tier,
-      featured: false,
+      featured: featuredIn !== null,
       finish: 'normal',
       pity_before: 0,
       config_version: 0,
@@ -93,4 +93,37 @@ test('lo de hace más de 14 días ya no sale', async () => {
   const [a, me] = [await player(), await player()];
   const old = await found(a, LEGENDARY, 15 * 24 * 60);
   expect((await finds(me)).recent.some((f) => f.galaxy.id === old)).toBe(false);
+});
+
+test('quien ocultó su estado no sale en los hallazgos: un hallazgo dice cuándo jugó (revisión)', async () => {
+  const [shy, me] = [await player(), await player()];
+  const id = await found(shy, LEGENDARY);
+  await ctx.db.insertInto('galaxy.social_prefs').values({ account_id: shy.id, invites: 'friends', show_status: false, updated_at: new Date() }).execute();
+  forgetFinds();
+  expect((await finds(me)).recent.some((f) => f.galaxy.id === id)).toBe(false);
+});
+
+test('la destacada de un escáner de evento es su último hallazgo, aunque haya muchos más recientes (revisión)', async () => {
+  const banners = [
+    { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
+    { id: 'nova-finds', kind: 'event', name: 'Semana Nova', pityGroup: 'event-nova-finds', currency: 'signal:nova-finds', featured: { trait: 'phenomenon', value: 'supernova' } },
+  ];
+  const app = await testApp({ configOverrides: { gacha: { banners } } });
+  try {
+    const reg = async () => {
+      const res = await post(app.app, '/galaxy/api/auth/register', { username: uniqueName('fev'), password: 'una-clave-larga' });
+      return { cookie: sessionCookie(res), id: (res.json() as { id: string }).id, username: '' };
+    };
+    const [a, me] = [await reg(), await reg()];
+    const star = await found(a, LEGENDARY, 30, 'nova-finds');
+    // 45 newer legendaries elsewhere push it out of the 40 recent ones.
+    for (let i = 0; i < 45; i++) await found(a, LEGENDARY, 1);
+    forgetFinds();
+    const v = (await get(app.app, '/galaxy/api/gacha/finds', { cookie: me.cookie })).json() as FindsView;
+    expect(v.recent.some((f) => f.galaxy.id === star)).toBe(false);
+    expect(v.featured['nova-finds']).toMatchObject({ id: star, featured: true });
+    expect(v.featured['nova-finds']!.example).toBeUndefined();
+  } finally {
+    await app.close();
+  }
 });
