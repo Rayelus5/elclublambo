@@ -3,7 +3,7 @@ their posters. The loops come from the trailer's own captures (footage is not in
 
 Run from games/galaxy/apps/landing:
   python scripts/assets.py <path to games/galaxy/trailer/public/footage>
-Needs Pillow and ffmpeg on PATH. Writes src/assets/{banners,clips,posters}/ and public/shots/ (committed outputs).
+Needs Pillow and ffmpeg on PATH. Writes src/assets/{banners,clips,posters,sprites}/ and public/shots/ (committed outputs).
 """
 
 import shutil
@@ -45,6 +45,10 @@ def clips(footage: Path) -> None:
                         '-vf', 'scale=960:-2', str(png)], check=True)
         Image.open(png).convert('RGB').save(OUT / 'posters' / f'{name}.webp', 'WEBP', quality=78, method=6)
         png.unlink()
+    # The probes' sprite strips (art/ stays out of the Docker build context: games/galaxy/.dockerignore).
+    (OUT / 'sprites').mkdir(parents=True, exist_ok=True)
+    for probe in ('spark', 'prism', 'comet', 'lumen'):
+        shutil.copyfile(HERE.parent.parent / 'art' / 'probes' / f'{probe}.png', OUT / 'sprites' / f'probe-{probe}.png')
     # Fixed-name copies for structured data (the VideoGame's screenshots), served from the site root.
     shots = HERE / 'public' / 'shots'
     shots.mkdir(parents=True, exist_ok=True)

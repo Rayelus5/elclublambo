@@ -95,10 +95,10 @@ a.lip:active, button.lip:active { transform: translateY(var(--lip-h, 6px)); box-
 /* Pixel sprites: horizontal strips of N frames, stepped. */
 .spr { display: block; --fw: 24px; --fh: 24px; --n: 4; --s: 4; width: calc(var(--fw) * var(--s)); height: calc(var(--fh) * var(--s)); background-size: calc(var(--fw) * var(--n) * var(--s)) 100%; background-repeat: no-repeat; image-rendering: pixelated; animation: spr-run calc(var(--n) * 125ms) steps(var(--n)) infinite; }
 @keyframes spr-run { to { background-position-x: calc(var(--fw) * var(--n) * var(--s) * -1); } }
-.spr-probe-spark { background-image: url('../../../../art/probes/spark.png'); }
-.spr-probe-prism { background-image: url('../../../../art/probes/prism.png'); }
-.spr-probe-comet { background-image: url('../../../../art/probes/comet.png'); }
-.spr-probe-lumen { background-image: url('../../../../art/probes/lumen.png'); }
+.spr-probe-spark { background-image: url('../assets/sprites/probe-spark.png'); }
+.spr-probe-prism { background-image: url('../assets/sprites/probe-prism.png'); }
+.spr-probe-comet { background-image: url('../assets/sprites/probe-comet.png'); }
+.spr-probe-lumen { background-image: url('../assets/sprites/probe-lumen.png'); }
 .spr[class*='spr-weapon'] { --fw: 32px; --fh: 32px; --s: 2.4; }
 .spr-weapon-arc { background-image: url('../../../web/src/hangar/weapons/arc.png'); }
 .spr-weapon-beam-prism { background-image: url('../../../web/src/hangar/weapons/beam-prism.png'); }

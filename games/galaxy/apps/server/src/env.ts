@@ -22,6 +22,7 @@ const schema = z.object({
     .refine((b) => b.length === 32, 'GALAXY_TOTP_KEY must be 32 bytes in base64'),
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   WEB_DIST: z.string().min(1).default('/app/web-dist'),
+  LANDING_DIST: z.string().min(1).default('/app/landing-dist'),
   TRUST_CF_IP: z
     .enum(['true', 'false'])
     .default('true')
@@ -29,6 +30,9 @@ const schema = z.object({
   STRIPE_SECRET_KEY: z.string().trim().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().trim().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().trim().optional(),
+  GALAXY_LEGAL_HOLDER: z.string().trim().max(200).optional(),
+  GALAXY_LEGAL_NIF: z.string().trim().max(40).optional(),
+  GALAXY_LEGAL_ADDRESS: z.string().trim().max(300).optional(),
 });
 
 /** The resource shop's Stripe keys (shop and lab plan, F4): all three, of one mode. */
@@ -71,6 +75,10 @@ export type Env = {
   PORT: number;
   /** Directory with the Vite build, served under /galaxy/. */
   WEB_DIST: string;
+  /** Directory with the landing's build (apps/landing), served at the site root (plan «galaxysurvivor.es», PR 4). */
+  LANDING_DIST: string;
+  /** The holder's legal data for the legal pages, from galaxy.env (never in the public repository). */
+  legal: LegalIdentity;
   /** Trust CF-Connecting-IP (the container is only reachable through the tunnel or 127.0.0.1). */
   TRUST_CF_IP: boolean;
   /** The shop's Stripe keys, or null (closed shop); `stripeIssue` says why when they were there but do not agree. */
@@ -78,8 +86,19 @@ export type Env = {
   stripeIssue: 'stripe_env_incomplete' | null;
 };
 
+/** The legal pages' holder data (apps/server/src/landing.ts); a missing or empty value is absent. */
+export interface LegalIdentity {
+  holder?: string;
+  nif?: string;
+  address?: string;
+}
+
 export function loadEnv(src: Record<string, string | undefined> = process.env): Env {
-  const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PUBLISHABLE_KEY, ...rest } = schema.parse(src);
+  const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PUBLISHABLE_KEY, GALAXY_LEGAL_HOLDER, GALAXY_LEGAL_NIF, GALAXY_LEGAL_ADDRESS, ...rest } = schema.parse(src);
   const { stripe, issue } = stripeEnv({ STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PUBLISHABLE_KEY });
-  return { ...rest, stripe, stripeIssue: issue };
+  const legal: LegalIdentity = {};
+  if (GALAXY_LEGAL_HOLDER) legal.holder = GALAXY_LEGAL_HOLDER;
+  if (GALAXY_LEGAL_NIF) legal.nif = GALAXY_LEGAL_NIF;
+  if (GALAXY_LEGAL_ADDRESS) legal.address = GALAXY_LEGAL_ADDRESS;
+  return { ...rest, legal, stripe, stripeIssue: issue };
 }

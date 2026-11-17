@@ -12,6 +12,7 @@ export const E2E_ENV = {
   GALAXY_TOTP_KEY: Buffer.alloc(32, 9).toString('base64'),
   PORT: String(PORT),
   WEB_DIST: fileURLToPath(new URL('./dist', import.meta.url)),
+  LANDING_DIST: fileURLToPath(new URL('../landing/dist', import.meta.url)),
   NODE_ENV: 'production',
 };
 

@@ -1569,3 +1569,56 @@ No hay migraciones ni configuración que publicar.
 5. **Archivar y borrar:** archívalo y bórralo. Un mensaje con su regalo sin recoger no se deja borrar.
 6. **Biblioteca de packs:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje.
 7. **Plantilla:** «Guardar como plantilla» y, después, «Empezar con una plantilla».
+
+## La portada de galaxysurvivor.es (`apps/landing`)
+
+La raíz de galaxysurvivor.es es una portada estática que sirve el mismo contenedor. El juego sigue en `/galaxy`. Plan «galaxysurvivor.es», PR 4, y la spec `docs/superpowers/specs/2026-11-17-galaxy-portada-design.md`.
+
+**Qué es**
+- Lo genera el paquete `games/galaxy/apps/landing` al compilar la imagen (`pnpm build`). Sale:
+  - `/`;
+  - `/aviso-legal`, `/privacidad`, `/cookies` y `/condiciones`;
+  - un 404 de verdad, con noindex;
+  - `robots.txt`, `sitemap.xml` y `/.well-known/security.txt`;
+  - los iconos y la tarjeta para compartir (`/og/og-es-v1.jpg`).
+- Va a `/app/landing-dist` (variable `LANDING_DIST` de la imagen). El servidor la sirve con `apps/server/src/landing.ts`.
+- **Caché:**
+  - los archivos con hash de `/static/` se guardan un año;
+  - las páginas, `no-cache` con ETag.
+- Las rutas que no existen fuera de `/galaxy` dan la página 404. Dentro de `/galaxy` todo sigue como antes.
+- En `pre.elclub.party` no se ve: el túnel solo manda allí `/galaxy`.
+
+**Datos del titular (aviso legal, privacidad y condiciones de compra)**
+- El nombre comercial «GALAXY SURVIVOR» y `contacto@rayelus.com` ya están en las páginas.
+- El nombre legal, el NIF y el domicilio **nunca van al repositorio**, que es público. Se ponen en `/opt/elclub/pre/galaxy.env`:
+  - `GALAXY_LEGAL_HOLDER`: el nombre legal. Si GALAXY SURVIVOR no es una sociedad inscrita, el tuyo; GALAXY SURVIVOR queda como nombre comercial;
+  - `GALAXY_LEGAL_NIF`;
+  - `GALAXY_LEGAL_ADDRESS`.
+- Cada uno vacío quita su línea de las páginas, y el registro avisa con `legal_identity_missing` al arrancar.
+- Después de editarlo, recrear el contenedor, como con las claves de Stripe:
+
+  ```bash
+  cd /home/gh-runner/actions-runner/_work/elclublambo/elclublambo && docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
+  ```
+
+**El humo del despliegue**
+- `preproduction.yml` comprueba además que `http://127.0.0.1:8080/` responde con un `<h1`.
+
+**En local**
+- `pnpm -C games/galaxy/apps/landing build` compila la portada.
+- `node scripts/check.mjs`, desde la carpeta del paquete, la prueba en Chromium con la CSP del servidor:
+  - en 1280, 1600, 1920, 2560 y móvil;
+  - sin JS;
+  - con movimiento reducido;
+  - las legales y el 404.
+  Las capturas quedan en `__shots__/`.
+- **Recursos** (salidas comprometidas):
+  - `python art/brand/brand.py`: los iconos;
+  - `python scripts/assets.py <metraje del tráiler>`: los banners, los clips sin sonido y sus carátulas;
+  - `node scripts/faces.mjs`: las caras de las galaxias del escáner;
+  - `node scripts/og.mjs`: la tarjeta para compartir. Un diseño nuevo lleva una versión nueva en el nombre.
+
+**Textos**
+- `apps/landing/src/i18n/es.ts` y `i18n/legal/es.ts`. Las condiciones de compra repiten las de la tienda (`apps/web/src/copy/es.ts`, `shop.legal`): si cambian, cambian las dos y se sube `termsVersion`.
+- **Otro idioma:** un diccionario nuevo con la misma forma y una entrada en `i18n/locales.ts`, con su prefijo (`/en`) y su hreflang.
+- **«Novedades»:** son las tres primeras notas de `RELEASE_NOTES`, al compilar.
