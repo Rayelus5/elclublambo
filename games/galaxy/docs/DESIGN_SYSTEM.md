@@ -935,6 +935,12 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - sus botones, que dicen lo que hacen: «Ocultar» (Nova) o «Restaurar», y «Silenciar a <nombre>»;
 - uno eliminado dice «Eliminado» y no tiene «Restaurar» ni «Eliminar».
 
+**Carga del servidor** (2026-11-17, petición del propietario), encima de Salas en vivo:
+- **Fichas** con lo de ahora: salas abiertas «5/10» (esperando y jugando), jugadores en salas, partidas en grupo y sus conectados, partidas en solitario, conexiones en vivo, CPU del servidor y del árbitro (en % de un núcleo, con el p99 por paso), retraso del bucle de eventos (p99, con p50 y máximo), memoria y tiempo encendido.
+- **Líneas de la última hora** en las cuatro que más se mueven (salas, jugadores, CPU, bucle): una sola serie cada una, sin leyenda (la ficha la nombra), de 2 px en tinta apagada con el último punto en hielo. Al pasar el ratón, una línea fina y el valor con su hora. Cada una se resume para el lector de pantalla («entre X e Y, N muestras»).
+- **«Ver la tabla»:** toda la hora en una tabla, la más reciente arriba.
+- El servidor toma una muestra cada 15 s y guarda la última hora en memoria: un despliegue la empieza de cero. Lo ven moderadores y admins (`GET /galaxy/api/admin/load`).
+
 **Denuncias:** arriba, cuántos mensajes esperan revisión; lo denunciado más recientemente va primero (una denuncia nueva lo sube) y la cola va de 50 en 50 con «Anterior» y «Siguiente». Cada tarjeta suma un recuadro con «N denuncias sin revisar» en Solar y lo que escribieron. Sus botones se nombran según el estado del mensaje: «Ocultar» y «Dejar visible» si está a la vista, «Dejar oculto» y «Restaurar» si las denuncias ya lo ocultaron.
 
 **Mensajes** (petición del propietario, 2026-11-14: «más sencilla y completa, que soporte 100.000 mensajes»):

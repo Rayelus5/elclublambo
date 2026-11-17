@@ -1090,6 +1090,7 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
 | Código de recuperación para un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js issue-reset-code <usuario>` (24 h, un uso; queda auditado). El panel de admin lo hará en M6 |
 | Dar o quitar moneda a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js grant <usuario> <coins\|dust\|signal\|material\|components> <cantidad> --reason "<motivo>"` (una cantidad negativa la quita, nunca por debajo de 0). Queda en el libro de movimientos y auditado como `wallet.grant` |
 | Logs | `docker compose … logs -f galaxy` (JSON de pino; nunca llevan contraseñas, cookies ni tokens) |
+| Ver la carga del juego | Panel › Moderación › Salas en vivo, «Carga del servidor»: salas, partidas, conexiones, CPU del proceso y del árbitro, bucle de eventos y memoria, con la última hora (se reinicia con cada despliegue). La CPU es la del proceso Node, no la del CT |
 | Reiniciar | `docker compose … up -d --no-build galaxy` |
 | Un admin ha perdido su app de autenticación | `docker exec -it elclub-pre-galaxy-1 node dist/cli.js reset-totp <usuario>`: secreto nuevo, sesiones cerradas, queda auditado |
 | Rotar `GALAXY_TOTP_KEY` | Invalida todos los TOTP: solo si la clave se ha filtrado; después, `reset-totp` para cada admin |
