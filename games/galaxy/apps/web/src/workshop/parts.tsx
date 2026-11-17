@@ -1,4 +1,6 @@
 import { DEFAULT_COSMETICS, type ProbeCard, SCRAP_SKIN_RUNS, skinParts } from '@galaxy/shared';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { useCosmeticsView } from '../api/cosmetics';
 import { SpriteLoop } from '../ui/SpriteLoop';
 import { useReducedMotion } from '../ui/motion';
@@ -135,14 +137,22 @@ export function WeaponPicker({ probe }: { probe: ProbeCard }) {
  * The probe's skin (plan «skins», part C): its base drawing and every skin of it in the catalog, as radio cards. The
  * ones the player has go on at once (and fly in the next run); the rest are locked and say how they are won.
  */
+/**
+ * The probe's skins (plan «skins», part C; a grid since 2026-11-17, the owner's idea): mini cards under the bay's
+ * «Equipar», the base and the ones the player has first, then the locked ones. Every card can be reached (arrows, a
+ * pointer) to read under the grid what it is and how it is won; only the owned ones go on, at once. A locked skin of
+ * the shop leads to its tab. The one worn and the one pointed at move; the rest stay still.
+ */
 export function SkinPicker({ probe }: { probe: ProbeCard }) {
   const t = copy.workshop;
   const choose = useChooseSkin();
   const reduced = useReducedMotion();
-  const catalog = useCosmeticsView().data?.catalog.skins ?? DEFAULT_COSMETICS.skins;
-  const skins = catalog.filter((k) => skinParts(k.id)?.probe === probe.id);
+  const catalog = useCosmeticsView().data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
+  const all = catalog.filter((k) => skinParts(k.id)?.probe === probe.id);
+  const skins = [...all.filter((k) => probe.skins.includes(k.id)), ...all.filter((k) => !probe.skins.includes(k.id))];
   // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
   const chosen = choose.isPending ? choose.variables.skin : probe.skin;
+  const [peek, setPeek] = useState<string | null | undefined>(undefined);
   const pick = (skin: string | null) => {
     if (skin !== probe.skin) choose.mutate({ probe: probe.id, skin });
   };
@@ -151,40 +161,55 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
     if (probe.skins.includes(id)) return t.skinLines[line] ?? fallback;
     return line === 'chatarra' ? t.scrapProgress(probe.runs, SCRAP_SKIN_RUNS, probe.name) : fallback;
   };
+  const shown = peek === undefined ? chosen : peek;
+  const item = shown ? skins.find((k) => k.id === shown) : null;
+  const point = (id: string | null) => ({ onPointerEnter: () => setPeek(id), onPointerLeave: () => setPeek(undefined), onFocus: () => setPeek(id), onBlur: () => setPeek(undefined) });
   return (
-    <fieldset className="weapon-picker skin-picker">
-      <legend>{t.skins}</legend>
-      <div role="radiogroup" aria-label={t.skins} className="weapon-cards">
-        <label className="weapon-card">
-          <input type="radio" name={`skin-${probe.id}`} value="" checked={chosen === null} onChange={() => pick(null)} />
-          <img className="skin-card-art" src={spriteDataUrl(probe.sprite, 2)} alt="" width={48} height={48} />
-          <span className="weapon-card-text">
-            <b>{t.skinBase}</b>
-            <small>{t.skinBaseHint}</small>
-          </span>
-          {chosen === null ? <Icon name="check" className="ico weapon-card-check" /> : null}
+    <div className="skin-grid">
+      <span className="skin-grid-title" id={`skins-${probe.id}`}>
+        {t.skins}
+      </span>
+      <div role="radiogroup" aria-labelledby={`skins-${probe.id}`} className="skin-grid-cards">
+        <label className={`skin-mini${chosen === null ? ' on' : ''}`} {...point(null)}>
+          <input className="sr-only" type="radio" name={`skin-${probe.id}`} value="" aria-label={t.skinBase} checked={chosen === null} onChange={() => pick(null)} />
+          <img src={spriteDataUrl(probe.sprite, 2)} alt="" width={48} height={48} />
+          {chosen === null ? <Icon name="check" className="ico skin-mini-badge" /> : null}
         </label>
         {skins.map((k) => {
           const owned = probe.skins.includes(k.id);
+          const on = chosen === k.id;
           return (
-            <label key={k.id} className={`weapon-card${owned ? '' : ' locked'}`}>
-              <input type="radio" name={`skin-${probe.id}`} value={k.id} checked={chosen === k.id} disabled={!owned} onChange={() => pick(k.id)} />
-              <SpriteLoop className="skin-card-art" id={k.id} scale={2} reduced={reduced} width={48} height={48} />
-              <span className="weapon-card-text">
-                <b>{k.name}</b>
-                <small>{hint(k.id, k.hint)}</small>
-              </span>
-              {chosen === k.id ? <Icon name="check" className="ico weapon-card-check" /> : null}
-              {!owned ? <Icon name="lock" className="ico weapon-card-check" /> : null}
+            <label key={k.id} className={`skin-mini${owned ? '' : ' locked'}${on ? ' on' : ''}`} {...point(k.id)}>
+              <input
+                className="sr-only"
+                type="radio"
+                name={`skin-${probe.id}`}
+                value={k.id}
+                aria-label={k.name}
+                aria-disabled={owned ? undefined : true}
+                checked={on}
+                onChange={() => (owned ? pick(k.id) : setPeek(k.id))}
+              />
+              <SpriteLoop id={k.id} scale={2} reduced={reduced || !(on || shown === k.id)} width={48} height={48} />
+              {on ? <Icon name="check" className="ico skin-mini-badge" /> : !owned ? <Icon name="lock" className="ico skin-mini-badge lock" /> : null}
             </label>
           );
         })}
       </div>
+      <p className="skin-grid-caption" data-testid="skin-caption" aria-live="polite">
+        <b>{item ? item.name : t.skinBase}</b>
+        <span>{item ? hint(item.id, item.hint) : t.skinBaseHint}</span>
+        {item && !probe.skins.includes(item.id) && item.source === 'shop' ? (
+          <Link className="skin-grid-shop" to="/tienda?pestana=estilo">
+            {t.skinShop}
+          </Link>
+        ) : null}
+      </p>
       {choose.error ? (
         <p className="field-error" role="alert">
           {errorText(choose.error, copy.errors)}
         </p>
       ) : null}
-    </fieldset>
+    </div>
   );
 }

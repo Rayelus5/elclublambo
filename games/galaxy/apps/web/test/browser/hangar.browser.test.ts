@@ -319,7 +319,9 @@ for (const [w, h] of [
     await page.viewport(w, h);
     mount(createElement(HangarScreen), { '/hangar': withSkins });
     await new Promise((r) => setTimeout(r, 1500));
-    expect(document.querySelectorAll('.lobby-skin')).toHaveLength(3);
+    // The base and the two of Lumen, then the «+» to the Taller.
+    expect(document.querySelectorAll('.lobby-skins-group .lobby-skin')).toHaveLength(3);
+    expect(document.querySelectorAll('.lobby-skin-more')).toHaveLength(1);
     expect(document.querySelector('.lobby-skin[aria-checked="true"]')?.getAttribute('aria-label')).toBe('Lumen de coral');
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
@@ -328,10 +330,17 @@ for (const [w, h] of [
     document.body.innerHTML = '';
     mount(createElement(WorkshopScreen), { '/hangar': withSkins });
     await new Promise((r) => setTimeout(r, 1500));
-    const picker = document.querySelector<HTMLElement>('.skin-picker')!;
-    // The base and the ten collections of Lumen (two owned; Aurora, Leyenda and the shop's six packs locked).
+    const picker = document.querySelector<HTMLElement>('.workshop-bay .skin-grid')!;
+    // Under «Equipar», the base and the ten collections of Lumen (two owned; Aurora, Leyenda and the shop's six packs
+    // locked), in mini cards that fit the bay's column.
     expect(picker.querySelectorAll('input[type="radio"]')).toHaveLength(11);
-    expect(picker.querySelectorAll('input[type="radio"]:disabled')).toHaveLength(8);
+    expect(picker.querySelectorAll('input[type="radio"][aria-disabled="true"]')).toHaveLength(8);
+    const column = document.querySelector<HTMLElement>('.workshop-bay')!.getBoundingClientRect();
+    for (const card of picker.querySelectorAll<HTMLElement>('.skin-mini')) {
+      const r = card.getBoundingClientRect();
+      expect(r.left).toBeGreaterThanOrEqual(column.left);
+      expect(r.right).toBeLessThanOrEqual(column.right);
+    }
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
     picker.scrollIntoView({ block: 'center' });
     if (import.meta.env['VITE_ARENA_SHOTS']) {

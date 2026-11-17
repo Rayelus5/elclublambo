@@ -4091,6 +4091,23 @@
   .workshop-equip.done { background: var(--color-panel-2); color: var(--color-terminal); --lip-c: var(--color-panel-lip); cursor: default; }
   .workshop-equip.locked { background: var(--color-panel-2); color: var(--color-ink-mute); --lip-c: var(--color-panel-lip); cursor: not-allowed; }
   .workshop-equip-hint { color: var(--color-ink-soft); font-size: 14px; }
+  /* The probe's skins under «Equipar» (2026-11-17): mini cards in rows, the worn one in solar with a tick, the locked
+     ones dimmed with a padlock, and a line under them that tells the one pointed at (or worn). */
+  .skin-grid { display: grid; justify-items: center; justify-self: center; gap: 10px; inline-size: min(100%, 640px); }
+  .skin-grid-title { color: var(--color-ink-soft); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .skin-grid-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-inline-size: 424px; }
+  .skin-mini { position: relative; display: grid; place-items: center; inline-size: 64px; block-size: 64px; border-radius: 16px; background: rgb(0 0 0 / .28); box-shadow: inset 0 0 0 2px var(--color-panel-2); cursor: pointer; transition: transform .18s var(--ease-bounce), box-shadow .18s; }
+  .skin-mini img { display: block; image-rendering: pixelated; }
+  .skin-mini:hover, .skin-mini:has(input:focus-visible) { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--color-sky); }
+  .skin-mini:has(input:focus-visible) { outline: 2px solid var(--color-sky); outline-offset: 3px; }
+  .skin-mini.on { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 18px rgb(255 201 74 / .25); background: rgb(255 201 74 / .08); }
+  .skin-mini.locked { cursor: help; }
+  .skin-mini.locked img { opacity: .42; filter: grayscale(.6); }
+  .skin-mini-badge { position: absolute; inset-inline-end: -5px; inset-block-start: -5px; width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: var(--color-panel); color: var(--color-solar); }
+  .skin-mini-badge.lock { color: var(--color-ink-soft); }
+  .skin-grid-caption { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; min-block-size: 24px; margin: 0; text-align: center; font-size: 14px; }
+  .skin-grid-caption span { color: var(--color-ink-soft); }
+  .skin-grid-shop { color: var(--color-solar); font-weight: 700; }
 
   .workshop-info { --r: 22px; --lip-h: 6px; padding: 18px 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 18px; min-inline-size: 0; }
   .workshop-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-inline-size: 0; }
@@ -4121,7 +4138,7 @@
 
   @media (max-width: 1400px) { .workshop-grid { grid-template-columns: minmax(220px, 250px) minmax(0, 1fr) minmax(300px, 360px); gap: 16px; } .workshop-pick-text small { font-size: 12px; } }
   @media (max-width: 1150px) { .workshop-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); } .workshop-roster { grid-column: 1 / -1; } .workshop-roster ul { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-  :where(:root[data-motion='reduced']) { .workshop-bay-art, .workshop-probe, .workshop-scan, .celebrate-flash, .celebrate-banner { animation: none; } }
+  :where(:root[data-motion='reduced']) { .workshop-bay-art, .workshop-probe, .workshop-scan, .celebrate-flash, .celebrate-banner { animation: none; } .skin-mini { transition: none; } }
   /* The lobby (/incursion, the owner's «Escenario»): a living backdrop of the chosen sector, then a grid whose areas never
      overlap: the bar on top, the rail of places, the stage with the probe, the side panel (where, or the group) and the
      foot (missions, relics, launch). Pixel art keeps whole multiples: probes are 16 px, the pad 160 × 64. */
@@ -4240,6 +4257,11 @@
   .lobby-pips i.on { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); box-shadow: 0 0 6px rgb(255 201 74 / .5); }
   /* Plan «skins»: the big probe's skins, small swatches under its plate (the chosen one ringed in solar). */
   .lobby-skins { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+  .lobby-skins-group { display: flex; gap: 8px; }
+  /* The «+» to the Taller (2026-11-17): a dashed square that fills in when pointed at. */
+  .lobby-skin.lobby-skin-more { border: 2px dashed rgb(255 255 255 / .28); background: transparent; box-shadow: none; color: var(--color-ink-soft); text-decoration: none; }
+  .lobby-skin-more .ico { width: 20px; height: 20px; }
+  .lobby-skin.lobby-skin-more:hover { border-color: var(--color-solar); color: var(--color-solar); background: rgb(255 201 74 / .08); }
   .lobby-skin { display: grid; place-items: center; inline-size: 40px; block-size: 40px; padding: 0; border: 2px solid transparent; border-radius: 12px; background: var(--color-panel-2); cursor: pointer; box-shadow: 0 3px 0 var(--color-panel-lip); transition: transform .15s var(--ease-bounce), border-color .15s ease; }
   .lobby-skin img { image-rendering: pixelated; }
   .lobby-skin:hover:not([aria-disabled='true']) { transform: translateY(-2px); border-color: rgb(255 255 255 / .25); }

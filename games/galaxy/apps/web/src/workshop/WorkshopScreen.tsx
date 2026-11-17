@@ -128,9 +128,6 @@ function Sheet({ probe, maxHp, maxSpeed, onLeveled }: { probe: ProbeCard; maxHp:
           <section className="workshop-section">
             <WeaponPicker probe={probe} />
           </section>
-          <section className="workshop-section">
-            <SkinPicker probe={probe} />
-          </section>
         </>
       ) : (
         <section className="workshop-section workshop-how" aria-label={t.how}>
@@ -237,6 +234,8 @@ export function WorkshopScreen() {
                   </p>
                 ) : null}
               </div>
+              {/* Under «Equipar», outside the plate the bay is sized against: it may run below the fold. */}
+              {probe.unlocked ? <SkinPicker key={probe.id} probe={probe} /> : null}
             </section>
             <Sheet
               key={probe.id}
