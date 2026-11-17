@@ -78,7 +78,7 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 
 **Sonda:**
 1. En `probes`: `{ id, name, sprite: 'probe-<id>', description, hp, speed, pickup, armor, regen, weapon, bonus, quirk }`.
-2. Sprite de 16×16 y 2 fotogramas en `arena/sprites/probes.ts`. Las 8 direcciones se generan solas (`turnedProbe`).
+2. Sprite de 24×24 y 4 fotogramas, pintado en Aseprite por `art/probes/paint-probes.lua` (una entrada en `PROBES` y en `ORDER`), que genera `apps/web/src/arena/sprites/probe-art.ts` (`PROBE_ART`, `PROBE_NOZZLE`). Las 8 direcciones se generan solas (`turnedProbe`). Una sonda nueva necesita también sus skins de cada línea (`SKIN_PROBES` en `cosmetics/catalog.ts`): el mismo script las pinta todas.
 3. Su arma inicial necesita variantes 4 y 8 y arte del Hangar: ver `galaxy-habilidad`.
 4. Clave viva `probes`: `unlocks[id] = { stat, value }`, con `stat` entre `runs, bossKills, maxDepth, extractions, kills`. Sin ella, la sonda no se puede conseguir.
 5. **Rasgo propio nuevo:** `Quirk`, `schema.ts`, `systems/quirks.ts` y `copy.probeTest.quirks[kind]`. Sube `SIM_VERSION`.

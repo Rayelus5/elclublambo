@@ -373,10 +373,16 @@ Un id nunca se reutiliza ni cambia de significado:
 La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
 - `enabled` y `audience` (`staff` o `everyone`): nace cerrada y, al abrirla, primero para el staff.
 - `products[]`:
-  - `kind`: `pack` (un recurso), `bundle` o `welcome`;
-  - `grants` y `bonus`: solo `coins`, `dust` y `components`;
+  - `kind`:
+    - `pack`: un recurso;
+    - `bundle`: varios recursos;
+    - `welcome`: el pack de bienvenida;
+    - `cosmetic`: una pieza en `cosmetic` (`{ kind: avatar|frame|title|skin, id }`);
+    - `set`: un pack completo de piezas en `pieces`, de 2 a 12, como los packs de skins (2026-11-17);
+  - `grants` y `bonus`: solo `coins`, `dust` y `components`, y nada en un `cosmetic` ni en un `set`;
   - `priceCents` y `stripePriceId`;
   - `offer`: `bonus` (+X %) o `price` (otro precio, con su propio precio de Stripe), con fechas;
+  - `availableFrom` y `availableUntil`: las fechas de venta, en cualquier producto (incluye el inicio, no el final; `null` no limita);
   - `badge`, `featured`, `enabled`, `staffOnly`, `firstBonus` y `maxPerAccount`.
 - `limits.dailyCents` y `limits.pendingMax`, `firstPurchase` y `legal` (vendedor, contacto y versión de las condiciones).
 
@@ -386,6 +392,15 @@ La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
 - Cambiar `legal.termsVersion` obliga a volver a aceptar las condiciones.
 - Los precios se comprueban, y los que faltan se crean, en Admin › Tienda › Precios. El panel crea el precio en Stripe, pero hay que ponerlo en el producto y publicar `shop`.
 - Lo que da una compra se fija al abrir el pago: cambiar el catálogo no cambia los pagos ya abiertos.
+- **Piezas y packs:**
+  - Un `cosmetic` o un `set` se compra una vez por cuenta y sale en la pestaña Estilo.
+  - Cada pieza debe tener arte. Una pieza repetida en un `set` no vale (`shop_set_pieces`).
+  - Si el jugador ya tiene la pieza de un `cosmetic`, o todas las de un `set`, sale «Ya lo tienes» y no se vende.
+  - Un `set` del que tiene solo algunas sí se vende: entrega las que faltan y apunta cuáles dio (`granted_pieces`).
+  - Un reembolso o un contracargo quita solo esas, nunca una que ya tenía.
+- **Fechas de venta:** fuera de ellas, el producto no se ve y su compra da `shop_unavailable`. Un final anterior al inicio no vale (`shop_window`). La tarjeta dice «A la venta hasta el …» con el último día en Madrid.
+- **Una skin de la tienda** solo se puede llevar si está en el catálogo vivo `cosmetics`. Las líneas nuevas se publican primero en `cosmetics` y después sus productos en `shop`.
+- **Los packs de skins** (2026-11-17) son las líneas `navidad`, `fuego`, `agua`, `galaxia`, `carbono` y `rubi`: legendarias, animadas y solo de la tienda (`SKIN_PACKS` en `cosmetics/catalog.ts`). Sus productos son `skins-<línea>`, apagados y sin precio en el valor por defecto. Navidad se vende desde su publicación (17/11/2026) hasta el 10 de enero incluido (`availableUntil` el 11 de enero a las 00:00 de Madrid).
 
 ### B9. Qué es configuración y qué es código
 
