@@ -11,6 +11,7 @@ import { SettingsScreen } from '../../src/hub/SettingsScreen';
 import { TitleScreen } from '../../src/hub/TitleScreen';
 import { resetInstall, watchInstall } from '../../src/pwa/install';
 import '../../src/styles/app.css';
+import fredokaUrl from '../../public/fonts/fredoka-latin.woff2?url';
 
 // The installable app in a real Chromium (galaxysurvivor.es plan, PR 3): Ajustes › Pantalla with «Instalar el juego»
 // and «Pantalla completa», and the install pill at the end of the title screen's foot, with the shop open too (the
@@ -25,6 +26,18 @@ const SIZES = [
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 3 };
 const shots = Boolean(import.meta.env['VITE_INSTALL_SHOTS']);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * The game's text font (Fredoka) before measuring, as the player sees it: the page's @font-face points at /galaxy/fonts,
+ * which this test server does not serve, so each runner would measure its own fallback font (wider on Linux).
+ */
+async function gameFonts() {
+  if (![...document.fonts].some((f) => f.family === 'Fredoka' && f.status === 'loaded')) {
+    const face = new FontFace('Fredoka', `url(${fredokaUrl})`, { weight: '300 700' });
+    document.fonts.add(face);
+    await face.load();
+  }
+  await document.fonts.ready;
+}
 
 let root: Root | null = null;
 let stop: () => void = () => {};
@@ -76,6 +89,7 @@ for (const [w, h] of SIZES) {
     await page.viewport(w, h);
     offerInstall();
     mount('/ajustes?seccion=pantalla', createElement(SettingsScreen));
+    await gameFonts();
     await wait(400);
     const shell = document.querySelector<HTMLElement>('.settings-shell')!;
     const box = shell.getBoundingClientRect();
@@ -101,6 +115,8 @@ for (const [w, h] of SIZES) {
       mount('/', createElement(TitleScreen, { me }), client);
       offerInstall();
       document.body.classList.add('ready', 'settled');
+      // The game's fonts first: a busy runner can still be on the fallback font, wider, after a fixed wait.
+      await gameFonts();
       await wait(600);
       const foot = document.querySelector<HTMLElement>('.hub-foot')!;
       const pill = foot.querySelector<HTMLElement>('.hub-install')!;
