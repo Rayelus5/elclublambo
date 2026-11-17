@@ -166,6 +166,9 @@ describe('el hook en la raíz', () => {
     expect(legacy.statusCode).toBe(301);
     expect(legacy.headers.location).toBe('https://galaxysurvivor.es/galaxy/entrar?ref=x');
     expect(legacy.headers['cache-control']).toBe(REDIRECT_CACHE);
+    const evil = await a.inject({ method: 'GET', url: '//evil.com/x', headers: { host: 'www.galaxysurvivor.es' } });
+    expect(evil.statusCode).toBe(301);
+    expect(evil.headers.location).toBe('https://galaxysurvivor.es/galaxy/');
     await a.close();
   });
 
