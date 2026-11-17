@@ -56,23 +56,37 @@ function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; o
   );
 }
 
+/** How many of my skins the lobby shows at most, besides the base (the owner, 2026-11-17: the rest in the Taller). */
+const LOBBY_SKINS = 4;
+
 /**
- * The big probe's skins at hand (plan «skins», part C): its base drawing and the skins of it I have, as small swatches
- * under its plate; a choice goes on at once (the room sees it). None without skins of it, and fixed once I said «listo».
+ * The big probe's skins at hand (plan «skins», part C): its base drawing and a few of the skins of it I have (the one
+ * worn always among them), as small swatches under its plate; a choice goes on at once (the room sees it), fixed once
+ * I said «listo». Then a «+» square to the Taller, where all of them are (alone when I have none of it).
  */
 function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
   const choose = useChooseSkin();
-  const names = useCosmeticsView(probe.skins.length > 0).data?.catalog.skins ?? DEFAULT_COSMETICS.skins;
-  if (probe.skins.length === 0) return null;
+  const names = useCosmeticsView(probe.skins.length > 0).data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
   const chosen = choose.isPending ? choose.variables.skin : probe.skin;
+  const more = (
+    <Link to={`/taller?sonda=${probe.id}`} className="lobby-skin lobby-skin-more" aria-label={l.moreSkins(probe.name)} title={l.moreSkins(probe.name)} data-sfx="hover">
+      <Icon name="plus" />
+    </Link>
+  );
+  if (probe.skins.length === 0) return <div className="lobby-skins">{more}</div>;
+  // The worn one first among mine if it would not fit, the rest in their order.
+  const worn = chosen && probe.skins.includes(chosen) ? [chosen] : [];
+  const shown = [...worn, ...probe.skins.filter((id) => id !== chosen)].slice(0, LOBBY_SKINS);
+  const ids = probe.skins.filter((id) => shown.includes(id));
   const options: { id: string | null; name: string; sprite: string }[] = [
     { id: null, name: l.skinBase, sprite: probe.sprite },
-    ...probe.skins.map((id) => ({ id, name: names.find((k) => k.id === id)?.name ?? id, sprite: probeDrawing(id, probe.sprite) })),
+    ...ids.map((id) => ({ id, name: names.find((k) => k.id === id)?.name ?? id, sprite: probeDrawing(id, probe.sprite) })),
   ];
   const busy = fixed || choose.isPending;
   return (
     <>
-    <div className="lobby-skins" role="radiogroup" aria-label={l.skins}>
+    <div className="lobby-skins">
+    <div className="lobby-skins-group" role="radiogroup" aria-label={l.skins}>
       {options.map((o) => (
         <button
           key={o.id ?? 'base'}
@@ -91,6 +105,8 @@ function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
           <img src={spriteDataUrl(o.sprite, 1)} alt="" width={24} height={24} draggable={false} />
         </button>
       ))}
+    </div>
+    {more}
     </div>
     {choose.error ? (
       <p className="field-error" role="alert">

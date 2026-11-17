@@ -1,6 +1,7 @@
-import type { HangarView, ProbeCard } from '@galaxy/shared';
+import { DEFAULT_COSMETICS, type HangarView, type ProbeCard } from '@galaxy/shared';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
+import { useCosmeticsView } from '../api/cosmetics';
 import { useGacha } from '../api/economy';
 import { useChooseProbe, useHangar } from '../api/runs';
 import { probeDrawing, spriteDataUrl } from '../arena/sprites';
@@ -13,7 +14,7 @@ import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
 import { SpriteLoop } from '../ui/SpriteLoop';
 import bayUrl from './art/bay.png';
-import { ProbeLevel, SkinPicker, Unlock, WeaponPicker } from './parts';
+import { previewed, ProbeLevel, SkinPicker, type SkinPreview, Unlock, WeaponPicker } from './parts';
 import { playEquip, playLevelUp } from './sfx';
 
 // The probe workshop (the owner's «taller espacial»): every probe in the roster (locked ones say what earns them), the
@@ -128,9 +129,6 @@ function Sheet({ probe, maxHp, maxSpeed, onLeveled }: { probe: ProbeCard; maxHp:
           <section className="workshop-section">
             <WeaponPicker probe={probe} />
           </section>
-          <section className="workshop-section">
-            <SkinPicker probe={probe} />
-          </section>
         </>
       ) : (
         <section className="workshop-section workshop-how" aria-label={t.how}>
@@ -152,6 +150,9 @@ export function WorkshopScreen() {
   const [params, setParams] = useSearchParams();
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const [clamp, setClamp] = useState(0);
+  // The skin the bay previews (2026-11-17), for the probe it was chosen on.
+  const [preview, setPreview] = useState<SkinPreview & { probe?: string }>({});
+  const skinNames = useCosmeticsView().data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
   const { ref: bayRef, plateRef, px } = useBayScale();
   useEffect(() => {
     if (!celebrate) return;
@@ -167,6 +168,9 @@ export function WorkshopScreen() {
   const pending = choose.isPending;
   const maxHp = Math.max(1, ...(view?.probes.map((p) => p.hp) ?? [1]));
   const maxSpeed = Math.max(1, ...(view?.probes.map((p) => p.speed) ?? [1]));
+  const look = probe && preview.probe === probe.id ? preview : {};
+  const shownSkin = probe ? previewed(look, probe.skin) : null;
+  const previewing = !!probe && shownSkin !== probe.skin;
 
   return (
     <div className="screen-root workshop-root">
@@ -192,10 +196,16 @@ export function WorkshopScreen() {
                   <SpriteLoop
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    id={probeDrawing(probe.skin, probe.sprite)}
+                    id={probeDrawing(shownSkin, probe.sprite)}
+                    data-drawing={probeDrawing(shownSkin, probe.sprite)}
                     scale={12}
                     reduced={reduced}
                   />
+                  {previewing ? (
+                    <span className="workshop-preview-tag" aria-live="polite">
+                      {t.preview(shownSkin ? (skinNames.find((k) => k.id === shownSkin)?.name ?? shownSkin) : t.skinBase)}
+                    </span>
+                  ) : null}
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>
               </div>
@@ -237,6 +247,8 @@ export function WorkshopScreen() {
                   </p>
                 ) : null}
               </div>
+              {/* Under «Equipar», outside the plate the bay is sized against: it may run below the fold. */}
+              {probe.unlocked ? <SkinPicker key={probe.id} probe={probe} preview={look} onPreview={(next) => setPreview({ ...next, probe: probe.id })} /> : null}
             </section>
             <Sheet
               key={probe.id}
