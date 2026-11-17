@@ -38,14 +38,14 @@ function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; o
           onClick={() => onMode('solo')}
           data-sfx="hover"
         >
-          <Icon name="probe" />
+          <Icon name="probe" outline />
           <span>
             <b>{l.solo}</b>
             {room ? <small>{l.soloLocked}</small> : null}
           </span>
         </button>
         <button type="button" role="radio" aria-checked={mode === 'group'} className="lip lobby-mode group" onClick={() => onMode('group')} data-sfx="hover">
-          <Icon name="clan" />
+          <Icon name="clan" outline />
           <span>
             <b>{l.group}</b>
             {room ? <small>{l.inRoom(room.members.length, room.max)}</small> : null}

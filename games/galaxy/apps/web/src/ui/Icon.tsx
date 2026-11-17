@@ -362,9 +362,21 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
-export function Icon({ name, label, className = 'ico' }: { name: IconName; label?: string; className?: string }) {
+/**
+ * An interface icon. `outline` (2026-11-17, the owner: icons on a colour white, «pero que se sigan viendo, añadir un
+ * contorno») draws the same strokes twice: a wider dark copy behind (`.ico-back`) and the icon on top, like the 1 px
+ * dark rim of the game's pixel icons, so it reads on any tone.
+ */
+export function Icon({ name, label, className = 'ico', outline = false }: { name: IconName; label?: string; className?: string; outline?: boolean }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <svg
+      className={outline ? `${className} ico-ol` : className}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      {outline ? <g className="ico-back">{PATHS[name]}</g> : null}
       {PATHS[name]}
     </svg>
   );

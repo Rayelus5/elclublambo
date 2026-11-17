@@ -7,6 +7,16 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-40-lobby-y-salas',
+    version: '1.40',
+    date: '2026-11-17',
+    title: 'El lobby, más claro',
+    summary: 'Iconos blancos con borde que se leen sobre cualquier color',
+    items: [
+      { kind: 'mejora', text: 'Los iconos de los botones de colores (la barra del lobby, el escáner, la estación, Solo y En grupo…) son blancos con un borde oscuro: se leen igual sobre cualquier color y todos se ven iguales' },
+    ],
+  },
+  {
     id: 'v1-39-packs-de-skins',
     version: '1.39',
     date: '2026-11-17',
