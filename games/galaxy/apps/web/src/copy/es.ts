@@ -2107,7 +2107,7 @@ export const copy = {
     skins: 'Skin',
     skinBase: 'De serie',
     skinBaseHint: 'Su dibujo de siempre',
-    skinLines: { chatarra: 'Colección Chatarra', coral: 'Colección Coral' } as Record<string, string>,
+    skinLines: { chatarra: 'Colección Chatarra', coral: 'Colección Coral', navidad: 'Pack Navidad', fuego: 'Pack Fuego', agua: 'Pack Agua', galaxia: 'Pack Galáctico', carbono: 'Pack Carbono', rubi: 'Pack Rubí' } as Record<string, string>,
     scrapProgress: (n: number, total: number, probe: string) => `${Math.min(n, total)} de ${total} incursiones con ${probe}`,
     roster: 'Sondas',
     equipped: 'Equipada',
