@@ -111,6 +111,32 @@ describe('despegar y jugar', () => {
     await coop.abandon(room.run!.id);
   });
 
+  test('la salida espera a que entren todos y luego cuenta atrás a la vez para todos (2026-11-17)', async () => {
+    const { players, room } = await launched(2);
+    const runId = room.run!.id;
+    const a = await play(players[0]!, runId);
+    await waitFor(() => a.got.some((m) => m.t === 'hello'));
+    const hello = a.got.find((m) => m.t === 'hello')!;
+    if (hello.t !== 'hello') throw new Error('hello');
+    // Only A is in: it waits, and A hears so.
+    expect(hello.gate).toEqual({ connected: [true, false], startsIn: null });
+    expect(hello.to).toBe(0);
+    const b = await play(players[1]!, runId);
+    // Both in: the countdown starts, and both hear when the first tick is due.
+    const counting = (got: CoopServerMessage[]) => got.some((m) => m.t === 'gate' && m.startsIn !== null);
+    await waitFor(() => counting(a.got) && counting(b.got));
+    for (const got of [a.got, b.got]) {
+      const g = got.filter((m) => m.t === 'gate' && m.startsIn !== null).at(-1)!;
+      if (g.t !== 'gate') throw new Error('gate');
+      expect(g.connected).toEqual([true, true]);
+      expect(g.startsIn).toBeGreaterThan(2000);
+      expect(g.startsIn).toBeLessThanOrEqual(3000);
+    }
+    a.ws.terminate();
+    b.ws.terminate();
+    await coop.abandon(runId);
+  });
+
   test('dos «Despegar» a la vez lanzan una sola partida', async () => {
     const players = await Promise.all([player(), player()]);
     const room = (await act(players[0]!, '', { kind: 'private', sector: 'outer-nebula' })).json() as RoomView;

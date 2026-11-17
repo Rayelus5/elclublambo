@@ -692,6 +692,7 @@ Ver §15.
   - los puntos de temporada llevan su propio factor;
   - las partidas en grupo cuentan para las misiones y para la clasificación En grupo.
 - **Red [D]:**
+  - **salida (2026-11-17):** el reloj espera a que todos tengan la partida abierta (como mucho 10 s; quien falte queda ausente desde el primer tick) y cuenta 3 s; la pantalla de carga enseña quién está y la cuenta atrás sobre la arena ya dibujada, y se va con el primer tick;
   - *lockstep* con registro sellado por el servidor;
   - un árbitro en el servidor simula la misma partida y decide el pago;
   - cada 5 s los navegadores comparan su huella con la del árbitro y, si no coincide, rehacen el mundo desde el registro.

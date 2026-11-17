@@ -1,4 +1,4 @@
-import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
+import { COOP_SUM_EVERY, type CoopGate, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
 import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AddFriendButton } from '../social/AddFriendButton';
@@ -42,6 +42,8 @@ import { usePrefs } from '../settings/prefs';
 // from the start. At the end the server says what I was paid, and the room waits again.
 
 const HUD_EVERY_MS = 100;
+/** Ticks behind the last closed one that still count as playing live (the start's loading screen goes there). */
+const LIVE_EDGE = 4;
 const END_DELAY_MS = 1500;
 const FINAL = new Set([4401, 4403, 4404, 4400, 4409]);
 const t = copy.coop.arena;
@@ -78,6 +80,7 @@ export function CoopArena({
    */
   const [world, setWorld] = useState<World | null>(null);
   const [link, setLink] = useState<Link>('connecting');
+  const [result, setResult] = useState<{ result: RunResult | null } | null>(null);
   // The loading screen (the owner, 2026-11-14): connecting, then the arena drawn, then caught up; a moment at least.
   const [stageReady, setStageReady] = useState(false);
   const [loading, setLoading] = useState<'on' | 'leaving' | 'off'>('on');
@@ -85,21 +88,46 @@ export function CoopArena({
   useEffect(() => {
     loadingSince.current = Date.now();
   }, []);
-  const loadingStep: LoadingStep = !world ? 'connect' : !stageReady ? 'arena' : 'sync';
+  // The start (2026-11-17, the owner: the loading screen must really hide the start): who is in, and when the first
+  // tick is due on my clock (from the server's «starts in»); null gate: an older server, the screen goes as before.
+  const [gate, setGate] = useState<{ connected: boolean[]; startAt: number | null } | null>(null);
+  const takeGate = useCallback((g: CoopGate) => setGate({ connected: g.connected, startAt: g.startsIn === null ? null : clock.now() + g.startsIn }), [clock]);
+  /** My world runs at the live edge (the first ticks stepped, caught up): the screen can go. */
+  const [live, setLive] = useState(false);
+  const markLive = useCallback(() => setLive(true), []);
+  /** Whole seconds to the first tick while the screen shows (3, 2, 1), on the screen's clock. */
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const startAt = gate?.startAt ?? null;
+  useEffect(() => {
+    if (startAt === null || loading === 'off') return;
+    let on = true;
+    const tick = (n: number) => {
+      if (!on) return;
+      setCountdown(Math.ceil((startAt - n) / 1000));
+      clock.schedule(tick);
+    };
+    tick(clock.now());
+    return () => {
+      on = false;
+    };
+  }, [startAt, loading, clock]);
+  const loadingStep: LoadingStep = !world ? 'connect' : !stageReady ? 'arena' : gate && gate.startAt === null ? 'team' : 'count';
+  const gated = gate !== null;
   useEffect(() => {
     if (!stageReady || loading !== 'on') return;
-    // The sync step lasts a few frames of catching up; the whole screen at least LOADING_MIN_MS.
-    const wait = Math.max(LOADING_MIN_MS - (Date.now() - loadingSince.current), 350);
+    // With a start gate it stays until my world runs (the countdown ends on the first tick); an older server: as before,
+    // a few frames of catching up. Always at least LOADING_MIN_MS, and gone at once if the run is already over.
+    if (gated && !live && !result) return;
+    const wait = Math.max(LOADING_MIN_MS - (Date.now() - loadingSince.current), gated ? 0 : 350);
     const id = setTimeout(() => setLoading('leaving'), wait);
     return () => clearTimeout(id);
-  }, [stageReady, loading]);
+  }, [stageReady, loading, gated, live, result]);
   useEffect(() => {
     if (loading !== 'leaving') return;
     const id = setTimeout(() => setLoading('off'), LOADING_FADE_MS);
     return () => clearTimeout(id);
   }, [loading]);
   const markReady = useCallback(() => setStageReady(true), []);
-  const [result, setResult] = useState<{ result: RunResult | null } | null>(null);
   const worldRef = useRef<World | null>(null);
   /** Every sealed event received (flat), to rebuild the world from the start. */
   const sealed = useRef<number[]>([]);
@@ -158,8 +186,11 @@ export function CoopArena({
           for (const v of missed) sealed.current.push(v);
           known.current = Math.max(known.current, events.length);
           closed.current = Math.max(closed.current, msg.to);
+          if (msg.gate) takeGate(msg.gate);
           setLink('live');
           setEpoch((e) => e + 1);
+        } else if (msg.t === 'gate') {
+          takeGate(msg);
         } else if (msg.t === 'f') {
           worldRef.current?.feed.push(msg.ev);
           for (const v of msg.ev) sealed.current.push(v);
@@ -225,6 +256,7 @@ export function CoopArena({
     <>
     <CoopWorld
       onReady={markReady}
+      onLive={markLive}
       key={world.gen}
       marks={marks}
       start={world.start}
@@ -243,13 +275,23 @@ export function CoopArena({
         onAbandon();
       }}
     />
-    {loading !== 'off' ? <CoopLoading start={world.start} step={loadingStep} leaving={loading === 'leaving'} /> : null}
+    {loading !== 'off' ? (
+      <CoopLoading
+        start={world.start}
+        step={loadingStep}
+        leaving={loading === 'leaving'}
+        see={stageReady}
+        countdown={gate && !live ? countdown : null}
+        connected={gate?.connected ?? null}
+      />
+    ) : null}
     </>
   );
 }
 
 function CoopWorld({
   onReady,
+  onLive,
   marks,
   start,
   sim,
@@ -266,6 +308,8 @@ function CoopWorld({
 }: {
   /** The arena is drawn and running (the loading screen can go). */
   onReady?: () => void;
+  /** My world reached the live edge: the first ticks stepped and caught up (the start's loading screen goes). */
+  onLive?: () => void;
   marks: ShownMark[];
   clock: Clock;
   viewer: boolean;
@@ -372,6 +416,7 @@ function CoopWorld({
       if (said) setAnnounce(said);
       notices.push(noticesFor(events, slot, start.content, sim.sector.id), Date.now());
     };
+    let wentLive = false;
     const loop = createLockstep({
       now: clock.now,
       schedule: clock.schedule,
@@ -379,6 +424,12 @@ function CoopWorld({
       closed: () => closed.current,
       step: () => {
         step(sim, feed.inputsFor(sim.tick + 1));
+        // At the live edge, or the world already over (it ended while catching up): the start's screen goes.
+        const over = sim.status === 'dead' || sim.status === 'extracted';
+        if (!wentLive && ((sim.tick >= 1 && closed.current - sim.tick <= LIVE_EDGE) || over)) {
+          wentLive = true;
+          onLive?.();
+        }
         // My world's hash for the referee (phase 6c), only near the live edge (not while catching up).
         if (sim.tick % COOP_SUM_EVERY === 0 && closed.current - sim.tick < COOP_SUM_EVERY) send({ t: 'sum', tick: sim.tick, h: stateHash(sim) });
         if (sim.events.length) onEvents(sim.events);

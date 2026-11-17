@@ -8,7 +8,7 @@ import { HttpError } from '../errors';
 import { labSeasonId } from '../lab/levels';
 import { ensureHangar, testedProbe } from '../runs/hangar';
 import { loadoutSnapshot, newRunSeed } from '../runs/service';
-import { CoopRun, type CoopRunBase, type CoopSlot, type Gone, type PlaySocket } from './relay';
+import { CoopRun, type CoopRunBase, type CoopSlot, type Gone, type PlaySocket, START_GATE, type StartGate } from './relay';
 import type { Room } from './rooms';
 import { settleCoop } from './settle';
 
@@ -18,8 +18,6 @@ import { settleCoop } from './settle';
 
 const CLOCK_MS = 16;
 const SAVE_EVERY_MS = 5_000;
-/** The run starts this long after launching: every player loads the arena first. */
-export const LEAD_MS = 3_000;
 /** A run whose log was not saved for this long belongs to no live server: it is paid as interrupted. */
 const ORPHAN_MS = 30_000;
 const RECOVER_EVERY_MS = 60_000;
@@ -31,6 +29,8 @@ export interface CoopDeps {
   log?: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void };
   /** Pay orphaned runs at start and every minute (off in tests, which call recover() themselves). */
   autoRecover?: boolean;
+  /** How a run's start waits for its players and counts down (relay.ts START_GATE; shorter in tests). */
+  startGate?: StartGate;
 }
 
 export class CoopService {
@@ -148,7 +148,8 @@ export class CoopService {
       return { id: row.id, slots, players };
     });
     const base: CoopRunBase = { id, seed, sector: room.sector, anomaly, content, contentVersion, rules, players, startedAt: now.toISOString() };
-    const run = new CoopRun(id, room.id, base, slots, Date.now() + LEAD_MS);
+    // The clock waits for every player's socket, then counts down (the start gate): no fixed lead any more.
+    const run = new CoopRun(id, room.id, base, slots, Date.now(), this.deps.startGate ?? START_GATE);
     this.runs.set(id, run);
     let resolve!: () => void;
     const promise = new Promise<void>((r) => (resolve = r));
@@ -168,7 +169,7 @@ export class CoopService {
     const slot = run.slotOf(accountId);
     if (slot < 0) return null;
     setImmediate(() => {
-      if (socket.readyState === 1 && !run.ended) run.attach(slot, socket);
+      if (socket.readyState === 1 && !run.ended) run.attach(slot, socket, Date.now());
     });
     return { run, slot };
   }

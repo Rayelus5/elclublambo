@@ -1,7 +1,7 @@
 import { COOP_SUM_EVERY, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
 import { CoopFeed, createSim, DASH, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_RESYNCS, TICK_MS } from '../../src/coop/relay';
+import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_RESYNCS, START_GATE, type StartGate, TICK_MS } from '../../src/coop/relay';
 
 // The relay's clock and presence (multiplayer plan, phase 6, review): with nobody connected the clock waits (a shared
 // outage never kills the run), «away» is only for one who is missing while others play, everyone gone for long ends
@@ -14,7 +14,10 @@ const CALM = {
   sectors: DEFAULT_CONTENT.sectors.map((s) => ({ ...s, waves: [], density: { ...s.density, base: 0, perMinute: 0, max: 0 } })),
 };
 
-function run(n = 2, content = DEFAULT_CONTENT) {
+/** No start gate: the clock runs as soon as someone is in (the checks below written before the gate). */
+const NO_GATE: StartGate = { waitMs: 0, countdownMs: 0 };
+
+function run(n = 2, content = DEFAULT_CONTENT, gate: StartGate = NO_GATE) {
   const players = Array.from({ length: n }, (_, i) => ({ username: `p${i}`, probe: 'lumen', relics: [], bonuses: [], variant: null }));
   const base = {
     id: 'r',
@@ -28,9 +31,11 @@ function run(n = 2, content = DEFAULT_CONTENT) {
     startedAt: new Date(T0).toISOString(),
   };
   const slots = players.map((p, i) => ({ accountId: `a${i}`, username: p.username, runRowId: `row${i}` }));
-  return new CoopRun('r', 'room', base, slots, T0);
+  return new CoopRun('r', 'room', base, slots, T0, gate);
 }
 const socket = () => ({ readyState: 1, sent: [] as string[], send(d: string) { this.sent.push(d); }, close() {} });
+/** What a socket got of one kind, parsed. */
+const got = (s: ReturnType<typeof socket>, t: string) => s.sent.map((d) => JSON.parse(d) as { t: string } & Record<string, unknown>).filter((m) => m.t === t);
 const kinds = (r: CoopRun, kind: number) => {
   const out: number[][] = [];
   for (let i = 0; i + 5 < r.events.length; i += 6) if (r.events[i + 2] === kind) out.push(r.events.slice(i, i + 6));
@@ -248,3 +253,76 @@ test('el árbitro cronometra cada paso que cierra', () => {
   expect(cpu.max).toBeGreaterThanOrEqual(cpu.p50);
 });
 
+
+// The start (2026-11-17, the owner: the loading screen must really hide the start): the clock waits until every
+// player's socket is in, at most START_GATE.waitMs, then counts START_GATE.countdownMs down; every socket hears who is
+// in and when it starts (on the server's clock), so the 3-2-1 lands on the first tick for everyone.
+
+test('la salida espera a que estén todos y luego cuenta atrás; cada socket sabe quién está y cuánto falta', () => {
+  expect(START_GATE).toEqual({ waitMs: 10_000, countdownMs: 3_000 });
+  const r = run(2, CALM, START_GATE);
+  const [a, b] = [socket(), socket()];
+  r.attach(0, a, T0);
+  // The hello says who is in and that it waits.
+  expect(got(a, 'hello')[0]!['gate']).toEqual({ connected: [true, false], startsIn: null });
+  pumpRange(r, T0, T0 + 5000);
+  expect(r.closed).toBe(0);
+  r.attach(1, b, T0 + 5000);
+  expect(got(a, 'gate').at(-1)).toMatchObject({ connected: [true, true], startsIn: null });
+  // Both in: the countdown starts at the next turn of the clock.
+  pumpRange(r, T0 + 5000, T0 + 5016);
+  const start = got(b, 'gate').at(-1)!;
+  expect(start['connected']).toEqual([true, true]);
+  expect(start['startsIn']).toBe(3000);
+  expect(r.connectedCount()).toBe(2);
+  pumpRange(r, T0 + 5016, T0 + 5016 + 2900);
+  expect(r.closed).toBe(0);
+  pumpRange(r, T0 + 5016 + 2900, T0 + 5016 + 4000);
+  expect(r.closed).toBeGreaterThan(50);
+});
+
+test('un saludo durante la cuenta atrás lleva lo que falta; ya en marcha, un número negativo', () => {
+  const r = run(2, CALM, START_GATE);
+  r.attach(0, socket(), T0);
+  r.attach(1, socket(), T0);
+  pumpRange(r, T0, T0 + 16);
+  const late = socket();
+  r.attach(1, late, T0 + 1000);
+  expect((got(late, 'hello')[0]!['gate'] as { startsIn: number }).startsIn).toBe(2000);
+  pumpRange(r, T0 + 16, T0 + 5000);
+  const again = socket();
+  r.attach(0, again, T0 + 5000);
+  expect((got(again, 'hello')[0]!['gate'] as { startsIn: number }).startsIn).toBeLessThan(0);
+});
+
+test('al agotar la espera arranca con los que están, y quien falta queda ausente desde el primer tick', () => {
+  const r = run(2, CALM, START_GATE);
+  r.attach(0, socket(), T0);
+  pumpRange(r, T0, T0 + START_GATE.waitMs - 100);
+  expect(r.closed).toBe(0);
+  const t = pumpRange(r, T0 + START_GATE.waitMs - 100, T0 + START_GATE.waitMs + START_GATE.countdownMs + 1000);
+  expect(r.closed).toBeGreaterThan(50);
+  expect(t).toBeGreaterThan(0);
+  const away = kinds(r, PRESENCE).filter((e) => e[1] === 1 && e[3] === 1);
+  expect(away).toHaveLength(1);
+  expect(away[0]![0]).toBeLessThanOrEqual(2);
+});
+
+test('si se van todos antes de empezar, la partida acaba enseguida', () => {
+  const r = run(2, CALM, START_GATE);
+  r.attach(0, socket(), T0);
+  pumpRange(r, T0, T0 + 1000);
+  r.leave(0);
+  r.leave(1);
+  pumpRange(r, T0 + 1000, T0 + 3000);
+  expect(r.ended).toBe(true);
+});
+
+test('si no llega nadie, la salida espera y, pasado el tiempo de todos fuera, la partida acaba', () => {
+  const r = run(2, CALM, START_GATE);
+  pumpRange(r, T0, T0 + START_GATE.waitMs + 5000);
+  expect(r.closed).toBe(0);
+  expect(r.ended).toBe(false);
+  pumpRange(r, T0 + START_GATE.waitMs + 5000, T0 + ALL_GONE_MS + 2000);
+  expect(r.ended).toBe(true);
+});

@@ -4024,6 +4024,19 @@
     background: radial-gradient(120% 90% at 50% 30%, color-mix(in oklab, var(--biome-a) 80%, transparent), var(--color-void) 70%), var(--color-void);
     animation: coop-loading-in .25s ease-out both; }
   .coop-loading.leaving { animation: coop-loading-out .3s ease-in both; pointer-events: none; }
+  /* Once the arena is drawn (2026-11-17, the owner: the game must show behind the loading screen): a see-through veil in
+     the biome's colour, darker in the middle under the card, so the world at its first frame shows around it. */
+  .coop-loading.see { background: radial-gradient(70% 70% at 50% 45%, rgb(5 6 20 / .78), rgb(5 6 20 / .5) 60%, color-mix(in oklab, var(--biome-a) 22%, transparent)); transition: background .4s ease; }
+  .coop-loading.see .coop-loading-card { padding: 22px 28px; border-radius: 26px; background: rgb(8 9 28 / .55); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
+  /* Who is in (the start gate): a small chip under each probe, green once connected, pulsing while it connects. */
+  .coop-loading-net { display: inline-flex; align-items: center; gap: 6px; margin-block-start: 2px; padding: 2px 9px 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 800; color: var(--color-ink-mute); background: rgb(255 255 255 / .06); }
+  .coop-loading-net::before { content: ''; inline-size: 7px; block-size: 7px; border-radius: 50%; background: currentColor; }
+  .coop-loading-net[data-on='true'] { color: var(--color-terminal); background: rgb(69 227 166 / .12); }
+  .coop-loading-net[data-on='false']::before { animation: coop-net-wait 1s ease-in-out infinite; }
+  @keyframes coop-net-wait { 50% { opacity: .25; } }
+  /* The 3-2-1 to the first tick, on the server's clock: big, Solar, popping in each second. */
+  .coop-loading-count { margin: -6px 0 -8px; font: 400 clamp(64px, 9vw, 112px)/1 var(--font-display); color: var(--color-solar); text-shadow: 0 6px 0 var(--color-solar-lip), 0 0 40px rgb(255 201 74 / .45); animation: coop-count-pop .9s var(--ease-bounce) both; }
+  @keyframes coop-count-pop { from { transform: scale(1.6); opacity: 0; } 25% { transform: scale(.95); opacity: 1; } to { transform: scale(1); opacity: 1; } }
   @keyframes coop-loading-in { from { opacity: 0; } }
   @keyframes coop-loading-out { to { opacity: 0; } }
   .coop-loading-card { display: grid; justify-items: center; gap: 18px; inline-size: min(720px, 100%); text-align: center; }
@@ -4044,7 +4057,7 @@
   .coop-loading-steps li.now { color: var(--color-solar); }
   .coop-loading-bar { position: relative; inline-size: min(420px, 100%); block-size: 8px; border-radius: 8px; background: rgb(255 255 255 / .08); overflow: hidden; }
   .coop-loading-bar i { position: absolute; inset: 0 auto 0 0; inline-size: var(--p); border-radius: inherit; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); box-shadow: 0 0 12px rgb(255 201 74 / .5); transition: inline-size .4s ease; }
-  :where(:root[data-motion='reduced']) { .coop-loading, .coop-loading.leaving, .coop-loading-team li, .coop-loading-team img { animation: none; } .coop-loading-bar i { transition: none; } }
+  :where(:root[data-motion='reduced']) { .coop-loading, .coop-loading.leaving, .coop-loading-team li, .coop-loading-team img, .coop-loading-count, .coop-loading-net::before { animation: none; } .coop-loading-bar i, .coop-loading.see { transition: none; } }
   .coop-arena-status { position: absolute; top: 50%; left: 50%; translate: -50% -50%; margin: 0; padding: 14px 22px; border-radius: 16px; background: rgb(11 12 36 / .88); font-weight: 700; color: var(--color-ink); }
   .arena-ending small { display: block; margin-top: 8px; font-size: 15px; color: var(--color-ink-soft); text-align: center; }
   :where(:root[data-motion='reduced']) { .coop-cards { animation: none; } }
