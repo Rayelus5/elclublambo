@@ -103,7 +103,8 @@ describe('el dominio nuevo', () => {
   test('sirve el juego y su API', async () => {
     const shell = await page(on, 'galaxysurvivor.es', '/galaxy/entrar');
     expect(shell.statusCode).toBe(200);
-    expect(shell.body).toBe(INDEX);
+    expect(shell.body).toContain('<title>Entrar | Galaxy Survivor</title>');
+    expect(shell.body).toContain('<div id="root"></div>');
     const health = await page(on, 'galaxysurvivor.es', '/galaxy/api/health');
     expect(health.statusCode).toBe(200);
     expect(health.json()).toMatchObject({ ok: true });
@@ -124,7 +125,8 @@ describe('el host antiguo', () => {
   test('con el interruptor vacío lo sirve todo como siempre', async () => {
     const shell = await page(off, 'pre.elclub.party', '/galaxy/entrar?ref=x', { 'sec-fetch-dest': 'document' });
     expect(shell.statusCode).toBe(200);
-    expect(shell.body).toBe(INDEX);
+    expect(shell.body).toContain('<title>Entrar | Galaxy Survivor</title>');
+    expect(shell.body).toContain('<div id="root"></div>');
     expect((await page(off, 'pre.elclub.party', '/galaxy')).statusCode).toBe(308); // the app's own /galaxy → /galaxy/
     expect((await page(off, 'pre.elclub.party', '/galaxy')).headers.location).toBe('/galaxy/');
   });
@@ -146,7 +148,7 @@ describe('el host antiguo', () => {
     expect(asset.body).toBe('console.log(1)');
     const fetched = await page(on, 'pre.elclub.party', '/galaxy/entrar', { 'sec-fetch-dest': 'empty' });
     expect(fetched.statusCode).toBe(200);
-    expect(fetched.body).toBe(INDEX);
+    expect(fetched.body).toContain('<div id="root"></div>');
     // The fonts and the favicon (not under /galaxy/assets) stay too, even without Sec-Fetch-Dest (curl, crawlers).
     for (const [url, body] of [['/galaxy/fonts/bungee-latin.woff2', 'font'], ['/galaxy/favicon.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>']] as const) {
       const res = await page(on, 'pre.elclub.party', url);

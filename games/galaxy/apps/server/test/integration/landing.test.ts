@@ -122,7 +122,9 @@ test('HEAD de la portada responde como GET, sin cuerpo', async () => {
 test('el juego sigue igual: su shell en /galaxy/…, JSON 404 en su API y en lo que no es GET', async () => {
   const shell = await get('/galaxy/entrar');
   expect(shell.statusCode).toBe(200);
-  expect(shell.body).toBe(SHELL);
+  // The game's shell, with its own head (galaxysurvivor.es plan, PR 2).
+  expect(shell.body).toContain('<title>Entrar | Galaxy Survivor</title>');
+  expect(shell.body).toContain('<div id="root"></div>');
   const api = await get('/galaxy/api/nada');
   expect(api.statusCode).toBe(404);
   expect(api.json()).toEqual({ error: 'not_found' });

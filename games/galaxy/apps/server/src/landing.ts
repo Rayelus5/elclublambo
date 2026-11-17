@@ -14,7 +14,8 @@ import type { LegalIdentity } from './env';
 const LONG_CACHE = 'public, max-age=31536000, immutable';
 const TOKENS = ['holder', 'nif', 'address'] as const;
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC[c]!);
+/** `s` safe inside HTML text and quoted attributes. */
+export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC[c]!);
 
 /** The legal pages with the holder's data: each `<!--legal:x-->` filled (escaped), or the whole line dropped. */
 export function fillLegal(html: string, legal: LegalIdentity): string {
