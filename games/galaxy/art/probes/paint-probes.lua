@@ -246,7 +246,7 @@ local function paint(M, look, f)
   end
   for y = 0, H - 1 do for x = 0, W - 1 do merged[y][x] = luces[y][x] or casco[y][x] end end
   -- And what floats round it (sparks), in the empty space after the contour.
-  if look.around then look.around(merged, luces, f, n) end
+  if look.around then look.around(merged, luces, f, n, look.box) end
   return casco, luces, merged
 end
 
@@ -348,6 +348,30 @@ R.auroraV = { '#5a43d6', '#b39dff', '#f0e6ff' }
 R.obsidian = { '#0e0b1c', '#241c3a', '#3e3260' }
 R.royal = { '#4a0f6a', '#8e2bb3', '#e05cff' }
 R.gold = { '#a0661a', '#ffc94a', '#fff2b8' }
+-- The shop's skin packs (2026-11-17): Navidad and Fuego.
+R.xmasRed = { '#7a0f22', '#d8283c', '#ff7a8a' }
+R.candy = { '#b9bfe6', '#f3f5ff', '#ffffff' }
+R.pine = { '#0b5a3a', '#17a05e', '#6fe3a0' }
+R.snow = { '#8fa4dc', '#e6ecff', '#ffffff' }
+R.star = { '#c27a10', '#ffc94a', '#fff6c8' }
+R.holly = { '#08402a', '#127a46', '#3cb86c' }
+R.char = { '#1a0a08', '#3a140c', '#5e2414' }
+R.lava = { '#b0220c', '#ff6a1c', '#ffd24a' }
+R.ember = { '#8a2a0c', '#e8561c', '#ffa04a' }
+-- Agua, Galáctico, Carbono and Rubí.
+R.water = { '#0b2f6a', '#1c62c4', '#4fa8ff' }
+R.foam = { '#2a9fb4', '#7ff0e6', '#e8fffb' }
+R.tide = { '#0e6e8c', '#25b6d6', '#9ef4ff' }
+R.space = { '#0c0624', '#22104a', '#3f2380' }
+R.nebula = { '#7a1a6a', '#d43aa8', '#ff8ad8' }
+R.starlight = { '#5a78f0', '#bfd0ff', '#ffffff' }
+R.carbon = { '#0c0e12', '#1e2229', '#3a404c' }
+R.carbon2 = { '#2a2f3a', '#4a5262', '#8a94a8' }
+R.neon = { '#0a6a8a', '#22d3ff', '#c8f8ff' }
+R.ruby = { '#8a0a2a', '#e01848', '#ff6a8a' }
+R.rubyDeep = { '#3a0414', '#7a0a26', '#b8123a' }
+R.rubyGlow = { '#c8143c', '#ff5a7a', '#ffd0dc' }
+R.platinum = { '#7a8098', '#c8ccdc', '#ffffff' }
 
 local function hullBox(M)
   local x0, y0, x1, y1 = W, H, -1, -1
@@ -560,6 +584,366 @@ local SKINS = {
       polyOver(M, { { fx + 0.5, b.cy - 1.5 }, { fx + 0.5, b.cy + 2.5 }, { fx + 3.5, b.cy + 0.5 } }, 'prow')
     end,
   },
+  -- Navidad (the shop's Christmas pack, 2026-11-17): Santa's red with white plating in candy-cane stripes, a Santa hat
+  -- on top whose pompom bobs, a garland of bulbs along the body that light up one after another, and snowflakes
+  -- drifting down round it. Eight frames.
+  {
+    line = 'navidad',
+    look = {
+      hull = R.holly, hull2 = R.holly, trim = R.candy, trim2 = R.candy, glass = R.ice, core = R.star, lights = R.xmasRed, engine = R.star,
+      hat = R.xmasRed, brim = R.snow, garland = R.star, bulb = R.star,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The plating in candy-cane stripes: red over every other pair of diagonals, with the plating's own edges.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            local m = M[y][x]
+            if (m == 'trim' or m == 'trim2') and (x + y) % 4 < 2 then casco[y][x] = R.xmasRed[toneOf(M, x, y)] end
+          end
+        end
+        -- The bulbs light up in turn, red, gold, blue and green, a step every frame.
+        local BULBS = { '#ff4a5e', '#ffc94a', '#6fb7ff', '#6fe3a0' }
+        local k = 0
+        for x = 0, W - 1 do
+          for y = 0, H - 1 do
+            if M[y][x] == 'bulb' then
+              luces[y][x] = (k + f) % 4 == 0 and '#fff6c8' or BULBS[(k % 4) + 1]
+              k = k + 1
+            end
+          end
+        end
+        -- The pompom at the hat's tip, bobbing a pixel.
+        if b.pom then
+          local dy = (f % 4 < 2) and 0 or 1
+          for _, d in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+            local x, y = b.pom[1] + d[1], b.pom[2] + d[2] + dy
+            if inside(x, y) and not casco[y][x] and not luces[y][x] then casco[y][x] = R.snow[(d[1] == 0 and d[2] == 0) and 3 or 2] end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Three snowflakes falling at their own pace, a plus every other frame.
+        for k, at in ipairs({ { 2, 0 }, { 21, 9 }, { 11, 15 } }) do
+          local x = at[1] + ((f + k) % 4 < 2 and 0 or 1)
+          local y = (at[2] + f * 3) % H
+          if inside(x, y) and not merged[y][x] then
+            merged[y][x], luces[y][x] = '#ffffff', '#ffffff'
+            if (f + k) % 2 == 0 then
+              for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                local qx, qy = x + d[1], y + d[2]
+                if inside(qx, qy) and not merged[qy][qx] then merged[qy][qx], luces[qy][qx] = '#bfe3ff', '#bfe3ff' end
+              end
+            end
+          end
+        end
+      end,
+    },
+    shape = function(M, look)
+      local b = hullBox(M)
+      -- A garland sagging along the lower half of the body, a bulb every third pixel.
+      local x0, x1 = b.x0 + 2, b.x1 - 2
+      for x = x0, x1 do
+        local t = (x - x0) / math.max(x1 - x0, 1)
+        local y = math.floor(b.cy + 2 + math.sin(t * math.pi) * 2 + 0.5)
+        local m = inside(x, y) and M[y][x]
+        if m == 'hull' or m == 'hull2' or m == 'trim' or m == 'trim2' then
+          M[y][x] = ((x - x0) % 3 == 1) and 'bulb' or 'garland'
+        end
+      end
+      -- A Santa hat on top: a band of white fur, a red cone that bends back, the pompom at its tip (drawn by frame).
+      local cx = b.cx
+      local top = topAt(M, cx) or b.y0
+      block(M, cx - 3, top - 1, cx + 3, top, 'brim')
+      local tip = math.max(top - 6, 1)
+      polyOver(M, { { cx - 2.5, top - 1 }, { cx + 3.5, top - 1 }, { cx, tip + 0.5 }, { cx - 2, tip + 0.5 } }, 'hat')
+      thick(M, cx - 2, tip + 1, cx - 4, tip + 2, 'hat')
+      look.box.pom = { cx - 6, tip + 2 }
+    end,
+  },
+  -- Fuego (the shop's fire pack): a body of charred rock split by cracks of lava that pulse, ember plating, tongues of
+  -- fire that flicker on its back and stream behind it, and embers rising off it. Eight frames.
+  {
+    line = 'fuego',
+    look = {
+      hull = R.char, hull2 = R.char, trim = R.ember, trim2 = R.ember, glass = R.lava, core = R.lava, lights = R.lava, engine = R.lava,
+      crack = R.lava,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The cracks: a glow running along them.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if M[y][x] == 'crack' then
+              local p = (x - f) % 4
+              luces[y][x] = R.lava[p == 0 and 3 or (p == 1 and 2 or 1)]
+            end
+          end
+        end
+        local function free(x, y) return inside(x, y) and not casco[y][x] and not luces[y][x] end
+        -- Three tongues of fire on its back, leaning back, each flickering to its own height.
+        local function topOf(x)
+          for y = 0, H - 1 do if M[y][x] then return y end end
+        end
+        for k, x0 in ipairs({ b.x0 + 2, b.cx - 1, b.cx + 3 }) do
+          local base = topOf(x0)
+          if base then
+            local h = 3 + math.floor(math.sin(f / n * math.pi * 2 + k * 2.1) * 1.5 + 0.5)
+            for i = 0, h do
+              local y = base - 1 - i
+              local x = x0 - math.floor(i / 2)
+              local tip = i >= h - 1
+              if free(x, y) then luces[y][x] = tip and R.lava[1] or (i < 2 and R.lava[3] or R.lava[2]) end
+              if not tip and free(x + 1, y) then luces[y][x + 1] = i < 1 and R.lava[2] or R.lava[1] end
+            end
+          end
+        end
+        -- Two streams of fire behind it, licking back.
+        for k, dy in ipairs({ -3, 3 }) do
+          local y0 = b.cy + dy
+          local x0 = backAt(M, y0) or b.x0
+          local len = 3 + (f + k * 3) % 3
+          for i = 1, len do
+            local x = x0 - i
+            local y = y0 + math.floor(math.sin(f / n * math.pi * 2 + i * 0.8 + k) * 0.8 + 0.5)
+            if free(x, y) then luces[y][x] = i <= 1 and R.lava[3] or (i < len and R.lava[2] or R.lava[1]) end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Embers rising off it and fading as they go.
+        for k, x0 in ipairs({ 7, 13, 18 }) do
+          local t = ((f + k * 3) % n) / n
+          local x = math.floor(x0 - t * 3 + 0.5)
+          local y = math.floor(16 - t * 16 + 0.5)
+          if inside(x, y) and not merged[y][x] then
+            local c = t < 0.4 and R.lava[3] or (t < 0.75 and R.lava[2] or R.ember[1])
+            merged[y][x], luces[y][x] = c, c
+          end
+        end
+      end,
+    },
+    shape = function(M)
+      local b = hullBox(M)
+      -- A crack of lava zigzagging along the body and a branch off it.
+      local y = b.cy - 1
+      for x = b.x0 + 1, b.x1 - 1 do
+        if (x % 3) == 0 then y = y + ((x % 6 == 0) and 1 or -1) end
+        if inside(x, y) and isHull(M[y][x]) then M[y][x] = 'crack' end
+      end
+      for i = 0, 2 do
+        local x, yy = b.cx - 1 - i, b.cy + 1 + i
+        if inside(x, yy) and isHull(M[yy][x]) then M[yy][x] = 'crack' end
+      end
+    end,
+  },
+  -- Agua (the shop's water pack): deep-sea blue with sea-foam plating, a dorsal fin and a fish's forked tail, a ripple
+  -- of light running along the body and bubbles rising round it. Eight frames.
+  {
+    line = 'agua',
+    look = {
+      hull = R.water, hull2 = R.water, trim = R.foam, trim2 = R.foam, glass = R.foam, core = R.foam, lights = R.foam, engine = R.foam, fin = R.tide,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The ripple: a wavy line of light crossing the body from the back to the front and over again.
+        for x = 0, W - 1 do
+          local y = b.cy + 1 + math.floor(math.sin(x * 0.75 - f / n * math.pi * 2) * 2 + 0.5)
+          if inside(x, y) and isHull(M[y][x]) then luces[y][x] = R.foam[2] end
+        end
+        -- The fins ripple too: their tips catch the light in turn.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if M[y][x] == 'fin' and (x + y + f * 2) % 7 == 0 then casco[y][x] = R.foam[3] end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Bubbles rising, a pixel that grows into two as it goes up.
+        for k, x0 in ipairs({ 3, 10, 18 }) do
+          local t = ((f + k * 3) % n) / n
+          local x = x0 + math.floor(math.sin(t * math.pi * 2 + k) * 0.8 + 0.5)
+          local y = math.floor(22 - t * 22 + 0.5)
+          if inside(x, y) and not merged[y][x] then
+            merged[y][x], luces[y][x] = '#e8fffb', '#e8fffb'
+            if t > 0.45 and inside(x + 1, y) and not merged[y][x + 1] then merged[y][x + 1], luces[y][x + 1] = '#7ff0e6', '#7ff0e6' end
+          end
+        end
+      end,
+    },
+    shape = function(M)
+      local b = hullBox(M)
+      -- A dorsal fin on top, swept back.
+      local top = topAt(M, b.cx) or b.y0
+      polyOver(M, { { b.cx + 2.5, top + 1.5 }, { b.cx - 3, top + 1.5 }, { b.cx - 4.5, top - 4.5 }, { b.cx - 0.5, top - 2.5 } }, 'fin')
+      -- A forked tail behind the engine, flaring up and down.
+      local bx = b.x0
+      polyOver(M, { { bx + 2.5, b.cy - 1.5 }, { bx, b.cy - 1.5 }, { bx - 3.5, b.cy - 6 }, { bx - 1.5, b.cy - 6 } }, 'fin')
+      polyOver(M, { { bx + 2.5, b.cy + 2.5 }, { bx, b.cy + 2.5 }, { bx - 3.5, b.cy + 7 }, { bx - 1.5, b.cy + 7 } }, 'fin')
+      -- A small fin under the belly.
+      local bottom = bottomAt(M, b.cx + 1) or b.y1
+      polyOver(M, { { b.cx + 2.5, bottom - 0.5 }, { b.cx - 0.5, bottom - 0.5 }, { b.cx - 2, bottom + 2.5 } }, 'fin')
+    end,
+  },
+  -- Galáctico (the shop's galaxy pack): a body of deep space with stars that twinkle in it, nebula-pink plating, a
+  -- planet's ring round it and a little moon orbiting along the ring. Eight frames.
+  {
+    line = 'galaxia',
+    look = {
+      hull = R.space, hull2 = R.space, trim = R.nebula, trim2 = R.nebula, glass = R.starlight, core = R.starlight, lights = R.nebula, engine = R.nebula, ring = R.lilac, spark = R.space,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The stars in the body twinkle, each at its own beat.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if M[y][x] == 'spark' then
+              local p = (x * 3 + y + f) % 4
+              luces[y][x] = p == 0 and '#ffffff' or (p == 1 and R.starlight[2] or (p == 2 and R.nebula[3] or R.space[3]))
+            end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n, b)
+        -- The moon: along the ring, in front of the body below and hidden behind it above.
+        local ring = b.ring
+        if not ring then return end
+        local a = f / n * math.pi * 2
+        local x = math.floor(ring.cx + math.cos(a) * ring.rx + 0.5)
+        local y = math.floor(ring.cy + math.sin(a) * ring.ry + 0.5) - 1
+        for _, d in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+          local qx, qy = x + d[1], y + d[2]
+          if inside(qx, qy) and (not merged[qy][qx] or math.sin(a) > 0) then
+            local c = (d[1] == 0 and d[2] == 0) and '#fff6c8' or '#ffc94a'
+            merged[qy][qx], luces[qy][qx] = c, c
+          end
+        end
+      end,
+    },
+    shape = function(M, look)
+      local b = hullBox(M)
+      -- Stars scattered in the body.
+      for y = 0, H - 1 do
+        for x = 0, W - 1 do
+          if isHull(M[y][x]) and (x * 7 + y * 13) % 17 == 0 then M[y][x] = 'spark' end
+        end
+      end
+      -- The ring: an ellipse a pixel thick, in front of the body on its lower half and behind it on the upper.
+      local cx, cy = (b.x0 + b.x1) / 2 + 0.5, b.cy + 1.5
+      local rx, ry = (b.x1 - b.x0) / 2 + 4, 2.6
+      for y = 0, H - 1 do
+        for x = 0, W - 1 do
+          local d = ((x + 0.5 - cx) / rx) ^ 2 + ((y + 0.5 - cy) / ry) ^ 2
+          if d >= 0.62 and d <= 1.08 then
+            if y + 0.5 >= cy then over(M, x, y, 'ring') else grow(M, x, y, 'ring') end
+          end
+        end
+      end
+      look.box.ring = { cx = cx - 0.5, cy = cy - 0.5, rx = rx, ry = ry }
+    end,
+  },
+  -- Carbono (the shop's carbon pack): woven carbon fibre, a racing spoiler on a strut at the back, neon edges under it
+  -- and a pulse of neon running along them. Eight frames.
+  {
+    line = 'carbono',
+    look = {
+      hull = R.carbon, hull2 = R.carbon, trim = R.carbon2, trim2 = R.carbon2, glass = R.neon, core = R.neon, lights = R.neon, engine = R.neon, wing = R.carbon2, strut = R.carbon, edge = R.neon,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The weave: two blacks crossing in a check of 2 × 2, only in the plating's fill (its edges stay).
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if isHull(M[y][x]) and toneOf(M, x, y) == 2 and (math.floor(x / 2) + math.floor(y / 2)) % 2 == 0 then casco[y][x] = R.carbon[1] end
+          end
+        end
+        -- The neon edges, with a pulse of white running from the back to the front.
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            if M[y][x] == 'edge' then
+              local p = (x - f * 3) % 12
+              luces[y][x] = p == 0 and '#ffffff' or (p == 1 and R.neon[3] or R.neon[2])
+            end
+          end
+        end
+      end,
+    },
+    shape = function(M)
+      local b = hullBox(M)
+      -- Neon along the body's underside.
+      for x = b.x0 + 1, b.x1 - 1 do
+        local y = bottomAt(M, x)
+        if y then M[y][x] = 'edge' end
+      end
+      -- A spoiler at the back: a strut and a wing above it, its top edge in neon.
+      local sx = b.x0 + 2
+      local top = topAt(M, sx + 1) or b.y0
+      block(M, sx + 1, top - 2, sx + 1, top, 'strut')
+      block(M, sx - 2, top - 4, sx + 3, top - 3, 'wing')
+      block(M, sx - 2, top - 5, sx + 3, top - 5, 'edge')
+      -- A splitter under the nose.
+      local fy = b.cy + 2
+      local fx = frontAt(M, fy) or b.x1
+      block(M, fx - 2, fy + 1, fx + 1, fy + 1, 'edge')
+    end,
+  },
+  -- Rubí (the shop's ruby pack): a body cut like a gem, crimson facets light above and dark below, set in platinum,
+  -- with ruby crystals growing out of it, a glint sweeping over the facets and sparkles winking round it. Eight frames.
+  {
+    line = 'rubi',
+    look = {
+      hull = R.ruby, hull2 = R.rubyDeep, trim = R.platinum, trim2 = R.platinum, glass = R.rubyGlow, core = R.rubyGlow, lights = R.rubyGlow, engine = R.rubyGlow, crys = R.ruby, crys2 = R.rubyDeep,
+      frames = 8, fps = 10,
+      animate = function(M, casco, luces, f, n, b)
+        -- The glint: a diagonal of pink-white crossing the facets and the crystals.
+        local at = b.x0 + b.y0 - 6 + (f / n) * (b.x1 - b.x0 + b.y1 - b.y0 + 16)
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            local m = M[y][x]
+            if (isHull(m) or m == 'crys' or m == 'crys2') and math.abs((x + y) - at) < 0.75 then luces[y][x] = '#ffe0ea' end
+          end
+        end
+      end,
+      around = function(merged, luces, f, n)
+        -- Two sparkles winking in turn, a plus at their brightest.
+        for k, at in ipairs({ { 3, 4 }, { 20, 19 }, { 21, 5 } }) do
+          local phase = (f + k * 3) % n
+          if phase < 3 then
+            local x, y = at[1], at[2]
+            if inside(x, y) and not merged[y][x] then merged[y][x], luces[y][x] = '#ffffff', '#ffffff' end
+            if phase == 1 then
+              for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                local qx, qy = x + d[1], y + d[2]
+                if inside(qx, qy) and not merged[qy][qx] then merged[qy][qx], luces[qy][qx] = '#ff8fb3', '#ff8fb3' end
+              end
+            end
+          end
+        end
+      end,
+    },
+    shape = function(M)
+      local b = hullBox(M)
+      -- The facets: the body's lower right half a darker red.
+      for y = 0, H - 1 do
+        for x = 0, W - 1 do
+          if M[y][x] == 'hull' and (x - b.cx) + (y - b.cy) > 0 then M[y][x] = 'hull2' end
+        end
+      end
+      -- Crystals growing out of it, each a light face and a dark one.
+      local function crystal(x, base, h, lean)
+        local T = grid()
+        poly(T, { { x - 1, base + 0.5 }, { x + 2, base + 0.5 }, { x + 0.5 + lean, base - h } }, 'c')
+        for y = 0, H - 1 do
+          for xx = 0, W - 1 do
+            if T[y][xx] then over(M, xx, y, (xx + 0.5 <= x + 0.5 + lean * (base - y) / h) and 'crys' or 'crys2') end
+          end
+        end
+      end
+      local top = topAt(M, b.cx) or b.y0
+      crystal(b.cx - 3, (topAt(M, b.cx - 2) or top) + 1, 4, -1.5)
+      crystal(b.cx, top + 1, 6, 0)
+      crystal(b.cx + 3, (topAt(M, b.cx + 4) or top) + 1, 3.5, 1.5)
+      local bottom = bottomAt(M, b.cx - 2) or b.y1
+      local T = grid()
+      poly(T, { { b.cx - 4, bottom - 0.5 }, { b.cx - 1, bottom - 0.5 }, { b.cx - 4, bottom + 3.5 } }, 'c')
+      for y = 0, H - 1 do for x = 0, W - 1 do if T[y][x] then over(M, x, y, 'crys2') end end end
+    end,
+  },
 }
 
 for _, id in ipairs(ORDER) do
@@ -573,7 +957,7 @@ for _, id in ipairs(ORDER) do
       for k, v in pairs(PROBES[id](S)) do look[k] = v end
       for k, v in pairs(skin.look) do look[k] = v end
       look.box = hullBox(S)
-      skin.shape(S)
+      skin.shape(S, look)
       build('skin-' .. probe .. '-' .. skin.line, S, look, 'skins/' .. probe .. '-' .. skin.line, skin.line)
     end
   end

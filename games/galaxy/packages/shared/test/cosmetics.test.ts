@@ -45,11 +45,17 @@ test('el retrato de cada Núcleo', () => {
 });
 
 describe('skins de sondas (plan «skins», parte C)', () => {
-  test('cuatro por sonda: Chatarra, Coral, Aurora y Leyenda de las ocho, cada una con su arte y su sonda', () => {
-    expect(ART_SKINS).toHaveLength(32);
-    // The animated ones: Aurora rides the route, Leyenda is the shop's.
-    expect(DEFAULT_COSMETICS.skins.filter((k) => k.animated).map((k) => skinParts(k.id)!.line).sort()).toEqual([...Array(8).fill('aurora'), ...Array(8).fill('leyenda')]);
-    expect(DEFAULT_COSMETICS.skins.filter((k) => skinParts(k.id)!.line === 'leyenda').every((k) => k.source === 'shop')).toBe(true);
+  test('diez por sonda: Chatarra, Coral, Aurora, Leyenda y los seis packs de la tienda, cada una con su arte y su sonda', () => {
+    expect(ART_SKINS).toHaveLength(80);
+    // The animated ones: Aurora rides the route; Leyenda and the six packs (2026-11-17) are the shop's, legendary.
+    const PACKS = ['navidad', 'fuego', 'agua', 'galaxia', 'carbono', 'rubi'];
+    expect(DEFAULT_COSMETICS.skins.filter((k) => k.animated).map((k) => skinParts(k.id)!.line).sort()).toEqual(['aurora', 'leyenda', ...PACKS].sort().flatMap((l) => Array(8).fill(l)));
+    for (const line of ['leyenda', ...PACKS]) {
+      const skins = DEFAULT_COSMETICS.skins.filter((k) => skinParts(k.id)!.line === line);
+      expect(skins, line).toHaveLength(8);
+      expect(skins.every((k) => k.source === 'shop' && k.rarity === 'legendary'), line).toBe(true);
+    }
+    expect(DEFAULT_COSMETICS.skins.find((k) => k.id === 'skin-spark-fuego')).toMatchObject({ name: 'Chispa de fuego', hint: 'Exclusiva del Pack Fuego' });
     expect(DEFAULT_COSMETICS.skins.map((k) => k.id).sort()).toEqual([...ART_SKINS].sort());
     expect(skinParts('skin-sentinel-coral')).toEqual({ probe: 'sentinel', line: 'coral' });
     expect(skinParts('skin-lumen-oro')).toBeNull();
