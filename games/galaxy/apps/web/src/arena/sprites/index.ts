@@ -63,7 +63,7 @@ export function probeDrawing(skin: string | null | undefined, sprite: string): s
   return skin && SKIN_ART[skin] ? skin : sprite;
 }
 
-/** A skin's own flame, embers and dash afterimages (plan «skins», part C2): Aurora's polar light, Leyenda's gold. */
+/** A skin's own flame, embers and dash afterimages (plan «skins», part C2): Aurora's polar light, Leyenda's gold, and each shop pack's (2026-11-17). */
 export interface ProbeFlame {
   flame: number[];
   embers: number[];
@@ -72,9 +72,16 @@ export interface ProbeFlame {
 const FLAMES: Record<string, ProbeFlame> = {
   aurora: { flame: [0xffffff, 0xd8fff0, 0x7cffc4], embers: [0x45e3a6, 0x3fe0d0, 0xb39dff, 0x7259ee], dash: 0x45e3a6 },
   leyenda: { flame: [0xffffff, 0xfff2b8, 0xffc94a], embers: [0xffc94a, 0xe05cff, 0x8e2bb3, 0xffc94a], dash: 0xffc94a },
+  // The shop's complete packs (2026-11-17).
+  navidad: { flame: [0xffffff, 0xff7a8a, 0xd8283c], embers: [0xffffff, 0x3cb86c, 0xd8283c, 0xffc94a], dash: 0x3cb86c },
+  fuego: { flame: [0xffffff, 0xffd24a, 0xff6a1c], embers: [0xffd24a, 0xff6a1c, 0xe8561c, 0xb0220c], dash: 0xff6a1c },
+  agua: { flame: [0xffffff, 0xb4fff0, 0x4fa8ff], embers: [0xe8fffb, 0x7ff0e6, 0x4fa8ff, 0x25b6d6], dash: 0x4fa8ff },
+  galaxia: { flame: [0xffffff, 0xff8ad8, 0xb39dff], embers: [0xffffff, 0xff8ad8, 0xd43aa8, 0xbfd0ff], dash: 0xd43aa8 },
+  carbono: { flame: [0xffffff, 0xc8f8ff, 0x22d3ff], embers: [0x22d3ff, 0xc8f8ff, 0x8a94a8, 0x22d3ff], dash: 0x22d3ff },
+  rubi: { flame: [0xffffff, 0xffd0dc, 0xff5a7a], embers: [0xff6a8a, 0xffe0ea, 0xe01848, 0xff8fb3], dash: 0xe01848 },
 };
 
-/** The flame of what a probe is drawn as: a skin's own (Aurora, Leyenda), or null for the usual one. */
+/** The flame of what a probe is drawn as: a skin's own (Aurora, Leyenda, the shop's packs), or null for the usual one. */
 export function probeFlame(drawing: string): ProbeFlame | null {
   const line = drawing.startsWith('skin-') ? drawing.slice(drawing.lastIndexOf('-') + 1) : '';
   return FLAMES[line] ?? null;

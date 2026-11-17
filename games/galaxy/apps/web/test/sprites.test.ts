@@ -119,8 +119,9 @@ test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gi
     const def = SKIN_ART[id];
     expect(def, id).toBeDefined();
     const probe = SPRITES[`probe-${skinParts(id)!.probe}`]!;
-    // Still ones keep their probe's idle frames; Aurora moves in six, Leyenda in eight.
-    const frames = { chatarra: probe.frames.length, coral: probe.frames.length, aurora: 6, leyenda: 8 }[skinParts(id)!.line];
+    // Still ones keep their probe's idle frames; Aurora moves in six, Leyenda and the shop's packs in eight.
+    const line = skinParts(id)!.line;
+    const frames = line === 'chatarra' || line === 'coral' ? probe.frames.length : line === 'aurora' ? 6 : 8;
     expect([def!.w, def!.h, def!.frames.length], id).toEqual([probe.w, probe.h, frames]);
     expect(probeNozzle(id), id).toBe(probeNozzle(`probe-${skinParts(id)!.probe}`));
     // Not in the base atlas: a run with no skins never turns or packs them.
@@ -131,8 +132,14 @@ test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gi
   expect(skinSprites([])).toEqual({});
 });
 
-test('Aurora y Leyenda llevan su llama y su estela; las demás, las de siempre', () => {
+test('Aurora, Leyenda y los packs de la tienda llevan su llama y su estela; las demás, las de siempre', () => {
   expect(probeFlame('skin-lumen-aurora')).toMatchObject({ dash: expect.any(Number) });
+  for (const line of ['navidad', 'fuego', 'agua', 'galaxia', 'carbono', 'rubi']) {
+    const f = probeFlame(`skin-echo-${line}`);
+    expect(f, line).not.toBeNull();
+    expect(f!.flame.length, line).toBe(3);
+    expect(f!.embers.length, line).toBeGreaterThan(0);
+  }
   expect(probeFlame('skin-comet-leyenda')!.flame.length).toBeGreaterThan(0);
   expect(probeFlame('skin-lumen-coral')).toBeNull();
   expect(probeFlame('probe-lumen')).toBeNull();
