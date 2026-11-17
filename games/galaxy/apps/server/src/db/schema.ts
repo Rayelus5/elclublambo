@@ -362,6 +362,8 @@ export interface ShopPurchasesTable {
   stripe_session_id: string | null;
   stripe_payment_intent: string | null;
   granted: ColumnType<unknown | null, string | null | undefined, string | null>;
+  /** The pieces a paid set gave (2026-11-17): only those a refund takes back. */
+  granted_pieces: ColumnType<unknown | null, string | null | undefined, string | null>;
   clawed: ColumnType<unknown, string | undefined, string>;
   refunded_cents: Generated<number>;
   consent_at: ColumnType<Date, Date | string, Date | string>;

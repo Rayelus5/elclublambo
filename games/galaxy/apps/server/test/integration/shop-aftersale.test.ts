@@ -12,6 +12,7 @@ import {
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { runCli } from '../../src/cli';
 import type { ConfigService } from '../../src/config/service';
+import { grantCosmetics } from '../../src/cosmetics/service';
 import { credit, debit, getWallet } from '../../src/economy/wallet';
 import { fakeGateway } from '../fake-gateway';
 import { createAdminViaCli, fixedConfig, get, openLive, post, randomIp, sessionCookie, settle, testApp, testEnv, totpNow, uniqueName } from '../helpers';
@@ -21,8 +22,15 @@ import { createAdminViaCli, fixedConfig, get, openLive, post, randomIp, sessionC
 // checks and makes Stripe prices, and syncs a purchase; the CLI reconciles and unblocks. The «antes» of a sale comes
 // from the shop config's history.
 
+// Two complete skin packs (2026-11-17): one on sale, one whose sales window has not opened yet.
+const LEYENDA = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'].map((p) => ({ kind: 'skin' as const, id: `skin-${p}-leyenda` }));
+const LUMEN = DEFAULT_SHOP_PRODUCTS.find((p) => p.id === 'style-skin-lumen')!;
+const SETS = [
+  { ...LUMEN, id: 'skins-leyenda', kind: 'set' as const, name: 'Pack Leyenda', cosmetic: null, pieces: LEYENDA, priceCents: 1699, enabled: true },
+  { ...LUMEN, id: 'skins-futuro', kind: 'set' as const, name: 'Pack del futuro', cosmetic: null, pieces: LEYENDA.slice(0, 2), priceCents: 999, enabled: true, availableFrom: '2099-01-01T00:00:00.000Z' },
+];
 // One shop cosmetic switched on (Nov plan C5): the rest are born off.
-const PRODUCTS = DEFAULT_SHOP_PRODUCTS.map((p, i) => ({ ...p, stripePriceId: `price_a${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
+const PRODUCTS = [...DEFAULT_SHOP_PRODUCTS, ...SETS.slice(0, 1)].map((p, i) => ({ ...p, stripePriceId: `price_a${i}x`, ...(p.id === 'style-star-fox' ? { enabled: true } : {}) }));
 const SHOP = { enabled: true, audience: 'everyone', products: PRODUCTS };
 
 const clock = new Date();
@@ -249,6 +257,45 @@ test('devolver un cosmético lo quita y, si lo llevabas puesto, también (plan d
   const owned = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'avatar').execute();
   expect(owned.map((o) => o.value)).not.toContain('shop-star-fox');
   expect((await ctx.db.selectFrom('galaxy.accounts').select('avatar').where('id', '=', account).executeTakeFirstOrThrow()).avatar).toBeNull();
+  expect(await blocked(account)).toBe(true);
+});
+
+test('devolver un cosmético que le regalaron mientras pagaba no se lo quita (2026-11-17)', async () => {
+  const { cookie, id: account } = await player();
+  const res = await post(ctx.app, '/galaxy/api/shop/checkout', { product: 'style-star-fox', consent: true, terms: 'v1' }, { cookie, headers: { 'idempotency-key': randomUUID() } });
+  expect(res.statusCode, res.body).toBe(200);
+  const id = (res.json() as ShopCheckout).purchase;
+  await grantCosmetics(ctx.db, account, { avatar: 'shop-star-fox' });
+  gateway.pay(id);
+  expect((await deliver(gateway.webhook('checkout.session.completed', id))).statusCode).toBe(200);
+  expect((await row(id)).granted_pieces).toEqual([]);
+  const p = PRODUCTS.find((x) => x.id === 'style-star-fox')!;
+  expect((await deliver(gateway.refund(id, p.priceCents))).statusCode).toBe(200);
+  const owned = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'avatar').execute();
+  expect(owned.map((o) => o.value)).toContain('shop-star-fox');
+});
+
+test('devolver un pack de skins quita solo las que dio esa compra, nunca las que ya tenía (2026-11-17)', async () => {
+  const { cookie, id: account } = await player();
+  for (const s of LEYENDA.slice(0, 3)) await grantCosmetics(ctx.db, account, { skin: s.id });
+  const id = await bought(cookie, 'skins-leyenda');
+  // Wearing one the pack gave and one it did not.
+  await ctx.db
+    .insertInto('galaxy.probe_levels')
+    .values([
+      { account_id: account, probe: 'probe-lumen', skin: 'skin-lumen-leyenda' },
+      { account_id: account, probe: 'probe-echo', skin: 'skin-echo-leyenda' },
+    ])
+    .onConflict((oc) => oc.columns(['account_id', 'probe']).doUpdateSet((eb) => ({ skin: eb.ref('excluded.skin') })))
+    .execute();
+  expect((await deliver(gateway.refund(id, 1699))).statusCode).toBe(200);
+  const owned = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', account).where('kind', '=', 'skin').execute();
+  expect(owned.map((o) => o.value).sort()).toEqual(LEYENDA.slice(0, 3).map((s) => s.id).sort());
+  const worn = await ctx.db.selectFrom('galaxy.probe_levels').select(['probe', 'skin']).where('account_id', '=', account).orderBy('probe').execute();
+  expect(worn).toEqual([
+    { probe: 'probe-echo', skin: null },
+    { probe: 'probe-lumen', skin: 'skin-lumen-leyenda' },
+  ]);
   expect(await blocked(account)).toBe(true);
 });
 

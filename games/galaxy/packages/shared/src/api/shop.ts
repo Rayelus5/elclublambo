@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Wallet } from '../gacha/types';
 import type { ShopBlock } from '../shop/rules';
-import type { ShopAmounts, ShopProduct } from '../shop/schema';
+import type { ShopAmounts, ShopPiece, ShopProduct } from '../shop/schema';
 
 // The resource shop's API (shop and lab plan, F4). The server computes every price and amount; the web shows them.
 // Paying is two steps: `checkout` keeps the purchase (with the consent) and opens Stripe's payment, and the purchase
@@ -17,7 +17,11 @@ export interface ShopProductView {
   tab: 'coins' | 'dust' | 'components' | 'packs' | 'style';
   /** A cosmetic's piece (Nov plan C5), null for the rest; `owned`: the player has it already (bought or earned). */
   cosmetic?: { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string } | null;
+  /** A set's pieces (2026-11-17), each saying whether the player has it; `owned` is then all of them. */
+  pieces?: (ShopPiece & { owned: boolean })[];
   owned?: boolean;
+  /** The end of its sales window (2026-11-17), or null: it does not stop selling. */
+  availableUntil?: string | null;
   name: string;
   art: string;
   /** What it always gives (grants and bonus), what the offer and the first purchase add now, and the sum. */
@@ -73,6 +77,8 @@ export interface ShopPurchaseView {
   amountCents: number;
   /** What it gives (or gave, once paid). */
   grants: ShopAmounts;
+  /** The pieces a paid set gave (2026-11-17): the ones the player did not have. */
+  pieces?: ShopPiece[];
   createdAt: string;
   paidAt: string | null;
   wallet: Wallet;

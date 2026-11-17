@@ -2132,6 +2132,15 @@ export const copy = {
     piece: { avatar: 'Avatar exclusivo', frame: 'Marco exclusivo', title: 'Título exclusivo', skin: 'Skin animada exclusiva' } as Record<'avatar' | 'frame' | 'title' | 'skin', string>,
     pieceNote: 'Para tu perfil · solo en la tienda',
     pieceNoteSkin: 'Para tu sonda · solo en la tienda',
+    // Complete skin packs (2026-11-17): what one gives, what the player has of it, and until when it sells.
+    set: {
+      amount: (n: number, skins: boolean) => (skins ? `${n} skins animadas` : `${n} piezas exclusivas`),
+      note: (skins: boolean) => (skins ? 'Una para cada sonda · solo en este pack' : 'Solo en este pack'),
+      owned: (have: number, n: number) => (n - have === 1 ? `Tienes ${have} de ${n}: te damos la que falta` : `Tienes ${have} de ${n}: te damos las otras ${n - have}`),
+      ownedPiece: (name: string) => `${name}, ya la tienes`,
+      until: (day: string) => `A la venta hasta el ${day}`,
+      list: 'Lo que trae el pack',
+    },
     tabsLabel: 'Qué quieres ver',
     closed: 'La tienda está cerrada ahora mismo',
     closedHint: 'Vuelve más tarde',
@@ -2145,7 +2154,7 @@ export const copy = {
     extra: (n: number) => `+${fmt(n)} extra`,
     extraOf: (what: string) => `${what} extra`,
     together: 'Todo junto',
-    badges: { popular: 'Más popular', best: 'Mejor valor', new: 'Nuevo', limited: 'Por tiempo limitado' } as Record<'popular' | 'best' | 'new' | 'limited', string>,
+    badges: { popular: 'Más popular', best: 'Mejor valor', new: 'Nuevo', limited: 'Edición limitada' } as Record<'popular' | 'best' | 'new' | 'limited', string>,
     offerBonus: (percent: number) => `+${fmt(percent)} % de regalo`,
     offerPrice: 'Rebajado',
     before: (price: string) => `Antes ${price}`,
@@ -2178,7 +2187,12 @@ export const copy = {
       failed: 'El pago no se ha completado. No se te ha cobrado nada',
       close: 'Cerrar',
     },
-    celebrate: { sub: (name: string) => `${name} ya está en tu monedero`, continue: 'Pulsa para seguir' },
+    celebrate: {
+      sub: (name: string) => `${name} ya está en tu monedero`,
+      pieces: (n: number) => (n === 1 ? 'Una skin nueva en tu Taller' : `${n} skins nuevas en tu Taller`),
+      owned: 'Ya tenías todo lo que trae. El equipo lo revisará',
+      continue: 'Pulsa para seguir',
+    },
     legal: {
       title: 'Condiciones de compra',
       seller: (seller: string, contact: string) => `Vende ${seller}${contact ? `. Contacto: ${contact}` : ''}`,
