@@ -1100,7 +1100,9 @@ En tiras pequeñas (packs, lista de enviados) las piezas y las sondas van como i
   - «Activo»;
   - los seis dibujos como radios con su nombre;
   - lo que da, con la misma bandeja y el mismo selector, sin packs;
-- **los cambios sin publicar** se cuentan («2 cambios sin publicar»), se descartan o se publican con motivo y contraseña.
+  - abajo, el motivo, la contraseña y «Guardar y publicar», con «Cancelar» al lado;
+- **cada cambio se publica al momento** (2026-11-17; antes era un borrador que se perdía al recargar): guardar un pack, quitar un pack o una plantilla («Quitar «…»», con su motivo, su contraseña y «Quitar y publicar») y cambiar los días de aviso (su «Guardar y publicar» sale al cambiarlos). Al acabar dice «Guardado y publicado como versión N»;
+- **si otro admin publicó antes**, un aviso arriba lo dice con «Cargar lo publicado»; lo escrito se queda, y guardarlo otra vez va sobre la versión nueva sin pisarla.
 
 ## 8 unvicies. Estadísticas
 
