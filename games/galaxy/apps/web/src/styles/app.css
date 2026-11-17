@@ -5187,7 +5187,12 @@
   .pack-art-choice:hover { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 45%, transparent); }
   .pack-art-choice:has(input:checked) { background: color-mix(in oklab, var(--color-solar) 12%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px var(--color-solar); }
   .pack-art-choice:has(input:focus-visible) { outline: 3px solid var(--color-solar); outline-offset: 2px; }
-  .pack-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pack-editor-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+  /* Saving publishes at once (2026-11-17): the reason, the password and «Guardar y publicar», «Cancelar» beside it. */
+  .pack-editor-actions .admin-publish { flex: 1 1 320px; max-inline-size: 460px; }
+  .pack-lib-remove { --r: 18px; display: grid; gap: 8px; max-inline-size: 560px; padding: 16px 20px; }
+  .pack-lib-remove h2 { margin: 0; font-size: 18px; }
+  .pack-lib-remove > .pill { justify-self: start; }
 }
 
 /* Mail v2, P5 (2026-11-16): sending later, templates, and how far each sent message went. */

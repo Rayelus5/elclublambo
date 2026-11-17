@@ -11,7 +11,8 @@ import { copy } from '../../src/copy/es';
 import '../../src/styles/app.css';
 
 // The pack library in a real browser (mail v2, P4): a pack of each art with what it gives, one off, and the editor of
-// a new pack with its art chosen and its gifts; at four desktop widths the page never grows sideways. Screenshots with
+// a new pack with its art chosen and its gifts, saved and published at once (2026-11-17); at four desktop widths the
+// page never grows sideways. Screenshots with
 // VITE_PACKS_SHOTS=1.
 
 const me: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'], mfa: true, level: 30 };
@@ -37,6 +38,7 @@ function respond(url: string): Response {
   const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
   if (url.endsWith('/auth/me')) return json(me);
   if (url.endsWith('/admin/config/keys')) return json(keys);
+  if (url.endsWith('/admin/config/mail')) return json({ version: 8 });
   if (url.endsWith('/content')) return new Response('{"error":"internal"}', { status: 503, headers: { 'content-type': 'application/json' } });
   return json({});
 }
@@ -99,10 +101,15 @@ for (const [w, h] of [
     noSideways(w);
     await shot('editor', w);
 
-    await userEvent.click(button(t.save));
-    await expect.poll(() => document.querySelectorAll('.pack-lib-card').length, { timeout: 5000 }).toBe(7);
-    expect(document.querySelector('.pack-lib-publish')).not.toBeNull();
+    // Saving publishes at once (2026-11-17): the reason and the password are in the editor.
+    await userEvent.type(document.querySelector<HTMLInputElement>('.pack-editor .admin-publish input[type="text"]')!, 'Pack del cometa');
+    await userEvent.type(document.querySelector<HTMLInputElement>('.pack-editor .admin-publish input[type="password"]')!, 'mi-clave');
     noSideways(w);
-    await shot('pendiente', w);
+    await shot('editor-publicar', w);
+    await userEvent.click(button(t.save));
+    await expect.poll(() => document.querySelector('.pack-editor'), { timeout: 5000 }).toBeNull();
+    expect(document.querySelector('.admin-done')?.textContent).toBe(t.published(8));
+    noSideways(w);
+    await shot('guardado', w);
   }, 60_000);
 }

@@ -7,10 +7,12 @@ import { GiftTray } from '../../gifts/GiftTray';
 import { PackArt } from '../../gifts/PackArt';
 import type { GiftCatalog } from '../../gifts/words';
 import { Switch } from '../../ui/Switch';
+import { PublishFields } from '../PublishFields';
 
 // One pack of the library (mail v2, P4): its name, its id (made from the name; fixed once it exists, since messages
 // and templates name it), its art, whether it is on, and what it gives — chosen with the same picker as a message,
-// without packs (a pack holds no packs), from 1 to 30 gifts.
+// without packs (a pack holds no packs), from 1 to 30 gifts. Saving it publishes the library at once, with a reason and
+// the password (2026-11-17, the owner: a draft published apart got lost on reload).
 
 const t = copy.admin.packs;
 const MAX = 30;
@@ -21,6 +23,8 @@ export function PackEditor({
   isNew,
   taken,
   catalog,
+  busy,
+  error,
   onSave,
   onCancel,
 }: {
@@ -29,7 +33,10 @@ export function PackEditor({
   /** The other packs' ids. */
   taken: readonly string[];
   catalog: GiftCatalog;
-  onSave: (pack: MailPack) => void;
+  /** Publishing, and why the last publish failed (null: it did not). */
+  busy: boolean;
+  error: unknown;
+  onSave: (pack: MailPack, reason: string, password: string) => void;
   onCancel: () => void;
 }) {
   const ids = useId();
@@ -129,9 +136,7 @@ export function PackEditor({
         ) : null}
       </fieldset>
       <div className="pack-editor-actions">
-        <button type="button" className="lip pill pill-solar" disabled={!ready} onClick={() => onSave({ id, name: name.trim(), art, enabled, items })}>
-          {t.save}
-        </button>
+        <PublishFields busy={busy} disabled={!ready} error={error} label={t.save} onPublish={(reason, password) => onSave({ id, name: name.trim(), art, enabled, items }, reason, password)} />
         <button type="button" className="lip pill" onClick={onCancel}>
           {t.cancel}
         </button>

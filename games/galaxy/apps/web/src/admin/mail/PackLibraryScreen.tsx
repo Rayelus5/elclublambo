@@ -15,21 +15,20 @@ import { PackEditor } from './PackEditor';
 
 // The mail's library (mail v2, P4; the owner: «biblioteca de packs»), the `mail` key's own page in Configuración:
 // every pack drawn with what it gives, made and changed visually; the templates (saved from Comunicación), which can
-// be removed; and how many days before expiring a message warns. Changes stay unpublished until the whole key is
-// published with the version they started from (another admin's publish in between answers config_conflict, and this
-// page says so and offers to load what is published), a reason and the password. Its history and rollback are on the
-// key's general page («Historial y edición avanzada»).
+// be removed; and how many days before expiring a message warns. Every change is published at once (2026-11-17, the
+// owner: a draft published apart got lost on reload): saving a pack, removing a pack or a template, or the days, each
+// asks for a reason and the password and publishes the whole key over what is live, with its version. If another admin
+// published in between (config_conflict), the page says so and loads what is published; the change typed is kept, to
+// publish again on top of it. Its history and rollback are on the key's general page («Historial y edición avanzada»).
 
 const t = copy.admin.packs;
 const g = copy.gifts;
 const EMPTY: MailPack = { id: '', name: '', art: 'parcel', enabled: true, items: [] };
 
-/** How many entries differ from what is live: added, removed or changed. */
-function changes<T extends { id: string }>(draft: readonly T[], live: readonly T[]): number {
-  const ids = new Set([...draft.map((p) => p.id), ...live.map((p) => p.id)]);
-  let n = 0;
-  for (const id of ids) if (JSON.stringify(draft.find((p) => p.id === id)) !== JSON.stringify(live.find((p) => p.id === id))) n++;
-  return n;
+/** A pack saved over what is live: in place of the one it was (by id), or added. */
+function withPack(d: MailConfig, was: string | null, pack: MailPack): MailConfig {
+  const at = was === null ? -1 : d.packs.findIndex((p) => p.id === was);
+  return { ...d, packs: at < 0 ? [...d.packs, pack] : d.packs.map((p, i) => (i === at ? pack : p)) };
 }
 
 export function PackLibraryScreen() {
@@ -39,32 +38,43 @@ export function PackLibraryScreen() {
   const live = useMemo(() => (row ? parseConfig('mail', row.data) : null), [row]);
   const { catalog } = useGiftCatalog();
   const publish = usePublishConfig('mail');
-  // The draft is the whole key, and the version it started from: a publish carries that version, never a newer one.
-  const [draft, setDraft] = useState<{ base: number; data: MailConfig } | null>(null);
-  const [editing, setEditing] = useState<{ index: number | null; pack: MailPack } | null>(null);
+  // The pack open in the editor (`was`: its id before, null for a new one), and what is being removed.
+  const [editing, setEditing] = useState<{ was: string | null; pack: MailPack } | null>(null);
+  const [removing, setRemoving] = useState<{ kind: 'pack' | 'template'; id: string; name: string } | null>(null);
   const [done, setDone] = useState<number | null>(null);
-  // The warning days as typed (only a valid number, 1 to 30, goes to the draft).
+  // The warning days as typed (a valid number, 1 to 30, different from the live one, can be published).
   const [daysText, setDaysText] = useState<string | null>(null);
-  const data = draft?.data ?? live;
-  const packs = data?.packs ?? [];
-  const pending = live && data ? changes(data.packs, live.packs) + changes(data.templates, live.templates) + (data.warnDays !== live.warnDays ? 1 : 0) : 0;
-  const moved = !!draft && !!row && row.version !== draft.base;
+  const packs = live?.packs ?? [];
   const conflict = publish.error instanceof ApiError && publish.error.code === 'config_conflict';
+  const days = daysText === null ? null : Number(daysText);
+  const daysReady = days !== null && days >= 1 && days <= 30 && days !== live?.warnDays;
 
-  const change = (fn: (d: MailConfig) => MailConfig) => {
+  /** Publishes `fn` over what is live now, with its version; `after` runs once it is in. */
+  const save = (fn: (d: MailConfig) => MailConfig, reason: string, password: string, after: () => void) => {
     if (!live || !row) return;
-    setDraft((d) => ({ base: d?.base ?? row.version, data: fn(d?.data ?? live) }));
     setDone(null);
+    publish.mutate(
+      { data: fn(live), baseVersion: row.version, reason, password },
+      {
+        onSuccess: (r) => {
+          setDone(r.version);
+          after();
+        },
+      },
+    );
   };
-  const save = (pack: MailPack) => {
-    change((d) => {
-      const next = [...d.packs];
-      if (editing?.index === null || editing?.index === undefined) next.push(pack);
-      else next[editing.index] = pack;
-      return { ...d, packs: next };
-    });
+  const open = (next: typeof editing) => {
+    publish.reset();
+    setRemoving(null);
+    setEditing(next);
+  };
+  const ask = (next: typeof removing) => {
+    publish.reset();
     setEditing(null);
+    setRemoving(next);
   };
+  // The publish error belongs to the form in use (a conflict is said once, at the top).
+  const errorOf = conflict ? null : publish.error;
 
   return (
     <section className="admin-page pack-lib">
@@ -85,22 +95,67 @@ export function PackLibraryScreen() {
           {String(copy.errors.internal)}
         </p>
       ) : null}
+      {conflict ? (
+        <div className="lip panel pack-lib-moved" role="alert">
+          <p>{t.moved}</p>
+          <button
+            type="button"
+            className="lip pill small"
+            onClick={() => {
+              publish.reset();
+              void keys.refetch();
+            }}
+          >
+            {t.reload}
+          </button>
+        </div>
+      ) : null}
+      {done !== null ? (
+        <p className="admin-done" role="status">
+          {t.published(done)}
+        </p>
+      ) : null}
       {editing && catalog ? (
         <PackEditor
-          key={editing.index ?? 'new'}
+          key={editing.was ?? 'new'}
           pack={editing.pack}
-          isNew={editing.index === null}
-          taken={packs.filter((_, i) => i !== editing.index).map((p) => p.id)}
+          isNew={editing.was === null}
+          taken={packs.filter((p) => p.id !== editing.was).map((p) => p.id)}
           catalog={catalog}
-          onSave={save}
-          onCancel={() => setEditing(null)}
+          busy={publish.isPending}
+          error={errorOf}
+          onSave={(pack, reason, password) => save((d) => withPack(d, editing.was, pack), reason, password, () => setEditing(null))}
+          onCancel={() => open(null)}
         />
       ) : null}
-      {!editing && live && data && catalog ? (
+      {removing ? (
+        <section className="lip panel pack-lib-remove" aria-label={t.removeTitle(removing.name)}>
+          <h2>{t.removeTitle(removing.name)}</h2>
+          <p className="panel-note">{removing.kind === 'pack' ? t.removePackHint : t.removeTemplateHint}</p>
+          <PublishFields
+            busy={publish.isPending}
+            disabled={false}
+            error={errorOf}
+            label={t.removePublish}
+            onPublish={(reason, password) =>
+              save(
+                (d) => (removing.kind === 'pack' ? { ...d, packs: d.packs.filter((p) => p.id !== removing.id) } : { ...d, templates: d.templates.filter((x) => x.id !== removing.id) }),
+                reason,
+                password,
+                () => setRemoving(null),
+              )
+            }
+          />
+          <button type="button" className="lip pill small" onClick={() => ask(null)}>
+            {t.cancel}
+          </button>
+        </section>
+      ) : null}
+      {!editing && live && catalog ? (
         <>
           {packs.length === 0 ? <p className="panel-note">{t.empty}</p> : null}
           <ul className="pack-lib-grid">
-            {packs.map((p, i) => (
+            {packs.map((p) => (
               <li key={p.id} className={`lip panel pack-lib-card${p.enabled ? '' : ' off'}`}>
                 <PackArt art={p.art} />
                 <div className="pack-lib-text">
@@ -116,17 +171,17 @@ export function PackLibraryScreen() {
                   ))}
                 </ul>
                 <div className="pack-lib-actions">
-                  <button type="button" className="lip pill small" aria-label={t.editOf(p.name)} onClick={() => setEditing({ index: i, pack: p })}>
+                  <button type="button" className="lip pill small" aria-label={t.editOf(p.name)} onClick={() => open({ was: p.id, pack: p })}>
                     {t.edit}
                   </button>
-                  <button type="button" className="lip iconbtn small" aria-label={t.removeOf(p.name)} title={t.removeOf(p.name)} onClick={() => change((d) => ({ ...d, packs: d.packs.filter((_, k) => k !== i) }))}>
+                  <button type="button" className="lip iconbtn small" aria-label={t.removeOf(p.name)} title={t.removeOf(p.name)} onClick={() => ask({ kind: 'pack', id: p.id, name: p.name })}>
                     <Icon name="trash" />
                   </button>
                 </div>
               </li>
             ))}
             <li>
-              <button type="button" className="pack-lib-new" onClick={() => setEditing({ index: null, pack: EMPTY })}>
+              <button type="button" className="pack-lib-new" onClick={() => open({ was: null, pack: EMPTY })}>
                 <Icon name="plus" />
                 <span>{t.create}</span>
               </button>
@@ -135,9 +190,9 @@ export function PackLibraryScreen() {
 
           <section className="lip panel pack-lib-more" aria-labelledby={`${ids}-tpl`}>
             <h2 id={`${ids}-tpl`}>{t.templatesTitle}</h2>
-            {data.templates.length === 0 ? <p className="panel-note">{t.templatesEmpty}</p> : null}
+            {live.templates.length === 0 ? <p className="panel-note">{t.templatesEmpty}</p> : null}
             <ul className="pack-lib-templates">
-              {data.templates.map((tpl) => (
+              {live.templates.map((tpl) => (
                 <li key={tpl.id}>
                   <span className={`mail-type-chip k-${MAIL_TYPE_LOOK[tpl.type].tone}`}>
                     <Icon name={MAIL_TYPE_LOOK[tpl.type].icon} />
@@ -152,89 +207,35 @@ export function PackLibraryScreen() {
                     className="lip iconbtn small"
                     aria-label={t.removeTemplateOf(tpl.name)}
                     title={t.removeTemplateOf(tpl.name)}
-                    onClick={() => change((d) => ({ ...d, templates: d.templates.filter((x) => x.id !== tpl.id) }))}
+                    onClick={() => ask({ kind: 'template', id: tpl.id, name: tpl.name })}
                   >
                     <Icon name="trash" />
                   </button>
                 </li>
               ))}
             </ul>
-            <div className="field pack-lib-days">
-              <label htmlFor={`${ids}-days`}>{t.warnDays}</label>
-              <div className="control">
-                <input
-                  id={`${ids}-days`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={daysText ?? String(data.warnDays)}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setDaysText(v);
-                    const n = Number(v);
-                    if (n >= 1 && n <= 30) change((d) => ({ ...d, warnDays: n }));
-                  }}
-                  onBlur={() => setDaysText(null)}
-                />
-              </div>
-              <p className="hint">{t.warnDaysHint}</p>
-            </div>
-          </section>
-
-          {pending > 0 || publish.error || moved ? (
-            <div className="lip panel pack-lib-publish">
-              {moved || conflict ? (
-                <div className="pack-lib-moved" role="alert">
-                  <p>{t.moved}</p>
-                  <button
-                    type="button"
-                    className="lip pill small"
-                    onClick={() => {
-                      setDraft(null);
+            <section className="pack-lib-days" aria-label={t.daysBox}>
+              <div className="field">
+                <label htmlFor={`${ids}-days`}>{t.warnDays}</label>
+                <div className="control">
+                  <input
+                    id={`${ids}-days`}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={daysText ?? String(live.warnDays)}
+                    onChange={(e) => {
                       publish.reset();
+                      setDaysText(e.target.value.replace(/\D/g, '').slice(0, 2));
                     }}
-                  >
-                    {t.reload}
-                  </button>
+                  />
                 </div>
+                <p className="hint">{t.warnDaysHint}</p>
+              </div>
+              {daysReady && !editing && !removing ? (
+                <PublishFields busy={publish.isPending} disabled={false} error={errorOf} label={t.daysSave} onPublish={(reason, password) => save((d) => ({ ...d, warnDays: days! }), reason, password, () => setDaysText(null))} />
               ) : null}
-              <p className="pack-lib-pending">
-                <b>{t.pending(pending)}</b>
-                <button
-                  type="button"
-                  className="lip pill small"
-                  onClick={() => {
-                    setDraft(null);
-                    publish.reset();
-                  }}
-                >
-                  {t.discard}
-                </button>
-              </p>
-              <PublishFields
-                busy={publish.isPending}
-                disabled={pending === 0 || !draft}
-                error={conflict ? null : publish.error}
-                label={t.publish}
-                onPublish={(reason, password) =>
-                  draft &&
-                  publish.mutate(
-                    { data: draft.data, baseVersion: draft.base, reason, password },
-                    {
-                      onSuccess: (r) => {
-                        setDraft(null);
-                        setDone(r.version);
-                      },
-                    },
-                  )
-                }
-              />
-            </div>
-          ) : null}
-          {done !== null ? (
-            <p className="admin-done" role="status">
-              {t.published(done)}
-            </p>
-          ) : null}
+            </section>
+          </section>
         </>
       ) : null}
     </section>
