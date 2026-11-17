@@ -1,4 +1,4 @@
-import type { MeResponse, Wallet } from '@galaxy/shared';
+import { DISCORD_URL, type MeResponse, type Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isStaff } from '../auth/useMe';
@@ -9,8 +9,6 @@ import { MissionsButton } from '../missions/MissionsScreen';
 import { LeftoversNotice } from './Leftovers';
 import { NewsButton } from './News';
 
-/** The game's Discord community invitation. */
-const DISCORD_URL = 'https://discord.gg/2TA8RvKXv3';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';

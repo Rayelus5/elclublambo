@@ -1,0 +1,17 @@
+{
+  "name": "@galaxy/landing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --ssr src/render/entry.ts --outDir dist-ssr && node scripts/prerender.mjs && vite build && node scripts/finish.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@galaxy/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@galaxy/engine": "workspace:*",
+    "vite": "^8.3.6"
+  }
+}

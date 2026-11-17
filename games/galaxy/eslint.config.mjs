@@ -18,6 +18,11 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
   {
+    // The landing's asset and build scripts run in Node and drive a browser page (Playwright's page.evaluate).
+    files: ['apps/*/scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
