@@ -65,6 +65,16 @@ test.each([
   expect(env.stripeIssue).toBe('stripe_env_incomplete');
 });
 
+// The landing of galaxysurvivor.es (plan «galaxysurvivor.es», PR 4): where its build is, and the holder's legal data,
+// which never enter the public repository (galaxy.env).
+test('la portada: su carpeta por defecto y los datos legales del titular, opcionales y recortados', () => {
+  expect(loadEnv(base).LANDING_DIST).toBe('/app/landing-dist');
+  expect(loadEnv(base).legal).toEqual({});
+  const env = loadEnv({ ...base, LANDING_DIST: '/tmp/landing', GALAXY_LEGAL_HOLDER: '  Ana Pérez ', GALAXY_LEGAL_NIF: '12345678Z', GALAXY_LEGAL_ADDRESS: '' });
+  expect(env.LANDING_DIST).toBe('/tmp/landing');
+  expect(env.legal).toEqual({ holder: 'Ana Pérez', nif: '12345678Z' });
+});
+
 // The game's own domain (galaxysurvivor.es plan, PR 1): two optional, public values that live in compose.
 describe('dominio propio', () => {
   test('sin dominio propio nada cambia: ni orígenes nuevos ni redirecciones', () => {

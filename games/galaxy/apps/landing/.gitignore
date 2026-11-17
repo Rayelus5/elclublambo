@@ -1,0 +1,4 @@
+gen/
+dist/
+dist-ssr/
+__shots__/

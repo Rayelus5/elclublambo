@@ -1456,6 +1456,17 @@ Plan «escáner pro», parte E.
 - **El panel lateral:** Problemas, Avisos (con «He leído los avisos» para poder publicar), Qué cambia (con los nombres del editor), Probar en incursión, la simulación rápida del bot (lo publicado frente al borrador), dónde se notará y la publicación.
 - **El JSON** sigue en su pestaña; mientras no es válido no se vuelve al editor, para no perder lo escrito. Si el editor no puede enseñar un borrador roto, lo dice y ofrece el JSON.
 
+## 8 novoquatricies. La portada de galaxysurvivor.es
+
+La portada pública (`apps/landing`, aprobada el 17/11/2026 como «Viaje de la sonda») usa estos mismos tokens, fuentes y labios. Tiene su propia hoja (`src/styles/landing.css`) y una prueba que vigila que los colores coincidan con los del juego.
+
+- **La idea:** la sonda despega de la plataforma y baja por la página siguiendo una ruta de puntos que se ilumina a su paso. Cada parada es un sector con su luz (`data-biome`), y al final atraca en la estación.
+- **La ruta** cruza el carril central de las paradas a dos columnas y se aparta a un lado en las centradas (`data-anchor`), nunca por encima del texto.
+- **Los clips del juego** van en bucle y sin sonido. Se abren como un ping de radar, se descargan al llegar y se paran fuera de pantalla.
+- **Sin JS** todo se ve, y con movimiento reducido nada se mueve.
+- **A partir de 2400 px** todo es un 25 % más grande, como el juego.
+- **En el móvil,** «Jugar gratis» abre el aviso «Se juega en ordenador», que deja compartir o copiar el enlace.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

@@ -206,6 +206,19 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@31.0.0(@noble/hashes@2.4.0))(vite@8.3.6(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
+  apps/landing:
+    dependencies:
+      '@galaxy/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
+      '@galaxy/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      vite:
+        specifier: ^8.3.6
+        version: 8.3.6(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+
   apps/server:
     dependencies:
       '@fastify/cookie':

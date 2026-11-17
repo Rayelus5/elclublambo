@@ -92,6 +92,19 @@ test('el Dockerfile copia el package.json de cada paquete del workspace (si no, 
   }
 });
 
+// A broken ENV line stops `docker compose build` on PRE, and galaxy-ci never builds the image (landing review, 2026-11-17:
+// a literal «\n» instead of a line break). Every ENV instruction, joined over its continuations, is KEY=value pairs.
+test('las instrucciones ENV del Dockerfile son pares CLAVE=valor bien partidos', () => {
+  const dockerfile = readFileSync(root + 'games/galaxy/Dockerfile', 'utf8');
+  const joined = dockerfile.replace(/\\\r?\n\s*/g, ' ');
+  const envs = joined.split('\n').filter((l) => l.startsWith('ENV '));
+  expect(envs.length).toBeGreaterThan(0);
+  for (const line of envs) {
+    for (const pair of line.slice(4).trim().split(/\s+/)) expect(pair, line).toMatch(/^[A-Z_][A-Z0-9_]*=[^\s\\]*$/);
+  }
+  expect(envs.join(' ')).toContain('LANDING_DIST=/app/landing-dist');
+});
+
 test('el pipeline de PRE construye, reinicia y comprueba galaxy', () => {
   const steps = load('.github/workflows/preproduction.yml').jobs.deploy.steps as Array<{ name?: string; run?: string }>;
   const run = (name: string) => steps.find((s) => s.name === name)?.run ?? '';

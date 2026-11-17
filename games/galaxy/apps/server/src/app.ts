@@ -14,6 +14,7 @@ import { registerRunRoutes } from './runs/routes';
 import { SoloFeeds } from './runs/solo-feeds';
 import { registerSoloStreamRoutes } from './runs/stream-routes';
 import { registerStationRoutes } from './station/routes';
+import { registerLanding } from './landing';
 import { registerLabRoutes } from './lab/routes';
 import { registerPlanetariumRoutes } from './planetarium/routes';
 import { registerSocialRoutes } from './social/routes';
@@ -118,8 +119,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return reply.code(500).send({ error: 'internal' });
   });
   const hasWeb = await registerStatic(app, deps.env.WEB_DIST);
+  // The landing of galaxysurvivor.es at the site root (plan «galaxysurvivor.es», PR 4); /galaxy stays the game's.
+  const landing = await registerLanding(app, deps.env.LANDING_DIST, deps.env.legal);
   app.setNotFoundHandler((req, reply) => {
     if (hasWeb && wantsSpaShell(req)) return sendSpaShell(reply);
+    const path = req.url.split('?')[0] ?? '';
+    const game = path === '/galaxy' || path.startsWith('/galaxy/');
+    if (landing && !game && (req.method === 'GET' || req.method === 'HEAD')) return landing.notFound(req, reply);
     return reply.code(404).send({ error: 'not_found' });
   });
 

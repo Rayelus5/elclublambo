@@ -25,6 +25,8 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     GALAXY_TOTP_KEY: TEST_TOTP_KEY,
     PORT: 8080,
     WEB_DIST: '/nonexistent-web-dist',
+    LANDING_DIST: '/nonexistent-landing-dist',
+    legal: {},
     TRUST_CF_IP: true,
     stripe: null,
     stripeIssue: null,
