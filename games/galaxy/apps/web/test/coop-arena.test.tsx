@@ -1,4 +1,4 @@
-import { type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } from '@galaxy/shared';
+import { type CoopGate, type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } from '@galaxy/shared';
 import { DEFAULT_CONTENT, encodeLog, gainXp, type Sim, toBase64 } from '@galaxy/sim';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -91,14 +91,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-async function mount(over: Partial<CoopRunStart> = {}) {
+async function mount(over: Partial<CoopRunStart> = {}, hello: { gate?: CoopGate; to?: number } = {}) {
   const clock = manualClock();
   let sim: Sim | null = null;
   render(<CoopArena runId={RUN} onExit={() => {}} onAbandon={() => {}} clock={clock} onSim={(s) => (sim = s)} />);
   await waitFor(() => expect(FakeSocket.last).not.toBeNull());
   const ws = FakeSocket.last!;
   expect(ws.url).toContain(`/galaxy/api/coop/play/ws?run=${RUN}`);
-  ws.push({ t: 'hello', start: { ...start, ...over }, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
+  ws.push({ t: 'hello', start: { ...start, ...over }, log: toBase64(encodeLog({ probes: 2, events: [] })), to: hello.to ?? 0, ...(hello.gate ? { gate: hello.gate } : {}) });
   await waitFor(() => expect(sim).not.toBeNull());
   // The stage loads asynchronously; the loop starts once it is ready.
   await act(async () => {});
@@ -302,4 +302,64 @@ test('una partida que ya no está lo dice y deja volver a la sala', async () => 
   act(() => FakeSocket.last!.onclose?.({ code: 4404 }));
   fireEvent.click(await screen.findByRole('button', { name: t.back }));
   expect(onExit).toHaveBeenCalledOnce();
+});
+
+// The start (2026-11-17, the owner: the loading screen must really hide the start): it waits for the team (who is in),
+// counts 3-2-1 on the server's clock over the arena already drawn (see-through), and goes when the first ticks run.
+describe('la pantalla de carga tapa la salida', () => {
+  const L = copy.coop.loading;
+  const loading = () => screen.queryByRole('status', { name: L.label });
+
+  test('espera al equipo diciendo quién está, cuenta atrás sobre la arena y se va cuando empieza de verdad', async () => {
+    const { clock, ws } = await mount({}, { gate: { connected: [true, false], startsIn: null } });
+    const card = loading()!;
+    expect(within(card).getByText(L.steps.team).closest('li')).toHaveAttribute('aria-current', 'step');
+    const team = within(card).getByRole('list', { name: L.team });
+    const [me, vega] = within(team).getAllByRole('listitem');
+    expect(me).toHaveTextContent(L.online);
+    expect(vega).toHaveTextContent(L.joining);
+    // The arena is drawn behind it: the screen lets it show through.
+    expect(card).toHaveClass('see');
+    clock.frames(120);
+    expect(loading()).not.toBeNull();
+    // Vega is in: three seconds to the first tick.
+    ws.push({ t: 'gate', connected: [true, true], startsIn: 3000 });
+    clock.frames(2);
+    expect(within(loading()!).getByLabelText(L.countLabel(3))).toHaveTextContent('3');
+    expect(vega).toHaveTextContent(L.online);
+    clock.frames(62);
+    expect(within(loading()!).getByLabelText(L.countLabel(2))).toHaveTextContent('2');
+    clock.frames(120);
+    // The countdown is over but no tick has come yet: it stays.
+    expect(loading()).not.toBeNull();
+    ws.push({ t: 'f', to: 8, ev: [] });
+    clock.frames(20);
+    await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+  });
+
+  test('al volver a una partida en marcha no hay cuenta atrás, y se va al ponerse al día', async () => {
+    const { clock } = await mount({}, { gate: { connected: [true, true], startsIn: -5_000 }, to: 300 });
+    expect(loading()).not.toBeNull();
+    expect(screen.queryByLabelText(/^Despegue en/)).toBeNull();
+    // Not the start: it says it is syncing (review).
+    expect(within(loading()!).getByText(L.steps.sync).closest('li')).toHaveAttribute('aria-current', 'step');
+    clock.frames(30);
+    await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+  });
+
+  test('si la partida se pierde durante la espera, la pantalla de carga se va y deja ver «Volver» (revisión)', async () => {
+    const { ws } = await mount({}, { gate: { connected: [true, false], startsIn: null } });
+    expect(loading()).not.toBeNull();
+    act(() => ws.onclose?.({ code: 4404 }));
+    await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+    expect(screen.getByRole('button', { name: t.back })).toBeInTheDocument();
+  });
+
+  test('si el mundo acaba mientras se pone al día, la pantalla de carga no se queda encima', async () => {
+    // Twenty seconds without moving: the probes fall while it catches up.
+    const { clock, sim } = await mount({}, { gate: { connected: [true, true], startsIn: -20_000 }, to: 1200 });
+    clock.frames(30);
+    expect(sim().status).toBe('dead');
+    await waitFor(() => expect(loading()).toBeNull(), { timeout: 3000 });
+  });
 });

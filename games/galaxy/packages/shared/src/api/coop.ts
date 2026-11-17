@@ -93,10 +93,22 @@ export type CoopClientMessage = z.infer<typeof coopClientMessageSchema>;
 /** How the run ended for the group. */
 export type CoopOutcome = 'extracted' | 'died' | 'interrupted';
 
+/**
+ * The start of a group run (2026-11-17, the owner: the loading screen must really hide the start): who of the players
+ * has the run open (by slot), and how long until the first tick on the server's clock, in ms when it was sent (null:
+ * it still waits for players; negative: it already started). The loading screen shows both and counts down to it.
+ */
+export interface CoopGate {
+  connected: boolean[];
+  startsIn: number | null;
+}
+
 /** What the server sends on the play socket. */
 export type CoopServerMessage =
   /** On connecting (and reconnecting): the run, its sealed log so far (base64, log v2) and the tick it closes up to. */
-  | { t: 'hello'; start: CoopRunStart; log: string; to: number }
+  | { t: 'hello'; start: CoopRunStart; log: string; to: number; gate?: CoopGate }
+  /** Before the start: who is in, and when it starts once everyone is (or the wait is over). */
+  | ({ t: 'gate' } & CoopGate)
   /** More sealed events (flat [tick, probe, kind, a, b, c]…), all ticks up to `to` closed. */
   | { t: 'f'; to: number; ev: number[] }
   /** The run is over: how, and what this player was paid (null: nothing, e.g. already paid). */

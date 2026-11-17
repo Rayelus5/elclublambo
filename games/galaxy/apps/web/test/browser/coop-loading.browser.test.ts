@@ -51,10 +51,41 @@ for (const [width, height] of [
     expect(team[1]!.classList.contains('me')).toBe(true);
     expect(team[1]!.textContent).toContain('Tú');
     const steps = [...screen.querySelectorAll('.coop-loading-steps li')].map((li) => li.className);
-    expect(steps).toEqual(['done', 'now', '']);
+    expect(steps).toEqual(['done', 'now', '', '']);
     const card = screen.querySelector('.coop-loading-card')!.getBoundingClientRect();
     expect(card.bottom).toBeLessThanOrEqual(height);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
     if (import.meta.env['VITE_COOP_SHOTS']) await page.screenshot({ path: `__shots__/coop-loading-${width}.png` });
+  });
+}
+
+// The start (2026-11-17): the countdown over the arena already drawn (see-through), with who is in on each card, at
+// both sizes; the arena shows through around the card. VITE_COOP_SHOTS=1 saves it.
+for (const [width, height] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`la cuenta atrás deja ver la arena y dice quién está a ${width}×${height}`, async () => {
+    await page.viewport(width, height);
+    document.body.style.margin = '0';
+    const host = document.createElement('div');
+    host.className = 'arena coop-arena';
+    // Something bright behind, as the arena would be.
+    host.style.cssText = 'position:fixed;inset:0;background:repeating-linear-gradient(45deg,#ffc94a 0 40px,#45e3a6 40px 80px)';
+    document.body.appendChild(host);
+    root = createRoot(host);
+    root.render(createElement(CoopLoading, { start, step: 'count', see: true, countdown: 3, connected: [true, true, false, true] }));
+    await new Promise((r) => setTimeout(r, 700));
+    const screen = document.querySelector<HTMLElement>('.coop-loading')!;
+    expect(screen.classList.contains('see')).toBe(true);
+    // See-through: no solid backdrop under the veil (before, the void colour covered the arena).
+    expect(getComputedStyle(screen).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(screen.querySelector('.coop-loading-count')!.textContent).toBe('3');
+    const nets = [...screen.querySelectorAll('.coop-loading-team li .coop-loading-net')].map((n) => n.getAttribute('data-on'));
+    expect(nets).toEqual(['true', 'true', 'false', 'true']);
+    const card = screen.querySelector('.coop-loading-card')!.getBoundingClientRect();
+    expect(card.bottom).toBeLessThanOrEqual(height);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+    if (import.meta.env['VITE_COOP_SHOTS']) await page.screenshot({ path: `__shots__/coop-countdown-${width}.png` });
   });
 }
