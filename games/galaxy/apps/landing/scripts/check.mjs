@@ -66,6 +66,14 @@ for (const [w, h] of [[1280, 720], [1600, 900], [1920, 1080], [2560, 1440]]) {
     if ((await overflow(page)) > 0) fail(`${w}: overflow at section ${i}`);
     await page.screenshot({ path: `${shots}home-${w}-${String(i).padStart(2, '0')}.png` });
   }
+  // At the bottom of the page every star layer still fills the screen (landing review: they ran out further down).
+  const bare = await page.evaluate(() =>
+    [...document.querySelectorAll('.sky i')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top > 1 || r.bottom < innerHeight - 1;
+    }).length,
+  );
+  if (bare) fail(`${w}: ${bare} star layers no longer cover the screen at the bottom`);
   if (errors.length) fail(`${w}: ${errors.join(' | ')}`);
   console.log(`${w}×${h}: ${n} sections`);
   await page.close();
@@ -112,6 +120,14 @@ for (const [w, h] of [[1280, 720], [1600, 900], [1920, 1080], [2560, 1440]]) {
   const playing = await page.evaluate(() => [...document.querySelectorAll('video')].filter((v) => !v.paused).length);
   if (playing) fail(`reduced motion: ${playing} clips playing`);
   if (await page.locator('#route').isVisible()) fail('reduced motion: the route is shown');
+  // Nothing moves with the scroll either: no parallax in the sky, the planet or the station (landing review).
+  const moved = await page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('.sky i')) if (getComputedStyle(el).backgroundPositionY.split(',').some((v) => !/^0(px|%)?$/.test(v.trim()))) out.push(el.className);
+    for (const el of document.querySelectorAll('.planet, .station')) if (getComputedStyle(el).transform !== 'none') out.push(el.className);
+    return out;
+  });
+  if (moved.length) fail(`reduced motion: moving with the scroll: ${moved.join(', ')}`);
   await ctx.close();
 }
 

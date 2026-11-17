@@ -77,8 +77,8 @@ export const LEGAL_ES: Record<LegalKey, LegalPage> = {
               'Datos de la cuenta: tu nombre de usuario y tu contraseña, que guardamos cifrada con un algoritmo de un solo sentido (argon2). Nunca la vemos',
               'Datos de juego: tus partidas, tu progreso, tus galaxias, tus ajustes, tus amigos, tu clan y tus operaciones en el mercado',
               'Comunicaciones: los mensajes que escribes en los chats y los reportes que envías o que recibes',
-              'Datos técnicos: la dirección IP desde la que entras, que usamos para proteger el servicio (límites de peticiones) y para detectar fraudes en el mercado entre cuentas, y la cookie de sesión',
-              'Compras: qué compras, cuándo y su estado. El pago lo procesa Stripe: tus datos de tarjeta, y el correo si lo das para el recibo, los recibe Stripe y nunca llegan a nuestros servidores',
+              'Datos técnicos: las direcciones IP desde las que entras y el navegador que usas, que guardamos para proteger el servicio (límites de peticiones y sesiones) y para detectar fraudes en el mercado y en las invitaciones entre cuentas, y la cookie de sesión',
+              'Compras: qué compras, cuándo y su estado. El pago lo procesa Stripe: tus datos de tarjeta solo los recibe Stripe, y el correo que Stripe te pide para el recibo lo ve nuestro servidor de paso al confirmarse el pago, pero no lo guardamos',
               'Si nos escribes al correo de contacto: tu dirección y lo que nos cuentes',
             ],
           },
@@ -103,9 +103,10 @@ export const LEGAL_ES: Record<LegalKey, LegalPage> = {
         blocks: [
           {
             ul: [
-              'La cuenta y los datos de juego: mientras tengas la cuenta. Si pides borrarla, se anonimiza',
-              'Los mensajes del chat sin reportar: 90 días. Los reportados, el tiempo necesario para resolver el reporte',
-              'Las grabaciones de las partidas normales, que sirven para comprobar las puntuaciones: 30 días',
+              'La cuenta y los datos de juego: mientras tengas la cuenta. Si pides borrarla, se anonimiza, y tu nombre de usuario queda reservado para que nadie se haga pasar por ti',
+              'Las direcciones IP y el navegador de cada cuenta: mientras tengas la cuenta',
+              'Los mensajes del chat sin reportar: 90 días. Los mensajes reportados se conservan como prueba de la moderación',
+              'Las grabaciones de las partidas normales, que sirven para comprobar las puntuaciones: 30 días. Las de partidas destacadas (con un Núcleo derrotado, que llegan lejos o que se revisan por posibles trampas) se conservan para poder comprobar los récords',
               'Los datos de las compras: los plazos que fijan las normas fiscales y mercantiles (en general, hasta 6 años)',
             ],
           },

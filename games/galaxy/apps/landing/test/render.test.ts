@@ -209,3 +209,28 @@ test('los colores de la portada son los del juego', () => {
   }
 });
 
+
+// The cards are the game's own (landing review, 2026-11-17): their names and texts exist in the default content.
+test('las cartas de subir de nivel son armas y variantes que existen en el juego, con su texto', async () => {
+  const { ES } = await import('../src/i18n/es');
+  const content = readFileSync(new URL('../../../packages/sim/src/content/default.ts', import.meta.url), 'utf8');
+  for (const c of ES.levelUp.cards) {
+    expect(content, c.name).toMatch(new RegExp(`name: '${c.name}'`));
+    expect(content, c.text).toContain(`'${c.text}'`);
+  }
+});
+
+// The privacy policy says what the code keeps (landing review, 2026-11-17; apps/server/src/retention.ts and the
+// galaxy.prune_retention migration): unreported chat 90 days, ordinary run recordings 30, notable runs and reported
+// messages kept, the IPs and browser of each account while it exists, the e-mail Stripe asks for not kept.
+test('la política de privacidad cuenta lo que de verdad se guarda', () => {
+  const h = byFile('privacidad.html').body;
+  expect(h).toContain('90 días');
+  expect(h).toContain('30 días');
+  expect(h).toMatch(/reportados se conservan/);
+  expect(h).toMatch(/partidas destacadas/);
+  expect(h).toMatch(/navegador/);
+  expect(h).toMatch(/mientras tengas la cuenta/);
+  expect(h).toMatch(/no lo guardamos/);
+  expect(h).not.toContain('el tiempo necesario para resolver el reporte');
+});

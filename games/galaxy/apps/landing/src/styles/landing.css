@@ -87,10 +87,11 @@ a.lip:active, button.lip:active { transform: translateY(var(--lip-h, 6px)); box-
 
 /* The sky: three layers of stars at different depths, and the light of the current sector. */
 .sky { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(1100px 760px at 50% 40%, color-mix(in srgb, var(--biome) 34%, transparent), transparent 70%), var(--void); transition: background 1.2s; }
-.sky i { position: absolute; inset: -50% 0; background-repeat: repeat; will-change: transform; }
-.sky .l1 { background-image: radial-gradient(1px 1px at 20px 30px, #fff9 50%, transparent), radial-gradient(1px 1px at 140px 90px, #bfe3ff99 50%, transparent), radial-gradient(1px 1px at 230px 200px, #fff7 50%, transparent); background-size: 260px 260px; transform: translateY(calc(var(--sy) * -.08px)); }
-.sky .l2 { background-image: radial-gradient(1.5px 1.5px at 60px 120px, #fffb 50%, transparent), radial-gradient(1.5px 1.5px at 300px 40px, #ffc94aaa 50%, transparent); background-size: 380px 380px; transform: translateY(calc(var(--sy) * -.2px)); }
-.sky .l3 { background-image: radial-gradient(2px 2px at 100px 300px, #fff 50%, transparent), radial-gradient(2px 2px at 420px 120px, #9b86ffcc 50%, transparent); background-size: 560px 560px; transform: translateY(calc(var(--sy) * -.42px)); }
+/* The layers move their pattern, not their box: it repeats forever, so the sky never runs out further down. */
+.sky i { position: absolute; inset: 0; background-repeat: repeat; }
+.sky .l1 { background-image: radial-gradient(1px 1px at 20px 30px, #fff9 50%, transparent), radial-gradient(1px 1px at 140px 90px, #bfe3ff99 50%, transparent), radial-gradient(1px 1px at 230px 200px, #fff7 50%, transparent); background-size: 260px 260px; background-position: 0 calc(var(--sy) * -.08px); }
+.sky .l2 { background-image: radial-gradient(1.5px 1.5px at 60px 120px, #fffb 50%, transparent), radial-gradient(1.5px 1.5px at 300px 40px, #ffc94aaa 50%, transparent); background-size: 380px 380px; background-position: 0 calc(var(--sy) * -.2px); }
+.sky .l3 { background-image: radial-gradient(2px 2px at 100px 300px, #fff 50%, transparent), radial-gradient(2px 2px at 420px 120px, #9b86ffcc 50%, transparent); background-size: 560px 560px; background-position: 0 calc(var(--sy) * -.42px); }
 
 /* Pixel sprites: horizontal strips of N frames, stepped. */
 .spr { display: block; --fw: 24px; --fh: 24px; --n: 4; --s: 4; width: calc(var(--fw) * var(--s)); height: calc(var(--fh) * var(--s)); background-size: calc(var(--fw) * var(--n) * var(--s)) 100%; background-repeat: no-repeat; image-rendering: pixelated; animation: spr-run calc(var(--n) * 125ms) steps(var(--n)) infinite; }
@@ -332,5 +333,7 @@ html.js .radio.in .line { opacity: 1; } html.js .radio.in .line:nth-of-type(2) {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
   html.js .ping { clip-path: none; }
+  .sky .l1, .sky .l2, .sky .l3 { background-position: 0 0; }
+  .planet, .station { transform: none; }
   html.js .txt, html.js .tile, html.js .up, html.js .room, html.js .wing .spr, html.js .radio .line, html.js .hand .gcard { opacity: 1; filter: none; }
 }

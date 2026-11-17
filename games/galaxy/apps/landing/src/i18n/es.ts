@@ -61,9 +61,9 @@ export const ES: Dict = {
     title: 'Sube de nivel y elige',
     text: 'Cada nivel te ofrece mejoras. Combínalas y tus armas evolucionan. No hay dos partidas iguales',
     cards: [
-      { tag: 'Nueva', name: 'Arco eléctrico', text: 'Salta de un enemigo a otro' },
-      { tag: 'Evoluciona', name: 'Rayo prisma', text: 'El rayo se abre en abanico' },
-      { tag: 'Mejora', name: 'Dron', text: 'Un aliado que dispara contigo' },
+      { tag: 'Nueva', name: 'Arco voltaico', text: 'Una descarga que salta de enemigo en enemigo' },
+      { tag: 'Variante', name: 'Rayo prismático', text: 'Cambia de elemento a cada golpe' },
+      { tag: 'Mejora', name: 'Dron centinela', text: 'Drones que te siguen y disparan por su cuenta' },
     ],
   },
   boss: {

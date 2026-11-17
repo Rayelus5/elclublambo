@@ -36,7 +36,8 @@ FROM node:22-bookworm-slim AS run
 WORKDIR /app/apps/server
 ENV NODE_ENV=production \
     PORT=8080 \
-    WEB_DIST=/app/web-dist \n    LANDING_DIST=/app/landing-dist
+    WEB_DIST=/app/web-dist \
+    LANDING_DIST=/app/landing-dist
 RUN groupadd --system --gid 1001 galaxy && useradd --system --uid 1001 --gid galaxy --no-create-home galaxy
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/server/node_modules ./node_modules

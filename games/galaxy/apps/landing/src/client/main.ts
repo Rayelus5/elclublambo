@@ -138,7 +138,8 @@ let queued = false;
 function update() {
   queued = false;
   const sy = scrollY;
-  root.style.setProperty('--sy', String(sy));
+  // The parallax follows the scroll only when motion is allowed.
+  root.style.setProperty('--sy', reduce.matches ? '0' : String(sy));
   const z = zoom();
   const mid = (sy + innerHeight / 2) / z;
   const cur = sections.find((s) => s.offsetTop <= mid && s.offsetTop + s.offsetHeight > mid) ?? sections[0];
