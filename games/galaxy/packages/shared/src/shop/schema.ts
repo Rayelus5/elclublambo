@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ART_AVATARS, ART_FRAMES, ART_SKINS, titleText } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, SKIN_PACKS, SKIN_PROBES, titleText } from '../cosmetics/catalog';
 
 // The resource shop (shop and lab plan, F4): coins, star dust and components for real money, paid with Stripe. Its
 // catalogue is live config (`shop`), so the admin edits everything: what each product gives, its price shown and the
@@ -143,6 +143,17 @@ function cosmetic(id: string, name: string, piece: NonNullable<ShopProduct['cosm
   };
 }
 
+/** A complete skin pack (2026-11-17): the eight skins of its line, sold whole, off until its Stripe price is set. */
+function skinSet(k: (typeof SKIN_PACKS)[number], window: Pick<ShopProduct, 'availableFrom' | 'availableUntil' | 'badge'>): ShopProduct {
+  return {
+    ...cosmetic(`skins-${k.line}`, `Pack ${k.pack}`, { kind: 'skin', id: `skin-lumen-${k.line}` }, 1699),
+    kind: 'set',
+    cosmetic: null,
+    pieces: SKIN_PROBES.map((probe) => ({ kind: 'skin' as const, id: `skin-${probe}-${k.line}` })),
+    ...window,
+  };
+}
+
 /** The default catalogue (the approved ladder of the F0 mockups): six packs of each currency, three bundles and the welcome pack. */
 export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
   bundle('welcome', 'Pack de bienvenida', { coins: 1500, dust: 800, components: 200 }, 199, { kind: 'welcome', maxPerAccount: 1, badge: 'new' }),
@@ -189,6 +200,9 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
   cosmetic('style-skin-prism', 'Prisma leyenda', { kind: 'skin', id: 'skin-prism-leyenda' }, 399, 'popular'),
   cosmetic('style-skin-comet', 'Cometa leyenda', { kind: 'skin', id: 'skin-comet-leyenda' }, 299),
   cosmetic('style-skin-echo', 'Eco leyenda', { kind: 'skin', id: 'skin-echo-leyenda' }, 299),
+  // The six complete skin packs (2026-11-17), 16,99 € each, off until their Stripe prices are set. Navidad sells until
+  // 10 January included (11 January at 00:00 in Madrid).
+  ...SKIN_PACKS.map((k) => skinSet(k, k.line === 'navidad' ? { availableFrom: null, availableUntil: '2027-01-10T23:00:00.000Z', badge: 'limited' } : { availableFrom: null, availableUntil: null, badge: 'new' })),
 ];
 
 const total = (p: Pick<ShopProduct, 'grants' | 'bonus'>, c: ShopCurrency) => p.grants[c] + p.bonus[c];

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   activeOffer,
+  SKIN_PACKS,
+  SKIN_PROBES,
   configIssues,
   DEFAULT_SHOP_PRODUCTS,
   effectivePrice,
@@ -212,5 +214,31 @@ describe('los packs de piezas', () => {
     delete old.availableUntil;
     const parsed = parseConfig('shop', { products: [old] });
     expect(parsed.products[0]).toMatchObject({ pieces: [], availableFrom: null, availableUntil: null });
+  });
+});
+
+// The six complete skin packs (2026-11-17, approved by the owner): 8 animated skins each at 16,99 €, born switched off
+// and without a Stripe price; Navidad only sells until 10 January included (owner, 2026-11-17).
+describe('los seis packs de skins de la tienda', () => {
+  const sets = shop.products.filter((p) => p.kind === 'set');
+
+  test('uno por pack, con las ocho skins de su línea, a 16,99 €, apagados y sin precio de Stripe', () => {
+    expect(sets.map((p) => p.id)).toEqual(SKIN_PACKS.map((k) => `skins-${k.line}`));
+    sets.forEach((p, i) => {
+      const k = SKIN_PACKS[i]!;
+      expect(p).toMatchObject({ name: `Pack ${k.pack}`, priceCents: 1699, enabled: false, stripePriceId: null, firstBonus: false, offer: null, maxPerAccount: 1 });
+      expect(p.pieces).toEqual(SKIN_PROBES.map((probe) => ({ kind: 'skin', id: `skin-${probe}-${k.line}` })));
+      expect(productTab(p)).toBe('style');
+    });
+    // Valid once switched on with their prices.
+    expect(messages({ ...shop, enabled: true, products: withPrices(shop.products.map((p) => ({ ...p, enabled: true }))) })).toEqual([]);
+  });
+
+  test('Navidad, edición limitada hasta el 10 de enero incluido; los demás, sin fechas', () => {
+    const [xmas, ...rest] = sets;
+    expect(xmas).toMatchObject({ badge: 'limited', availableFrom: null, availableUntil: '2027-01-10T23:00:00.000Z' });
+    expect(productBlock({ ...xmas!, enabled: true }, { staff: false, bought: 0, now: at('2027-01-10T22:59:59.000Z') })).toBeNull();
+    expect(productBlock({ ...xmas!, enabled: true }, { staff: false, bought: 0, now: at('2027-01-10T23:00:00.000Z') })).toBe('unavailable');
+    for (const p of rest) expect([p.availableFrom, p.availableUntil, p.badge]).toEqual([null, null, 'new']);
   });
 });
