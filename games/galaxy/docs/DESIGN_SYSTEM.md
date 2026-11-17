@@ -220,7 +220,13 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Terminal CRT:** bisel con relieve y pantalla curva oscura con líneas de escaneo y viñeta, a todo el ancho del panel (un panorama). En reposo, **cielo vivo** (2026-11-17): estrellas que se desplazan, un radar que barre cada 4 s (1,1 s mientras se escanea) y 12 destellos del color de cada rareza, tantos como dicen las probabilidades del próximo escaneo y siempre una legendaria; se encienden al paso del barrido. «Listo para escanear» abajo, sin título encima. En el de evento, en violeta y con la misma altura (2026-11-17).
 - **Detrás de la página:** una nebulosa que se mueve despacio (azul; violeta y rosa en el de evento), en su capa recortada para no ensanchar la página.
 - **Garantía:** un núcleo (anillo que se llena con los escaneos sin Legendaria y un orbe que brilla más cuanto más cerca); desde el 80 % se calienta y late. `progressbar` con su nombre.
-- **Botones:** x1, x5 y x10 en cada fila (señales y monedas), con el número en la letra de título; «Mejor precio», una cinta Nova, en el tamaño que menos cuesta por escaneo, solo si de verdad ahorra.
+- **Botones «Sobres»** (2026-11-17, elegidos por el propietario entre tres maquetas):
+  - «Escanear» sale una vez, como título del bloque, con tus señales y monedas al lado (icono y número). No hay etiquetas por fila.
+  - Cada botón lleva el dibujo de lo que abre (una carta, cinco en abanico o un mazo de diez; el abanico se abre al pasar el ratón), «×1», «×5» o «×10» en la letra de título y el precio en una pastilla oscura con el icono de la moneda, sin su nombre.
+  - Señales en Solar con labio naranja (UV con labio violeta en el de evento); monedas en azul con labio azul oscuro. Un brillo pasa de vez en cuando.
+  - «Mejor precio», una cinta Nova, solo en el tamaño que de verdad ahorra por escaneo. Si no te llega, debajo de la fila sale «Te faltan N … para la de X», con la tirada más pequeña que no llega.
+  - Para el lector de pantalla, cada botón dice «Escanear 10, 10 señales».
+  - El brillo del núcleo de la garantía sale del cuadrado (`overflow: visible`).
 - **«Puede salirte»:** tarjetas de 92 px en una tira que se desplaza por dentro, con su nombre, su rareza y su rasgo más llamativo; los ejemplos llevan «Ejemplo». En el de evento, la galaxia destacada sale en grande en su tarjeta.
 - **«Últimos hallazgos»:** una cinta bajo el escáner que avanza sola de derecha a izquierda («vega encontró una Legendaria Aena, hace 2 min») y se para al pasar el ratón o con el teclado; al final, «Tus mejores» de la semana. Es una lista de verdad para el lector de pantalla (la copia que hace el bucle va oculta) y nada se anuncia al moverse. Con movimiento reducido, todo queda quieto.
 - **Secuencia** (`revealSequence`, pura y probada), por tirada:

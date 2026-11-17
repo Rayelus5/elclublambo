@@ -114,6 +114,8 @@ for (const [width, height] of [
       for (const row of document.querySelectorAll('.pull-row')) expect(row.querySelectorAll('.pull-btn')).toHaveLength(3);
       expect(document.querySelectorAll('.pull-best')).toHaveLength(1);
       expect(document.querySelector('.pity-core')).not.toBeNull();
+      // Its glow is not cut at the square's edges (the owner, 2026-11-17).
+      expect(getComputedStyle(document.querySelector('.pity-core svg')!).overflow).toBe('visible');
       if (which === 'evento') expect(document.querySelector('.scan-featured-galaxy article')).not.toBeNull();
       // The sky is as tall in both scanners (the owner, 2026-11-17): the screen's height less 470 px, 190 to 620 px.
       const zoom = width >= 2560 ? 1.25 : 1;

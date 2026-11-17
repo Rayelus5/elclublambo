@@ -3194,17 +3194,16 @@ export const copy = {
     endsAt: (when: string) => `Termina el ${when}`,
     free: 'Escaneo gratis de hoy',
     freeHint: 'Uno al día. Vuelve a medianoche',
-    withSignals: 'Con señales',
-    withEventSignals: (n: number) => `Con señales de evento (tienes ${fmt(n)})`,
     eventTab: 'Escáner de evento',
     featuredTitle: 'Destacada',
     featuredHint: 'El rasgo estrella de este escáner',
     featuredProgress: 'Camino a la destacada segura',
-    withCoins: 'Con monedas',
     pull: (n: number) => (n === 1 ? 'Escanear 1' : `Escanear ${n}`),
     // The scanner made more attractive (2026-11-17, the owner).
     bestValue: 'Mejor precio',
-    pullWord: 'Escanear',
+    // The pull buttons «Sobres» (2026-11-17): the block's one title, and what a balance lacks for its smallest pull.
+    pullTitle: 'Escanear',
+    shortFor: (missing: string, size: number) => `${missing} para la de ${size}`,
     pityLabel: 'Carga hasta la Legendaria segura',
     showcase: { title: 'Puede salirte', example: 'Ejemplo' },
     finds: {

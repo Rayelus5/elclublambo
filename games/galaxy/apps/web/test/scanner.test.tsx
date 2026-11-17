@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
-import { ScannerScreen } from '../src/scanner/ScannerScreen';
+import { ScannerScreen, shortOf } from '../src/scanner/ScannerScreen';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // The deep scan screen (GDD §9): what the next scan can give and how far the guarantee is, BEFORE paying; paying with
@@ -445,4 +445,41 @@ test('sin hallazgos recientes la cinta lo dice', async () => {
   mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds({ recent: [], mine: [] })) });
   renderAt('/escaner', { '/escaner': <ScannerScreen /> });
   expect(await screen.findByText(copy.scanner.finds.none)).toBeInTheDocument();
+});
+
+// The pull buttons «Sobres» (2026-11-17, the owner chose them among three): «Escanear» once with what you hold, and on
+// each button the cards it opens, its number and its price in a pill with its icon; nothing said twice.
+const sides = () => document.querySelector<HTMLElement>('.scanner-side')!;
+
+test('los botones de escaneo no repiten: «Escanear» una vez con lo que tienes, y en cada uno su dibujo, su número y su precio', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet: { coins: 1000, dust: 0, signal: 10 } })), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  expect(within(sides()).getAllByText(copy.scanner.pullTitle)).toHaveLength(1);
+  expect(within(sides()).getByText(copy.hub.resource.signal(10))).toBeInTheDocument();
+  expect(within(sides()).getByText(copy.hub.resource.coins(1000))).toBeInTheDocument();
+  // The old row labels are gone.
+  expect(screen.queryByText(/^Con (señales|monedas)/)).toBeNull();
+  const buttons = [...sides().querySelectorAll<HTMLElement>('.pull-btn')];
+  expect(buttons.map((b) => b.querySelector('.pull-n')!.textContent)).toEqual(['×1', '×5', '×10', '×1', '×5', '×10']);
+  expect(buttons.map((b) => b.querySelector('.pull-price')!.textContent)).toEqual(['1', '5', '10', '100', '475', '900']);
+  for (const b of buttons) expect(b.querySelector('.pull-fan')).not.toBeNull();
+  // Their names say it all, for screen readers and the tutorial.
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) })).toHaveAttribute('data-tour', 'pull10');
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(5)}.*${copy.scanner.costCoins(475)}`) })).toBeEnabled();
+});
+
+test('sin saldo para la de 10, la fila dice lo que falta para ella', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet: { coins: 1000, dust: 0, signal: 8 } })), 'GET /galaxy/api/gacha/finds': () => jsonResponse(200, finds()) });
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  expect(await screen.findByText(copy.scanner.shortFor(copy.scanner.missingSignals(2), 10))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) })).toBeDisabled();
+});
+
+test('lo que falta: la tirada más pequeña que no llega, o nada', () => {
+  const costs = { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 };
+  expect(shortOf(costs, 'signal', 0)).toEqual({ size: 1, missing: 1 });
+  expect(shortOf(costs, 'signal', 8)).toEqual({ size: 10, missing: 2 });
+  expect(shortOf(costs, 'signal', 10)).toBeNull();
+  expect(shortOf(costs, 'coins', 450)).toEqual({ size: 5, missing: 25 });
 });

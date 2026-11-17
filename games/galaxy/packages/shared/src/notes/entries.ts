@@ -19,6 +19,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: '«Últimos hallazgos»: una cinta con las legendarias y míticas que han sacado los demás jugadores, y tus mejores tiradas de la semana' },
       { kind: 'mejora', text: 'La Legendaria segura es ahora un núcleo que se carga con cada escaneo y brilla más cuanto más cerca está' },
       { kind: 'mejora', text: 'La tirada de 5 tiene su propia cinemática: las cinco cartas caen en una fila y las mejores pasan a primer plano' },
+      { kind: 'mejora', text: 'Los botones de escanear enseñan lo que abren (una carta, cinco o un mazo de diez) y su precio con el icono de la moneda, sin repetir nada. Si no te llega, te dicen cuánto te falta' },
     ],
   },
   {
