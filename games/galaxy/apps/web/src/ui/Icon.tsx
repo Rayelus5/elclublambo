@@ -364,8 +364,8 @@ export type IconName = keyof typeof PATHS;
 
 /**
  * An interface icon. `outline` (2026-11-17, the owner: icons on a colour white, «pero que se sigan viendo, añadir un
- * contorno») draws the same strokes twice: a wider dark copy behind (`.ico-back`) and the icon on top, like the 1 px
- * dark rim of the game's pixel icons, so it reads on any tone.
+ * contorno») draws the same strokes twice: a much wider dark copy behind (`.ico-back`, half see-through and shifted down
+ * and to the left, a cartoon depth) and the icon on top, so it reads on any tone.
  */
 export function Icon({ name, label, className = 'ico', outline = false }: { name: IconName; label?: string; className?: string; outline?: boolean }) {
   return (

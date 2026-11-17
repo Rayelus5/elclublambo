@@ -144,6 +144,7 @@ export const API_ERROR_CODES = [
   'room_already',
   'room_not_leader',
   'room_not_ready',
+  'room_alone',
   'room_limit',
   'invite_refused',
   'invite_offline',

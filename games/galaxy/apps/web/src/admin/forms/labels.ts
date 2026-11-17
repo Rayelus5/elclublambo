@@ -249,8 +249,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   coop: {
     minLevel: { label: 'Nivel mínimo', hint: 'Además hay que acabar o saltar el tutorial' },
-    maxRooms: { label: 'Salas abiertas a la vez como máximo' },
-    lobbyIdleMinutes: { label: 'Una sala sin cambios se cierra tras', unit: 'minutes' },
+    maxRooms: { label: 'Salas abiertas a la vez como máximo', hint: 'Cuentan las que esperan y las que juegan. Con el tope lleno no se crea ninguna' },
+    lobbyIdleMinutes: { label: 'Una sala sin cambios se cierra tras', unit: 'minutes', hint: 'Libera su hueco para otra' },
     invitesPerMinute: { label: 'Invitaciones por minuto' },
     pickSeconds: { label: 'Tiempo para elegir carta', unit: 'seconds', hint: 'Pasado este tiempo se elige una al azar' },
     downSeconds: { label: 'Tiempo caído antes de quedar fuera', unit: 'seconds' },

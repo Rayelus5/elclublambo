@@ -51,7 +51,8 @@ function call(a: Action): Promise<RoomView> {
 
 export function useRoomAction() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: call, onSuccess: (room) => setMyRoom(qc, room) });
+  // A refused action (a full server, a room gone) refreshes what the panel shows.
+  return useMutation({ mutationFn: call, onSuccess: (room) => setMyRoom(qc, room), onError: () => void qc.invalidateQueries({ queryKey: ROOMS_KEY }) });
 }
 
 export function useLeaveRoom() {

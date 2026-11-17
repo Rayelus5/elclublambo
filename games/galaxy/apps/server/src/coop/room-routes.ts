@@ -1,10 +1,12 @@
 import {
   type LiveEvent,
+  parseConfig,
   roomCodeSchema,
   roomCreateSchema,
   roomKindSchema,
   roomReadySchema,
   roomSectorSchema,
+  roomStartBlock,
   type RoomsView,
   roomTargetSchema,
   type RoomView,
@@ -41,10 +43,18 @@ export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; ro
  * The rooms and how their limits follow the live config (read again on every sweep, every 30 s). `memberChanged` is
  * for the rest of the API: a member's probe changed in the hangar, so the room (if any) shows it to everyone in it.
  */
-export type Rooms = { manager: RoomManager; refresh: () => Promise<void>; memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'skin' | 'level'>>) => Promise<void> };
+export type Rooms = {
+  manager: RoomManager;
+  refresh: () => Promise<void>;
+  memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'skin' | 'level'>>) => Promise<void>;
+  /** How many rooms fit at once and how long an idle lobby lives, as the last refresh read them. */
+  limits: () => { maxRooms: number; idleMs: number };
+};
 
 export function createRooms(config: ConfigReader): Rooms {
-  const cfg = { maxRooms: 500, idleMs: 30 * 60_000 };
+  // Until the first read lands, the config's defaults (never a looser hard-coded number).
+  const defaults = parseConfig('coop', {});
+  const cfg = { maxRooms: defaults.maxRooms, idleMs: defaults.lobbyIdleMinutes * 60_000 };
   const refresh = async () => {
     const c = await config.get('coop');
     cfg.maxRooms = c.maxRooms;
@@ -52,7 +62,7 @@ export function createRooms(config: ConfigReader): Rooms {
   };
   void refresh().catch(() => {});
   // Nobody to tell until the routes are registered (registerRoomRoutes sets it).
-  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh, memberChanged: async () => {} };
+  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh, memberChanged: async () => {}, limits: () => ({ ...cfg }) };
 }
 
 export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
@@ -195,7 +205,8 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
       if (await blockedWithRoom(s.accountId, room)) continue;
       open.push(rooms.publicView(room));
     }
-    return { mine: me, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel, waitUntil: a.waitUntil };
+    // How full the server is (2026-11-17): the group panel shows «Salas 7/10» and offers solo when it is full.
+    return { mine: me, rooms: { count: rooms.all().length, max: deps.rooms.limits().maxRooms }, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel, waitUntil: a.waitUntil };
   });
 
   api.post('/galaxy/api/rooms', async (req): Promise<RoomView> => {
@@ -344,7 +355,9 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     if (!room) throw new HttpError(404, 'room_not_found');
     if (room.leader !== s.accountId) throw new HttpError(403, 'room_not_leader');
     if (room.state !== 'lobby') throw new HttpError(409, 'room_started');
-    if (!rooms.view(room, online, true).canStart) throw new HttpError(409, 'room_not_ready');
+    const view = rooms.view(room, online, true);
+    // Alone in the room (2026-11-17, the owner): a group run needs company; the web offers solo mode instead.
+    if (!view.canStart) throw new HttpError(409, roomStartBlock(view.members) === 'alone' ? 'room_alone' : 'room_not_ready');
     // Marked before anything waits: a second press (or tab) meanwhile is refused, never launched twice.
     room.state = 'starting';
     try {

@@ -48,6 +48,16 @@ test('los seis iconos de la barra del lobby son blancos con contorno oscuro, sea
   for (const svg of host.querySelectorAll<SVGSVGElement>('.lobby-zone-icon svg')) {
     expect(strokes(svg), svg.closest('a')!.className).toEqual({ front: WHITE, back: RIM });
   }
+  // A cartoon depth (the owner, 2026-11-17: «más grueso, que tienda a estar más a la izquierda y abajo que en el centro
+  // y que sea menos oscuro»): a thick rim, shifted down and to the left, half see-through so the tile's colour tints it.
+  const svg = host.querySelector<SVGSVGElement>('.lobby-zone-icon svg')!;
+  const back = svg.querySelector<SVGGElement>('.ico-back')!;
+  const shift = new DOMMatrix(getComputedStyle(back).transform);
+  expect(shift.e).toBeLessThan(-0.5);
+  expect(shift.f).toBeGreaterThan(0.5);
+  expect(Number(getComputedStyle(back).opacity)).toBeGreaterThan(0.3);
+  expect(Number(getComputedStyle(back).opacity)).toBeLessThan(0.8);
+  expect(parseFloat(getComputedStyle(back.firstElementChild!).strokeWidth)).toBeGreaterThanOrEqual(5.5);
   if (import.meta.env['VITE_ICON_SHOTS']) {
     // After the rail's entrance; the second shot is a close-up (zoom 3) to judge the rim.
     await new Promise((r) => setTimeout(r, 900));
