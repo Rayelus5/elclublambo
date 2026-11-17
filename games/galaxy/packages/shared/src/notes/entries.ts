@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-42-instala-el-juego',
+    version: '1.42',
+    date: '2026-11-17',
+    title: 'Instala el juego y juega a pantalla completa',
+    summary: 'El juego en su propia ventana de tu ordenador, y a pantalla completa sin perder la pausa',
+    items: [
+      { kind: 'nuevo', text: 'Puedes instalar el juego en tu ordenador con Chrome o Edge y jugar en su propia ventana, como una app más. Cuando tu navegador lo ofrezca, lo tienes en Ajustes › Pantalla y en el pie de la pantalla de título' },
+      { kind: 'nuevo', text: 'Pantalla completa en Ajustes › Pantalla, sin barras ni bordes. Esc sigue pausando la incursión y, si lo mantienes pulsado, sales' },
+      { kind: 'mejora', text: 'Si sales de la pantalla completa en mitad de una incursión, se pausa sola' },
+      { kind: 'mejora', text: 'Si el juego instalado se abre sin conexión, te sale una página para volver a intentarlo' },
+      { kind: 'mejora', text: 'Si dejas el juego abierto mientras sale una versión nueva, se recarga solo en vez de fallar al cambiar de pantalla' },
+    ],
+  },
+  {
     id: 'v1-41-el-escaner-vivo',
     version: '1.41',
     date: '2026-11-17',

@@ -127,3 +127,13 @@ describe('dominio propio', () => {
     expect(env.domainIssues).toEqual(['legacy_redirect_without_canonical']);
   });
 });
+
+// The installable app (galaxysurvivor.es plan, PR 3): on unless GALAXY_PWA is `off`, the service worker's kill switch.
+test('GALAXY_PWA: encendido por defecto, y solo «off» lo apaga', () => {
+  expect(loadEnv(base).GALAXY_PWA).toBe(true);
+  expect(loadEnv({ ...base, GALAXY_PWA: 'on' }).GALAXY_PWA).toBe(true);
+  expect(loadEnv({ ...base, GALAXY_PWA: 'off' }).GALAXY_PWA).toBe(false);
+  expect(loadEnv({ ...base, GALAXY_PWA: ' OFF ' }).GALAXY_PWA).toBe(false);
+  // A typo never takes the container down: it stays on.
+  expect(loadEnv({ ...base, GALAXY_PWA: 'apagado' }).GALAXY_PWA).toBe(true);
+});

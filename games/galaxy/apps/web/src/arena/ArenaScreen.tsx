@@ -578,6 +578,10 @@ export function ArenaScreen({
       input.current.keys.clear();
       pause();
     };
+    // Leaving full screen (Esc held, F11, another app; galaxysurvivor.es plan, PR 3) pauses like losing the focus.
+    const fullscreen = () => {
+      if (!document.fullscreenElement) blur();
+    };
     const leave = (e: BeforeUnloadEvent) => {
       if (!ended.current) e.preventDefault();
     };
@@ -587,6 +591,7 @@ export function ArenaScreen({
     window.addEventListener('blur', blur);
     window.addEventListener('beforeunload', leave);
     document.addEventListener('visibilitychange', hidden);
+    document.addEventListener('fullscreenchange', fullscreen);
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
@@ -594,6 +599,7 @@ export function ArenaScreen({
       window.removeEventListener('blur', blur);
       window.removeEventListener('beforeunload', leave);
       document.removeEventListener('visibilitychange', hidden);
+      document.removeEventListener('fullscreenchange', fullscreen);
       canvas?.removeEventListener('pointerdown', press);
       canvas?.removeEventListener('contextmenu', noMenu);
       window.removeEventListener('pointerup', release);

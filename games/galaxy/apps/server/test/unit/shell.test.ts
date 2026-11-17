@@ -124,6 +124,11 @@ describe('el manifest', () => {
     expect(render(req('/galaxy/', 'localhost:8090', 'http'), null)).toContain(MANIFEST);
   });
 
+  test('con la app apagada (GALAXY_PWA=off) nunca', () => {
+    expect(renderShell(req('/galaxy/'), { template: TEMPLATE, canonicalOrigin: CANONICAL, pwa: false })).not.toContain('rel="manifest"');
+    expect(renderShell(req('/galaxy/', 'localhost:8090', 'http'), { template: TEMPLATE, canonicalOrigin: null, pwa: false })).not.toContain('rel="manifest"');
+  });
+
   test('un canónico con puerto exige el mismo puerto', () => {
     expect(render(req('/galaxy/', 'localhost:8090', 'http'), 'http://localhost:8090')).toContain(MANIFEST);
     expect(render(req('/galaxy/', 'localhost:8091', 'http'), 'http://localhost:8090')).not.toContain(MANIFEST);

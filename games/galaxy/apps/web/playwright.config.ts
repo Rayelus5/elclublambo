@@ -25,7 +25,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
-  use: { baseURL: ORIGIN, extraHTTPHeaders: { 'cf-connecting-ip': runIp }, trace: 'retain-on-failure' },
+  // The game's service worker (galaxysurvivor.es plan, PR 3) stays out of every spec but pwa.spec.ts, which allows it:
+  // a worker would take page.route() mocks away from the specs that use them (admin-config.spec.ts).
+  use: { baseURL: ORIGIN, extraHTTPHeaders: { 'cf-connecting-ip': runIp }, trace: 'retain-on-failure', serviceWorkers: 'block' },
   webServer: {
     command: 'pnpm -C ../.. build && node ../server/dist/main.js',
     url: `${ORIGIN}/galaxy/api/health`,

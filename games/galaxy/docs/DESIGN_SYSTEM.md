@@ -1320,13 +1320,14 @@ Plan «escáner pro», parte E.
 **`/ajustes`**, desde el pie del menú (rediseño del plan «escáner pro», parte A; el propietario: «un estilo y organización mucho más intuitiva»): un solo panel con una columna de pestañas con icono y, al lado, la pestaña elegida con su nombre, una línea de lo que contiene y sus filas. Cada fila dice qué es el ajuste y, debajo, qué hace; su control va a la derecha.
 - **Pestañas** (`?seccion=`, que se sustituye, así «Volver» sigue llevando a donde estabas):
   - **Sonido:** Música y Efectos (deslizadores), sonidos de la interfaz y «Silenciar todo» (interruptores), la prueba de sonido y «Avisos» de la cuenta.
-  - **Pantalla:** el cursor del juego, su tamaño y su color.
+  - **Pantalla:** la presentación pro, «Instalar el juego» (el botón «Instalar» cuando el navegador lo ofrece, «Ya la tienes instalada» en verde Terminal o dónde está el icono de Chrome y Edge; solo donde se puede instalar) y «Pantalla completa» (interruptor; Esc sigue pausando), fuera de la pausa; y el cursor del juego, su tamaño y su color.
   - **Accesibilidad:** Movimiento (Sistema, Reducido, Completo), con lo que pide ahora el ordenador, y Visión del color con su vista previa (rarezas, jugadores, a favor y peligro, elementos con su glifo; en la pausa, sin la vista previa).
   - **Incursión:** apuntar con el ratón.
   - **Ayuda:** PERKINS, los primeros pasos y el tutorial, con su confirmación escrita.
 - **La elegida:** fondo Panel 2 con labio, icono Solar y una barra Solar con brillo en el borde. Las pestañas siguen el patrón de WAI-ARIA (flechas, Inicio, Fin).
 - **En la pausa:** el mismo panel, algo más apretado y sin la fila de «Avisos», cabe sin barra a 1280×720; la Ayuda espera al menú de inicio.
 - **Pantallas estrechas:** las pestañas pasan arriba en fila y los controles bajan bajo su texto.
+- **La píldora «Instalar»** (galaxysurvivor.es): al final del pie del menú, solo mientras el navegador ofrece instalar y fuera de la app instalada. Icono en Ice y una × redonda en su esquina, como las insignias del pie, que la oculta para siempre en ese navegador. Ocupa el hueco que queda: con la tienda abierta se queda en el icono, para que el pie siga en una línea.
 
 **Acabado Fisura:** estática violeta con dos vetas de cristal que cruzan la carta despacio. En el inspector, vetas que brillan donde está el puntero y destellos sueltos.
 

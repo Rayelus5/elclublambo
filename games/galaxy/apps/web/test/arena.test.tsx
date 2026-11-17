@@ -170,6 +170,24 @@ test('Escape abre la pausa, Continuar la cierra, y ocultar la pestaña también 
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 });
 
+// The installable app (galaxysurvivor.es plan, PR 3): leaving full screen in a run (Esc held, F11, another app) pauses
+// it, like losing the focus; entering it does not.
+test('salir de pantalla completa pausa la incursión; entrar no', async () => {
+  await mount();
+  clock.frames(5);
+  let element: Element | null = document.documentElement;
+  Object.defineProperty(document, 'fullscreenElement', { get: () => element, configurable: true });
+  try {
+    act(() => document.dispatchEvent(new Event('fullscreenchange')));
+    expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+    element = null;
+    act(() => document.dispatchEvent(new Event('fullscreenchange')));
+    expect(screen.getByRole('dialog', { name: copy.arena.pause })).toBeInTheDocument();
+  } finally {
+    delete (document as unknown as Record<string, unknown>)['fullscreenElement'];
+  }
+});
+
 test('al entrar en la incursión se cierra el chat, y una tecla escrita en un campo no pausa ni se queda la sonda sin espacios', async () => {
   useUi.getState().openChat('global');
   await mount();

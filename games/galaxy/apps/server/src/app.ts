@@ -67,6 +67,7 @@ import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
 import { registerHostRedirects } from './security/host';
 import { registerOriginGuard } from './security/origin';
+import { registerPwa } from './pwa';
 import { registerStatic, wantsSpaShell } from './static';
 
 export type AppDeps = {
@@ -119,7 +120,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return reply.code(500).send({ error: 'internal' });
   });
   // The game's shell carries each screen's title and its own head (galaxysurvivor.es plan, PR 2).
-  const shell = await registerStatic(app, deps.env.WEB_DIST, deps.env.GALAXY_CANONICAL_ORIGIN);
+  const shell = await registerStatic(app, deps.env.WEB_DIST, deps.env.GALAXY_CANONICAL_ORIGIN, deps.env.GALAXY_PWA);
+  // The installable app's service worker, or its kill switch with GALAXY_PWA=off (galaxysurvivor.es plan, PR 3).
+  if (shell) registerPwa(app, { enabled: deps.env.GALAXY_PWA, webDist: deps.env.WEB_DIST });
   // The landing of galaxysurvivor.es at the site root (plan «galaxysurvivor.es», PR 4); /galaxy stays the game's.
   const landing = await registerLanding(app, deps.env.LANDING_DIST, deps.env.legal);
   app.setNotFoundHandler((req, reply) => {

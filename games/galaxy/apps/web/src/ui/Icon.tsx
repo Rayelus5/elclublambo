@@ -358,6 +358,13 @@ const PATHS = {
       <path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" />
     </>
   ),
+  // Installing the game as an app (galaxysurvivor.es plan, PR 3): an arrow down into a tray.
+  install: (
+    <>
+      <path d="M12 3.5v11M7.5 10.5L12 15l4.5-4.5" />
+      <path d="M4 15.5v2.8a2.2 2.2 0 002.2 2.2h11.6a2.2 2.2 0 002.2-2.2v-2.8" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

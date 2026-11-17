@@ -35,6 +35,7 @@ const schema = z.object({
   GALAXY_LEGAL_ADDRESS: z.string().trim().max(300).optional(),
   GALAXY_CANONICAL_ORIGIN: z.string().trim().optional(),
   GALAXY_LEGACY_REDIRECT_FROM: z.string().optional(),
+  GALAXY_PWA: z.string().optional(),
 });
 
 /** The resource shop's Stripe keys (shop and lab plan, F4): all three, of one mode. */
@@ -121,6 +122,11 @@ export type Env = {
   GALAXY_LEGACY_REDIRECT_FROM: string[];
   /** Domain values that were ignored, for the start log. */
   domainIssues: DomainIssue[];
+  /**
+   * The installable app (galaxysurvivor.es plan, PR 3): the manifest and the service worker. `GALAXY_PWA=off` turns
+   * it off: no manifest, and /galaxy/sw.js becomes a kill switch that unregisters itself. Anything else is on.
+   */
+  GALAXY_PWA: boolean;
   /** AES-256-GCM key for TOTP secrets at rest. */
   GALAXY_TOTP_KEY: Buffer;
   PORT: number;
@@ -154,6 +160,7 @@ export function loadEnv(src: Record<string, string | undefined> = process.env): 
     GALAXY_LEGAL_HOLDER,
     GALAXY_LEGAL_NIF,
     GALAXY_LEGAL_ADDRESS,
+    GALAXY_PWA,
     ...rest
   } = schema.parse(src);
   const { stripe, issue } = stripeEnv({ STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PUBLISHABLE_KEY });
@@ -170,6 +177,8 @@ export function loadEnv(src: Record<string, string | undefined> = process.env): 
     GALAXY_CANONICAL_ORIGIN: domain.canonicalOrigin,
     GALAXY_LEGACY_REDIRECT_FROM: domain.legacyHosts,
     domainIssues: domain.issues,
+    // A typo never turns the app off: only an explicit `off` does.
+    GALAXY_PWA: GALAXY_PWA?.trim().toLowerCase() !== 'off',
     legal,
     stripe,
     stripeIssue: issue,

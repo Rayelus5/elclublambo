@@ -17,6 +17,8 @@ import { Select } from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { Switch } from '../ui/Switch';
 import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
+import { enterFullscreen, exitFullscreen, fullscreenAvailable, useFullscreen } from '../pwa/fullscreen';
+import { installable, promptInstall, useInstall } from '../pwa/install';
 import { ELEMENT_GLYPH } from '../arena/stage/palette';
 import { CHAT_NOTIFY_KEYS, COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
@@ -149,7 +151,50 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   );
 }
 
-/** The pro scanner (home menu only) and the game's cursor: on or the system's, its size and its colour, at once. */
+/**
+ * Installing the game as an app (galaxysurvivor.es plan, PR 3): the browser's offer behind the game's own button, a
+ * word once it is installed, or where Chrome and Edge keep their install icon. Only where the page can be installed
+ * (the server links the manifest on the game's own host).
+ */
+function InstallRow() {
+  const { canPrompt, standalone, installed } = useInstall();
+  if (!installable()) return null;
+  const done = standalone || installed;
+  const how = !done && !canPrompt;
+  return (
+    <SettingRow label={t.install} hint={how ? t.installHow : t.installHint}>
+      {(ids) =>
+        done ? (
+          <span className="setting-status">
+            <Icon name="check" />
+            <span>{t.installDone}</span>
+          </span>
+        ) : canPrompt ? (
+          <button type="button" className="lip pill small setting-button" aria-describedby={ids.hint} onClick={() => void promptInstall()}>
+            <Icon name="install" />
+            <span>{t.installButton}</span>
+          </button>
+        ) : null
+      }
+    </SettingRow>
+  );
+}
+
+/** Full screen (galaxysurvivor.es plan, PR 3): the switch follows the browser, however full screen ends. */
+function FullscreenRow() {
+  const on = useFullscreen();
+  if (!fullscreenAvailable()) return null;
+  return (
+    <SettingRow label={t.fullscreen} hint={t.fullscreenHint}>
+      {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={on} onChange={(next) => void (next ? enterFullscreen() : exitFullscreen())} />}
+    </SettingRow>
+  );
+}
+
+/**
+ * The pro scanner, installing the game and full screen (home menu only), and the game's cursor: on or the system's,
+ * its size and its colour, at once.
+ */
 export function DisplaySection({ inRun = false }: { inRun?: boolean }) {
   // The account's settings can arrive while this is open: it follows them.
   const cursor = useSyncExternalStore(onCursor, getCursor);
@@ -162,6 +207,8 @@ export function DisplaySection({ inRun = false }: { inRun?: boolean }) {
           {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={scannerPro} onChange={(on) => setPrefs({ scannerPro: on })} />}
         </SettingRow>
       )}
+      {inRun ? null : <InstallRow />}
+      {inRun ? null : <FullscreenRow />}
       <SettingRow label={t.cursorOn} hint={t.cursorOnHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={cursor.on} onChange={(on) => change({ on })} />}
       </SettingRow>

@@ -1142,6 +1142,20 @@ curl -s https://pre.elclub.party/galaxy/api/health                  # sigue resp
 
 Para quitar el dominio del todo se revierte también el PR que lo trajo: `GALAXY_CANONICAL_ORIGIN` y las dos reglas del túnel.
 
+### Cabecera del juego y app instalable
+
+**La cabecera** (`apps/server/src/static.ts`, `renderShell`). El servidor escribe la cabecera de cada página del juego: el título de la pantalla (`@galaxy/shared`, `titleFor`), la descripción, los iconos y las tarjetas OG y Twitter con URL absolutas en `GALAXY_CANONICAL_ORIGIN`, para que los enlaces de invitación se vean bien. Todas llevan `noindex` (meta y `X-Robots-Tag`): solo se indexan la portada y las legales.
+
+**La app instalable.** En Chrome y Edge el juego se instala como una app de Windows.
+- El `<link rel="manifest">` solo sale en el host canónico (o sin canónico, en dev y e2e). Así `pre.elclub.party` nunca ofrece instalar ni registra el worker.
+- El worker (`/galaxy/sw.js`, `apps/server/src/pwa.ts`) solo atiende las cargas de página del juego: la red primero y, sin red, una página `offline.html`. Nunca toca la API, los assets, los sockets ni Stripe, y no guarda el shell, así que las actualizaciones llegan solas.
+- `GALAXY_PWA` (en `galaxy.env`, `on` por defecto) es su interruptor de apagado. Con `GALAXY_PWA=off` y el contenedor recreado, no sale el manifest y `/galaxy/sw.js` es un worker que borra sus cachés, se desregistra y recarga las pestañas que controlaba, en la siguiente carga de página de cada jugador. Para volver, se quita la línea (o `on`) y se recrea el contenedor.
+
+```bash
+curl -sI https://galaxysurvivor.es/galaxy/sw.js                 # 200, text/javascript, cache-control: no-cache
+curl -sI https://galaxysurvivor.es/galaxy/manifest.webmanifest  # 200, application/manifest+json
+```
+
 ## Operación
 
 | Tarea | Cómo |
