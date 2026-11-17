@@ -7,6 +7,39 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-39-packs-de-skins',
+    version: '1.39',
+    date: '2026-11-17',
+    title: 'Packs de skins',
+    summary: 'Seis packs de skins animadas en la tienda, y un Taller donde ves cualquier skin en grande antes de elegirla',
+    items: [
+      { kind: 'nuevo', text: 'Seis packs de skins en la pestaña Estilo de la tienda: Navidad, Fuego, Agua, Galáctico, Carbono y Rubí. Cada uno trae 8 skins animadas, una para cada sonda, por 16,99 €' },
+      { kind: 'nuevo', text: 'El pack de Navidad es de edición limitada: solo se vende hasta el 10 de enero. Quien lo compre se lo queda para siempre' },
+      { kind: 'nuevo', text: 'Las skins de los packs solo se consiguen con su pack, y cada una lleva su propia llama y su propia estela al impulsarte' },
+      { kind: 'mejora', text: 'Si ya tienes alguna skin de un pack, la tarjeta te lo dice y el pack te da las que te faltan' },
+      { kind: 'mejora', text: 'Las skins del Taller se eligen en una rejilla grande bajo «Equipar», con las tuyas primero' },
+      { kind: 'mejora', text: 'Señala cualquier skin del Taller, también las que no tienes, y la sonda de la bahía se la pone para que la veas en grande. Las de la tienda te llevan a su pack' },
+      { kind: 'mejora', text: 'En la sala de incursiones ves hasta cuatro de tus skins y un «+» que te lleva al Taller para elegir entre todas' },
+    ],
+  },
+  {
+    id: 'v1-38-el-buzon-renovado',
+    version: '1.38',
+    date: '2026-11-17',
+    title: 'El buzón, renovado',
+    summary: 'Bandeja y archivo, mensajes por tipo, recoger todo de una vez y regalos de todo tipo',
+    items: [
+      { kind: 'nuevo', text: 'El buzón tiene Bandeja y Archivo: archiva los mensajes que quieras guardar y devuélvelos cuando quieras' },
+      { kind: 'nuevo', text: 'Cada mensaje lleva el icono y el color de su tipo (anuncio, regalo, compensación, evento, recompensa, personal…) y puedes filtrar por tipo' },
+      { kind: 'nuevo', text: '«Recoger todo» recoge de una vez los regalos de todos los mensajes, y luego te los enseña uno tras otro' },
+      { kind: 'nuevo', text: 'Los regalos pueden ser de todo tipo: monedas, polvo, señales, material, componentes, avatares, marcos, títulos, skins, sondas, experiencia, puntos de temporada y galaxias' },
+      { kind: 'mejora', text: 'Las galaxias que recibes salen con su carta, y «Ver en la colección» te lleva a ellas. Lo que ya tenías te lo dice' },
+      { kind: 'mejora', text: 'Los mensajes nuevos, los que traen regalo y los que caducan pronto llevan su marca' },
+      { kind: 'mejora', text: 'Ya puedes borrar mensajes; uno con regalo, cuando lo hayas recogido' },
+      { kind: 'mejora', text: 'Cuando te llega un mensaje con regalo, el aviso te lo dice al momento' },
+    ],
+  },
+  {
     id: 'v1-37-eventos-en-la-incursion',
     version: '1.37',
     date: '2026-11-16',
