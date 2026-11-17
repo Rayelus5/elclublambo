@@ -28,6 +28,8 @@ test('en una pantalla pequeña muestra el aviso en vez del juego', () => {
   );
   expect(screen.getByRole('heading', { name: 'Galaxy Survivor se juega en ordenador' })).toBeInTheDocument();
   expect(screen.queryByText('juego')).not.toBeInTheDocument();
+  // The landing of galaxysurvivor.es tells the visitor what the game is (the move, 2026-11-17).
+  expect(screen.getByRole('link', { name: 'Conoce el juego' })).toHaveAttribute('href', '/');
 });
 
 test('en escritorio muestra el juego', () => {

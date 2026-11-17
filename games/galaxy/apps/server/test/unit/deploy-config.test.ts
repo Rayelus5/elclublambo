@@ -33,10 +33,11 @@ test('el túnel manda galaxysurvivor.es y www al contenedor galaxy, sin ruta, ju
   expect(ingress.length - 3).toBeGreaterThan(lastPre);
 });
 
-test('el dominio propio va en el environment de compose, apagado, y cada clave está en DEPLOY_PRE', () => {
+test('el dominio propio va en el environment de compose, con la mudanza hecha, y cada clave está en DEPLOY_PRE', () => {
   const g = load('deploy/preprod/docker-compose.yml').services.galaxy;
-  // Public values only (never a secret: those live in galaxy.env). The cutover switch stays empty until its own PR.
-  expect(g.environment).toEqual({ GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: '' });
+  // Public values only (never a secret: those live in galaxy.env).
+  // The move is on (the owner, 2026-11-17): pre.elclub.party's page loads show the notice and send to the new domain.
+  expect(g.environment).toEqual({ GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: 'pre.elclub.party' });
   const guide = readFileSync(root + 'games/galaxy/docs/DEPLOY_PRE.md', 'utf8');
   for (const key of Object.keys(g.environment)) expect(guide, key).toContain(`\`${key}\``);
   expect(guide).toContain('## Dominio propio');

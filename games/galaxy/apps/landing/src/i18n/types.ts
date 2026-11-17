@@ -30,6 +30,8 @@ export interface Dict {
   mobile: { title: string; text: string; share: string; copy: string; copied: string; close: string; shareText: string };
   footer: { tagline: string; game: string; community: string; legal: string; news: string; faq: string; discord: string };
   notFound: { title: string; description: string; h1: string; text: string; back: string };
+  /** The notice on the old address (pre.elclub.party/galaxy) once the game has moved. */
+  moved: { title: string; text: string; button: string; note: string };
   legal: { home: string; crumbs: string; updated: (date: string) => string; pages: Record<LegalKey, LegalPage> };
 }
 

@@ -6,6 +6,8 @@ import { esc } from './escape';
 import { homePage } from './home';
 import { page } from './layout';
 import { legalPage } from './legal';
+import { movedPage } from './moved';
+import { MOVED_CSS } from './moved-css';
 
 export { LEGAL_TOKENS } from './legal';
 
@@ -17,10 +19,14 @@ export interface SiteFile {
   route: string | null;
   /** Its path inside dist/ (pages go through gen/ first). */
   file: string;
-  type: 'text/html; charset=utf-8' | 'text/plain; charset=utf-8' | 'application/xml; charset=utf-8';
+  type: 'text/html; charset=utf-8' | 'text/plain; charset=utf-8' | 'application/xml; charset=utf-8' | 'text/css; charset=utf-8';
   body: string;
   /** In the sitemap and without noindex. */
   indexable: boolean;
+  /** 'moved': the notice the old address shows (the server's redirect hook serves it, not a route of its own). */
+  role?: 'moved';
+  /** Written as it is: not a page of the site that goes through Vite (the notice and its stylesheet). */
+  raw?: boolean;
 }
 
 const LEGAL: { route: string; file: string; key: LegalKey }[] = [
@@ -68,5 +74,7 @@ export function renderSite({ now }: { now: Date }): SiteFile[] {
     { route: '/robots.txt', file: 'robots.txt', type: 'text/plain; charset=utf-8', body: robots(), indexable: false },
     { route: '/sitemap.xml', file: 'sitemap.xml', type: 'application/xml; charset=utf-8', body: sitemap(l), indexable: false },
     { route: '/.well-known/security.txt', file: '.well-known/security.txt', type: 'text/plain; charset=utf-8', body: securityTxt(now), indexable: false },
+    { route: null, file: 'moved.html', type: HTML, body: movedPage(l), indexable: false, role: 'moved', raw: true },
+    { route: '/galaxy/mudanza.css', file: 'moved.css', type: 'text/css; charset=utf-8', body: MOVED_CSS, indexable: false, raw: true },
   ];
 }

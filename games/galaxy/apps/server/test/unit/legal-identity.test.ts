@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { fillLegal, missingLegal } from '../../src/landing';
+import { fillLegal, fillMoved, missingLegal } from '../../src/landing';
 
 // The holder's legal name, NIF and address (plan «galaxysurvivor.es», PR 4): never in the public repository; the server
 // fills each line of the legal pages from galaxy.env, escaped, and drops the line of a datum it does not have.
@@ -39,4 +39,12 @@ test('dice qué datos faltan, para avisar al arrancar', () => {
   expect(missingLegal({})).toEqual(['holder', 'nif', 'address']);
   expect(missingLegal({ holder: 'Ana', nif: 'X', address: 'Y' })).toEqual([]);
   expect(missingLegal({ nif: 'X' })).toEqual(['holder', 'address']);
+});
+
+// The notice on the old address (the move, 2026-11-17): its button and canonical carry the new address, escaped.
+test('el aviso de la mudanza lleva la dirección nueva escapada en cada {{href}}', () => {
+  const html = fillMoved('<link rel="canonical" href="{{href}}"><a href="{{href}}">Ir</a>', 'https://galaxysurvivor.es/galaxy/entrar?a=1&b="2"');
+  expect(html).toBe('<link rel="canonical" href="https://galaxysurvivor.es/galaxy/entrar?a=1&amp;b=&quot;2&quot;"><a href="https://galaxysurvivor.es/galaxy/entrar?a=1&amp;b=&quot;2&quot;">Ir</a>');
+  // A $ in the address is text, not a replacement pattern.
+  expect(fillMoved('{{href}}', 'https://galaxysurvivor.es/galaxy/?x=$&')).toBe('https://galaxysurvivor.es/galaxy/?x=$&amp;');
 });

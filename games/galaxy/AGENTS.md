@@ -11,7 +11,7 @@ Galaxy Survivor es un juego web de pixel art espacial que vive dentro de elclub.
 
 Encima hay temporadas, eventos, misiones, logros, clanes, mercado, chat y amigos.
 
-Desde el 2026-11-10 es una **beta abierta en PRE** (`pre.elclub.party/galaxy`), con jugadores reales. Producción todavía no existe para el juego (`docs/PRODUCCION.md`).
+Desde el 2026-11-10 es una **beta abierta en PRE**, con jugadores reales. Desde el 2026-11-17 vive en **`galaxysurvivor.es/galaxy`**, con su portada en la raíz (`apps/landing`). `pre.elclub.party/galaxy` enseña el aviso de la mudanza (DEPLOY_PRE, «Dominio propio»). Producción todavía no existe para el juego (`docs/PRODUCCION.md`).
 
 ## Mapa
 

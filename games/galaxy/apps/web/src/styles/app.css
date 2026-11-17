@@ -1271,6 +1271,10 @@
   .gate { min-height: 100%; display: grid; place-items: center; padding: 24px; }
   .gate-card { --r: 26px; max-width: 520px; padding: 28px; }
   .gate-card h1 { margin: 0 0 10px; font-size: 26px; line-height: 1.15; }
+  .gate-card .gate-link { display: inline-flex; margin-top: 14px; text-decoration: none; }
+  .accept { margin: 14px 0 0; color: var(--color-ink-mute); font-size: 13.5px; line-height: 1.45; }
+  .accept a, .shop-terms-full a { color: var(--color-ice); }
+  .shop-terms-full { margin: 4px 0 14px; font-size: 14px; }
   .gate-card p { margin: 0; color: var(--color-ink-soft); line-height: 1.5; }
   .splash { position: fixed; inset: 0; display: grid; place-items: center; font: 34px/1 var(--font-braille); color: var(--color-ice); }
 

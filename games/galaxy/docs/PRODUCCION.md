@@ -50,7 +50,7 @@ Este documento recoge lo que falta para llevar la beta a producción (GDD §18 y
 # Contra un servidor local (el del e2e en el puerto 8090):
 node tools/load/load.mjs --base http://localhost:8090/galaxy --users 2 --concurrency 20 --seconds 20
 # Contra PRE, solo cuando no lo esté usando nadie:
-node tools/load/load.mjs --base https://pre.elclub.party/galaxy --users 3 --concurrency 40 --seconds 60
+node tools/load/load.mjs --base https://galaxysurvivor.es/galaxy --users 3 --concurrency 40 --seconds 60
 ```
 
 El script termina con error si más del 1 % de las peticiones fallan.

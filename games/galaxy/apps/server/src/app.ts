@@ -14,7 +14,7 @@ import { registerRunRoutes } from './runs/routes';
 import { SoloFeeds } from './runs/solo-feeds';
 import { registerSoloStreamRoutes } from './runs/stream-routes';
 import { registerStationRoutes } from './station/routes';
-import { registerLanding } from './landing';
+import { type Landing, registerLanding } from './landing';
 import { registerLabRoutes } from './lab/routes';
 import { registerPlanetariumRoutes } from './planetarium/routes';
 import { registerSocialRoutes } from './social/routes';
@@ -101,7 +101,14 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // The game's own domain (galaxysurvivor.es plan): www → apex, and the old host's page loads when the cutover switch is
   // on. After the websocket plugin (its hook marks an upgrade, so a redirected upgrade's socket is closed, not leaked) and
   // before the static files, the CSRF guard and the API, so it runs for every request, unknown paths too.
-  registerHostRedirects(app, { canonicalOrigin: deps.env.GALAXY_CANONICAL_ORIGIN, legacyHosts: deps.env.GALAXY_LEGACY_REDIRECT_FROM });
+  // With the switch on, a browser on the old host gets the landing's notice «Galaxy Survivor se ha mudado» (the move,
+  // 2026-11-17); the landing registers later, so the hook reads it when a request comes.
+  let landing: Landing | null = null;
+  registerHostRedirects(app, {
+    canonicalOrigin: deps.env.GALAXY_CANONICAL_ORIGIN,
+    legacyHosts: deps.env.GALAXY_LEGACY_REDIRECT_FROM,
+    notice: (location) => landing?.moved(location) ?? null,
+  });
   registerSecurityHeaders(app);
   registerOriginGuard(app, deps.env.GALAXY_PUBLIC_ORIGINS);
 
@@ -124,7 +131,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // The installable app's service worker, or its kill switch with GALAXY_PWA=off (galaxysurvivor.es plan, PR 3).
   if (shell) registerPwa(app, { enabled: deps.env.GALAXY_PWA, webDist: deps.env.WEB_DIST });
   // The landing of galaxysurvivor.es at the site root (plan «galaxysurvivor.es», PR 4); /galaxy stays the game's.
-  const landing = await registerLanding(app, deps.env.LANDING_DIST, deps.env.legal);
+  landing = await registerLanding(app, deps.env.LANDING_DIST, deps.env.legal);
   app.setNotFoundHandler((req, reply) => {
     if (shell && wantsSpaShell(req)) return shell(req, reply);
     const path = req.url.split('?')[0] ?? '';

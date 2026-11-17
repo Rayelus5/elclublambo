@@ -10,7 +10,7 @@ import { LEGAL_TOKENS, PAGES, renderSite } from '../src/render/entry';
 const NOW = new Date('2026-11-17T12:00:00Z');
 const files = renderSite({ now: NOW });
 const byFile = (f: string) => files.find((x) => x.file === f)!;
-const pages = files.filter((f) => f.type.startsWith('text/html'));
+const pages = files.filter((f) => f.type.startsWith('text/html') && f.role !== 'moved');
 const ORIGIN = 'https://galaxysurvivor.es';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-LD read back from the page
 type Json = any;
@@ -233,4 +233,30 @@ test('la política de privacidad cuenta lo que de verdad se guarda', () => {
   expect(h).toMatch(/mientras tengas la cuenta/);
   expect(h).toMatch(/no lo guardamos/);
   expect(h).not.toContain('el tiempo necesario para resolver el reporte');
+});
+
+// The notice on the old address (the owner, 2026-11-17: «que se muestre un popup únicamente diciendo que el dominio se
+// ha renovado»): the server shows it to browsers opening a page of pre.elclub.party/galaxy, with the button to the same
+// path on galaxysurvivor.es ({{href}}, filled and escaped by the server). It is served on the old host, where only
+// /galaxy reaches the game: its CSS lives at /galaxy/mudanza.css and its fonts at /galaxy/fonts.
+test('el aviso de la mudanza: su título, su botón al dominio nuevo y nada que la CSP bloquee', () => {
+  const moved = files.find((f) => f.role === 'moved')!;
+  expect(moved.route).toBeNull();
+  expect(moved.indexable).toBe(false);
+  const h = moved.body;
+  expect(h).toMatch(/^<!doctype html>\n<html lang="es">/);
+  expect(h).toContain('<title>Galaxy Survivor se ha mudado</title>');
+  expect(textOf(h.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]!)).toBe('Galaxy Survivor se ha mudado');
+  expect(h).toContain('<meta name="robots" content="noindex">');
+  expect(h).toContain('<link rel="canonical" href="{{href}}">');
+  expect(h).toMatch(/<a class="[^"]*" href="\{\{href\}\}">Ir a galaxysurvivor\.es<\/a>/);
+  expect(h).toContain('Tu cuenta, tus galaxias y tu progreso siguen intactos');
+  expect(h).toContain('<link rel="stylesheet" href="/galaxy/mudanza.css">');
+  // Nothing from the site root: on the old host, / is another website.
+  for (const [, url] of all(h, /\s(?:href|src)="([^"]+)"/g)) expect(url, url).toMatch(/^(\/galaxy\/|\{\{href\}\})/);
+  expect(h).not.toMatch(/\sstyle=|\son[a-z]+=|<script/);
+  const css = byFile('moved.css');
+  expect(css.route).toBe('/galaxy/mudanza.css');
+  expect(css.type).toBe('text/css; charset=utf-8');
+  expect(css.body).toContain("url('/galaxy/fonts/bungee-latin.woff2')");
 });
