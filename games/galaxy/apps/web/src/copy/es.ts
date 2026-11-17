@@ -3032,6 +3032,10 @@ export const copy = {
     codexHint: 'El archivo',
     settings: 'Ajustes',
     guide: 'Guía',
+    // The install pill at the foot (galaxysurvivor.es plan, PR 3): only while the browser offers it.
+    install: 'Instalar el juego',
+    installShort: 'Instalar',
+    installHide: 'No mostrar más',
     /** «Notas de versión» in the menu's foot (plan «notas de versión»). */
     notes: 'Notas de versión',
     notesNew: 'Nuevo',
@@ -3689,6 +3693,14 @@ export const copy = {
     testTitle: 'Prueba de sonido',
     testHint: 'Suena un efecto con el volumen elegido',
     cursorOnHint: 'Si está apagado, se usa el del sistema',
+    // The installable app (galaxysurvivor.es plan, PR 3): install it and play in full screen, outside a run.
+    install: 'Instalar el juego',
+    installHint: 'Juega en su propia ventana, como una app más de tu ordenador',
+    installButton: 'Instalar',
+    installDone: 'Ya la tienes instalada',
+    installHow: 'En Chrome o Edge, pulsa el icono de instalar de la barra de direcciones. Si ya la tienes, ábrela desde el menú Inicio',
+    fullscreen: 'Pantalla completa',
+    fullscreenHint: 'Sin barras ni bordes. Esc sigue pausando la incursión; para salir, mantén pulsado Esc',
     scannerPro: 'Presentación pro',
     scannerProHint: 'Escanear y fusionar a mano son una cinemática: bandas de cine, un salto por el espacio o un remolino de galaxias, y cada carta revelada con su música. «Saltar» siempre a mano',
     motion: 'Movimiento',

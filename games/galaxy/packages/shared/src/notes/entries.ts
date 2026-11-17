@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-42-pantalla-completa',
+    version: '1.42',
+    date: '2026-11-17',
+    title: 'Pantalla completa sin perder la pausa',
+    summary: 'Juega sin barras ni bordes, y el juego se recarga solo cuando sale una versión nueva',
+    items: [
+      { kind: 'nuevo', text: 'Pantalla completa en Ajustes › Pantalla, sin barras ni bordes. Esc sigue pausando la incursión y, si lo mantienes pulsado, sales' },
+      { kind: 'mejora', text: 'Si sales de la pantalla completa en mitad de una incursión, se pausa sola' },
+      { kind: 'mejora', text: 'Si dejas el juego abierto mientras sale una versión nueva, se recarga solo en vez de fallar al cambiar de pantalla' },
+    ],
+  },
+  {
     id: 'v1-41-el-escaner-vivo',
     version: '1.41',
     date: '2026-11-17',

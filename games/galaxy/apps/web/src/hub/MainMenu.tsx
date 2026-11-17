@@ -10,9 +10,11 @@ import { Soon } from './Soon';
 import { useCatalogSummary } from '../api/catalog';
 import { useGacha } from '../api/economy';
 import { NotesLink } from '../notes/NotesScreen';
+import { InstallPill } from '../pwa/InstallPill';
 
 // The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the scanner and the station, the event and
-// today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike). Everything a later milestone builds is shown but locked: the
+// today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike; and
+// the install pill while the browser offers it). Everything a later milestone builds is shown but locked: the
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
@@ -161,6 +163,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
             ) : null}
           </Link>
         ) : null}
+        <InstallPill style={style({ '--d': '1.46s' })} />
       </div>
     </nav>
   );

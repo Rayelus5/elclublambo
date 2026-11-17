@@ -33,6 +33,8 @@ export interface ShellOptions {
   template: string;
   /** The game's own origin (`https://galaxysurvivor.es`), or null in dev and e2e. */
   canonicalOrigin: string | null;
+  /** The installable app (GALAXY_PWA): off, the manifest never goes out. On by default. */
+  pwa?: boolean;
 }
 
 /** The same path and query on `origin`; a request target that would resolve anywhere else gets the game's home. */
@@ -60,7 +62,8 @@ function cleanHost(host: string | undefined): string | null {
  * at SHELL_MARKER (or before </head>), its title replaced by the screen's. The head carries the description, noindex
  * (only the landing and its legal pages are indexed: the game needs a session and a computer), the theme colour and
  * icons, and Open Graph and Twitter cards with absolute URLs on the canonical origin, so an invite link previews well.
- * The manifest only goes out on the canonical host (or with none configured), so an old host never offers to install.
+ * The manifest only goes out on the canonical host (or with none configured), so an old host never offers to install,
+ * and never with the app switched off (GALAXY_PWA=off).
  * Only meta and link tags: the CSP forbids inline scripts and styles. Every value is escaped.
  */
 export function renderShell(req: ShellRequest, opts: ShellOptions): string {
@@ -72,7 +75,7 @@ export function renderShell(req: ShellRequest, opts: ShellOptions): string {
   const title = titleFor(screen);
   const description = title === titleFor('/crear-cuenta') ? SIGNUP_DESCRIPTION : DESCRIPTION;
   const image = origin + OG_IMAGE;
-  const manifest = opts.canonicalOrigin === null || host === new URL(opts.canonicalOrigin).host;
+  const manifest = opts.pwa !== false && (opts.canonicalOrigin === null || host === new URL(opts.canonicalOrigin).host);
   const head = [
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(description)}">`,
@@ -109,14 +112,21 @@ export function renderShell(req: ShellRequest, opts: ShellOptions): string {
   return `${html.slice(0, at)}${head}\n${html.slice(at)}`;
 }
 
-/** True when this request should get the SPA shell: a GET/HEAD under /galaxy/ that is neither API nor an asset file. */
+/**
+ * True when this request should get the SPA shell: a GET/HEAD under /galaxy/ that is neither API nor an asset, and a
+ * route rather than a file (galaxysurvivor.es plan, PR 3): a missing manifest, worker or icon is a 404, never a page
+ * the browser would take for it (nor a missing offline page the worker would keep). Web routes never have an
+ * extension; /galaxy/index.html is the shell too.
+ */
 export function wantsSpaShell(req: FastifyRequest): boolean {
   const path = req.url.split('?')[0] ?? '';
+  const last = path.slice(path.lastIndexOf('/') + 1);
   return (
     (req.method === 'GET' || req.method === 'HEAD') &&
     path.startsWith('/galaxy/') &&
     !path.startsWith('/galaxy/api/') &&
-    !path.startsWith('/galaxy/assets/')
+    !path.startsWith('/galaxy/assets/') &&
+    (!/\.[^/.]+$/.test(last) || path === '/galaxy/index.html')
   );
 }
 
@@ -127,9 +137,9 @@ export type ShellSender = (req: FastifyRequest, reply: FastifyReply) => FastifyR
  * The shell's sender: revalidated on every load and never indexed (X-Robots-Tag, besides the meta tag). A HEAD gets
  * the headers and the length only.
  */
-export function shellSender(template: string, canonicalOrigin: string | null): ShellSender {
+export function shellSender(template: string, canonicalOrigin: string | null, pwa = true): ShellSender {
   return (req, reply) => {
-    const html = renderShell(req, { template, canonicalOrigin });
+    const html = renderShell(req, { template, canonicalOrigin, pwa });
     reply.header('cache-control', 'no-cache').header('x-robots-tag', 'noindex').type('text/html; charset=utf-8');
     if (req.method === 'HEAD') return reply.header('content-length', Buffer.byteLength(html)).send();
     return reply.send(html);
@@ -141,7 +151,7 @@ export function shellSender(template: string, canonicalOrigin: string | null): S
  * index.html is never served as a file: /galaxy/, /galaxy/index.html and every web route fall through to the app's
  * not-found handler, which sends the rendered shell (see wantsSpaShell). Null without a build.
  */
-export async function registerStatic(app: FastifyInstance, webDist: string, canonicalOrigin: string | null): Promise<ShellSender | null> {
+export async function registerStatic(app: FastifyInstance, webDist: string, canonicalOrigin: string | null, pwa = true): Promise<ShellSender | null> {
   const index = join(webDist, 'index.html');
   if (!existsSync(index)) return null;
   const template = readFileSync(index, 'utf8');
@@ -159,5 +169,5 @@ export async function registerStatic(app: FastifyInstance, webDist: string, cano
     },
   });
   app.get('/galaxy', (_req, reply) => reply.redirect('/galaxy/', 308));
-  return shellSender(template, canonicalOrigin);
+  return shellSender(template, canonicalOrigin, pwa);
 }

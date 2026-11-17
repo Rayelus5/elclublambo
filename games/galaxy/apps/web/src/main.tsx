@@ -7,6 +7,9 @@ import { DesktopGate } from './shell/DesktopGate';
 import { applyPrefs, prefersReduced } from './settings/prefs';
 import { loadKeyboardLayout } from './settings/keybinds';
 import { applyCursor, readCursor } from './ui/cursor';
+import { watchInstall } from './pwa/install';
+import { watchPreloadErrors } from './pwa/preload';
+import { registerServiceWorker } from './pwa/register';
 import './styles/app.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
@@ -23,6 +26,11 @@ window.setTimeout(() => document.body.classList.add('settled'), reduce ? 0 : 220
 
 // The game's own cursor (open beta), as this browser left it.
 applyCursor(readCursor());
+// The installable app (galaxysurvivor.es plan, PR 3): the browser's install offer can come before the first screen;
+// a tab left open across a deploy reloads once for the new build; the worker waits for the page to finish loading.
+watchInstall();
+watchPreloadErrors();
+window.addEventListener('load', () => void registerServiceWorker(), { once: true });
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

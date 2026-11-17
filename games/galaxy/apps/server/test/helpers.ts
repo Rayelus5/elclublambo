@@ -33,6 +33,7 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     GALAXY_CANONICAL_ORIGIN: null,
     GALAXY_LEGACY_REDIRECT_FROM: [],
     domainIssues: [],
+    GALAXY_PWA: true,
     ...overrides,
   };
 }

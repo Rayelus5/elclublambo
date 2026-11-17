@@ -473,8 +473,21 @@
   :where(:root[data-motion='reduced']) { .tile-badge, .catalog-door.ready { animation: none; } }
   .tile .soon.text { font-size: 12px; }
 
-  .hub-foot { display: flex; gap: 12px; }
+  .hub-foot { display: flex; flex-wrap: wrap; gap: 12px; }
   .hub-foot .pill { height: 44px; font-size: 16px; }
+  /* The install pill (galaxysurvivor.es plan, PR 3): it takes the room left at the end of the foot (its slot grows into
+     it and is a size container), «Instalar» with its icon in Ice, or the icon alone when the room is short (the shop's
+     pill is there too), so the foot stays one line. The × to hide it sits on its corner, like the foot's badges. */
+  .hub-install-slot { flex: 1 1 0; min-inline-size: 60px; container-type: inline-size; }
+  .hub-install { position: relative; display: inline-flex; }
+  .hub-install-go .ico { color: var(--color-ice); }
+  .hub-install-hide { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; display: grid; place-items: center; inline-size: 24px; block-size: 24px; padding: 0; border: 0; border-radius: 50%; background: var(--color-panel-2); color: var(--color-ink-soft); box-shadow: 0 0 0 3px var(--color-panel-lip); cursor: pointer; transition: transform .18s var(--ease-bounce), color .15s ease; }
+  .hub-install-hide .ico { font-size: 14px; }
+  .hub-install-hide:hover { color: var(--color-ink); transform: scale(1.1); }
+  @container (max-width: 139px) {
+    .hub-foot .pill.hub-install-go { inline-size: 44px; padding: 0; justify-content: center; }
+    .hub-install-label { display: none; }
+  }
 
   /* The season panel (M5a, DESIGN_SYSTEM §8 undecies): the season, its podium and your place. */
   .season-summary { grid-column: 3; grid-row: 3; align-self: start; --r: 26px; overflow: hidden; }
@@ -2871,6 +2884,9 @@
   .setting-control { display: flex; justify-content: flex-end; align-items: center; min-inline-size: 0; }
   .setting-select { display: grid; justify-items: end; gap: 6px; min-inline-size: 200px; }
   .setting-button { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  /* A state in place of a control («Ya la tienes instalada», galaxysurvivor.es plan, PR 3). */
+  .setting-status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-radius: 999px; background: color-mix(in oklab, var(--color-terminal) 12%, transparent); color: var(--color-terminal); font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .setting-status .ico { font-size: 18px; }
   .setting-done { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: rgb(69 227 166 / .1); color: var(--color-terminal); font-weight: 600; }
   .setting-done .ico { font-size: 20px; }
   .setting-done.is-note { background: rgb(191 227 255 / .08); color: var(--color-ice); }
