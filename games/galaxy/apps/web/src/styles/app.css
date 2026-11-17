@@ -743,16 +743,17 @@
   .pull-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .pull-label { grid-column: 1 / -1; font-size: 13.5px; font-weight: 600; color: var(--color-ink-mute); }
   .pull-btn { --r: 18px; --lip-h: 5px; position: relative; height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-inline: 6px; background: var(--color-panel-2); color: var(--color-ink); }
-  .pull-btn b { font: 400 17px var(--font-display); white-space: nowrap; }
-  .pull-btn span { font-size: 13px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
-  .pull-btn[data-count='10'] b { font-size: 18px; }
+  .pull-btn b { display: flex; flex-direction: column; align-items: center; line-height: 1; white-space: nowrap; }
+  .pull-btn .pull-word { font: 800 10.5px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; opacity: .8; color: inherit; }
+  .pull-btn .pull-n { margin-block-start: 1px; font: 400 24px var(--font-display); color: inherit; }
+  .pull-btn .pull-cost { font-size: 12.5px; font-weight: 700; color: var(--color-ink-soft); white-space: nowrap; }
   /* «Mejor precio»: a Nova ribbon over the size that costs least per scan. */
-  .pull-btn .pull-best { position: absolute; top: -9px; right: 6px; padding: 2px 8px; border-radius: 99px; background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: #fff; font: 800 10.5px var(--font-sans); letter-spacing: .02em; box-shadow: 0 2px 0 var(--color-nova-lip), 0 0 12px rgb(255 107 122 / .45); opacity: 1; }
+  .pull-btn .pull-best { position: absolute; top: -15px; right: 6px; padding: 2px 8px; border-radius: 99px; background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: #fff; font: 800 10.5px var(--font-sans); letter-spacing: .02em; box-shadow: 0 2px 0 var(--color-nova-lip), 0 0 12px rgb(255 107 122 / .45); opacity: 1; }
   .pull-btn.best { box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), inset 0 -3px 0 rgb(0 0 0 / .18), 0 var(--lip-h) 0 var(--lip-c, var(--color-panel-lip)), 0 0 0 2px color-mix(in srgb, var(--color-nova) 55%, transparent), 0 14px 26px rgb(0 0 0 / .35); }
   .pull-btn.solar { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
-  .pull-btn.solar span { color: var(--color-on-solar); opacity: .8; }
+  .pull-btn.solar .pull-cost { color: var(--color-on-solar); opacity: .8; }
   .pull-btn.pull-event { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 45%, var(--color-uv-2)); }
-  .pull-btn.pull-event span { color: #fff; opacity: .85; }
+  .pull-btn.pull-event .pull-cost { color: #fff; opacity: .85; }
 
   /* The two scanners (open beta): big tabs, the standard one in Solar and the event one in UV with its «Evento» badge.
      The event scanner tints the whole screen purple, pays with its purple tickets, and announces its featured galaxy

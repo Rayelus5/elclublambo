@@ -3176,6 +3176,7 @@ export const copy = {
     pull: (n: number) => (n === 1 ? 'Escanear 1' : `Escanear ${n}`),
     // The scanner made more attractive (2026-11-17, the owner).
     bestValue: 'Mejor precio',
+    pullWord: 'Escanear',
     pityLabel: 'Carga hasta la Legendaria segura',
     sky: { deep: 'Barrido del cielo profundo', event: 'Barrido del evento' },
     showcase: { title: 'Puede salirte', example: 'Ejemplo' },

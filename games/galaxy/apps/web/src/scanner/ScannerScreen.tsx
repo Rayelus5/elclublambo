@@ -196,8 +196,11 @@ function PullButton({
       data-count={count}
     >
       {best ? <span className="pull-best">{copy.scanner.bestValue}</span> : null}
-      <b>{copy.scanner.pull(count)}</b>
-      <span>{cost}</span>
+      {/* «Escanear» small over the big number (the name still reads «Escanear 10»). */}
+      <b>
+        <span className="pull-word">{copy.scanner.pullWord}</span> <span className="pull-n">{count}</span>
+      </b>
+      <span className="pull-cost">{cost}</span>
     </button>
   );
 }

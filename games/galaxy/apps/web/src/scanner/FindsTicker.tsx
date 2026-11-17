@@ -1,6 +1,6 @@
 import type { FindView, PulledGalaxy } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -32,7 +32,19 @@ function Find({ f, now }: { f: FindView; now: number }) {
   );
 }
 
-export function FindsTicker({ recent, mine, now = Date.now() }: { recent: readonly FindView[]; mine: readonly PulledGalaxy[]; now?: number }) {
+/** The time now, again every minute («hace 2 min» keeps true while the screen stays open). */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
+export function FindsTicker({ recent, mine, now: fixed }: { recent: readonly FindView[]; mine: readonly PulledGalaxy[]; now?: number }) {
+  const clock = useMinuteClock();
+  const now = fixed ?? clock;
   const id = useId();
   const t = copy.scanner.finds;
   const items = recent.slice(0, 16);
