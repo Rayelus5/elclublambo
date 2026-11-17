@@ -567,8 +567,10 @@ export const configSchemas = {
   coop: z
     .object({
       minLevel: z.number().int().min(1).max(99).default(1),
-      maxRooms: z.number().int().min(1).max(10_000).default(500),
-      lobbyIdleMinutes: z.number().int().min(1).max(240).default(30),
+      // Rooms open at a time, waiting or playing (2026-11-17, the owner: 10, adjustable here), and how long one that
+      // stops changing lives (10 min, so a forgotten lobby does not hold a place).
+      maxRooms: z.number().int().min(1).max(10_000).default(10),
+      lobbyIdleMinutes: z.number().int().min(1).max(240).default(10),
       invitesPerMinute: z.number().int().min(1).max(60).default(6),
       pickSeconds: z.number().min(3).max(60).default(15),
       downSeconds: z.number().min(5).max(120).default(30),

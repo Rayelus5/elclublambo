@@ -47,6 +47,7 @@ const room = (over: Partial<RoomView> = {}): RoomView => ({
 });
 const rooms = (over: Partial<RoomsView> = {}): RoomsView => ({
   mine: null,
+  rooms: { count: 3, max: 10 },
   open: [{ code: 'ZXCVBN', sector: nebula.id, leader: 'orion', size: 3, max: 4, levels: [2, 9], createdAt: '2026-11-09T10:00:00Z' }],
   allowed: true,
   reason: null,
@@ -59,6 +60,8 @@ const base = (v: RoomsView) => ({
   'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
   'GET /galaxy/api/friends': () => jsonResponse(200, friends),
   'GET /galaxy/api/rooms': () => jsonResponse(200, v),
+  // The lobby measures the game server's ping (2026-11-17).
+  'GET /galaxy/api/ping': () => new Response(null, { status: 204 }),
 });
 const bodyOf = (fetch: ReturnType<typeof mockApi>, url: string) => {
   const call = fetch.mock.calls.find(([u, init]) => u === url && init?.method === 'POST');
@@ -140,7 +143,16 @@ test('quien ha dejado varias partidas en grupo hace poco ve hasta cuándo espera
 });
 
 test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta que todos están listos', async () => {
-  const fetch = mockApi({ ...base(rooms({ mine: room() })), 'POST /galaxy/api/rooms/kick': () => jsonResponse(200, room({ members: [room().members[0]!] })) });
+  let mine: RoomView | null = room();
+  const fetch = mockApi({
+    ...base(rooms()),
+    'GET /galaxy/api/rooms': () => jsonResponse(200, rooms({ mine })),
+    'POST /galaxy/api/rooms/kick': () => jsonResponse(200, (mine = room({ members: [room().members[0]!] }))),
+    'POST /galaxy/api/rooms/leave': () => {
+      mine = null;
+      return jsonResponse(200, { left: true });
+    },
+  });
   const user = userEvent.setup();
   lobby();
   // The leader's own view (who I am arrives with the session).
@@ -155,6 +167,36 @@ test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta q
   await user.click(within(items[0]!).getByRole('button', { name: t.kick }));
   await waitFor(() => expect(bodyOf(fetch, '/galaxy/api/rooms/kick')).toEqual({ username: 'deneb' }));
   await waitFor(() => expect(within(team).queryByText('deneb')).not.toBeInTheDocument());
+  // Alone in the room (2026-11-17, the owner): no group run alone; one click leaves the room and plays solo.
+  expect(await screen.findByText(t.needMate)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.start })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: t.playSolo }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u, init]) => u === '/galaxy/api/rooms/leave' && init?.method === 'POST')).toBe(true));
+  const who = screen.getByRole('radiogroup', { name: copy.lobby.who });
+  await waitFor(() => expect(within(who).getByRole('radio', { name: new RegExp(copy.lobby.solo) })).toHaveAttribute('aria-checked', 'true'));
+  expect(await screen.findByRole('button', { name: copy.hangar.launch })).toBeInTheDocument();
+});
+
+test('en grupo se ve el servidor con su ping y cuántas salas hay abiertas', async () => {
+  mockApi(base(rooms({ rooms: { count: 7, max: 10 } })));
+  lobby('/incursion?modo=grupo');
+  const server = await screen.findByRole('img', { name: /España/ });
+  await waitFor(() => expect(server).toHaveAccessibleName(/^Servidor España, ping \d+ ms$/));
+  expect(screen.getByText(t.roomsCount(7, 10))).toBeInTheDocument();
+  // Rooms to spare: no warning, a room can be made.
+  expect(screen.queryByText(t.roomsFull)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.create })).toBeEnabled();
+});
+
+test('con todas las salas ocupadas, lo dice, no deja crear otra y ofrece jugar en solitario', async () => {
+  mockApi(base(rooms({ rooms: { count: 10, max: 10 } })));
+  const user = userEvent.setup();
+  lobby('/incursion?modo=grupo');
+  expect(await screen.findByText(t.roomsFull)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.create })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: t.playSolo }));
+  const who = screen.getByRole('radiogroup', { name: copy.lobby.who });
+  await waitFor(() => expect(within(who).getByRole('radio', { name: new RegExp(copy.lobby.solo) })).toHaveAttribute('aria-checked', 'true'));
 });
 
 test('desde la sala se puede añadir como amigo a quien no lo es, y no a uno mismo (plan de noviembre A3)', async () => {

@@ -671,14 +671,17 @@ Ver §15.
 ### 14.8 Partidas en grupo [U+D]
 
 - **Quién [U]:**
-  - de 1 a 4 jugadores;
+  - de 2 a 4 jugadores: solo en la sala no se despega, y el lobby ofrece «Jugar en solitario», que sale de la sala (2026-11-17);
   - se juega en grupo tras acabar o saltar el tutorial y con el nivel que fije el admin;
   - solo se entra antes de despegar;
   - basta con que el líder tenga abierto el sector.
 - **Salas [U+D]:**
   - pública, solo amigos o privada, con código;
   - «Entrar rápido» busca una pública o la crea;
-  - el líder despega cuando todos están listos.
+  - el líder despega cuando todos están listos;
+  - el servidor tiene un tope de salas abiertas a la vez, 10 por defecto y ajustable en Admin › Configuración › En grupo (`coop.maxRooms`). Cuentan las que esperan y las que juegan. Con el tope lleno no se crea ninguna, «Entrar rápido» solo entra en una con hueco y el lobby ofrece jugar en solitario;
+  - una sala sin cambios se cierra a los 10 min (`coop.lobbyIdleMinutes`);
+  - el lobby enseña el servidor de juego (hoy uno, España) con su ping y cuántas salas hay abiertas («Salas 7/10»). La lista de servidores está en `packages/shared/src/api/servers.ts`, preparada para otros países.
 - **Cómo se juega [U]:**
   - **Sin pausa:** 15 s para elegir carta; si no, sale una al azar.
   - **Caídas:** quien cae tiene 30 s para que lo reanimen quedándose encima; si no, queda fuera hasta la siguiente capa.

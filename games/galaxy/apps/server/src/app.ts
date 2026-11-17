@@ -59,7 +59,7 @@ import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
-import { registerHealth } from './health';
+import { registerHealth, registerPing } from './health';
 import { registerMaintenanceGate } from './maintenance';
 import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
@@ -127,6 +127,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const coop = new CoopService({ db: deps.db, config, now, log: app.log, autoRecover: process.env.NODE_ENV !== 'test' });
   app.decorate('galaxyCoop', coop);
   app.addHook('onClose', async () => coop.close());
+  registerPing(app);
   // The API lives in its own encapsulated plugin: its hooks (session, maintenance) run only for MATCHED API routes,
   // whatever the raw URL spelling (%-encoded paths included), and static files never touch the database.
   await app.register(async (api) => {

@@ -6,10 +6,12 @@ import type WebSocket from 'ws';
 import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // Rooms (multiplayer plan, phase 5): who may play in a group, public/private/friends rooms, Entrar rápido, the leader's
-// powers, blocks, invites with privacy, who may launch, and the admin's live rooms.
+// powers, blocks, invites with privacy, who may launch, and the admin's live rooms. The limits (2026-11-17): rooms open
+// at a time, nobody launches alone, and the ping the lobby measures.
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
-  ctx = await testApp();
+  // Many rooms here stay open (the default limit is 10); the limit itself has its own app below.
+  ctx = await testApp({ configOverrides: { coop: { maxRooms: 500 } } });
 });
 afterAll(() => ctx.close());
 
@@ -156,6 +158,11 @@ describe('salas', () => {
   test('despegar pide que todos estén listos y lo hace el líder (las partidas, en coop-runs.test)', async () => {
     const [a, b] = [await player(), await player()];
     const room = await create(a, 'private');
+    // Alone in the room (2026-11-17, the owner): a group run needs company.
+    expect(room.canStart).toBe(false);
+    const alone = await act(a, '/start');
+    expect(alone.statusCode).toBe(409);
+    expect(alone.json()).toMatchObject({ error: 'room_alone' });
     await act(b, '/join', { code: room.code });
     expect((await act(a, '/start')).json()).toMatchObject({ error: 'room_not_ready' });
     await act(b, '/ready', { ready: true });
@@ -179,6 +186,47 @@ describe('salas', () => {
     expect(probeOfB((await rooms(a)).mine)).toBe('spark');
     expect(sa.events.some((e) => e.type === 'room' && probeOfB(e.room) === 'spark')).toBe(true);
     sa.ws.terminate();
+  });
+});
+
+describe('límites del servidor', () => {
+  test('la lista dice cuántas salas hay abiertas y cuántas caben', async () => {
+    const p = await player();
+    await create(p, 'private');
+    const v = await rooms(p);
+    expect(v.rooms.max).toBe(500);
+    expect(v.rooms.count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('con el servidor lleno, Entrar rápido entra en una sala con hueco; si no hay, room_limit', async () => {
+    const full = await testApp({ configOverrides: { coop: { maxRooms: 1 } } });
+    const reg = async () => {
+      const res = await post(full.app, '/galaxy/api/auth/register', { username: uniqueName('lim'), password: 'una-clave-larga' });
+      const cookie = sessionCookie(res);
+      await put(full.app, '/galaxy/api/tutorial', { action: 'skip' }, { cookie });
+      return cookie;
+    };
+    try {
+      const [a, b, c] = [await reg(), await reg(), await reg()];
+      expect((await post(full.app, '/galaxy/api/rooms', { kind: 'private', sector: 'outer-nebula' }, { cookie: a })).statusCode).toBe(200);
+      // The only room is private: there is no room for b, and none may open.
+      const quick = await post(full.app, '/galaxy/api/rooms/quick', undefined, { cookie: b });
+      expect(quick.statusCode).toBe(503);
+      expect(quick.json()).toMatchObject({ error: 'room_limit' });
+      expect(((await get(full.app, '/galaxy/api/rooms', { cookie: c })).json() as RoomsView).rooms).toEqual({ count: 1, max: 1 });
+      // When it closes, a place frees.
+      await post(full.app, '/galaxy/api/rooms/leave', undefined, { cookie: a });
+      expect((await post(full.app, '/galaxy/api/rooms/quick', undefined, { cookie: b })).statusCode).toBe(200);
+    } finally {
+      await full.close();
+    }
+  });
+
+  test('el ping responde 204 al momento, sin sesión y sin caché', async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/galaxy/api/ping' });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body).toBe('');
   });
 });
 

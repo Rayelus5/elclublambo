@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { type ConfigKey, type LiveEvent, type LiveNotice, parseConfig, type Role } from '@galaxy/shared';
+import { type ConfigKey, type ConfigValue, type LiveEvent, type LiveNotice, parseConfig, type Role } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { Secret, TOTP } from 'otpauth';
@@ -118,11 +118,17 @@ export async function testApp(
     shopGateway?: ShopGateway | null;
     /** The server's disk for «Almacenamiento»; the real one by default. */
     disk?: () => Promise<{ totalBytes: number; freeBytes: number } | null>;
+    /**
+     * Fields this app sees over what the database's live config holds, key by key (2026-11-17: the room limit, 10 by
+     * default, would trip files that open many rooms). The rest of each key still comes from the database.
+     */
+    configOverrides?: Partial<Record<ConfigKey, Record<string, unknown>>>;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
   const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
-  const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
+  const base = opts.config ?? (opts.configTtlMs === undefined && !opts.configOverrides ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
+  const config = base && opts.configOverrides ? overridden(base, opts.configOverrides) : base;
   const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null, disk: opts.disk });
   opts.beforeReady?.(app);
   await app.ready();
@@ -132,6 +138,19 @@ export async function testApp(
     close: async () => {
       await app.close();
       await db.destroy();
+    },
+  };
+}
+
+/** A config service whose reads carry `overrides` over each key's value (and its version, unchanged). */
+function overridden(base: ConfigService, overrides: Partial<Record<ConfigKey, Record<string, unknown>>>): ConfigService {
+  const over = <K extends ConfigKey>(key: K, value: ConfigValue<K>): ConfigValue<K> => (overrides[key] ? parseConfig(key, { ...(value as object), ...overrides[key] }) : value);
+  return {
+    ...base,
+    get: async (key) => over(key, await base.get(key)),
+    getVersioned: async (key) => {
+      const r = await base.getVersioned(key);
+      return { ...r, value: over(key, r.value) };
     },
   };
 }

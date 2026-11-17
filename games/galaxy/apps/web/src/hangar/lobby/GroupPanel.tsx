@@ -4,6 +4,7 @@ import { useChatUnread } from '../../api/chat';
 import { useFriends } from '../../api/friends';
 import { useInvite, useLeaveRoom, useRoomAction, useRooms } from '../../api/rooms';
 import { errorText } from '../../auth/useMe';
+import { ServerChip } from '../../coop/ServerChip';
 import { copy } from '../../copy/es';
 import { presenceText } from '../../social/FriendsPanel';
 import { useUi } from '../../state/ui';
@@ -13,12 +14,27 @@ import { StepHead } from './WherePanel';
 
 // Step 2 in a group (multiplayer plan, phase 5, now inside the lobby): without a room, make one (its kind and sector),
 // enter one by its code, join a friend's, or pick a public one (Entrar rápido is the launch button). In a room: its
-// code, the leader's sector and kind, inviting friends online, and leaving.
+// code, the leader's sector and kind, inviting friends online, and leaving. On top (2026-11-17): the game server with
+// its ping, and how many rooms are open of the most that fit; a full server offers solo mode.
 
 const t = copy.coop;
 const KINDS: RoomKind[] = ['public', 'friends', 'private'];
 
-export function GroupPanel({ view }: { view: HangarView }) {
+/** The game server and how full it is: «España 28 ms» and «Salas 7/10». */
+function ServerLine({ rooms }: { rooms?: { count: number; max: number } }) {
+  return (
+    <div className="lobby-server-row">
+      <ServerChip />
+      {rooms ? (
+        <span className="lobby-rooms-count" aria-label={t.roomsCountLabel(rooms.count, rooms.max)}>
+          {t.roomsCount(rooms.count, rooms.max)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function GroupPanel({ view, onSolo }: { view: HangarView; onSolo: () => void }) {
   const rooms = useRooms();
   const friends = useFriends();
   const action = useRoomAction();
@@ -32,6 +48,8 @@ export function GroupPanel({ view }: { view: HangarView }) {
   const chosen = sector ?? view.sector ?? open[0]?.id ?? '';
   const nameOf = (id: string) => view.sectors.find((s) => s.id === id)?.name ?? id;
   const allowed = !!v?.allowed;
+  // Every room the server holds is open (live config coop.maxRooms): none can be made until one closes.
+  const full = !!v && v.rooms.count >= v.rooms.max;
   const join = (c: string) => action.mutate({ kind: 'join', code: c });
 
   function submitCode(e: FormEvent): void {
@@ -43,6 +61,16 @@ export function GroupPanel({ view }: { view: HangarView }) {
   return (
     <div className="lobby-group">
       <StepHead>{t.title}</StepHead>
+      <ServerLine rooms={v?.rooms} />
+      {full && allowed ? (
+        <div className="lobby-note lobby-full">
+          <Icon name="lock" />
+          <span>{t.roomsFull}</span>
+          <button type="button" className="lip pill small pill-terminal" onClick={onSolo}>
+            {t.playSolo}
+          </button>
+        </div>
+      ) : null}
       {v && !v.allowed ? (
         <p className="lobby-note" role="status">
           <Icon name="lock" />
@@ -78,7 +106,7 @@ export function GroupPanel({ view }: { view: HangarView }) {
             {t.sector}
           </label>
           <Select id={sectorId} size="sm" value={chosen} options={open.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
-          <button type="button" className="lip pill pill-solar small" disabled={!allowed || !chosen || action.isPending} onClick={() => action.mutate({ kind: 'create', room: kind, sector: chosen })}>
+          <button type="button" className="lip pill pill-solar small" disabled={!allowed || full || !chosen || action.isPending} onClick={() => action.mutate({ kind: 'create', room: kind, sector: chosen })}>
             <Icon name="plus" />
             <span>{t.create}</span>
           </button>
@@ -190,11 +218,13 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
     <div className="lobby-group">
       <div className="lobby-room-head">
         <StepHead>{t.roomTitle}</StepHead>
-        <button type="button" className="lip pill small danger lobby-leave" disabled={busy} onClick={() => leave.mutate()}>
-          <Icon name="exit" />
-          <span>{t.leave}</span>
-        </button>
+        <ServerChip />
       </div>
+      {/* As wide as the room chat under it (the owner, 2026-11-17). */}
+      <button type="button" className="lip pill small danger lobby-leave" disabled={busy} onClick={() => leave.mutate()}>
+        <Icon name="exit" />
+        <span>{t.leave}</span>
+      </button>
       <button
         type="button"
         className={`lip pill small lobby-room-chat${roomUnread > 0 ? ' has-unread' : ''}`}

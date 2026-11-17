@@ -12,7 +12,8 @@ import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totp
 let ctx: Awaited<ReturnType<typeof testApp>>;
 let coop: CoopService;
 beforeAll(async () => {
-  ctx = await testApp();
+  // Every test here opens a room and many stay open (the default limit is 10).
+  ctx = await testApp({ configOverrides: { coop: { maxRooms: 500 } } });
   coop = (ctx.app as unknown as { galaxyCoop: CoopService }).galaxyCoop;
 });
 afterAll(() => ctx.close());
@@ -123,7 +124,8 @@ describe('despegar y jugar', () => {
   });
 
   test('quien no juega en la partida no entra en su socket', async () => {
-    const { room } = await launched(1);
+    // A group run needs two (2026-11-17): the smallest one.
+    const { room } = await launched(2);
     const other = await player();
     const c = await play(other, room.run!.id);
     expect(await c.closed).toBe(4403);

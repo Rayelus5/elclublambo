@@ -96,12 +96,12 @@ export function Lobby({
         <Rail />
         <Stage view={view} room={room} me={me?.username ?? ''} mode={mode} onMode={onMode} showModes={!coached} />
         <aside className="lip panel lobby-side" aria-label={mode === 'group' ? copy.coop.title : copy.lobby.where}>
-          {room ? <RoomPanel view={view} room={room} me={me?.username ?? ''} /> : mode === 'group' ? <GroupPanel view={view} /> : <WherePanel view={view} />}
+          {room ? <RoomPanel view={view} room={room} me={me?.username ?? ''} /> : mode === 'group' ? <GroupPanel view={view} onSolo={() => onMode('solo')} /> : <WherePanel view={view} />}
         </aside>
         <div className="lobby-foot">
           <TodayMissions d=".3s" className="lobby-missions" />
           <RelicStrip view={view} />
-          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} notice={notice} />
+          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} notice={notice} onSolo={() => onMode('solo')} />
         </div>
       </div>
       {launching ? <span className="lobby-flash" aria-hidden="true" /> : null}

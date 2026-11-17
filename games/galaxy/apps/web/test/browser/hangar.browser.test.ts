@@ -141,8 +141,10 @@ function mount(el: ReturnType<typeof createElement>, over: Record<string, unknow
         '/hangar': view,
         '/gacha': { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
         '/auth/me': { id: 'a1', username: 'piloto_rayo', roles: [], mfa: false, level: 4 },
-        '/rooms': { mine: null, open: [], allowed: true, reason: null, minLevel: 1 },
+        '/rooms': { mine: null, rooms: { count: 2, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 },
         '/friends': friendsView,
+        // The game server's ping (2026-11-17): any 2xx will do.
+        '/ping': null,
         ...over,
       };
       const key = Object.keys(known).find((k) => url.endsWith(k));
@@ -297,16 +299,56 @@ for (const [w, h] of [
       { username: 'orion_el_cazador', level: 7, probe: 'lumen', ready: true, connected: true, leader: false },
     ];
     const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
-    mount(createElement(HangarScreen), { '/rooms': { mine, open: [], allowed: true, reason: null, minLevel: 1 } });
+    mount(createElement(HangarScreen), { '/rooms': { mine, rooms: { count: 4, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } });
     // A loaded CI machine takes longer than a fixed wait: poll until the room and my friends are in.
     await vi.waitFor(() => expect(document.querySelectorAll('.lobby-mate .add-friend button').length).toBe(2), { timeout: 30_000, interval: 200 });
     const adds = [...document.querySelectorAll<HTMLElement>('.lobby-mate .add-friend button')];
     for (const b of adds) expect(b.scrollWidth).toBeLessThanOrEqual(b.clientWidth + 1);
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+    // «Salir de la sala» as wide as «Chat de la sala» (the owner, 2026-11-17).
+    const widthOf = (sel: string) => document.querySelector<HTMLElement>(sel)!.getBoundingClientRect().width;
+    expect(Math.abs(widthOf('.lobby-leave') - widthOf('.lobby-room-chat'))).toBeLessThan(1);
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/room-friends-${w}.png` });
   }, 60_000);
 }
+
+// The game server with its ping and the rooms count over the group panel (2026-11-17), and the full-server note with
+// «Jugar en solitario»: they fit the side panel at both sizes. VITE_ARENA_SHOTS=1 saves them.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`en grupo: servidor, ping y salas llenas a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(HangarScreen), { '/rooms': { mine: null, rooms: { count: 10, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } }, '/?modo=grupo');
+    await vi.waitFor(() => expect(document.querySelector('.lobby-full')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+    await vi.waitFor(() => expect(document.querySelector('.lobby-server')?.getAttribute('aria-label')).toMatch(/ms$/), { timeout: 30_000, interval: 200 });
+    for (const el of document.querySelectorAll<HTMLElement>('.lobby-server-row, .lobby-full')) {
+      expect(el.scrollWidth, el.className).toBeLessThanOrEqual(el.clientWidth + 1);
+    }
+    const side = document.querySelector<HTMLElement>('.lobby-side')!;
+    expect(side.scrollWidth).toBeLessThanOrEqual(side.clientWidth + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/lobby-group-full-${w}.png`, element: side });
+  }, 60_000);
+}
+
+// Alone in a room (2026-11-17): «Despegar» waits, the hint says why and «Jugar en solitario» sits under it, inside the
+// dock at the smallest size.
+test('solo en la sala: el aviso y «Jugar en solitario» caben en el dock a 1280×720', async () => {
+  await page.viewport(1280, 720);
+  const members = [{ username: 'piloto_rayo', level: 4, probe: 'lumen', ready: false, connected: true, leader: true }];
+  const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
+  mount(createElement(HangarScreen), { '/rooms': { mine, rooms: { count: 1, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } });
+  await vi.waitFor(() => expect(document.querySelector('.lobby-dock .lobby-solo')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+  const dock = document.querySelector<HTMLElement>('.lobby-dock')!;
+  const solo = dock.querySelector<HTMLElement>('.lobby-solo')!.getBoundingClientRect();
+  const box = dock.getBoundingClientRect();
+  expect(solo.left).toBeGreaterThanOrEqual(box.left - 1);
+  expect(solo.right).toBeLessThanOrEqual(box.right + 1);
+  expect(solo.bottom).toBeLessThanOrEqual(720);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/lobby-room-alone-1280.png' });
+}, 60_000);
 
 // Plan «skins», part C: the big probe's swatches in the lobby and the skin picker in the Taller fit at both sizes,
 // without pushing the page sideways. VITE_ARENA_SHOTS=1 saves them.
