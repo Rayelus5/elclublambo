@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ART_AVATARS, ART_FRAMES, ART_SKINS } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, titleText } from '../cosmetics/catalog';
 
 // The resource shop (shop and lab plan, F4): coins, star dust and components for real money, paid with Stripe. Its
 // catalogue is live config (`shop`), so the admin edits everything: what each product gives, its price shown and the
@@ -20,6 +20,11 @@ const amountsSchema = z.object({ coins: amount.default(0), dust: amount.default(
 /** Euro cents: from Stripe's minimum (0,50 €) to 200 €. */
 const cents = z.number().int().min(50).max(20_000);
 const MAX_OFFER_MS = 31 * 86_400_000;
+/** A profile or probe piece the shop gives: an avatar or frame with art, a title, or a probe skin. */
+const pieceSchema = z.object({ kind: z.enum(['avatar', 'frame', 'title', 'skin']), id: z.string().trim().min(1).max(32) }).strict();
+export type ShopPiece = z.output<typeof pieceSchema>;
+/** How many pieces a set gives. */
+export const SET_PIECES = { min: 2, max: 12 } as const;
 
 const offerSchema = z
   .discriminatedUnion('kind', [
@@ -36,9 +41,10 @@ export const shopProductSchema = z
     id: z.string().regex(SLUG),
     /**
      * `pack`: one currency (its tab); `bundle`: several; `welcome`: the welcome pack, once per account; `cosmetic` (Nov
-     * plan C5): a profile piece (avatar, frame or title) in the «Estilo» tab, once per account, no currency.
+     * plan C5): a profile piece (avatar, frame or title) in the «Estilo» tab, once per account, no currency; `set`
+     * (2026-11-17): several pieces sold whole (a complete skin pack), in «Estilo», once per account, no currency.
      */
-    kind: z.enum(['pack', 'bundle', 'welcome', 'cosmetic']),
+    kind: z.enum(['pack', 'bundle', 'welcome', 'cosmetic', 'set']),
     name: z.string().trim().min(1).max(40),
     /** The illustration it shows (an id of the shop's art). */
     art: z.string().regex(/^[a-z0-9-]{0,32}$/).default(''),
@@ -57,7 +63,12 @@ export const shopProductSchema = z
     /** Its first purchase gets `firstPurchase.percent` more, when that is on. */
     firstBonus: z.boolean().default(false),
     /** A cosmetic's piece (Nov plan C5): an avatar or frame with art, or a title. */
-    cosmetic: z.object({ kind: z.enum(['avatar', 'frame', 'title', 'skin']), id: z.string().trim().min(1).max(32) }).strict().nullable().default(null),
+    cosmetic: pieceSchema.nullable().default(null),
+    /** A set's pieces (2026-11-17), from 2 to 12; empty for the rest. */
+    pieces: z.array(pieceSchema).max(SET_PIECES.max, 'shop_set_pieces').default([]),
+    /** When it is on sale (start included, end not), in any product: null on either end is open. */
+    availableFrom: z.iso.datetime().nullable().default(null),
+    availableUntil: z.iso.datetime().nullable().default(null),
     /** How many times one account can buy it (null: no limit; the welcome pack is always once). */
     maxPerAccount: z.number().int().min(1).max(100).nullable().default(null),
   })
@@ -80,6 +91,9 @@ const pack = (currency: ShopCurrency, n: number, name: string, base: number, bon
   staffOnly: false,
   firstBonus: true,
   cosmetic: null,
+  pieces: [],
+  availableFrom: null,
+  availableUntil: null,
   maxPerAccount: null,
 });
 const bundle = (id: string, name: string, grants: ShopAmounts, priceCents: number, extra: Partial<ShopProduct> = {}): ShopProduct => ({
@@ -98,6 +112,9 @@ const bundle = (id: string, name: string, grants: ShopAmounts, priceCents: numbe
   staffOnly: false,
   firstBonus: false,
   cosmetic: null,
+  pieces: [],
+  availableFrom: null,
+  availableUntil: null,
   maxPerAccount: null,
   ...extra,
 });
@@ -119,6 +136,9 @@ function cosmetic(id: string, name: string, piece: NonNullable<ShopProduct['cosm
     staffOnly: false,
     firstBonus: false,
     cosmetic: piece,
+    pieces: [],
+    availableFrom: null,
+    availableUntil: null,
     maxPerAccount: 1,
   };
 }
@@ -173,6 +193,12 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
 
 const total = (p: Pick<ShopProduct, 'grants' | 'bonus'>, c: ShopCurrency) => p.grants[c] + p.bonus[c];
 
+const ART: Record<'avatar' | 'frame' | 'skin', readonly string[]> = { avatar: ART_AVATARS, frame: ART_FRAMES, skin: ART_SKINS };
+/** A piece the game can draw, or a title that fits where titles are kept (30 letters). */
+function hasArt(piece: ShopPiece): boolean {
+  return piece.kind === 'title' ? titleText.safeParse(piece.id).success : ART[piece.kind].includes(piece.id);
+}
+
 /** The checks across the catalogue: ids and Stripe prices once, packs of one currency, and an open shop charges in Stripe. */
 function shopIssues(shop: { enabled: boolean; limits: { dailyCents: number }; products: ShopProduct[] }, ctx: z.RefinementCtx): void {
   const ids = new Set<string>();
@@ -182,13 +208,19 @@ function shopIssues(shop: { enabled: boolean; limits: { dailyCents: number }; pr
     if (ids.has(p.id)) ctx.addIssue({ code: 'custom', path: [...at, 'id'], message: `Hay dos productos con el id ${p.id}` });
     ids.add(p.id);
     const given = SHOP_CURRENCIES.filter((c) => total(p, c) > 0);
-    // A cosmetic gives its piece and nothing else; only a cosmetic has a piece, and the piece must have art.
+    // A cosmetic gives its piece and nothing else; only a cosmetic has a piece, and the piece must have art. A set
+    // gives its pieces (2 to 12, each with art, none twice) and nothing else; only a set has pieces.
     const piece = p.cosmetic;
-    const art: Record<'avatar' | 'frame' | 'skin', readonly string[]> = { avatar: ART_AVATARS, frame: ART_FRAMES, skin: ART_SKINS };
-    const known = !piece || piece.kind === 'title' || art[piece.kind].includes(piece.id);
-    if ((p.kind === 'cosmetic') !== (piece != null) || !known) ctx.addIssue({ code: 'custom', path: [...at, 'cosmetic'], message: 'shop_cosmetic_piece' });
-    if (p.kind === 'cosmetic' && given.length > 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'shop_cosmetic_grants' });
-    if (p.kind !== 'cosmetic' && given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
+    const styled = p.kind === 'cosmetic' || p.kind === 'set';
+    if ((p.kind === 'cosmetic') !== (piece != null) || (piece && !hasArt(piece))) ctx.addIssue({ code: 'custom', path: [...at, 'cosmetic'], message: 'shop_cosmetic_piece' });
+    const keys = new Set(p.pieces.map((x) => `${x.kind}:${x.id}`));
+    const setOk = p.kind === 'set' ? p.pieces.length >= SET_PIECES.min && keys.size === p.pieces.length && p.pieces.every(hasArt) : p.pieces.length === 0;
+    if (!setOk) ctx.addIssue({ code: 'custom', path: [...at, 'pieces'], message: 'shop_set_pieces' });
+    if (styled && given.length > 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'shop_cosmetic_grants' });
+    // A piece or a set has no currency to add to: neither the first purchase's extra nor a «+X %» offer.
+    if (styled && (p.firstBonus || p.offer?.kind === 'bonus')) ctx.addIssue({ code: 'custom', path: [...at, p.firstBonus ? 'firstBonus' : 'offer'], message: 'shop_piece_extra' });
+    if (!styled && given.length === 0) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'No da nada' });
+    if (p.availableFrom && p.availableUntil && Date.parse(p.availableUntil) <= Date.parse(p.availableFrom)) ctx.addIssue({ code: 'custom', path: [...at, 'availableUntil'], message: 'shop_window' });
     if (p.kind === 'pack' && given.length > 1) ctx.addIssue({ code: 'custom', path: [...at, 'grants'], message: 'Un pack da un solo recurso (para varios, un pack combinado)' });
     if (p.kind === 'welcome' && p.maxPerAccount !== 1) ctx.addIssue({ code: 'custom', path: [...at, 'maxPerAccount'], message: 'El pack de bienvenida se compra una vez' });
     if (p.offer?.kind === 'price' && p.offer.priceCents >= p.priceCents) ctx.addIssue({ code: 'custom', path: [...at, 'offer', 'priceCents'], message: 'El precio de oferta debe ser menor que el normal' });

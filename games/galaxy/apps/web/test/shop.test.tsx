@@ -223,3 +223,73 @@ test('las condiciones de compra con el vendedor y el límite del servidor', asyn
   expect(within(d).getByText(t.legal.seller('Vendedor de prueba', 'contacto@ejemplo.es'))).toBeInTheDocument();
   expect(within(d).getByText(plain(t.limit(eur(10_000))))).toBeInTheDocument();
 });
+
+// Complete skin packs (2026-11-17): the card shows its eight probes, how many the player has, and until when it sells.
+const LEYENDA = ['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo'];
+function setView(owned: number, over: Partial<ShopProductView> = {}): ShopProductView {
+  return productView('style-skin-lumen', {
+    id: 'skins-leyenda',
+    kind: 'set',
+    tab: 'style',
+    name: 'Pack Leyenda',
+    cosmetic: null,
+    pieces: LEYENDA.map((p, i) => ({ kind: 'skin' as const, id: `skin-${p}-leyenda`, owned: i < owned })),
+    owned: owned === LEYENDA.length,
+    priceCents: 1699,
+    badge: 'limited',
+    first: false,
+    maxPerAccount: 1,
+    availableUntil: '2027-01-06T23:00:00.000Z',
+    ...over,
+  });
+}
+
+test('un pack de skins enseña sus ocho sondas, cuántas tienes ya y hasta cuándo se vende', async () => {
+  open(view({}, [setView(3)]), {}, '/tienda?pestana=estilo');
+  const c = (await screen.findByRole('heading', { name: 'Pack Leyenda', level: 3 })).closest('article')!;
+  expect(within(c).getAllByRole('img')).toHaveLength(8);
+  expect(within(c).getAllByRole('img', { name: /ya la tienes/ })).toHaveLength(3);
+  expect(within(c).getByText(t.set.amount(8, true))).toBeInTheDocument();
+  expect(within(c).getByText(t.set.owned(3, 8))).toBeInTheDocument();
+  expect(within(c).getByText(t.set.until('6 de enero'))).toBeInTheDocument();
+  expect(within(c).getByText(t.badges.limited)).toBeInTheDocument();
+  fireEvent.click(within(c).getByRole('button', { name: t.buyOf('Pack Leyenda', eur(1699)) }));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getAllByRole('img')).toHaveLength(8);
+  expect(within(dialog).getByText(t.set.amount(8, true))).toBeInTheDocument();
+  expect(within(dialog).getByText(t.set.owned(3, 8))).toBeInTheDocument();
+});
+
+test('un pack que ya tienes entero no se compra', async () => {
+  open(view({}, [setView(8, { block: 'once_used' })]), {}, '/tienda?pestana=estilo');
+  const c = (await screen.findByRole('heading', { name: 'Pack Leyenda', level: 3 })).closest('article')!;
+  expect(within(c).getByRole('button', { name: t.owned })).toBeDisabled();
+  expect(within(c).queryByText(t.set.owned(8, 8))).toBeNull();
+});
+
+test('celebrar un pack dice cuántas skins nuevas llegaron al Taller', async () => {
+  const purchase = '00000000-0000-4000-8000-0000000000ad';
+  open(
+    view({}, [setView(3)]),
+    {
+      [`GET /galaxy/api/shop/purchases/${purchase}`]: () =>
+        jsonResponse(200, { id: purchase, product: 'skins-leyenda', name: 'Pack Leyenda', status: 'paid', amountCents: 1699, grants: { coins: 0, dust: 0, components: 0 }, pieces: [{ kind: 'skin', id: 'skin-comet-leyenda' }, { kind: 'skin', id: 'skin-echo-leyenda' }], createdAt: now.toISOString(), paidAt: now.toISOString(), wallet }),
+    },
+    `/tienda?compra=${purchase}`,
+  );
+  expect(await screen.findByText(t.celebrate.pieces(2))).toBeInTheDocument();
+});
+
+test('si el pack no trajo nada nuevo, la celebración no dice que llegó algo', async () => {
+  const purchase = '00000000-0000-4000-8000-0000000000ae';
+  open(
+    view({}, [setView(8, { block: 'once_used' })]),
+    {
+      [`GET /galaxy/api/shop/purchases/${purchase}`]: () =>
+        jsonResponse(200, { id: purchase, product: 'skins-leyenda', name: 'Pack Leyenda', status: 'paid', amountCents: 1699, grants: { coins: 0, dust: 0, components: 0 }, pieces: [], createdAt: now.toISOString(), paidAt: now.toISOString(), wallet }),
+    },
+    `/tienda?compra=${purchase}`,
+  );
+  expect(await screen.findByText(t.celebrate.owned)).toBeInTheDocument();
+  expect(screen.queryByText(t.celebrate.sub('Pack Leyenda'))).toBeNull();
+});
