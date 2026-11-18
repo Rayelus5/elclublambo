@@ -82,16 +82,20 @@ interface Profile {
   prefer?: string[];
 }
 
-/** Who plays: their relics and their permanent bonuses (probe level and Laboratorio). */
+/**
+ * Who plays: their relics and their permanent bonuses (probe level and Laboratorio). Targets measured with the truce of
+ * life (SIM 1.20.0, 2026-11-18): whoever lives past minute 8 plays the frozen stretch, and from minute 30 the doubling
+ * ends the run. Before it (SIM 1.19.0) they were 9.4, 12.5, 14.3 and 17.2 minutes, with the field piling up.
+ */
 export const PROFILES = {
   /** A new account: the starting probe, nothing equipped, no Laboratorio. */
-  novato: { relics: (_seed: string): RelicInput[] => [], bonuses: [] as StatBonus[], target: 12, band: 2 },
+  novato: { relics: (_seed: string): RelicInput[] => [], bonuses: [] as StatBonus[], target: 9, band: 2 },
   /** A few weeks in: the welcome Legendary and an Uncommon at level 1, half the Laboratorio and probe levels. */
-  medio: { relics: (seed: string) => [relic(seed, 0, 4, 1), relic(seed, 1, 1, 1)], bonuses: VETERAN.map((b) => ({ ...b, value: b.value / 2 })), target: 16.5, band: 2.5 },
+  medio: { relics: (seed: string) => [relic(seed, 0, 4, 1), relic(seed, 1, 1, 1)], bonuses: VETERAN.map((b) => ({ ...b, value: b.value / 2 })), target: 23.5, band: 6 },
   /** Months in: four levelled relics (Legendary, Epic, two Rare) and the whole Laboratorio at probe level 10. */
-  veterano: { relics: (seed: string) => [relic(seed, 0, 4, 5), relic(seed, 1, 3, 5), relic(seed, 2, 2, 4), relic(seed, 3, 2, 3)], bonuses: VETERAN, target: 21.5, band: 3.5 },
+  veterano: { relics: (seed: string) => [relic(seed, 0, 4, 5), relic(seed, 1, 3, 5), relic(seed, 2, 2, 4), relic(seed, 3, 2, 3)], bonuses: VETERAN, target: 38.5, band: 5 },
   /** The strongest account: six top relics at level 10 and the whole Laboratorio. */
-  avanzado: { relics: TOP, bonuses: VETERAN, target: 26, band: 4 },
+  avanzado: { relics: TOP, bonuses: VETERAN, target: 42.5, band: 5 },
   /** The same account standing still 80 % of the run (the farm the owner reported): it moves 1 second out of 5. */
   quieto: { relics: TOP, bonuses: VETERAN, still: 0.8 },
   /** «La Estática te alcanza» (2026-11-16): the same account never moving at all. */
@@ -109,6 +113,12 @@ const STILL_SHARE = 0.6;
 const PLANTED_SHARE = 0.25;
 /** The Sifón build lasts at most this much more than the usual build: no more endless runs (2026-11-16). */
 const SIPHON_SHARE = 1.15;
+/** The truce of life (2026-11-18): past it the doubling ends the run, so no profile's middle lasts beyond this. */
+const LONGEST = 45;
+/** …and at most this many of the seeds reach the bot's 50-minute limit. */
+const AT_LIMIT = 2;
+/** …and during the truce the field does not pile up: fauna alive on average at minutes 20 and 30, in the Nebula. */
+const CROWD_MAX = 150;
 
 export interface Outcome {
   minutes: number;
@@ -122,7 +132,12 @@ export interface Outcome {
   fights: { layer: number; seconds: number }[];
   /** Reached the time limit in a Núcleo fight that had lasted over 5 minutes: neither side could win it. */
   stuck: boolean;
+  /** Fauna alive at minutes 10, 20, 30 and 40 (null: the run had ended), to see the pile-up (the truce of life, 2026-11-18). */
+  crowd: (number | null)[];
 }
+
+/** The minutes the crowd is sampled at. */
+const CROWD_AT = [10, 20, 30, 40];
 
 /** The bot's card, or the profile's preferred upgrade when the card offers it. */
 function pickFor(p: Profile, offer: readonly Offer[]): number {
@@ -144,11 +159,14 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
   let beatBoss = false;
   let bossAt = -1;
   const fights: Outcome['fights'] = [];
+  const crowd: Outcome['crowd'] = CROWD_AT.map(() => null);
   while (sim.tick < maxMinutes * 3600 && (sim.status === 'running' || sim.status === 'choosing')) {
     const probe = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: probe.offer ? pickFor(p, probe.offer) : -1 }]);
     else if (p.wiggle) step(sim, [{ ...IDLE, mx: Math.floor(sim.tick / Math.max(1, Math.round(p.wiggle / 2))) % 2 === 0 ? 127 : -127 }]);
     else step(sim, [idles(p, sim.tick) ? IDLE : botInput(sim, 0, 99)]);
+    const at = CROWD_AT.indexOf(sim.tick / 3600);
+    if (at >= 0) crowd[at] = sim.enemies.count - (sim.boss ? 1 : 0);
     for (const e of sim.events) {
       if (e.t === 'bossSpawn') {
         bossAt = sim.tick;
@@ -161,7 +179,7 @@ export function botOutcome(content: Content, sector: string, profile: ProfileId,
     }
   }
   const stuck = sim.status !== 'dead' && sim.phase === 'boss' && bossAt >= 0 && sim.tick - bossAt > 300 * 60;
-  return { minutes: sim.tick / 3600, layer: sim.layer, level: Math.max(...sim.probes.map((q) => q.level)), sawBoss, beatBoss, fights, stuck };
+  return { minutes: sim.tick / 3600, layer: sim.layer, level: Math.max(...sim.probes.map((q) => q.level)), sawBoss, beatBoss, fights, stuck, crowd };
 }
 
 /** The mean of the middle half (a trimmed mean): steadier than a median with the bot's long tails. */
@@ -204,14 +222,21 @@ describe.skipIf(!LONG)('curva de dificultad (GALAXY_CALIBRATE=1)', () => {
         const fights = fightsByLayer(runs);
         const levels = runs.map((r) => r.level);
         const stuck = runs.filter((r) => r.stuck).length;
-        if (OUT) appendFileSync(OUT, JSON.stringify({ profile, sector, median: m, minutes: runs.map((r) => +r.minutes.toFixed(2)), layers: runs.map((r) => r.layer), levels, saw, beat, fights, stuck }) + String.fromCharCode(10));
+        const crowd = CROWD_AT.map((_, k) => runs.map((r) => r.crowd[k]).filter((c): c is number => c !== null));
+        if (OUT) appendFileSync(OUT, JSON.stringify({ profile, sector, median: m, minutes: runs.map((r) => +r.minutes.toFixed(2)), layers: runs.map((r) => r.layer), levels, saw, beat, fights, stuck, crowd }) + String.fromCharCode(10));
         console.log(
           `curva ${profile} ${sector}: mediana ${m.toFixed(1)} min · capas ${runs.map((r) => r.layer).join(',')} · niveles ${levels.join(',')} · ven el Núcleo ${saw}/${SEEDS.length}, lo vencen ${beat}/${SEEDS.length} · combates ${Object.entries(fights)
             .map(([l, s]) => `c${l} ${s.toFixed(0)} s`)
             .join(', ')}`,
         );
         expect.soft(stuck, `${profile} en ${sector}: ningún combate contra un Núcleo queda en tablas hasta el límite`).toBe(0);
+        expect.soft(m, `${profile} en ${sector}: pasada la tregua toca extraer o caer`).toBeLessThanOrEqual(LONGEST);
+        expect.soft(runs.filter((r) => r.minutes >= 50).length, `${profile} en ${sector}: casi nadie llega al límite`).toBeLessThanOrEqual(AT_LIMIT);
         if (sector !== 'outer-nebula') continue;
+        for (const k of [1, 2]) {
+          const alive = crowd[k]!;
+          if (alive.length > 0) expect.soft(alive.reduce((a, b) => a + b, 0) / alive.length, `${profile}: en la tregua no se acumulan (minuto ${CROWD_AT[k]})`).toBeLessThanOrEqual(CROWD_MAX);
+        }
         const p: Profile = PROFILES[profile];
         if (p.target !== undefined && p.band !== undefined) {
           expect.soft(m, `${profile} en la Nebulosa`).toBeGreaterThanOrEqual(p.target - p.band);

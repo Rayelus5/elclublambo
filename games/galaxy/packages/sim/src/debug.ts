@@ -52,6 +52,8 @@ export interface DebugInfo {
   rate: number;
   teamLevel: number;
   levelFactor: number;
+  /** Where the run is in the truce of life (2026-11-18): before it, frozen, growing again after it, or without one. */
+  truce: 'before' | 'held' | 'rising' | 'off';
   scale: Scale & { elite: number };
   coreFactor: number;
   boss: { id: string; hp: number; maxHp: number } | null;
@@ -219,6 +221,14 @@ export function debugGrant(sim: Sim, probe: number, g: DebugGrant): DebugResult 
   return 'ok';
 }
 
+/** Where the run is in the truce of life, for the panel. */
+function truceState(sim: Sim): DebugInfo['truce'] {
+  const { hpHoldFrom, hpHoldUntil } = sim.sector.scaling;
+  if (hpHoldUntil <= hpHoldFrom) return 'off';
+  const minutes = sim.tick / 3600;
+  return minutes < hpHoldFrom ? 'before' : minutes < hpHoldUntil ? 'held' : 'rising';
+}
+
 /** The read-out of the debug panel, with the director's own numbers. */
 export function debugInfo(sim: Sim, probe: number): DebugInfo {
   const p = sim.probes[probe]!;
@@ -237,6 +247,7 @@ export function debugInfo(sim: Sim, probe: number): DebugInfo {
     rate: spawnRate(sim),
     teamLevel: teamLevel(sim),
     levelFactor: levelFactor(sim),
+    truce: truceState(sim),
     scale: scaleAt(sim),
     coreFactor: coreLevelFactor(sim),
     boss: boss ? { id: boss.def, hp: en.hp[boss.index]!, maxHp: en.maxHp[boss.index]! } : null,

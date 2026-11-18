@@ -36,7 +36,8 @@ export function tinyContent(over?: (c: Content) => void): Content {
   if (s.deepBoss) s.deepBoss = { boss: s.deepBoss.boss, every: s.deepBoss.every };
   c.bosses[0]!.hp = 1800;
   c.bosses[0]!.scaling = { hpPerLayer: 0.7, damagePerLayer: 0.25 };
-  s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05, hpPerLevel: 0, levelFrom: 1, coreHpPerLevel: 0, coreRise: 0 };
+  // The truce of life (2026-11-18) off too: director.test.ts turns it on where it checks it.
+  s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05, hpPerLevel: 0, levelFrom: 1, coreHpPerLevel: 0, coreRise: 0, hpHoldFrom: 0, hpHoldUntil: 0 };
   s.density = { ...s.density, perLayer: 0 };
   c.hitCap = 1;
   // Pinned too (2026-11-16): healing has no budget and the Static never comes, unless a test turns them on.

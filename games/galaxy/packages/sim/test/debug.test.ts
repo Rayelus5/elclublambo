@@ -257,6 +257,19 @@ describe('información', () => {
     expect(info.boss).toBeNull();
     expect(info.god).toBe(false);
   });
+
+  // The truce of life (2026-11-18): the panel says where the run is in it.
+  test('dice en qué punto de la tregua de vida está la incursión', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, hpHoldFrom: 8, hpHoldUntil: 30 };
+    });
+    expect(debugInfo(sim, 0).truce).toBe('before');
+    sim.tick = 10 * 3600;
+    expect(debugInfo(sim, 0).truce).toBe('held');
+    sim.tick = 31 * 3600;
+    expect(debugInfo(sim, 0).truce).toBe('rising');
+    expect(debugInfo(quietSim(), 0).truce).toBe('off');
+  });
 });
 
 describe('en grupo no existe', () => {

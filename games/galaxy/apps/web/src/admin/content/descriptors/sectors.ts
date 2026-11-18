@@ -135,6 +135,28 @@ export const part: DescriptorPart = {
       unit: 'factor',
       hint: 'Lo más que puede multiplicar la vida por nivel a la fauna, por alto que sea el nivel del equipo; con el valor más alto, 1000, no tiene techo',
     },
+    // The truce of life (the owner, 2026-11-18).
+    'sectors[].scaling.hpHoldFrom': {
+      label: 'Tregua de vida desde el minuto',
+      unit: 'minutes',
+      hint: 'Desde este minuto de la incursión la vida de la fauna deja de crecer: se queda en la que tenía entonces, aunque suban los minutos, la capa o el nivel',
+    },
+    'sectors[].scaling.hpHoldUntil': {
+      label: 'Tregua de vida hasta el minuto',
+      unit: 'minutes',
+      hint: 'Desde este minuto la vida vuelve a crecer y ya no para: toca extraer o caer. Si es igual o menor que el de inicio, no hay tregua',
+    },
+    'sectors[].scaling.hpDoubleEvery': {
+      label: 'Después, se dobla cada',
+      unit: 'minutes',
+      hint: 'Pasada la tregua, cada cuántos minutos se dobla la vida de la fauna',
+    },
+    'sectors[].scaling.hpHoldMax': {
+      label: 'Tope fijo de la tregua',
+      unit: 'factor',
+      advanced: true,
+      hint: 'Si es mayor que cero, la vida congelada nunca pasa de este múltiplo de la vida base, por fuerte que llegara el equipo; a cero, solo se congela',
+    },
 
     // Layers and the extraction beacon.
     'sectors[].layerSeconds': {

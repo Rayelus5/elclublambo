@@ -81,7 +81,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '1618', content: c, sector: c.sectors[0]!.id, probes: [{ probe: c.probes[0]!.id, relics: [], bonuses: STRONG }] };
     },
-    hashes: ['3600:bd75547670636c3b', '7200:6b83e4b5f6248ee7', '10800:00f6e6aa85abb960', '14400:a94a3eb6ce807aed', '18000:d57697a5250e4a82', '21600:97fe5a2d8cc4e970', '25200:6f0b5162f0b40089', '28800:fc6e019fda5fbf2c', '32400:4db6d86c09225628', '36000:b086ef682141cf7a'],
+    hashes: ['3600:bd75547670636c3b', '7200:6b83e4b5f6248ee7', '10800:00f6e6aa85abb960', '14400:a94a3eb6ce807aed', '18000:d57697a5250e4a82', '21600:97fe5a2d8cc4e970', '25200:6f0b5162f0b40089', '28800:fc6e019fda5fbf2c', '32400:1670bc8a9567ff43', '36000:667a0decbf6f98c0'],
   },
   {
     name: 'cuatro sondas en grupo hasta las capas profundas',
@@ -89,7 +89,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '2718', content: c, sector: c.sectors[1]!.id, coop: DEFAULT_COOP_RULES, probes: [0, 1, 2, 3].map((i) => ({ probe: c.probes[i]!.id, relics: [], bonuses: STRONG })) };
     },
-    hashes: ['3600:0d790423d51c1f6e', '7200:a623df3c88199591', '10800:01f550c81e8281ee', '14400:4286a1e7d126b3ed', '18000:6e7284704b44c670', '21600:f237ca2213f0832e', '25200:962e0c828825e01c', '28800:19cc2e2d40e00338', '32400:9bde0cc508d87935', '36000:dfe942eac9a57ca1'],
+    hashes: ['3600:0d790423d51c1f6e', '7200:a623df3c88199591', '10800:01f550c81e8281ee', '14400:4286a1e7d126b3ed', '18000:6e7284704b44c670', '21600:f237ca2213f0832e', '25200:962e0c828825e01c', '28800:19cc2e2d40e00338', '32400:d6fe084e19d34f8a', '36000:3166a5dbed4bee50'],
   },
 ];
 

@@ -35,7 +35,7 @@ El contenido de las incursiones es la clave de configuración `content`. Su valo
 
 ### A3. `SIM_VERSION` y las partidas de referencia
 
-**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.16.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
+**Cuándo subir `SIM_VERSION`** (`packages/sim/src/version.ts`, hoy `1.20.0`): cuando el **código** hace que el mismo contenido, con la misma semilla y las mismas entradas, juegue distinto. Si no se sube, se rompen las repeticiones y el modo en grupo, que va en paralelo entre navegadores.
 
 | Cambio | `SIM_VERSION` | Partidas de referencia |
 |---|---|---|
@@ -146,6 +146,7 @@ Plan de vida de enemigos (2026-11-15). Todo vive en el contenido de cada sector 
 | `density.perLayer` | más enemigos vivos y más aparición en cada capa a partir de la segunda, salvo mientras hay Núcleo |
 | `hitCap` (en la raíz de `content`) | ningún golpe se lleva más de esta parte de la vida máxima de la sonda: se muere de varios golpes, nunca de uno |
 | `scaling.hpLevelMax` | techo de la vida por nivel (1000: sin techo en la práctica) |
+| `scaling.hpHoldFrom`, `hpHoldUntil`, `hpDoubleEvery`, `hpHoldMax` (2026-11-18) | la tregua de vida: desde el minuto `hpHoldFrom` el crecimiento de la vida de la fauna (minutos × capa × nivel) se congela en el valor de ese momento, como mucho `hpHoldMax` si es mayor que 0, hasta el minuto `hpHoldUntil`; después se dobla cada `hpDoubleEvery` minutos, hasta que toca extraer o caer. El sector, el grupo y la anomalía multiplican encima; los Núcleos no la siguen. `hpHoldUntil` ≤ `hpHoldFrom` la apaga. Por defecto 8, 30, 5 y 0 |
 | `healing` (en la raíz, 2026-11-16) | la vida robada a los enemigos (Sifón, Sanguijuela, Sangría) cura como mucho vida máxima × (`base` + `perLifesteal` × robo de vida) por segundo, ahorrable hasta `burst` segundos; solo del daño real, nunca del sobrante al matar |
 | `stillness` (en la raíz, 2026-11-16) | «La Estática te alcanza»: `warn` s dentro de un círculo de `radius` avisan; desde `hurt` s hace daño (`damage` + `growth` por segundo, hasta `max`, × vida máxima por segundo) y bloquea toda curación hasta salir. No cuenta en la baliza, saqueando una nave abandonada ni reanimando; en grupo sí cuenta con una carta abierta, porque se puede mover mientras elige. `hurt` 0 la apaga |
 
