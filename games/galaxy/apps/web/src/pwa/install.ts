@@ -105,7 +105,7 @@ export type InstallBrowser = 'chromium' | 'opera' | 'firefox' | 'firefox-elsewhe
 export function installBrowser(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): InstallBrowser {
   if (/\bOPR(GX)?\//.test(ua)) return 'opera';
   if (/\bFirefox\//.test(ua)) return /Windows NT/.test(ua) ? 'firefox' : 'firefox-elsewhere';
-  if (/\b(Chrome|Chromium|Edg)\//.test(ua)) return 'chromium';
+  if (/(Chrome|Chromium|Edg)\//.test(ua)) return 'chromium';
   if (/Macintosh/.test(ua) && /\bSafari\//.test(ua)) return 'safari';
   return 'other';
 }

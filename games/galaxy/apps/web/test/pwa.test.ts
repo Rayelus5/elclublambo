@@ -93,6 +93,8 @@ describe('cómo se instala en cada navegador', () => {
   test('Chrome, Edge, Brave y Vivaldi instalan con nuestro botón', () => {
     expect(installBrowser(ua.chrome)).toBe('chromium');
     expect(installBrowser(ua.edge)).toBe('chromium');
+    // Headless Chromium (the browser tests) names itself HeadlessChrome.
+    expect(installBrowser('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/142.0.0.0 Safari/537.36')).toBe('chromium');
   });
 
   test('Opera y Opera GX no dejan instalar, aunque sean Chromium', () => {
