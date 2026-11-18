@@ -138,7 +138,7 @@ export const ES: Dict = {
     title: 'Antes de despegar',
     items: [
       { q: '¿Es gratis?', a: 'Sí. Puedes jugar todo el juego sin pagar. La tienda solo vende extras opcionales' },
-      { q: '¿Tengo que descargar algo?', a: 'No. Se juega en el navegador del ordenador. Si quieres, puedes instalarlo como app en Windows desde Chrome o Edge' },
+      { q: '¿Tengo que descargar algo?', a: 'No. Se juega en el navegador del ordenador. Si quieres, puedes instalarlo como app en Windows desde Chrome, Edge, Brave o Firefox' },
       { q: '¿Se puede jugar en el móvil?', a: 'Todavía no. Necesitas un ordenador con teclado y ratón' },
       { q: '¿Puedo jugar con mis amigos?', a: 'Sí. Crea una sala, pasa el código y jugad juntos hasta cuatro' },
       { q: '¿Necesito un correo para registrarme?', a: 'No. Solo eliges un nombre y una contraseña' },

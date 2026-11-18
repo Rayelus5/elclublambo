@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-// Installing the game as an app (galaxysurvivor.es plan, PR 3; Chrome and Edge on Windows). The browser offers it with
+// Installing the game as an app (galaxysurvivor.es plan, PR 3; Chromium browsers, and help for the others below). The browser offers it with
 // `beforeinstallprompt`: we keep that offer, without the browser's own banner, so Ajustes › Pantalla and the pill at
 // the foot of the title screen can open it from the game's own button. `appinstalled` says it went in, and the
 // `standalone` display mode says we are already playing in the installed window.
@@ -92,6 +92,22 @@ export function useInstall(): InstallState {
 export function resetInstall(): void {
   offer = null;
   set(INITIAL);
+}
+
+/**
+ * How this browser installs a page (the owner, 2026-11-18). Only Chromium fires `beforeinstallprompt`, so the game's own
+ * button only works there (Chrome, Edge, Brave, Vivaldi). Firefox on Windows has its own address-bar icon (Firefox 143
+ * on), Safari on the Mac «Añadir al Dock», and Opera (GX too) no install at all, though it is Chromium.
+ */
+export type InstallBrowser = 'chromium' | 'opera' | 'firefox' | 'firefox-elsewhere' | 'safari' | 'other';
+
+/** The browser, by its user agent, for the install help in Ajustes. */
+export function installBrowser(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): InstallBrowser {
+  if (/\bOPR(GX)?\//.test(ua)) return 'opera';
+  if (/\bFirefox\//.test(ua)) return /Windows NT/.test(ua) ? 'firefox' : 'firefox-elsewhere';
+  if (/(Chrome|Chromium|Edg)\//.test(ua)) return 'chromium';
+  if (/Macintosh/.test(ua) && /\bSafari\//.test(ua)) return 'safari';
+  return 'other';
 }
 
 /** True when this page offers the app at all: the server only links the manifest on the game's own host. */

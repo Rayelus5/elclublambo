@@ -1,5 +1,6 @@
 import type { Quirk } from '@galaxy/sim';
 import type { KeyLabels } from '../settings/keybinds';
+import type { InstallBrowser } from '../pwa/install';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
 import { type ApiErrorCode, pieceName } from '@galaxy/shared';
 
@@ -3704,7 +3705,15 @@ export const copy = {
     installHint: 'Juega en su propia ventana, como una app más de tu ordenador',
     installButton: 'Instalar',
     installDone: 'Ya la tienes instalada',
-    installHow: 'En Chrome o Edge, pulsa el icono de instalar de la barra de direcciones. Si ya la tienes, ábrela desde el menú Inicio',
+    // Without the browser's offer, how each browser does it (the owner, 2026-11-18).
+    installHow: {
+      chromium: 'Pulsa el icono de instalar de la barra de direcciones. Si ya la tienes, ábrela desde el menú Inicio',
+      firefox: 'En Firefox, pulsa el icono de la barra de direcciones que añade la pestaña a la barra de tareas. Si no lo ves, actualiza Firefox',
+      'firefox-elsewhere': 'Firefox solo instala webs como app en Windows. En este ordenador puedes instalarlo desde Chrome, Edge o Brave',
+      opera: 'Opera todavía no deja instalar webs como app. Puedes instalarlo desde Chrome, Edge, Brave o Firefox, o jugar aquí a pantalla completa',
+      safari: 'En Safari, abre el menú Archivo y elige Añadir al Dock',
+      other: 'Tu navegador no deja instalar webs como app. Puedes instalarlo desde Chrome, Edge, Brave o Firefox',
+    } satisfies Record<InstallBrowser, string>,
     fullscreen: 'Pantalla completa',
     fullscreenHint: 'Sin barras ni bordes. Esc sigue pausando la incursión; para salir, mantén pulsado Esc',
     scannerPro: 'Presentación pro',

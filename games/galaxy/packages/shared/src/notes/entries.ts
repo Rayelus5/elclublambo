@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-45-instalar-navegadores',
+    version: '1.45',
+    date: '2026-11-18',
+    title: 'Instala el juego desde más navegadores',
+    summary: 'Ajustes te explica cómo instalarlo en el navegador que uses, o qué hacer si no se puede',
+    items: [
+      { kind: 'mejora', text: 'En Firefox para Windows también puedes instalarlo, con el icono de la barra de direcciones. Ajustes, en Pantalla, te dice dónde está' },
+      { kind: 'mejora', text: 'En Opera y Opera GX todavía no se puede instalar: Ajustes te lo avisa y te propone otro navegador o la pantalla completa' },
+    ],
+  },
+  {
     id: 'v1-44-tregua-de-vida',
     version: '1.44',
     date: '2026-11-18',
