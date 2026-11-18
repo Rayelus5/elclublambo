@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { routeTitle } from '@galaxy/shared';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { getInstall, promptInstall, resetInstall, watchInstall } from '../src/pwa/install';
+import { getInstall, installBrowser, promptInstall, resetInstall, watchInstall } from '../src/pwa/install';
 import { watchPreloadErrors } from '../src/pwa/preload';
 import { registerServiceWorker } from '../src/pwa/register';
 
@@ -72,6 +72,47 @@ describe('la oferta de instalar', () => {
     expect(getInstall().standalone).toBe(true);
     mode.set(false);
     expect(getInstall().standalone).toBe(false);
+  });
+});
+
+// Other browsers (the owner, 2026-11-18): only Chromium fires `beforeinstallprompt`, so our button only exists there.
+// Firefox on Windows installs from its own address-bar icon, Safari from Archivo › Añadir al Dock, and Opera (GX too)
+// has no install at all: Ajustes says what to do in each.
+describe('cómo se instala en cada navegador', () => {
+  const ua = {
+    chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+    edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0',
+    opera: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/125.0.0.0',
+    operaGx: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/125.0.0.0 (Edition std-2)',
+    firefoxWin: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0',
+    firefoxMac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0',
+    firefoxLinux: 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
+    safari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  };
+
+  test('Chrome, Edge, Brave y Vivaldi instalan con nuestro botón', () => {
+    expect(installBrowser(ua.chrome)).toBe('chromium');
+    expect(installBrowser(ua.edge)).toBe('chromium');
+  });
+
+  test('Opera y Opera GX no dejan instalar, aunque sean Chromium', () => {
+    expect(installBrowser(ua.opera)).toBe('opera');
+    expect(installBrowser(ua.operaGx)).toBe('opera');
+  });
+
+  test('Firefox instala solo en Windows', () => {
+    expect(installBrowser(ua.firefoxWin)).toBe('firefox');
+    expect(installBrowser(ua.firefoxMac)).toBe('firefox-elsewhere');
+    expect(installBrowser(ua.firefoxLinux)).toBe('firefox-elsewhere');
+  });
+
+  test('Safari en el Mac lo añade al Dock', () => {
+    expect(installBrowser(ua.safari)).toBe('safari');
+  });
+
+  test('cualquier otro, o sin navegador conocido, es «otro»', () => {
+    expect(installBrowser('')).toBe('other');
+    expect(installBrowser('curl/8.0')).toBe('other');
   });
 });
 

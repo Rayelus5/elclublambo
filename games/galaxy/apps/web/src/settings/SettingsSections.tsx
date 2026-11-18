@@ -18,7 +18,7 @@ import { Slider } from '../ui/Slider';
 import { Switch } from '../ui/Switch';
 import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
 import { enterFullscreen, exitFullscreen, fullscreenAvailable, useFullscreen } from '../pwa/fullscreen';
-import { installable, promptInstall, useInstall } from '../pwa/install';
+import { installable, installBrowser, promptInstall, useInstall } from '../pwa/install';
 import { ELEMENT_GLYPH } from '../arena/stage/palette';
 import { CHAT_NOTIFY_KEYS, COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
@@ -153,7 +153,7 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
 
 /**
  * Installing the game as an app (galaxysurvivor.es plan, PR 3): the browser's offer behind the game's own button, a
- * word once it is installed, or where Chrome and Edge keep their install icon. Only where the page can be installed
+ * word once it is installed, or how this browser installs it (or that it cannot). Only where the page can be installed
  * (the server links the manifest on the game's own host).
  */
 function InstallRow() {
@@ -162,7 +162,7 @@ function InstallRow() {
   const done = standalone || installed;
   const how = !done && !canPrompt;
   return (
-    <SettingRow label={t.install} hint={how ? t.installHow : t.installHint}>
+    <SettingRow label={t.install} hint={how ? t.installHow[installBrowser()] : t.installHint}>
       {(ids) =>
         done ? (
           <span className="setting-status">

@@ -63,6 +63,7 @@ beforeEach(() => {
 afterEach(() => {
   stop();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   document.head.querySelectorAll('link[rel="manifest"]').forEach((l) => l.remove());
   for (const key of ['fullscreenEnabled', 'fullscreenElement', 'exitFullscreen'] as const) delete (document as unknown as Record<string, unknown>)[key];
   delete (document.documentElement as unknown as Record<string, unknown>)['requestFullscreen'];
@@ -101,10 +102,24 @@ describe('Ajustes › Pantalla: instalar el juego', () => {
     expect(screen.getByText(t.installDone)).toBeInTheDocument();
   });
 
-  test('sin oferta (otro navegador, o ya instalada) explica dónde está el icono', () => {
+  test('sin oferta (en Chrome, ya instalada) explica dónde está el icono', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
     linkManifest();
     render(<DisplaySection />);
-    expect(screen.getByText(t.installHow)).toBeInTheDocument();
+    expect(screen.getByText(t.installHow.chromium)).toBeInTheDocument();
+  });
+
+  // Other browsers (the owner, 2026-11-18): each one is told its own way, or that it has none.
+  test.each([
+    ['firefox', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0'],
+    ['opera', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/125.0.0.0'],
+    ['safari', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'],
+  ] as const)('en %s dice cómo se hace allí', (kind, agent) => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(agent);
+    linkManifest();
+    render(<DisplaySection />);
+    expect(screen.getByText(t.installHow[kind])).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.installButton })).toBeNull();
   });
 
   test('donde no se puede instalar (sin manifest) y en una incursión, no sale', () => {
