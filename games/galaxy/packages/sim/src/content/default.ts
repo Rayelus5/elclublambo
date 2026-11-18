@@ -55,6 +55,12 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'swar
     coreRise: 0.15,
     // No ceiling yet for the life per level (2026-11-16): calibration proposes one.
     hpLevelMax: 1000,
+    // The truce of life (the owner, 2026-11-18): enemies piled up because their life outgrew any build. It freezes from
+    // minute 8 to 30 at the value it had at minute 8, and from then on doubles every 5 minutes: extract or fall.
+    hpHoldFrom: 8,
+    hpHoldUntil: 30,
+    hpDoubleEvery: 5,
+    hpHoldMax: 0,
   },
   elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
   drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },

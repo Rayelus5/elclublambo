@@ -4157,6 +4157,7 @@ export const copy = {
         rate: 'Grupos por segundo',
         teamLevel: 'Nivel',
         levelFactor: 'Vida por nivel',
+        truce: 'Tregua de vida',
         enemyHp: 'Vida de enemigos',
         enemyDamage: 'Daño de enemigos',
         elite: 'Élites',
@@ -4172,6 +4173,8 @@ export const copy = {
         sim: 'Simulación',
       },
       phases: { waves: 'Oleadas', boss: 'Núcleo', beacon: 'Baliza' } as Record<string, string>,
+      // The truce of life (2026-11-18): where the run is in it.
+      truce: { before: 'Aún no', held: 'Congelada', rising: 'Subiendo', off: 'Sin tregua' },
       contentVersion: (v: number) => `v${v}`,
     },
     hp: 'Vida',

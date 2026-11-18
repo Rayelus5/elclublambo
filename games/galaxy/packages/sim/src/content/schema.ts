@@ -276,6 +276,13 @@ const sector = z
         coreRise: z.number().min(0).max(2).default(0),
         // The most the life per level multiplies (2026-11-16): compounding had no ceiling. 1000 changes nothing.
         hpLevelMax: z.number().min(1).max(1000).default(1000),
+        // The truce of life (the owner, 2026-11-18): from minute `hpHoldFrom` the fauna's life growth freezes (at most
+        // `hpHoldMax` when above 0) until minute `hpHoldUntil`; then it doubles every `hpDoubleEvery` minutes. Content
+        // published before takes it on deploy (8, 30, 5): the owner wanted it live. hpHoldUntil ≤ hpHoldFrom turns it off.
+        hpHoldFrom: z.number().min(0).max(240).default(8),
+        hpHoldUntil: z.number().min(0).max(240).default(30),
+        hpDoubleEvery: z.number().min(0.5).max(120).default(5),
+        hpHoldMax: z.number().min(0).max(100000).default(0),
       })
       .strict(),
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
