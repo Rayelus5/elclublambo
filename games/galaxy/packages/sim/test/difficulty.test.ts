@@ -82,16 +82,20 @@ interface Profile {
   prefer?: string[];
 }
 
-/** Who plays: their relics and their permanent bonuses (probe level and Laboratorio). */
+/**
+ * Who plays: their relics and their permanent bonuses (probe level and Laboratorio). Targets measured with the truce of
+ * life (SIM 1.20.0, 2026-11-18): whoever lives past minute 8 plays the frozen stretch, and from minute 30 the doubling
+ * ends the run. Before it (SIM 1.19.0) they were 9.4, 12.5, 14.3 and 17.2 minutes, with the field piling up.
+ */
 export const PROFILES = {
   /** A new account: the starting probe, nothing equipped, no Laboratorio. */
-  novato: { relics: (_seed: string): RelicInput[] => [], bonuses: [] as StatBonus[], target: 12, band: 2 },
+  novato: { relics: (_seed: string): RelicInput[] => [], bonuses: [] as StatBonus[], target: 9, band: 2 },
   /** A few weeks in: the welcome Legendary and an Uncommon at level 1, half the Laboratorio and probe levels. */
-  medio: { relics: (seed: string) => [relic(seed, 0, 4, 1), relic(seed, 1, 1, 1)], bonuses: VETERAN.map((b) => ({ ...b, value: b.value / 2 })), target: 16.5, band: 2.5 },
+  medio: { relics: (seed: string) => [relic(seed, 0, 4, 1), relic(seed, 1, 1, 1)], bonuses: VETERAN.map((b) => ({ ...b, value: b.value / 2 })), target: 23.5, band: 6 },
   /** Months in: four levelled relics (Legendary, Epic, two Rare) and the whole Laboratorio at probe level 10. */
-  veterano: { relics: (seed: string) => [relic(seed, 0, 4, 5), relic(seed, 1, 3, 5), relic(seed, 2, 2, 4), relic(seed, 3, 2, 3)], bonuses: VETERAN, target: 21.5, band: 3.5 },
+  veterano: { relics: (seed: string) => [relic(seed, 0, 4, 5), relic(seed, 1, 3, 5), relic(seed, 2, 2, 4), relic(seed, 3, 2, 3)], bonuses: VETERAN, target: 38.5, band: 5 },
   /** The strongest account: six top relics at level 10 and the whole Laboratorio. */
-  avanzado: { relics: TOP, bonuses: VETERAN, target: 26, band: 4 },
+  avanzado: { relics: TOP, bonuses: VETERAN, target: 42.5, band: 5 },
   /** The same account standing still 80 % of the run (the farm the owner reported): it moves 1 second out of 5. */
   quieto: { relics: TOP, bonuses: VETERAN, still: 0.8 },
   /** «La Estática te alcanza» (2026-11-16): the same account never moving at all. */
@@ -109,6 +113,12 @@ const STILL_SHARE = 0.6;
 const PLANTED_SHARE = 0.25;
 /** The Sifón build lasts at most this much more than the usual build: no more endless runs (2026-11-16). */
 const SIPHON_SHARE = 1.15;
+/** The truce of life (2026-11-18): past it the doubling ends the run, so no profile's middle lasts beyond this. */
+const LONGEST = 45;
+/** …and at most this many of the seeds reach the bot's 50-minute limit. */
+const AT_LIMIT = 2;
+/** …and during the truce the field does not pile up: fauna alive on average at minutes 20 and 30, in the Nebula. */
+const CROWD_MAX = 150;
 
 export interface Outcome {
   minutes: number;
@@ -220,7 +230,13 @@ describe.skipIf(!LONG)('curva de dificultad (GALAXY_CALIBRATE=1)', () => {
             .join(', ')}`,
         );
         expect.soft(stuck, `${profile} en ${sector}: ningún combate contra un Núcleo queda en tablas hasta el límite`).toBe(0);
+        expect.soft(m, `${profile} en ${sector}: pasada la tregua toca extraer o caer`).toBeLessThanOrEqual(LONGEST);
+        expect.soft(runs.filter((r) => r.minutes >= 50).length, `${profile} en ${sector}: casi nadie llega al límite`).toBeLessThanOrEqual(AT_LIMIT);
         if (sector !== 'outer-nebula') continue;
+        for (const k of [1, 2]) {
+          const alive = crowd[k]!;
+          if (alive.length > 0) expect.soft(alive.reduce((a, b) => a + b, 0) / alive.length, `${profile}: en la tregua no se acumulan (minuto ${CROWD_AT[k]})`).toBeLessThanOrEqual(CROWD_MAX);
+        }
         const p: Profile = PROFILES[profile];
         if (p.target !== undefined && p.band !== undefined) {
           expect.soft(m, `${profile} en la Nebulosa`).toBeGreaterThanOrEqual(p.target - p.band);

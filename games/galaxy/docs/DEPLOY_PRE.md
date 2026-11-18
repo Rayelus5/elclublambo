@@ -1704,3 +1704,42 @@ La raíz de galaxysurvivor.es es una portada estática que sirve el mismo conten
 - `apps/landing/src/i18n/es.ts` y `i18n/legal/es.ts`. Las condiciones de compra repiten las de la tienda (`apps/web/src/copy/es.ts`, `shop.legal`): si cambian, cambian las dos y se sube `termsVersion`.
 - **Otro idioma:** un diccionario nuevo con la misma forma y una entrada en `i18n/locales.ts`, con su prefijo (`/en`) y su hreflang.
 - **«Novedades»:** son las tres primeras notas de `RELEASE_NOTES`, al compilar.
+
+## La vida da tregua del 8 al 30 (SIM 1.20.0)
+
+**Por qué.** El propietario, el 18/11/2026: los enemigos «siguen apareciendo y acumulándose hasta un punto insostenible». Medido con el bot (SIM 1.19.0), su vida crecía más que cualquier build, sobre todo por el nivel del equipo (×1,12 por nivel desde el 22) y la capa. A partir del minuto 15–20 ya no morían a tiempo y el campo se llenaba hasta el tope: el Sifón tenía de media 348 enemigos vivos en el minuto 20, y 400 en el 40.
+
+**Qué cambia.** Hay cuatro campos nuevos en `sectors[].scaling`, editables en Admin › Contenido › Sectores › Crecimiento de la dificultad.
+- **`hpHoldFrom` (8):** desde este minuto, la vida de la fauna se queda en la que tenía entonces, aunque suban los minutos, la capa o el nivel.
+- **`hpHoldUntil` (30):** desde este minuto deja de estar congelada.
+- **`hpDoubleEvery` (5):** a partir de `hpHoldUntil`, la vida se dobla cada tantos minutos.
+- **`hpHoldMax` (0):** tope fijo opcional para la vida congelada.
+
+El sector, el grupo y la anomalía siguen multiplicando encima. Los Núcleos no cambian. Si `hpHoldUntil` es menor o igual que `hpHoldFrom`, no hay tregua.
+
+**Después de desplegar no hay que publicar nada.** El contenido vivo no trae los campos y toma los valores por defecto. Para ajustarlos se publica `content` desde el editor.
+
+**Medido (16 semillas por fila; minutos de incursión y enemigos vivos de media):**
+
+| Sector | Perfil | Antes | Después | Vivos en el min 10 / 20 / 30 / 40, después | Llegan al límite de 50 min |
+|---|---|---|---|---|---|
+| Nebulosa | novato | 9,4 | 9,0 | 104 / – / – / – | 0 |
+| Nebulosa | medio | 12,5 | 23,6 | 110 / 50 / 81 / 216 | 0 |
+| Nebulosa | veterano | 14,3 | 38,4 | 59 / 61 / 61 / 166 | 0 |
+| Nebulosa | avanzado | 17,2 | 42,7 | 44 / 53 / 78 / 119 | 1 |
+| Nebulosa | Sifón | 17,3 | 42,7 | 47 / 60 / 77 / 113 | 1 |
+| Fisura | medio | 9,3 | 10,5 | 80 / 73 / 58 / 142 | 0 |
+| Fisura | veterano | 11,0 | 24,8 | 156 / 102 / 123 / 94 | 1 |
+| Fisura | avanzado | 14,4 | 46,1 | 57 / 61 / 112 / 203 | 6 |
+| Fisura | Sifón | 16,3 | 44,9 | 58 / 63 / 107 / 234 | 4 |
+
+**Lectura de la tabla:**
+- **Durante la tregua ya no se acumulan.** Hay entre 45 y 125 vivos donde antes llegaban a 236–400.
+- **Quien sobrevive al minuto 8 llega lejos.** Un veterano pasa de 14 a 38 minutos.
+- **Desde el 30 la vida doblada termina la incursión.** En la Nebulosa casi todos caen entre el 35 y el 50.
+- **En la Fisura la tregua llega pronto:** a esa altura su vida es menor que la de la Nebulosa. Por eso el avanzado dura más en la Fisura y 6 de 16 llegan al límite. La palanca está en el editor, sin código: que se doble antes en ese sector (`hpDoubleEvery`) o que la tregua empiece más tarde (`hpHoldFrom`).
+
+`difficulty.test.ts` (`GALAXY_CALIBRATE=1`) ya tiene estos objetivos. Además comprueba tres cosas:
+- que ningún perfil pase de 45 minutos de media;
+- que como mucho 2 de 16 lleguen al límite;
+- que en la Nebulosa no haya más de 150 vivos de media en los minutos 20 y 30.
