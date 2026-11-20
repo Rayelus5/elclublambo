@@ -1,4 +1,4 @@
-import { generateGalaxy, type CollectionPage, type GachaView, type GalaxySummary, type HangarView, type LabView, type ProbeCard, type PulledGalaxy, type PullResponse, type SectorCard, type StationView, labEffects, labNodeStatus, parseConfig } from '@galaxy/shared';
+import { generateGalaxy, type CollectionPage, type GachaView, type GalaxySummary, type HangarView, type LabView, type ProbeCard, type PulledGalaxy, type PullResponse, type SectorCard, type StationView, labEffects, labNodeStatus, parseConfig, sectorPay } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactElement } from 'react';
@@ -121,7 +121,7 @@ const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
   const sec = DEFAULT_CONTENT.sectors.find((x) => x.id === id)!;
   const boss = DEFAULT_CONTENT.bosses.find((b) => b.id === sec.boss)!;
   const fauna = [...new Set(sec.spawns.map((sp) => sp.enemy))].map((e) => DEFAULT_CONTENT.enemies.find((x) => x.id === e)!);
-  return { id, name: sec.name, description: sec.description, boss: { name: boss.name, title: boss.title, sprite: boss.sprite }, fauna: fauna.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })), layerSeconds: sec.layerSeconds, biome: sec.biome, unlocked: true, condition: null, progress: 1, season: sec.season, ...over };
+  return { id, name: sec.name, description: sec.description, boss: { name: boss.name, title: boss.title, sprite: boss.sprite }, fauna: fauna.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })), layerSeconds: sec.layerSeconds, biome: sec.biome, unlocked: true, condition: null, progress: 1, season: sec.season, pay: sectorPay(parseConfig('sectors', {}), id), ...over };
 };
 const hangarView: HangarView = {
   sectors: ['outer-nebula', 'frost-rings', 'hollow-reef', 'broken-forge', 'signal-rift'].map((id) => sectorCard(id)),
@@ -156,7 +156,9 @@ const collectionPage = (): CollectionPage => {
     const finish = i % 11 === 3 ? 'holo' : i % 13 === 5 ? 'prismatic' : i % 17 === 8 ? 'braille' : 'normal';
     return galaxy(200 + i, tier, finish);
   });
-  return { items, counts: { common: 12, uncommon: 9, rare: 6, epic: 6, legendary: 3 }, fusion: { count: 5, dust: [20, 50, 120, 300] } } as CollectionPage;
+  // «Más raras» first, as the server sends them.
+  items.sort((a, b) => TIERS.indexOf(b.tier as (typeof TIERS)[number]) - TIERS.indexOf(a.tier as (typeof TIERS)[number]));
+  return { items, counts: { mythic: 0, common: 12, uncommon: 9, rare: 6, epic: 6, legendary: 3 }, fusion: { count: 5, dust: [20, 50, 120, 300] } } as CollectionPage;
 };
 
 test(`pantalla ${SCENE}`, async () => {
@@ -202,6 +204,21 @@ test(`pantalla ${SCENE}`, async () => {
       await imagesReady(vt);
     }, SKIP);
   }
+  if (SCENE === 'scanner-summary') {
+    // The ten-pull's summary («10 galaxias nuevas»): scan, then «Saltar» straight to it. VITE_CLASSIC=1 plays the
+    // classic reveal (Ajustes › Presentación pro off) instead of the WebGL cinematic.
+    if (import.meta.env['VITE_CLASSIC'] === '1') localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { scannerPro: false }, version: 1 }));
+    const pulls = [4, 3, 2, 1, 2, 0, 3, 1, 0, 1].map((tier, i) => galaxy(40 + i, tier, i === 0 ? 'holo' : i === 1 ? 'prismatic' : i === 4 ? 'braille' : 'normal'));
+    const response: PullResponse = { pulls, wallet: { coins: 18_420, dust: 1_260, signal: 14 }, view: gachaView({ wallet: { coins: 18_420, dust: 1_260, signal: 14 } }) };
+    api({ 'GET /gacha': () => gachaView(), 'POST /gacha/pull': () => response });
+    mount('/escaner', createElement(ScannerScreen));
+    await warm(vt, 60);
+    await record(vt, 'scanner-summary', FRAMES || 300, async (f) => {
+      if (f === 30) click('.pull-btn', /Escanear 10/);
+      if (f >= 90 && f <= 150 && f % 20 === 10 && !document.querySelector('.summary-cards')) click('button', /^Saltar$/);
+      await imagesReady(vt);
+    });
+  }
   if (SCENE === 'event') {
     api({ 'GET /gacha': () => gachaView() });
     mount('/escaner?tipo=evento', createElement(ScannerScreen));
@@ -215,7 +232,8 @@ test(`pantalla ${SCENE}`, async () => {
     await warm(vt, 80);
     await until(vt, () => document.querySelectorAll('.gcard').length > 10);
     await record(vt, 'collection', FRAMES || 360, async (f) => {
-      if (f > 90) window.scrollBy(0, 2);
+      // VITE_NOSCROLL=1 (stills): the page stays at its top.
+      if (f > 90 && import.meta.env['VITE_NOSCROLL'] !== '1') window.scrollBy(0, 2);
       await imagesReady(vt);
     });
   }

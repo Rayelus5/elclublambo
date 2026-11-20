@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { test } from 'vitest';
 import { ArenaScreen } from '../../apps/web/src/arena/ArenaScreen';
+import { setArenaZoom } from '../../apps/web/src/arena/settings';
 import { createStage } from '../../apps/web/src/arena/stage/stage';
 import '../../apps/web/src/styles/app.css';
 import { hold, installVirtualTime, press, record, type VirtualTime } from './vt';
@@ -13,6 +14,25 @@ import { hold, installVirtualTime, press, record, type VirtualTime } from './vt'
 
 const SCENE = import.meta.env['VITE_SCENE'] ?? 'horde';
 const FRAMES = Number(import.meta.env['VITE_FRAMES'] ?? 0);
+// Stills (VITE_STILL=1): the enemies' white hit flash is left out of the picture. In motion it is a blink; frozen in a
+// screenshot, dozens of white silhouettes. The simulation still sees it (it gates knockback); only the drawing does not.
+const STILL = import.meta.env['VITE_STILL'] === '1';
+
+function noFlashInPicture(sim: Sim): void {
+  const hide = (real: Int32Array, drawer: RegExp) =>
+    new Proxy(real, {
+      get(t, k) {
+        const v = Reflect.get(t, k, t);
+        if (typeof v === 'number' && v > 0 && drawer.test(new Error().stack ?? '')) return 0;
+        return typeof v === 'function' ? v.bind(t) : v;
+      },
+      set: (t, k, v) => Reflect.set(t, k, v, t),
+    });
+  sim.enemies.flashT = hide(sim.enemies.flashT as Int32Array, /drawEnemies/);
+  sim.props.flashT = hide(sim.props.flashT as Int32Array, /drawProps/);
+  // The admin's test-run «god» switch: no damage, so no red hurt edge on the screen (it shows nothing else).
+  sim.debug = { god: true };
+}
 
 const run = (over: Partial<RunStart> = {}): RunStart => ({
   id: '00000000-0000-4000-8000-0000000000aa',
@@ -32,6 +52,8 @@ const run = (over: Partial<RunStart> = {}): RunStart => ({
 function fastForward(sim: Sim, ticks: number): void {
   while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
     const p = sim.probes[0]!;
+    // The bot plays the run up to the shot, and never falls on the way (its levels recompute the stats).
+    p.hp = p.stats.maxHp;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
     else step(sim, [botInput(sim, 0, 99)]);
   }
@@ -42,6 +64,8 @@ function empower(sim: Sim): void {
   const p = sim.probes[0]!;
   p.weapons = ['pulse-storm', 'solar-breath', 'asteroid-belt', 'ion-storm', 'missile-swarm', 'event-horizon'].map((id) => ({ id, level: 1, t: 0 }));
   p.level = Math.max(p.level, 38);
+  // Stills show the probe's real life on the bar (keepAlive tops it up instead).
+  if (STILL) return;
   p.stats.maxHp = 9999;
   p.hp = 9999;
 }
@@ -58,6 +82,8 @@ function swarm(sim: Sim, count: number, near: number, far: number): void {
 }
 
 async function mount(vt: VirtualTime, start: RunStart, setup: (sim: Sim) => void): Promise<Sim> {
+  // Stills come some mouse-wheel steps closer (VITE_ZOOM, the zoom a player keeps for their runs), so sprites read.
+  setArenaZoom(Number(import.meta.env['VITE_ZOOM'] ?? 0));
   document.body.style.margin = '0';
   const css = document.createElement('style');
   // The trailer shows the run, not PERKINS' radio lines.
@@ -74,6 +100,7 @@ async function mount(vt: VirtualTime, start: RunStart, setup: (sim: Sim) => void
         if (sim) return;
         sim = s;
         setup(s);
+        if (STILL) noFlashInPicture(s);
       },
     }),
   );
@@ -87,6 +114,18 @@ async function mount(vt: VirtualTime, start: RunStart, setup: (sim: Sim) => void
     await vt.settle();
   }
   return sim!;
+}
+
+/** Like `swarm`, with only the run's own sector fauna: what that sector really sends. */
+function ownSwarm(sim: Sim, count: number, near: number, far: number): void {
+  const p = sim.probes[0]!;
+  const ids = [...new Set(sim.sector.spawns.map((sp) => sp.enemy))];
+  const fauna = ids.map((id) => sim.content.enemies.find((e) => e.id === id)!);
+  for (let k = 0; k < count; k++) {
+    const a = (k / count) * Math.PI * 2 + k * 0.37;
+    const r = near + (((k * 7919) % 1000) / 1000) * (far - near);
+    spawnEnemy(sim, fauna[k % fauna.length]!, p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+  }
 }
 
 const EIGHT = [['KeyD'], ['KeyD', 'KeyS'], ['KeyS'], ['KeyS', 'KeyA'], ['KeyA'], ['KeyA', 'KeyW'], ['KeyW'], ['KeyW', 'KeyD']];
@@ -112,7 +151,8 @@ function towards(sim: Sim, x: number, y: number, near: number): string[] {
 
 const keepAlive = (sim: Sim) => {
   for (const p of sim.probes) {
-    p.hp = p.stats.maxHp;
+    // In stills the bar reads like a run going well (a little life lost), never 9999.
+    p.hp = STILL ? Math.round(p.stats.maxHp * 0.84) : p.stats.maxHp;
     p.xpNext = 1e12;
   }
 };
@@ -132,6 +172,37 @@ test(`escena ${SCENE}`, async () => {
     await record(vt, 'horde', FRAMES || 720, (f) => {
       if (f % 70 === 0) hold(EIGHT[(f / 70) % 8]!, held);
       if (f % 30 === 0) swarm(sim, 24, 260, 420);
+      keepAlive(sim);
+    });
+  }
+  if (SCENE === 'horde-still') {
+    // The promo still: ten minutes into the Outer Nebula, a late-run build, and the sector's own fauna closing in
+    // from every side on a probe that drifts slowly (the crowd surrounds it instead of trailing behind).
+    const sectorSwarm = (sim: Sim, count: number, near: number, far: number) => {
+      const p = sim.probes[0]!;
+      const ids = [...new Set(sim.content.sectors.find((x) => x.id === 'outer-nebula')!.spawns.map((sp) => sp.enemy))];
+      const fauna = ids.map((id) => sim.content.enemies.find((e) => e.id === id)!);
+      for (let k = 0; k < count; k++) {
+        const a = (k / count) * Math.PI * 2 + k * 0.37;
+        const r = near + (((k * 7919) % 1000) / 1000) * (far - near);
+        spawnEnemy(sim, fauna[k % fauna.length]!, p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+      }
+    };
+    const build = (sim: Sim) => {
+      const p = sim.probes[0]!;
+      p.weapons = ['pulse-storm', 'asteroid-belt', 'ion-storm', 'missile-swarm', 'solar-breath', 'crystal-crown'].map((id) => ({ id, level: 1, t: 0 }));
+      p.level = Math.max(p.level, 38);
+    };
+    const sim = await mount(vt, run({ sector: 'outer-nebula', probe: 'spark', seed: '20261120' }), (s) => {
+      build(s);
+      fastForward(s, 10 * 3600 + 25 * 60);
+      build(s);
+      s.probes[0]!.xpNext = 1e12;
+      sectorSwarm(s, 260, 230, 560);
+    });
+    await record(vt, 'horde-still', FRAMES || 240, (f) => {
+      if (f % 90 === 0) hold(EIGHT[(f / 90) % 8]!, held);
+      if (f % 45 === 0) sectorSwarm(sim, 40, 420, 560);
       keepAlive(sim);
     });
   }
@@ -176,12 +247,16 @@ test(`escena ${SCENE}`, async () => {
         toughened = true;
         sim.enemies.maxHp[b] = sim.enemies.maxHp[b]! * 40;
         sim.enemies.hp[b] = sim.enemies.maxHp[b]!;
-        swarm(sim, 160, 200, 440);
+        if (STILL) ownSwarm(sim, 90, 240, 480);
+        else swarm(sim, 160, 200, 440);
       }
       if (b >= 0 && f < 470 && sim.enemies.hp[b]! < sim.enemies.maxHp[b]! * 0.3) sim.enemies.hp[b] = sim.enemies.maxHp[b]! * 0.3;
       if (b >= 0) hold(towards(sim, sim.enemies.x[b]!, sim.enemies.y[b]! + 110, 60), held);
       if (f === 470 && b >= 0) sim.enemies.hp[b] = Math.min(sim.enemies.hp[b]!, sim.enemies.maxHp[b]! * 0.004);
-      if (f % 45 === 0 && f < 470) swarm(sim, 26, 260, 420);
+      if (f % 45 === 0 && f < 470) {
+        if (STILL) ownSwarm(sim, 12, 380, 480);
+        else swarm(sim, 26, 260, 420);
+      }
       keepAlive(sim);
     });
     // Then to the beacon, and out.

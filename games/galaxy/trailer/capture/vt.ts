@@ -1,4 +1,10 @@
-import { page } from 'vitest/browser';
+import { commands } from 'vitest/browser';
+
+declare module 'vitest/browser' {
+  interface BrowserCommands {
+    shot(path: string): Promise<void>;
+  }
+}
 
 // Virtual time for capturing the game frame by frame (the trailer). Timers, animation frames, performance.now and
 // Date.now follow a clock that only moves when we say so, and every CSS animation and transition is paused and set to
@@ -108,11 +114,17 @@ export function installVirtualTime(start = 1000): VirtualTime {
 /** Takes `count` frames of 1/60 s each into frames/<name>/f00000.png, calling `each(frame)` before each one. */
 export async function record(vt: VirtualTime, name: string, count: number, each?: (frame: number) => void | Promise<void>, skip = 0): Promise<void> {
   // Frames before `skip` play on the virtual clock without a picture, to record only the end of a long scene.
+  // Stills (VITE_EVERY=n): only every n-th frame gets a picture, for screenshots rather than footage.
+  const every = Math.max(1, Number(import.meta.env['VITE_EVERY'] ?? 1));
+  // The game's own fonts (Bungee, Fredoka) must be in before the first picture, never the fallback.
+  await Promise.all(['16px Bungee', '16px Fredoka', '700 16px Fredoka'].map((f) => document.fonts.load(f)));
+  await document.fonts.ready;
+  if (!document.fonts.check('16px Bungee') || !document.fonts.check('16px Fredoka')) throw new Error('fuentes sin cargar');
   for (let f = 0; f < count; f++) {
     if (each) await each(f);
     await vt.advance(1000 / 60);
     await vt.settle();
-    if (f >= skip) await page.screenshot({ path: `frames/${name}/f${String(f - skip).padStart(5, '0')}.png` });
+    if (f >= skip && (f - skip) % every === every - 1) await commands.shot(`frames/${name}/f${String(f - skip).padStart(5, '0')}.png`);
   }
 }
 

@@ -12,10 +12,10 @@ import { defineConfig } from 'vitest/config';
 
 const galaxy = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const fromWeb = createRequire(resolve(galaxy, 'apps/web/package.json'));
-const webReact = {
-  react: dirname(fromWeb.resolve('react/package.json')),
-  'react-dom': dirname(fromWeb.resolve('react-dom/package.json')),
-};
+
+// CAPTURE_SCALE=1.5 shoots the screens as a 1280×720 window on a high-density display: the same 1920×1080 picture,
+// with the interface half as large again (menus read better in stills). The arena stays at 1 (whole art pixels).
+const scale = Number(process.env['CAPTURE_SCALE'] ?? 1);
 
 export default defineConfig({
   root: galaxy,
@@ -29,12 +29,13 @@ export default defineConfig({
       { find: /^@galaxy\/engine$/, replacement: resolve(galaxy, 'packages/engine/src/index.ts') },
       { find: /^@galaxy\/shared$/, replacement: resolve(galaxy, 'packages/shared/src/index.ts') },
       { find: /^@galaxy\/sim$/, replacement: resolve(galaxy, 'packages/sim/src/index.ts') },
-      { find: /^react$/, replacement: webReact.react },
-      { find: /^react-dom$/, replacement: webReact['react-dom'] },
+      // The web app's own packages, from its node_modules (pnpm does not hoist them here); a plain name also takes
+      // its subpaths (react-dom/client, react/jsx-runtime).
+      ...['react', 'react-dom', '@tanstack/react-query', 'react-router'].map((id) => ({ find: id, replacement: dirname(fromWeb.resolve(`${id}/package.json`)) })),
     ],
     dedupe: ['react', 'react-dom'],
   },
-  optimizeDeps: { include: ['three', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
+  optimizeDeps: { include: ['three', 'gsap', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
   test: {
     include: ['trailer/capture/**/*.capture.{ts,tsx}'],
     testTimeout: 0,
@@ -42,10 +43,20 @@ export default defineConfig({
     fileParallelism: false,
     browser: {
       enabled: true,
-      provider: playwright({ launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] } }),
+      provider: playwright({ launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] }, contextOptions: { deviceScaleFactor: scale } }),
       headless: true,
-      viewport: { width: 1920, height: 1080 },
+      viewport: { width: Math.round(1920 / scale), height: Math.round(1080 / scale) },
       instances: [{ browser: 'chromium' }],
+      // A picture of the game's frame as it is now, without Playwright's wait for a still element (the live scanner
+      // never holds still for it). The path is under trailer/capture/.
+      commands: {
+        shot: async (ctx, path: string) => {
+          const frame = await (ctx as unknown as { frame(): Promise<{ frameElement(): Promise<{ boundingBox(): Promise<{ x: number; y: number; width: number; height: number } | null> }> }> }).frame();
+          const box = await (await frame.frameElement()).boundingBox();
+          const page = (ctx as unknown as { page: { screenshot(o: object): Promise<unknown> } }).page;
+          await page.screenshot({ path: resolve(galaxy, 'trailer/capture', path), clip: box ?? undefined });
+        },
+      },
     },
   },
 });
