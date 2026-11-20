@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import { DEFAULT_CONTENT } from './default';
+import { contentRefs, type RefKind } from './refs';
 import {
   BIOMES,
   type Content,
   ELEMENT_IDS,
   ENEMY_FAMILIES,
+  LATE_STATS,
   SPECIALS,
   STAT_KEYS,
+  type StatKey,
   WEAPON_KINDS,
 } from './types';
 
@@ -14,13 +17,21 @@ import {
 // ignored. Every catalog defaults to DEFAULT_CONTENT, and cross references (a probe's weapon, a species' offspring, a
 // sector's boss…) must point at something that exists, so a published content can never break a run.
 
-const id = z.string().regex(/^[a-z0-9-]{1,32}$/);
+// Never a name every object inherits («constructor», «toString»): plain lookups by id would find the inherited one.
+const id = z
+  .string()
+  .regex(/^[a-z0-9-]{1,32}$/)
+  .refine((x) => !(x in Object.prototype), 'reserved_id');
 const sprite = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const name = z.string().min(1).max(60);
 const text = z.string().min(1).max(200);
+// The texts tied to an entry (the content editor, 2026-11-16, P8): optional, the web falls back to its own.
+const lore = z.string().min(1).max(400).optional();
+const radio = z.string().min(1).max(200).optional();
 const n = z.number().min(0).max(1_000_000);
 const unit = z.number().min(0).max(1);
 const pos = z.number().gt(0).max(1_000_000);
+const capValue = z.number().min(0).max(1000);
 
 const weaponLevel = z
   .object({
@@ -71,7 +82,18 @@ const passive = z
 const quirk = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('magnet'), every: pos, radius: pos }).strict(),
   z.object({ kind: z.literal('thorns'), share: n }).strict(),
-  z.object({ kind: z.literal('dash'), every: pos, distance: n, invuln: n }).strict(),
+  // Spark's agile dash (owner's plan 2026-11-13): content published before it (every, distance) still parses.
+  z
+    .object({
+      kind: z.literal('dash'),
+      invuln: n,
+      charges: z.number().int().min(0).max(4).default(1),
+      recharge: z.number().min(0.5).max(60).default(4),
+      pause: z.number().min(0).max(5).default(0.3),
+      every: pos.optional(),
+      distance: n.optional(),
+    })
+    .strict(),
   z.object({ kind: z.literal('overwatch'), drones: z.number().int().min(0).max(8) }).strict(),
   z.object({ kind: z.literal('second-wind'), hp: unit }).strict(),
   z.object({ kind: z.literal('prism-touch'), chance: unit, cycle: z.array(elementId).min(1).max(11) }).strict(),
@@ -116,6 +138,7 @@ const enemy = z
   .object({
     id,
     name,
+    lore,
     family: z.enum(ENEMY_FAMILIES),
     sprite,
     hp: pos,
@@ -134,7 +157,9 @@ const elite = z
     name,
     shield: z.number().min(0).max(10),
     speed: z.number().min(0.1).max(10),
-    explode: z.object({ radius: n, damage: n, delay: n }).strict().nullable(),
+    // `keep` (2026-11-14): the share of the life one has that a blast always leaves (it never kills on its own); content
+    // published before it gets the 40 %.
+    explode: z.object({ radius: n, damage: n, delay: n, keep: z.number().min(0.05).max(0.95).default(0.4) }).strict().nullable(),
   })
   .strict();
 
@@ -149,12 +174,24 @@ const bossPattern = z.discriminatedUnion('kind', [
     .object({ kind: z.literal('mines'), count: z.number().int().min(1).max(16), spread: n, radius: pos, delay: pos, damage: n })
     .strict(),
   z.object({ kind: z.literal('blink'), offset: n, windup: pos, count: z.number().int().min(0).max(128), speed: n, damage: n }).strict(),
+  // Nov plan B4: a sweeping beam, a ring closing in on the probe (always with a way out) and a walking barrage.
+  z
+    .object({ kind: z.literal('laser'), windup: pos, duration: pos, sweep: z.number().min(0).max(360), length: pos, width: z.number().gt(0).max(200), damage: n })
+    .strict(),
+  z
+    .object({ kind: z.literal('closing'), count: z.number().int().min(1).max(128), radius: pos, gap: z.number().min(20).max(300), delay: pos, speed: pos, damage: n })
+    .strict(),
+  z
+    .object({ kind: z.literal('barrage'), count: z.number().int().min(1).max(16), spacing: pos, radius: pos, delay: pos, step: n, damage: n })
+    .strict(),
 ]);
 
 const boss = z
   .object({
     id,
     name,
+    lore,
+    radio,
     title: name,
     sprite,
     hp: pos,
@@ -177,12 +214,22 @@ const sector = z
     description: text,
     biome: z.enum(BIOMES),
     boss: id,
+    // Nov plan B4: the Core's forms in turn. Optional, so a content published before plays as it did (only `boss`).
+    bossCycle: z.array(id).min(1).max(8).optional(),
     // Defaults keep a content published before M3b-3 valid.
-    deepBoss: z.object({ boss: id, every: z.number().int().min(2).max(100) }).strict().nullable().default(null),
+    deepBoss: z
+      .object({ boss: id, every: z.number().int().min(2).max(100), cycle: z.array(id).min(1).max(8).optional() })
+      .strict()
+      .nullable()
+      .default(null),
     season: z.boolean().default(false),
+    lore,
+    radio,
+    hazardNames: z.object({ meteors: name.optional(), storm: name.optional(), well: name.optional() }).strict().optional(),
     // Open beta: the sector's own toughness, on top of its scaling (first sector easiest, the season's hardest).
     enemyHp: z.number().min(0.25).max(4).default(1),
     enemyDamage: z.number().min(0.25).max(4).default(1),
+    coreDamage: z.number().min(0.25).max(4).default(1),
     layerSeconds: pos,
     beacon: z.object({ seconds: pos, hold: pos, radius: pos, distance: n }).strict(),
     spawns: z
@@ -195,7 +242,21 @@ const sector = z
       .min(1)
       .max(32),
     waves: z.array(z.object({ at: n, kind: z.enum(['ring', 'burst']), enemy: id, count: z.number().int().min(1).max(200) }).strict()).max(32),
-    density: z.object({ base: n, perMinute: n, max: n, cap: z.number().int().min(1).max(2000), bossFactor: unit }).strict(),
+    // `perLayer` (enemy life plan, 2026-11-15): the spawn rate's ceiling and the alive cap grow by it every layer past the
+    // first; 0 for content published before.
+    density: z.object({ base: n, perMinute: n, max: n, cap: z.number().int().min(1).max(2000), bossFactor: unit, perLayer: z.number().min(0).max(2).default(0) }).strict(),
+    // Fewer small enemies piling up (the owner, 2026-11-16): the swarm family's groups stop while `cap` of it are alive
+    // (0: no limit) and, from minute `fadeFrom` of the run, come less by `fadePerMinute` down to `fadeFloor` of their
+    // weight; the other species take their place. Content published before takes these values.
+    swarm: z
+      .object({
+        cap: z.number().int().min(0).max(2000),
+        fadeFrom: z.number().min(0).max(120),
+        fadePerMinute: unit,
+        fadeFloor: unit,
+      })
+      .strict()
+      .default({ cap: 60, fadeFrom: 8, fadePerMinute: 0.1, fadeFloor: 0.5 }),
     scaling: z
       .object({
         hpPerMinute: n,
@@ -206,6 +267,22 @@ const sector = z
         eliteBase: unit,
         elitePerMinute: unit,
         eliteMax: unit,
+        // Enemy life plan (2026-11-15): life × (1 + hpPerLevel)^(level − levelFrom) by the team's highest level (levels up
+        // to `levelFrom` count nothing), the Núcleos × (1 + coreHpPerLevel × the levels past it), and every Núcleo has at least
+        // (1 + coreRise) × the life of the one before. 0 and 1 for content published before: it plays as it did.
+        hpPerLevel: z.number().min(0).max(1).default(0),
+        levelFrom: z.number().int().min(1).max(200).default(1),
+        coreHpPerLevel: z.number().min(0).max(1).default(0),
+        coreRise: z.number().min(0).max(2).default(0),
+        // The most the life per level multiplies (2026-11-16): compounding had no ceiling. 1000 changes nothing.
+        hpLevelMax: z.number().min(1).max(1000).default(1000),
+        // The truce of life (the owner, 2026-11-18): from minute `hpHoldFrom` the fauna's life growth freezes (at most
+        // `hpHoldMax` when above 0) until minute `hpHoldUntil`; then it doubles every `hpDoubleEvery` minutes. Content
+        // published before takes it on deploy (8, 30, 5): the owner wanted it live. hpHoldUntil ≤ hpHoldFrom turns it off.
+        hpHoldFrom: z.number().min(0).max(240).default(8),
+        hpHoldUntil: z.number().min(0).max(240).default(30),
+        hpDoubleEvery: z.number().min(0.5).max(120).default(5),
+        hpHoldMax: z.number().min(0).max(100000).default(0),
       })
       .strict(),
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
@@ -289,7 +366,8 @@ const relicSet = z.discriminatedUnion('kind', [
 const factors = z.record(z.string().regex(/^[a-z0-9_]{1,40}$/), z.number().min(0).max(100));
 const relics = z
   .object({
-    tier: z.array(z.number().min(0).max(100)).length(5),
+    // Common → mythic; content published before the mythic stops at the legendary (the mythic counts as it).
+    tier: z.array(z.number().min(0).max(100)).min(5).max(6),
     level: z.object({ step: n, cap: n }).strict(),
     // Older published content has no stacking: the default keeps it valid.
     stacking: z.object({ from: z.number().int().min(1).max(6), decay: unit }).strict().default({ from: 3, decay: 0.5 }),
@@ -322,7 +400,8 @@ const relics = z
         supernova: z.object({ cooldown: pos, damage: n, radius: n }).strict(),
         satellite_galaxy: z.object({ cooldown: pos, damage: n, range: n, speed: n }).strict(),
         globular_cluster: z.object({ count: z.number().int().min(1).max(32), damage: n, radius: n, speed: n, interval: pos }).strict(),
-        comet: z.object({ cooldown: pos, distance: n, seconds: pos, damage: n }).strict(),
+        // Its dash is the player's now (content.dash); its old charge's numbers still parse.
+        comet: z.object({ damage: n, cooldown: pos.optional(), distance: n.optional(), seconds: pos.optional() }).strict(),
         relativistic_jets: z.object({ cooldown: pos, damage: n, pierce: z.number().int().min(0).max(1000), speed: n }).strict(),
         pulsar: z.object({ cooldown: pos, radius: n, damage: n }).strict(),
         einstein_ring: z.object({ projectiles: z.number().int().min(0).max(8) }).strict(),
@@ -340,6 +419,11 @@ const relics = z
       .strict(),
     quasar: z.object({ cooldown: pos, damage: n, pierce: z.number().int().min(0).max(1000), speed: n }).strict(),
     double: z.object({ delay: n }).strict(),
+    // The mythic's own power (plan «rareza Mítica» M2): content published before it gets the default.
+    singularity: z
+      .object({ cooldown: pos, seconds: pos, seek: n, radius: n, pull: n, blast: n, damage: n, push: n, clear: n })
+      .strict()
+      .default(DEFAULT_CONTENT.relics.singularity),
     backgrounds: z.record(
       z.string().regex(/^[a-z0-9_]{1,40}$/),
       z.object({ stat: z.union([z.enum(STAT_KEYS), z.literal('vision')]), value: z.number().min(-10).max(10) }).strict(),
@@ -380,8 +464,24 @@ const shape = z
     relics: relics.default(D.relics),
     // A level always costs something: with base 0 the run would level up forever in one tick.
     xp: z.object({ base: z.number().min(1).max(1_000_000), linear: n, quad: n }).strict().default(D.xp),
-    caps: z.record(z.enum(STAT_KEYS), z.number().min(0).max(1000)).default(D.caps),
+    // Every stat has a cap; those added later default, so content published before them still parses (Nov plan B2).
+    caps: z
+      .object(Object.fromEntries(STAT_KEYS.map((k) => [k, (LATE_STATS as readonly string[]).includes(k) ? capValue.default(D.caps[k]) : capValue])) as unknown as { [K in StatKey]: z.ZodType<number> })
+      .strict()
+      .default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
+    // Enemy life plan (2026-11-15): no single enemy hit takes more than this share of a probe's maximum life (1: no cap).
+    // Content published before takes the code's value: it only protects the player.
+    hitCap: z.number().min(0.05).max(1).default(D.hitCap),
+    // Sifón rework (2026-11-16): life stolen from enemies (lifesteal, leech, drain) heals at most maxHp × (base +
+    // perLifesteal × lifesteal) a second, banked up to `burst` seconds of it. Content published before takes the code's.
+    healing: z.object({ base: z.number().min(0).max(1000), perLifesteal: z.number().min(0).max(100), burst: z.number().min(0.1).max(30) }).strict().default(D.healing),
+    // «La Estática te alcanza» (2026-11-16): `warn` seconds in a `radius` warn, from `hurt` seconds the Static hurts
+    // (damage, + growth a second, up to max, × maxHp a second) and blocks healing until the probe leaves. hurt 0: off.
+    stillness: z
+      .object({ radius: pos, warn: z.number().min(0).max(600), hurt: z.number().min(0).max(600), damage: z.number().min(0).max(5), growth: z.number().min(0).max(5), max: z.number().min(0).max(5) })
+      .strict()
+      .default(D.stillness),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z
@@ -411,6 +511,80 @@ const shape = z
       .strict()
       .refine((p) => p.dustMax >= p.dustMin, 'props_dust_range')
       .default(D.props),
+    // Plan «skins, perfil y entorno», part E: abandoned satellites. The chances only go down (at least one, two, three).
+    satellites: z
+      .object({
+        chances: z.array(unit).max(3),
+        earliest: z.number().min(0).max(1200),
+        latest: z.number().min(0).max(1200),
+        drift: z.number().min(5).max(300),
+        distance: z.number().min(0).max(2000),
+        speed: z.number().min(0).max(400),
+        hp: pos,
+        hpPerLayer: n,
+        radius: z.number().min(2).max(64),
+      })
+      .strict()
+      .refine((s) => s.latest >= s.earliest, 'satellites_window')
+      .refine((s) => s.chances.every((c, k) => k === 0 || c <= s.chances[k - 1]!), 'satellites_chances')
+      .default(D.satellites),
+    // In-run events (2026-11-16): content published before them gets the code's.
+    events: (() => {
+      const loot = { coins: z.number().min(0).max(1000), dust: z.number().min(0).max(1000), components: z.number().min(0).max(100), perLayer: z.number().min(0).max(5) };
+      const w = z.number().min(0).max(100);
+      const weights = z
+        .object({
+          wreck: w,
+          capsule: w,
+          bounty: w,
+          meteors: w.default(D.events.weights.meteors),
+          storm: w.default(D.events.weights.storm),
+          ambush: w.default(D.events.weights.ambush),
+          well: w.default(D.events.weights.well),
+        })
+        .strict();
+      const sectorWeights = z.object({ wreck: w, capsule: w, bounty: w, meteors: w, storm: w, ambush: w, well: w }).partial().strict();
+      const sec = (max: number) => z.number().min(0).max(max);
+      return z
+        .object({
+          slots: z.array(z.object({ from: z.number().min(0).max(1200), to: z.number().min(0).max(1200), chance: unit }).strict().refine((s) => s.to >= s.from, 'events_slot')).max(6),
+          gap: z.number().min(0).max(600),
+          endBy: z.number().min(0).max(600),
+          weights,
+          sectors: z.record(z.string().regex(/^[a-z0-9-]{1,32}$/), sectorWeights),
+          wreck: z.object({ ...loot, distance: z.number().min(0).max(2000), radius: z.number().min(8).max(200), hold: z.number().min(0.5).max(60), life: z.number().min(5).max(300) }).strict(),
+          capsule: z.object({ ...loot, distance: z.number().min(0).max(2000), radius: z.number().min(4).max(100), warn: z.number().min(0).max(30), life: z.number().min(5).max(300) }).strict(),
+          bounty: z.object({ ...loot, distance: z.number().min(0).max(2000), seconds: z.number().min(5).max(300), hp: z.number().min(0.1).max(100), speed: z.number().min(0).max(400) }).strict(),
+          meteors: z
+            .object({ seconds: sec(120), every: z.number().min(0.1).max(10), warn: sec(5), radius: z.number().min(4).max(120), damage: sec(1), spread: sec(600) })
+            .strict()
+            .default(D.events.meteors),
+          storm: z.object({ distance: sec(2000), seconds: sec(120), radius: z.number().min(8).max(400), speed: sec(400), damage: sec(1) }).strict().default(D.events.storm),
+          ambush: z.object({ distance: z.number().min(40).max(600), warn: sec(10), count: z.number().int().min(0).max(60), perLayer: z.number().min(0).max(20) }).strict().default(D.events.ambush),
+          well: z
+            .object({ distance: sec(2000), seconds: sec(120), radius: z.number().min(8).max(600), pull: sec(400), core: sec(200), damage: sec(1) })
+            .strict()
+            .default(D.events.well),
+        })
+        .strict()
+        .default(D.events);
+    })(),
+    // The player's dash (owner's plan 2026-11-13): content published before it gets the default.
+    dash: z
+      .object({
+        charges: z.number().int().min(1).max(5),
+        recharge: z.number().min(0.5).max(60),
+        pause: z.number().min(0).max(5),
+        distance: z.number().min(10).max(400),
+        seconds: z.number().min(0.05).max(1),
+        invuln: z.number().min(0).max(2),
+        cometCharges: z.number().int().min(0).max(5),
+        cometMax: z.number().int().min(0).max(5),
+      })
+      .strict()
+      // At most 24 units a tick: a comet's dash checks 12 units round each step, so it never jumps over an enemy.
+      .refine((d) => d.distance / Math.max(1, Math.round(d.seconds * 60)) <= 24, 'dash_too_fast')
+      .default(D.dash),
   })
   .strict();
 
@@ -426,25 +600,21 @@ function ref(ctx: Ctx, known: ReadonlySet<string>, value: string, path: (string 
 
 type Shape = z.output<typeof shape>;
 
-/** Evolutions: from an existing base weapon of the same kind, one per weapon, one level, a known passive. */
+/** Evolutions: from a base weapon of the same kind, one per weapon, one level (that the base and the passive exist, refs). */
 function evolutions(c: Shape, ctx: Ctx): void {
-  const passives = new Set(c.passives.map((p) => p.id));
   const byId = new Map(c.weapons.map((w) => [w.id, w]));
   const taken = new Set<string>();
   c.weapons.forEach((w, i) => {
     if (!w.evolution) return;
     const bad = () => ctx.addIssue({ code: 'custom', message: `content_evolution:weapons.${i}`, path: ['weapons', i, 'evolution'] });
     const base = byId.get(w.evolution.from);
-    if (!base) ref(ctx, new Set(), w.evolution.from, ['weapons', i, 'evolution', 'from']);
-    else if (base.evolution || base.kind !== w.kind || taken.has(base.id)) bad();
+    if (base && (base.evolution || base.kind !== w.kind || taken.has(base.id))) bad();
     if (w.levels.length !== 1) bad();
     taken.add(w.evolution.from);
-    const req = w.evolution.requires;
-    if ('passive' in req) ref(ctx, passives, req.passive, ['weapons', i, 'evolution', 'requires', 'passive']);
   });
 }
 
-/** Variants: of a base weapon of the same kind (not an evolution, not a variant), at most one per base and level. */
+/** Variants: of a base weapon of the same kind (not an evolution, not a variant), at most one per base and level (refs: it exists). */
 function variants(c: Shape, ctx: Ctx): void {
   const byId = new Map(c.weapons.map((w) => [w.id, w]));
   const taken = new Set<string>();
@@ -452,8 +622,7 @@ function variants(c: Shape, ctx: Ctx): void {
     if (!w.variant) return;
     const bad = () => ctx.addIssue({ code: 'custom', message: `content_variant:weapons.${i}`, path: ['weapons', i, 'variant'] });
     const base = byId.get(w.variant.of);
-    if (!base) ref(ctx, new Set(), w.variant.of, ['weapons', i, 'variant', 'of']);
-    else if (base.evolution || base.variant || base.kind !== w.kind) bad();
+    if (base && (base.evolution || base.variant || base.kind !== w.kind)) bad();
     if (w.evolution) bad();
     const slot = `${w.variant.of}@${w.variant.unlockAt}`;
     if (taken.has(slot)) bad();
@@ -496,20 +665,15 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   ] as const) {
     unique(ctx, catalog, list.map((x) => x.id));
   }
-  const weapons = new Set(c.weapons.map((w) => w.id));
-  const enemies = new Set(c.enemies.map((e) => e.id));
-  const bosses = new Set(c.bosses.map((b) => b.id));
-  c.probes.forEach((p, i) => ref(ctx, weapons, p.weapon, ['probes', i, 'weapon']));
-  c.enemies.forEach((e, i) => {
-    if (e.split) ref(ctx, enemies, e.split.into, ['enemies', i, 'split', 'into']);
-    if (e.behavior.kind === 'summoner') ref(ctx, enemies, e.behavior.minion, ['enemies', i, 'behavior', 'minion']);
-  });
+  // Every entry the content names exists (refs.ts, the one list of them).
+  const known: Record<RefKind, Set<string>> = {
+    weapons: new Set(c.weapons.map((w) => w.id)),
+    passives: new Set(c.passives.map((p) => p.id)),
+    enemies: new Set(c.enemies.map((e) => e.id)),
+    bosses: new Set(c.bosses.map((b) => b.id)),
+  };
+  for (const r of contentRefs(c)) ref(ctx, known[r.kind], r.id, r.path);
   c.bosses.forEach((b, i) => {
-    b.phases.forEach((ph, j) =>
-      ph.patterns.forEach((p, k) => {
-        if (p.kind === 'summon') ref(ctx, enemies, p.enemy, ['bosses', i, 'phases', j, 'patterns', k, 'enemy']);
-      }),
-    );
     const ordered = b.phases[0]?.below === 1 && b.phases.every((ph, j) => j === 0 || ph.below < b.phases[j - 1]!.below);
     if (!ordered) ctx.addIssue({ code: 'custom', message: `content_phases:bosses.${i}`, path: ['bosses', i, 'phases'] });
   });
@@ -518,10 +682,13 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   reactions(c, ctx);
   sets(c, ctx);
   c.sectors.forEach((s, i) => {
-    ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
-    if (s.deepBoss) ref(ctx, bosses, s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
-    s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
-    s.waves.forEach((w, j) => ref(ctx, enemies, w.enemy, ['sectors', i, 'waves', j, 'enemy']));
+    // Nov plan B4: each cycle starts with its Core (the one the hangar shows as form 1); its forms exist (refs).
+    const cycles: [string, string[] | undefined, (string | number)[]][] = [[s.boss, s.bossCycle, ['sectors', i, 'bossCycle']]];
+    if (s.deepBoss) cycles.push([s.deepBoss.boss, s.deepBoss.cycle, ['sectors', i, 'deepBoss', 'cycle']]);
+    for (const [first, cycle, path] of cycles) {
+      if (!cycle) continue;
+      if (cycle[0] !== first) ctx.addIssue({ code: 'custom', message: `content_cycle:${path.join('.')}`, path });
+    }
   });
 });
 

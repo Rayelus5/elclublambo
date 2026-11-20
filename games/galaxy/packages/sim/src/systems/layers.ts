@@ -53,7 +53,7 @@ export function updateLayer(sim: Sim): void {
 
 export function nextLayer(sim: Sim): void {
   sim.layer++;
-  sim.loot.push({ coins: 0, dust: 0, components: 0 });
+  sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
   sim.clocks['layerStart'] = sim.tick;
   sim.phase = 'waves';
   sim.phaseTick = 0;

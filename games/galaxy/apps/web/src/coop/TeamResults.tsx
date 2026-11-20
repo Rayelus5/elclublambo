@@ -1,8 +1,9 @@
 import type { CoopRunStart } from '@galaxy/shared';
 import type { ProbeLife, Sim } from '@galaxy/sim';
-import type { CSSProperties } from 'react';
-import { spriteDataUrl } from '../arena/sprites';
-import { TEAM_TINT } from '../arena/stage/stage';
+import type { CSSProperties, ReactNode } from 'react';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
+import { teamTint } from '../arena/stage/palette';
+import { usePrefs } from '../settings/prefs';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -32,7 +33,8 @@ export function teamRows(sim: Sim, start: Pick<CoopRunStart, 'players' | 'conten
       slot,
       name: p.username,
       probe: def?.name ?? p.probe,
-      sprite: def?.sprite ?? 'probe-lumen',
+      // Its skin when it wore one (plan «skins»), or its own drawing.
+      sprite: probeDrawing(p.skin, def?.sprite ?? 'probe-lumen'),
       level: probe?.level ?? 1,
       kills: probe?.kills ?? 0,
       revives: probe?.revives ?? 0,
@@ -66,8 +68,12 @@ function Figure({ value, award }: { value: number; award: 'kills' | 'revives' | 
   );
 }
 
-/** `onReport`: a «Denunciar» on each teammate (phase 7); none on the viewer's own row or without it. */
-export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void }) {
+/**
+ * `onReport`: a «Denunciar» on each teammate (phase 7); `befriend`: «Añadir amigo» next to them (Nov plan A3). Neither
+ * on the viewer's own row, nor when not given (the staff viewer).
+ */
+export function TeamResults({ rows, me, onReport, befriend }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void; befriend?: (username: string) => ReactNode }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const kills = best(rows, 'kills');
   const revives = best(rows, 'revives');
   return (
@@ -86,7 +92,7 @@ export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: numbe
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.slot} className={r.slot === me ? 'is-me' : undefined} style={{ '--tint': hex(TEAM_TINT[r.slot % TEAM_TINT.length]!) } as CSSProperties}>
+            <tr key={r.slot} className={r.slot === me ? 'is-me' : undefined} style={{ '--tint': hex(teamTint(r.slot, cvd)) } as CSSProperties}>
               <th scope="row">
                 <span className="team-who">
                   <img src={spriteDataUrl(r.sprite, 2)} alt="" />
@@ -95,6 +101,7 @@ export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: numbe
                     <small>{r.probe}</small>
                   </span>
                 </span>
+                {befriend && r.slot !== me ? befriend(r.name) : null}
                 {onReport && r.slot !== me ? (
                   <button type="button" className="team-report" aria-label={copy.coop.report.openOf(r.name)} onClick={() => onReport(r.name)}>
                     {copy.coop.report.open}

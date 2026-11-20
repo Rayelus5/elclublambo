@@ -1,0 +1,22 @@
+{
+  "minLevel": 25,
+  "maxRank": 5,
+  "labLevels": [
+    10,
+    15,
+    20,
+    25,
+    30
+  ],
+  "bonus": {
+    "xp": 0.03,
+    "luck": 0.02
+  },
+  "titles": [
+    "Corrimiento I",
+    "Corrimiento II",
+    "Corrimiento III",
+    "Corrimiento IV",
+    "Corrimiento V"
+  ]
+}

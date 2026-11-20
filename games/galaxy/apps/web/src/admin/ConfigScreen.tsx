@@ -1,18 +1,21 @@
+import { HScroll } from '../ui/HScroll';
 import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import type { Content } from '@galaxy/sim';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { type ConfigKeyRow, useConfigKeys, useConfigVersions, usePublishConfig } from '../api/config';
+import { type ConfigKeyRow, useConfigKey, useConfigKeys, useConfigVersions, useFetchConfigVersion, usePublishConfig } from '../api/config';
+import { useLiveContent } from '../api/content';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 import { EconomySimulator } from './EconomySimulator';
 import { PublishFields } from './PublishFields';
 import { ConfigForm, type Options } from './forms/ConfigForm';
 import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
-import { ADVANCED_KEYS, CATEGORIES, JSON_ONLY, KEY_INFO } from './forms/labels';
+import { ADVANCED_KEYS, CATEGORIES, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
 
 const t = copy.admin.config;
@@ -123,16 +126,10 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
       <h2>{t.sim.title}</h2>
       <p className="panel-note">{t.sim.hint}</p>
       <div className="admin-filters">
-        <label htmlFor={id}>
-          <span>{t.sim.banner}</span>
-          <select id={id} value={banner} onChange={(e) => setBanner(e.target.value)}>
-            {cfg.banners.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="admin-filter">
+          <label htmlFor={id}>{t.sim.banner}</label>
+          <Select id={id} size="sm" value={banner} options={cfg.banners.map((b) => ({ value: b.id, label: b.name }))} onChange={setBanner} />
+        </div>
         {[1000, 10_000, 100_000].map((n) => (
           <button key={n} type="button" className="lip pill small" onClick={() => setDrawn({ of, run: simulateGacha(cfg, banner, n, 20261108n) })}>
             {t.sim.run(n)}
@@ -141,7 +138,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
       </div>
       {run ? (
         <>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table" aria-label={t.sim.title}>
               <thead>
                 <tr>
@@ -162,7 +159,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           <p>
             {t.sim.every} {t.sim.pulls(oneDecimal.format(run.legendaryEvery))}
           </p>
@@ -176,30 +173,29 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
   );
 }
 
-/** What the live content offers for the fields that pick a sector, an anomaly or a probe. */
-function contentOptions(rows: ConfigKeyRow[] | undefined): Options {
-  const content = (rows?.find((k) => k.key === 'content')?.data ?? DEFAULT_CONTENT) as {
-    sectors?: { id: string; name: string }[];
-    anomalies?: { id: string; name: string }[];
-    probes?: { id: string; name: string }[];
-  };
-  const list = (xs: { id: string; name: string }[] | undefined) => (xs ?? []).map((x) => ({ value: x.id, label: x.name }));
+/** What the published content offers for the fields that pick a sector, an anomaly or a probe. */
+function contentOptions(content: Content): Options {
+  const list = (xs: readonly { id: string; name: string }[]) => xs.map((x) => ({ value: x.id, label: x.name }));
   return { sectors: list(content.sectors), anomalies: list(content.anomalies), probes: list(content.probes) };
 }
 
-function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
+/**
+ * One key's editor: the form (or JSON) with live checks, «Qué cambia», publishing, and its history. Its own page uses
+ * it, and «Referidos» embeds it for the key `referrals` (plan «referidos», part R2).
+ */
+export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options?: Options }) {
   const id = useId();
-  const jsonOnly = JSON_ONLY.has(row.key);
   const advanced = ADVANCED_KEYS.has(row.key);
   const schema = configJsonSchema(row.key);
   // What the draft is made on: the version that was live when editing began (or was last published from here). If
   // someone else publishes meanwhile, the server refuses the draft (409) and this says so.
   const [base, setBase] = useState({ version: row.version, data: row.data });
-  const [mode, setMode] = useState<'form' | 'json'>(jsonOnly ? 'json' : 'form');
+  const [mode, setMode] = useState<'form' | 'json'>('form');
   const [draft, setDraft] = useState<unknown>(row.data);
   const [text, setText] = useState(() => JSON.stringify(row.data, null, 2));
   const [done, setDone] = useState<number | null>(null);
   const versions = useConfigVersions(row.key);
+  const fetchVersion = useFetchConfigVersion();
   const publish = usePublishConfig(row.key);
   let parsed: unknown = draft;
   let jsonOk = true;
@@ -242,7 +238,7 @@ function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
           <span>{t.advancedNote}</span>
         </p>
       ) : null}
-      {advanced && !jsonOnly ? (
+      {advanced ? (
         <div className="tabs cf-tabs" role="tablist" aria-label={t.modes}>
           <button type="button" role="tab" aria-selected={mode === 'form'} disabled={mode === 'json' && !jsonOk} onClick={() => switchTo('form')}>
             {t.formTab}
@@ -346,7 +342,12 @@ function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
               <b>{t.version(v.version)}</b>
               <span>{v.author ? t.by(v.author, cellText('at', v.createdAt)) : cellText('at', v.createdAt)}</span>
               <span className="panel-note">{v.note}</span>
-              <button type="button" className="lip pill small" aria-label={t.loadVersion(v.version)} onClick={() => load(mergeDraft(row.key, base.data, v.data))}>
+              <button
+                type="button"
+                className="lip pill small"
+                aria-label={t.loadVersion(v.version)}
+                onClick={() => void fetchVersion(row.key, v.version).then((full) => load(mergeDraft(row.key, base.data, full.data)))}
+              >
                 {t.loadVersion(v.version)}
               </button>
             </li>
@@ -358,10 +359,16 @@ function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
 }
 
 /** One key: its draft with live checks and the diff, publishing, its history and, for the gacha, the simulator. */
-export function ConfigKeyScreen() {
-  const { key = '' } = useParams();
+/** `keyName`: a key with its own page (the mail library) still has this one, for its history and the general editor. */
+export function ConfigKeyScreen({ keyName }: { keyName?: string } = {}) {
+  const params = useParams();
+  const key = keyName ?? params.key ?? '';
   const keys = useConfigKeys();
-  const row = isConfigKey(key) ? keys.data?.find((k) => k.key === (key as ConfigKey)) : undefined;
+  const listed = isConfigKey(key) ? keys.data?.find((k) => k.key === (key as ConfigKey)) : undefined;
+  // A big key (the run content) comes without its data in the list: its page asks for it.
+  const full = useConfigKey(key, !!listed?.lazy);
+  const row: ConfigKeyRow | undefined = listed?.lazy ? full.data : listed;
+  const live = useLiveContent();
   return (
     <section className="admin-page">
       <Link to="/admin/configuracion" className="lip pill small">
@@ -375,7 +382,8 @@ export function ConfigKeyScreen() {
         </p>
       ) : null}
       {keys.error ? <p className="field-error">{errorText(keys.error, copy.errors)}</p> : null}
-      {row ? <Editor key={row.key} row={row} options={contentOptions(keys.data)} /> : null}
+      {full.error ? <p className="field-error">{errorText(full.error, copy.errors)}</p> : null}
+      {row ? <ConfigEditor key={row.key} row={row} options={contentOptions(live)} /> : null}
     </section>
   );
 }

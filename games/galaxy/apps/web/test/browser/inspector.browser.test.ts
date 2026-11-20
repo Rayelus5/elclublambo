@@ -57,9 +57,11 @@ test('three.js solo se descarga al abrir el inspector', { timeout: 90_000 }, asy
   expect(sceneLoaded()).toBe(true);
 });
 
-test('el lienzo dibuja la carta con cada acabado', { timeout: 120_000 }, async () => {
-  await page.viewport(1280, 800);
-  for (const finish of FINISHES) {
+// One test per finish, each with its own time: on CI a software WebGL takes 20–30 s to build each card, so all of them
+// in one test ran out of time without anything being wrong.
+for (const finish of FINISHES) {
+  test(`el lienzo dibuja la carta con el acabado ${finish}`, { timeout: 90_000 }, async () => {
+    await page.viewport(1280, 800);
     open(galaxy(finish));
     await until(() => state() === 'ready');
     await new Promise((r) => setTimeout(r, 250));
@@ -87,8 +89,8 @@ test('el lienzo dibuja la carta con cada acabado', { timeout: 120_000 }, async (
       }
     }
     close();
-  }
-});
+  });
+}
 
 test('cerrar el inspector libera su contexto WebGL', { timeout: 90_000 }, async () => {
   open(galaxy('holo'));

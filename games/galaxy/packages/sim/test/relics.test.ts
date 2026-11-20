@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_CONTENT, hurtProbe, IDLE, refreshStats, type RelicInput, relicSkill, shieldCapacity, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { contentSchema, DEFAULT_CONTENT, hurtProbe, IDLE, refreshStats, type RelicInput, relicSkill, shieldCapacity, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // Galaxies as relics (GDD §8.2–8.4 bis): the galaxy type picks the family, the other traits shape it (arms → count,
@@ -52,10 +52,18 @@ describe('rasgos → habilidad', () => {
 
   test('rareza, tamaño y núcleo multiplican la magnitud; la densidad, la frecuencia', () => {
     expect(skill(relic({ galaxy_type: 'ring' })).magnitude).toBe(1);
-    expect(skill(relic({ galaxy_type: 'ring' }, 4)).magnitude).toBe(2);
-    expect(skill(relic({ galaxy_type: 'ring', size: 'large', core: 'quasar' }, 4)).magnitude).toBeCloseTo(2 * 1.15 * 1.15, 12);
+    // A legendary multiplies by 1.75 (it was 2 until the owner's nerf: «las legendarias están muy rotas»).
+    expect(skill(relic({ galaxy_type: 'ring' }, 4)).magnitude).toBe(1.75);
+    expect(skill(relic({ galaxy_type: 'ring', size: 'large', core: 'quasar' }, 4)).magnitude).toBeCloseTo(1.75 * 1.15 * 1.15, 12);
     expect(skill(relic({ galaxy_type: 'ring', size: 'compact', core: 'faint' })).magnitude).toBeCloseTo(0.85 * 0.85, 12);
     expect(skill(relic({ galaxy_type: 'ring', star_density: 'saturated' })).frequency).toBe(1.3);
+  });
+
+  test('una mítica (sexta rareza) multiplica por 1,9; con un contenido que se quedó en la legendaria, como ella', () => {
+    expect(skill(relic({ galaxy_type: 'ring' }, 5)).magnitude).toBe(1.9);
+    const old = contentSchema.parse({ ...C, relics: { ...C.relics, tier: [1, 1.15, 1.35, 1.6, 1.75] } });
+    expect(relicSkill(relic({ galaxy_type: 'ring' }, 5), [relic({ galaxy_type: 'ring' }, 5)], old).magnitude).toBe(1.75);
+    expect(() => contentSchema.parse({ ...C, relics: { ...C.relics, tier: [1, 1.15, 1.35, 1.6] } })).toThrow();
   });
 
   test('el nivel suma con rendimiento decreciente', () => {
@@ -196,15 +204,19 @@ describe('familias en partida', () => {
 describe('fenómenos en partida', () => {
   const quiet = (phenomenon: string) => relic({ galaxy_type: 'elliptical', phenomenon });
 
-  test('supernova: una nova de 40 en 120 cada 8 s', () => {
+  // The owner's nerf («la supernova está muy rota»): 26 of damage in 90 every 10 s (it was 40 in 120 every 8 s).
+  test('supernova: una nova de 26 en 90 cada 10 s', () => {
     const sim = equipped(quiet('supernova'));
-    const e = target(sim, 100, 0);
+    const e = target(sim, 80, 0);
+    const far = target(sim, -100, 0);
     step(sim, [IDLE]);
-    expect(lost(sim, e)).toBe(40);
-    run(sim, 8 * 60 - 1);
-    expect(lost(sim, e)).toBe(40);
+    expect(lost(sim, e)).toBe(26);
+    // Out of its reach now (it reached 120).
+    expect(lost(sim, far)).toBe(0);
+    run(sim, 10 * 60 - 1);
+    expect(lost(sim, e)).toBe(26);
     run(sim, 1);
-    expect(lost(sim, e)).toBe(80);
+    expect(lost(sim, e)).toBe(52);
   });
 
   test('galaxia satélite: un dron que dispara', () => {
@@ -221,16 +233,16 @@ describe('fenómenos en partida', () => {
     expect(shotsOf(sim, SHOT.orb)).toHaveLength(4);
   });
 
-  test('cometa: una embestida de 90 u si te mueves, invulnerable y dañando lo que toca', () => {
+  // SIM 1.12.0: the dash is the player's (dash.test.ts); a comet relic adds a charge and makes it hit what it crosses.
+  test('cometa: ya no embiste solo al moverte; tu dash daña lo que atraviesa', () => {
     const sim = equipped(quiet('comet'));
     const e = target(sim, 50, 0);
     const p = sim.probes[0]!;
-    run(sim, 30);
-    expect(p.x).toBe(0);
     run(sim, 13, move(127, 0));
-    expect(p.x).toBeGreaterThan(90);
+    expect(lost(sim, e)).toBe(0);
+    run(sim, 20, { ...move(127, 0), dash: -1 });
     expect(lost(sim, e)).toBe(30);
-    expect(p.hp).toBe(100);
+    expect(p.dash.charges).toBe(1);
   });
 
   test('chorros relativistas: dos lanzas opuestas', () => {
@@ -257,6 +269,43 @@ describe('fenómenos en partida', () => {
     const x = sim.enemies.x[e]!;
     run(sim, 60);
     expect(sim.enemies.x[e]).toBe(x);
+  });
+
+  // The anomaly once looked like a bug (the owner: «parece más un bug del juego que algo intencionado»): each outcome now
+  // says what it did, where, so the arena can draw it as a glitch and play its sound.
+  test('anomalía: cada resultado avisa de qué hizo y dónde (salto, congelación, descarga)', () => {
+    const anomalies = (sim: Sim) => sim.events.filter((e) => e.t === 'anomaly');
+
+    const blink = equipped(quiet('anomaly'));
+    blink.rng.relic.int = () => 0;
+    target(blink, 40, 0);
+    step(blink, [IDLE]);
+    const p = blink.probes[0]!;
+    expect(anomalies(blink)).toEqual([{ t: 'anomaly', probe: 0, what: 'blink', fx: 0, fy: 0, tx: p.x, ty: p.y, radius: 0, targets: [] }]);
+    // Away from the nearest, by the content's distance.
+    expect(p.x).toBeCloseTo(-C.relics.phenomena.anomaly.blink, 6);
+
+    const freeze = equipped(quiet('anomaly'));
+    freeze.rng.relic.int = () => 1;
+    step(freeze, [IDLE]);
+    expect(anomalies(freeze)).toEqual([
+      { t: 'anomaly', probe: 0, what: 'freeze', fx: 0, fy: 0, tx: 0, ty: 0, radius: C.relics.phenomena.anomaly.freezeRadius, targets: [] },
+    ]);
+
+    const strike = equipped(quiet('anomaly'));
+    let k = 0;
+    strike.rng.relic.int = (n: number) => (k++ === 0 ? 2 : n - 1);
+    const a = target(strike, 60, 0);
+    const b = target(strike, 0, 70);
+    step(strike, [IDLE]);
+    const [ev] = anomalies(strike);
+    expect(ev).toMatchObject({ what: 'strike', fx: 0, fy: 0 });
+    // The struck, as x, y pairs: both dummies, each hit once.
+    const pairs = ev!.t === 'anomaly' ? ev!.targets : [];
+    expect(pairs).toHaveLength(4);
+    expect([pairs[0], pairs[2]].sort()).toEqual([0, 60]);
+    expect(lost(strike, a)).toBeGreaterThan(0);
+    expect(lost(strike, b)).toBeGreaterThan(0);
   });
 
   test('antimateria: las balas enemigas cercanas pueden volverse', () => {

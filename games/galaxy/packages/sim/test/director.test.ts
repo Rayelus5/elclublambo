@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { curseOf, dealDamage, DEFAULT_CONTENT, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
+import { contentSchema, curseOf, dealDamage, DEFAULT_CONTENT, holdLife, levelFactor, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
 import { quietSim, run } from './fixtures';
 
 // The spawn director (GDD §5.5–5.6): species join the sector over the first layer, density grows with time, waves
@@ -12,7 +12,7 @@ function spawning(over: Partial<typeof sector.density> = {}) {
   return quietSim((c) => {
     const s = c.sectors[0]!;
     s.spawns = structuredClone(sector.spawns);
-    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, ...over };
+    s.density = { base: 2, perMinute: 0, max: 2, cap: 60, bossFactor: 0.5, perLayer: 0, ...over };
   });
 }
 
@@ -44,7 +44,7 @@ describe('qué sale y cuándo', () => {
     const sim = spawning({ cap: 400 });
     sim.probes[0]!.hp = 1e9;
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
     sim.clocks['layerStart'] = 0;
     run(sim, 40 * 60);
     expect(Object.keys(census(sim)).sort()).toEqual(['cell', 'mite', 'ray', 'shell', 'spitter']);
@@ -56,6 +56,44 @@ describe('qué sale y cuándo', () => {
     run(sim, 30 * 60);
     expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
     expect(sim.enemies.count).toBeGreaterThanOrEqual(20);
+  });
+
+  // Enemy life plan (2026-11-15): more enemies at once in the deep layers, where only strong players get.
+  test('con `perLayer`, en las capas profundas caben más enemigos vivos', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(42);
+    expect(sim.enemies.count).toBeLessThanOrEqual(50 + 8);
+  });
+
+  // The fight with the Núcleo keeps the usual crowd: a deep-layer horde shielding it made the fight unwinnable.
+  test('con `perLayer`, mientras hay Núcleo el tope es el de siempre', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25, perLayer: 0.5, bossFactor: 1 });
+    sim.layer = 3;
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
+  });
+
+  // A Núcleo walled in by tough fauna could not be reached: fights of 20 minutes nobody won (enemy life plan, 2026-11-15).
+  test('mientras hay Núcleo caben menos enemigos vivos: el tope baja con `bossFactor`, como la aparición', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 24, bossFactor: 0.5 });
+    sim.phase = 'boss';
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(12 + 8);
+    expect(sim.enemies.count).toBeGreaterThanOrEqual(8);
+  });
+
+  test('sin `perLayer` (contenido publicado antes) la capa no cambia el tope', () => {
+    const sim = spawning({ base: 6, max: 6, cap: 25 });
+    sim.layer = 3;
+    sim.probes[0]!.hp = 1e9;
+    run(sim, 30 * 60);
+    expect(sim.enemies.count).toBeLessThanOrEqual(25 + 8);
   });
 
   test('la densidad crece con los minutos hasta su máximo', () => {
@@ -114,6 +152,66 @@ describe('escalado', () => {
     expect(s.speed).toBeCloseTo(1.05, 12);
   });
 
+  // Enemy life plan (2026-11-15): life also follows the players' level, compounding, so a strong build that levels fast
+  // keeps meeting enemies that last.
+  test('la vida sube de forma compuesta con el nivel de la sonda', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 * 1.1, 12);
+    sim.probes[0]!.level = 11;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 10, 9);
+  });
+
+  test('los niveles por debajo de `levelFrom` no cuentan: quien empieza no lo nota', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      c.sectors[0]!.scaling.levelFrom = 20;
+    });
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 20;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+    sim.probes[0]!.level = 23;
+    expect(scaleAt(sim).hp).toBeCloseTo(atLevel1 * 1.1 ** 3, 12);
+  });
+
+  test('en grupo manda el nivel más alto', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 2;
+    sim.probes[1]!.level = 5;
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 4, 12);
+  });
+
+  // Review: a player who left the group no longer sets the enemies' life for those who stay.
+  test('en grupo no cuenta quien se ha ido de la partida', () => {
+    const sim = quietSim(
+      (c) => {
+        c.sectors[0]!.scaling.hpPerLevel = 0.1;
+      },
+      { probes: [0, 1].map(() => ({ probe: 'lumen', relics: [] })) },
+    );
+    const base = scaleAt(sim).hp;
+    sim.probes[0]!.level = 3;
+    sim.probes[1]!.level = 9;
+    sim.probes[1]!.life = 'left';
+    expect(scaleAt(sim).hp).toBeCloseTo(base * 1.1 ** 2, 12);
+  });
+
+  test('sin vida por nivel, subir de nivel no cambia la vida (contenido publicado antes)', () => {
+    const sim = quietSim();
+    const atLevel1 = scaleAt(sim).hp;
+    sim.probes[0]!.level = 30;
+    expect(scaleAt(sim).hp).toBe(atLevel1);
+  });
+
   test('la probabilidad de élite sube con los minutos sin pasar de su tope', () => {
     const sim = quietSim((c) => {
       c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, eliteBase: 0, elitePerMinute: 0.006, eliteMax: 0.08 };
@@ -131,7 +229,7 @@ describe('Señal de la Estática (maldición)', () => {
     const sim = quietSim((c) => {
       const s = c.sectors[0]!;
       s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
-      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5 };
+      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5, perLayer: 0 };
       if (over.enemies) c.limits.enemies = over.enemies;
       c.probes[0]!.bonus = { curse };
     });
@@ -183,5 +281,157 @@ describe('Señal de la Estática (maldición)', () => {
       return coins;
     };
     expect(drops(0.5)).toBeGreaterThan(drops(0) + 30);
+  });
+});
+
+// A ceiling for the life per level (pending minor, 2026-11-16): compounding had none (×42 at level 55). `hpLevelMax`
+// stops it there; 1000, the default, changes nothing for content published before.
+describe('techo de la vida por nivel', () => {
+  test('con hpLevelMax 4 el factor no pasa de ×4, por alto que sea el nivel', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.12;
+      c.sectors[0]!.scaling.levelFrom = 1;
+      c.sectors[0]!.scaling.hpLevelMax = 4;
+    });
+    sim.probes[0]!.level = 13;
+    expect(levelFactor(sim)).toBeCloseTo(1.12 ** 12, 9);
+    sim.probes[0]!.level = 60;
+    expect(levelFactor(sim)).toBe(4);
+  });
+
+  test('por defecto (1000) sigue igual que antes', () => {
+    expect(DEFAULT_CONTENT.sectors.every((s) => s.scaling.hpLevelMax === 1000)).toBe(true);
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling.hpPerLevel = 0.12;
+      c.sectors[0]!.scaling.levelFrom = 22;
+    });
+    sim.probes[0]!.level = 55;
+    let f = 1;
+    for (let l = 55; l > 22; l--) f *= 1.12;
+    expect(levelFactor(sim)).toBe(f);
+  });
+});
+
+
+// The truce of life (the owner, 2026-11-18): enemies piled up because their life outgrew any build (minute × layer ×
+// the team's compounding level). From `hpHoldFrom` the growth freezes at the value it had then, until `hpHoldUntil`;
+// from there it doubles every `hpDoubleEvery` minutes, until extracting or dying is the only way out. The sector, the
+// group and the anomaly still multiply on top; the Núcleos keep their own life.
+describe('tregua de vida', () => {
+  const truce = (over: Partial<typeof sector.scaling> = {}) =>
+    quietSim((c) => {
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, hpPerLevel: 0.1, levelFrom: 1, hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0, ...over };
+    });
+  /** The life the sector's growth reaches now without the truce: (1 + 0.08·min) × (1 + 0.5·(layer − 1)) × 1.1^(level − 1). */
+  const raw = (sim: Sim) => {
+    let level = 1;
+    for (let l = sim.probes[0]!.level; l > 1; l--) level *= 1.1;
+    return (1 + 0.08 * (sim.tick / 3600)) * (1 + 0.5 * (sim.layer - 1)) * level;
+  };
+
+  test('antes del minuto de la tregua la vida crece como siempre', () => {
+    const sim = truce();
+    sim.tick = 5 * 3600;
+    sim.probes[0]!.level = 6;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(raw(sim), 12);
+    expect(sim.clocks['hpHeld'] ?? 0).toBe(0);
+  });
+
+  test('del minuto 8 al 30 se queda la del minuto 8, aunque suban el nivel y la capa', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 10;
+    sim.layer = 2;
+    const atEight = raw(sim);
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+    sim.tick = 20 * 3600;
+    sim.layer = 4;
+    sim.probes[0]!.level = 40;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+    sim.tick = 30 * 3600 - 1;
+    expect(scaleAt(sim).hp).toBeCloseTo(atEight, 12);
+  });
+
+  test('desde el minuto 30 se dobla cada 5 minutos, sin saltos entre medias', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600;
+    holdLife(sim);
+    const held = scaleAt(sim).hp;
+    sim.tick = 35 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 2, 12);
+    sim.tick = 40 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 4, 12);
+    sim.tick = 32.5 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(held * 1.5, 12);
+    let last = 0;
+    for (let t = 30 * 3600; t <= 50 * 3600; t += 600) {
+      sim.tick = t;
+      const hp = scaleAt(sim).hp;
+      expect(hp, String(t)).toBeGreaterThanOrEqual(last);
+      last = hp;
+    }
+  });
+
+  test('hpHoldMax pone un tope fijo a la vida congelada', () => {
+    const sim = truce({ hpHoldMax: 1.2 });
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 10;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBe(1.2);
+    sim.tick = 35 * 3600;
+    expect(scaleAt(sim).hp).toBeCloseTo(2.4, 12);
+  });
+
+  test('con hpHoldUntil antes o igual que hpHoldFrom no hay tregua: crece como siempre', () => {
+    const sim = truce({ hpHoldFrom: 8, hpHoldUntil: 8 });
+    sim.tick = 20 * 3600;
+    sim.layer = 3;
+    sim.probes[0]!.level = 12;
+    holdLife(sim);
+    expect(scaleAt(sim).hp).toBeCloseTo(raw(sim), 12);
+  });
+
+  test('el sector, el grupo y la anomalía siguen multiplicando encima', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0 };
+      c.sectors[0]!.enemyHp = 2;
+    });
+    sim.tick = 8 * 3600;
+    holdLife(sim);
+    const held = scaleAt(sim).hp;
+    sim.tick = 20 * 3600;
+    expect(scaleAt(sim).hp).toBe(held);
+    expect(held).toBeCloseTo(2 * (1 + 0.08 * 8), 12);
+  });
+
+  test('el director toma la vida al llegar al minuto, una sola vez', () => {
+    const sim = truce();
+    sim.tick = 8 * 3600 - 1;
+    holdLife(sim);
+    expect(sim.clocks['hpHeld'] ?? 0).toBe(0);
+    sim.tick = 8 * 3600;
+    sim.probes[0]!.level = 5;
+    holdLife(sim);
+    const held = sim.clocks['hpHeld']!;
+    sim.probes[0]!.level = 30;
+    sim.tick = 9 * 3600;
+    holdLife(sim);
+    expect(sim.clocks['hpHeld']).toBe(held);
+  });
+
+  test('por defecto: tregua del minuto 8 al 30 y doble cada 5, en todos los sectores', () => {
+    for (const s of DEFAULT_CONTENT.sectors) {
+      expect([s.scaling.hpHoldFrom, s.scaling.hpHoldUntil, s.scaling.hpDoubleEvery, s.scaling.hpHoldMax], s.id).toEqual([8, 30, 5, 0]);
+    }
+  });
+
+  test('un contenido publicado antes, sin los campos de la tregua, la toma por defecto', () => {
+    const old = structuredClone(DEFAULT_CONTENT) as unknown as { sectors: { scaling: Record<string, unknown> }[] };
+    for (const s of old.sectors) for (const k of ['hpHoldFrom', 'hpHoldUntil', 'hpDoubleEvery', 'hpHoldMax']) delete s.scaling[k];
+    const parsed = contentSchema.parse(old);
+    expect(parsed.sectors[0]!.scaling).toMatchObject({ hpHoldFrom: 8, hpHoldUntil: 30, hpDoubleEvery: 5, hpHoldMax: 0 });
   });
 });

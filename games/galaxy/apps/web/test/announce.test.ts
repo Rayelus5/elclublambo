@@ -23,3 +23,9 @@ test('cada reacción se anuncia solo la primera vez en la partida', () => {
 test('sin nada que anunciar, nada', () => {
   expect(announceFor([{ t: 'kill', x: 0, y: 0, enemy: 'mite', elite: false }], DEFAULT_CONTENT, new Set())).toBeNull();
 });
+
+test('en grupo solo se anuncia mi evolución, no la de un compañero (plan de noviembre A2)', () => {
+  const evolve = { t: 'evolve', probe: 1, from: 'pulse', to: 'pulse-storm' } as const;
+  expect(announceFor([evolve], DEFAULT_CONTENT, new Set(), 0)).toBeNull();
+  expect(announceFor([evolve], DEFAULT_CONTENT, new Set(), 1)).not.toBeNull();
+});

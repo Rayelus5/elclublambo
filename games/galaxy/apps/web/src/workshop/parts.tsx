@@ -1,6 +1,10 @@
-import type { ProbeCard } from '@galaxy/shared';
+import { DEFAULT_COSMETICS, type ProbeCard, SCRAP_SKIN_RUNS, skinParts } from '@galaxy/shared';
+import { Link } from 'react-router';
+import { useCosmeticsView } from '../api/cosmetics';
+import { SpriteLoop } from '../ui/SpriteLoop';
+import { useReducedMotion } from '../ui/motion';
 import { useGacha } from '../api/economy';
-import { useChooseVariant, useLevelUpProbe } from '../api/runs';
+import { useChooseSkin, useChooseVariant, useLevelUpProbe } from '../api/runs';
 import { spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -125,5 +129,103 @@ export function WeaponPicker({ probe }: { probe: ProbeCard }) {
         </p>
       ) : null}
     </fieldset>
+  );
+}
+
+/**
+ * The probe's skin (plan «skins», part C): its base drawing and every skin of it in the catalog, as radio cards. The
+ * ones the player has go on at once (and fly in the next run); the rest are locked and say how they are won.
+ */
+/**
+ * The probe's skins (plan «skins», part C; a grid since 2026-11-17, the owner's idea): mini cards under the bay's
+ * «Equipar», the base and the ones the player has first, then the locked ones. Every card can be reached (arrows, a
+ * pointer) to read under the grid what it is and how it is won; only the owned ones go on, at once. A locked skin of
+ * the shop leads to its tab. The one worn and the one pointed at move; the rest stay still.
+ */
+/** What the bay previews (2026-11-17): the skin pointed at, or the one pressed among the locked ones; else the worn one. */
+export interface SkinPreview {
+  hover?: string | null;
+  pin?: string | null;
+}
+
+/** The drawing the bay shows: the one previewed, or the one worn. */
+export function previewed(preview: SkinPreview, worn: string | null): string | null {
+  return preview.hover !== undefined ? preview.hover : preview.pin !== undefined ? preview.pin : worn;
+}
+
+export function SkinPicker({ probe, preview, onPreview }: { probe: ProbeCard; preview: SkinPreview; onPreview: (next: SkinPreview) => void }) {
+  const t = copy.workshop;
+  const choose = useChooseSkin();
+  const reduced = useReducedMotion();
+  const catalog = useCosmeticsView().data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
+  const all = catalog.filter((k) => skinParts(k.id)?.probe === probe.id);
+  const skins = [...all.filter((k) => probe.skins.includes(k.id)), ...all.filter((k) => !probe.skins.includes(k.id))];
+  // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
+  const chosen = choose.isPending ? choose.variables.skin : probe.skin;
+  // Putting one on ends the preview.
+  const pick = (skin: string | null) => {
+    onPreview({});
+    if (skin !== probe.skin) choose.mutate({ probe: probe.id, skin });
+  };
+  const hint = (id: string, fallback: string) => {
+    const line = skinParts(id)?.line ?? '';
+    if (probe.skins.includes(id)) return t.skinLines[line] ?? fallback;
+    return line === 'chatarra' ? t.scrapProgress(probe.runs, SCRAP_SKIN_RUNS, probe.name) : fallback;
+  };
+  const shown = previewed(preview, chosen);
+  const item = shown ? skins.find((k) => k.id === shown) : null;
+  const point = (id: string | null) => ({
+    onPointerEnter: () => onPreview({ ...preview, hover: id }),
+    onPointerLeave: () => onPreview({ pin: preview.pin }),
+    onFocus: () => onPreview({ ...preview, hover: id }),
+    onBlur: () => onPreview({ pin: preview.pin }),
+  });
+  return (
+    <div className="skin-grid">
+      <span className="skin-grid-title" id={`skins-${probe.id}`}>
+        {t.skins}
+      </span>
+      <div role="radiogroup" aria-labelledby={`skins-${probe.id}`} className="skin-grid-cards">
+        <label className={`skin-mini${chosen === null ? ' on' : ''}`} {...point(null)}>
+          <input className="sr-only" type="radio" name={`skin-${probe.id}`} value="" aria-label={t.skinBase} checked={chosen === null} onChange={() => pick(null)} />
+          <img src={spriteDataUrl(probe.sprite, 4)} alt="" width={96} height={96} />
+          {chosen === null ? <Icon name="check" className="ico skin-mini-badge" /> : null}
+        </label>
+        {skins.map((k) => {
+          const owned = probe.skins.includes(k.id);
+          const on = chosen === k.id;
+          return (
+            <label key={k.id} className={`skin-mini${owned ? '' : ' locked'}${on ? ' on' : ''}`} {...point(k.id)}>
+              <input
+                className="sr-only"
+                type="radio"
+                name={`skin-${probe.id}`}
+                value={k.id}
+                aria-label={k.name}
+                aria-disabled={owned ? undefined : true}
+                checked={on}
+                onChange={() => (owned ? pick(k.id) : onPreview({ hover: preview.hover, pin: k.id }))}
+              />
+              <SpriteLoop id={k.id} scale={4} reduced={reduced || !(on || shown === k.id)} width={96} height={96} />
+              {on ? <Icon name="check" className="ico skin-mini-badge" /> : !owned ? <Icon name="lock" className="ico skin-mini-badge lock" /> : null}
+            </label>
+          );
+        })}
+      </div>
+      <p className="skin-grid-caption" data-testid="skin-caption" aria-live="polite">
+        <b>{item ? item.name : t.skinBase}</b>
+        <span>{item ? hint(item.id, item.hint) : t.skinBaseHint}</span>
+        {item && !probe.skins.includes(item.id) && item.source === 'shop' ? (
+          <Link className="skin-grid-shop" to="/tienda?pestana=estilo">
+            {t.skinShop}
+          </Link>
+        ) : null}
+      </p>
+      {choose.error ? (
+        <p className="field-error" role="alert">
+          {errorText(choose.error, copy.errors)}
+        </p>
+      ) : null}
+    </div>
   );
 }

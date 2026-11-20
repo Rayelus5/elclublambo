@@ -1,0 +1,306 @@
+{
+  "nodes": [
+    {
+      "id": "hull",
+      "branch": "probe",
+      "name": "Blindaje reforzado",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.02,
+      "max": 5,
+      "requires": null,
+      "cost": {
+        "dust": 40,
+        "components": 15
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "thrusters",
+      "branch": "probe",
+      "name": "Propulsores",
+      "effect": {
+        "kind": "stat",
+        "stat": "speed"
+      },
+      "per": 0.01,
+      "max": 5,
+      "requires": "hull",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "targeting",
+      "branch": "probe",
+      "name": "Puntería",
+      "effect": {
+        "kind": "stat",
+        "stat": "damage"
+      },
+      "per": 0.02,
+      "max": 5,
+      "requires": "hull",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "reactor",
+      "branch": "probe",
+      "name": "Reactor",
+      "effect": {
+        "kind": "stat",
+        "stat": "cooldown"
+      },
+      "per": 0.01,
+      "max": 5,
+      "requires": "targeting",
+      "cost": {
+        "dust": 100,
+        "components": 40
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "resonance",
+      "branch": "relics",
+      "name": "Resonancia",
+      "effect": {
+        "kind": "stat",
+        "stat": "elemental"
+      },
+      "per": 0.03,
+      "max": 5,
+      "requires": null,
+      "cost": {
+        "dust": 40,
+        "components": 15
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "fortune",
+      "branch": "relics",
+      "name": "Fortuna",
+      "effect": {
+        "kind": "stat",
+        "stat": "luck"
+      },
+      "per": 0.03,
+      "max": 5,
+      "requires": "resonance",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "recycling",
+      "branch": "relics",
+      "name": "Reciclaje",
+      "effect": {
+        "kind": "disintegrate"
+      },
+      "per": 0.04,
+      "max": 5,
+      "requires": "resonance",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "stable-fusion",
+      "branch": "relics",
+      "name": "Fusión estable",
+      "effect": {
+        "kind": "fusion"
+      },
+      "per": 0.04,
+      "max": 5,
+      "requires": "recycling",
+      "cost": {
+        "dust": 100,
+        "components": 40
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "throughput",
+      "branch": "station",
+      "name": "Caudal",
+      "effect": {
+        "kind": "refinery",
+        "field": "rate"
+      },
+      "per": 0.05,
+      "max": 5,
+      "requires": null,
+      "cost": {
+        "dust": 40,
+        "components": 15
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "silos",
+      "branch": "station",
+      "name": "Silos",
+      "effect": {
+        "kind": "refinery",
+        "field": "queue"
+      },
+      "per": 0.1,
+      "max": 5,
+      "requires": "throughput",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "receiver",
+      "branch": "station",
+      "name": "Receptor",
+      "effect": {
+        "kind": "antenna"
+      },
+      "per": 0.05,
+      "max": 5,
+      "requires": "throughput",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "salvage",
+      "branch": "station",
+      "name": "Chatarrería",
+      "effect": {
+        "kind": "payout",
+        "currency": "material"
+      },
+      "per": 0.04,
+      "max": 5,
+      "requires": "silos",
+      "cost": {
+        "dust": 100,
+        "components": 40
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "magnet",
+      "branch": "extraction",
+      "name": "Imán",
+      "effect": {
+        "kind": "stat",
+        "stat": "pickup"
+      },
+      "per": 0.04,
+      "max": 5,
+      "requires": null,
+      "cost": {
+        "dust": 40,
+        "components": 15
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "ledger",
+      "branch": "extraction",
+      "name": "Contabilidad",
+      "effect": {
+        "kind": "payout",
+        "currency": "coins"
+      },
+      "per": 0.02,
+      "max": 5,
+      "requires": "magnet",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "sieve",
+      "branch": "extraction",
+      "name": "Tamiz",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.02,
+      "max": 5,
+      "requires": "magnet",
+      "cost": {
+        "dust": 60,
+        "components": 20
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "study",
+      "branch": "extraction",
+      "name": "Estudio",
+      "effect": {
+        "kind": "stat",
+        "stat": "xp"
+      },
+      "per": 0.02,
+      "max": 5,
+      "requires": "ledger",
+      "cost": {
+        "dust": 100,
+        "components": 40
+      },
+      "growth": 1.6,
+      "falloff": 1,
+      "at": null
+    }
+  ],
+  "season": []
+}

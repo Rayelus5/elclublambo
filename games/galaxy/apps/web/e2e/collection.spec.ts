@@ -58,7 +58,10 @@ test('fusionar cinco comunes da una poco común y la revela', async ({ page, bas
   await playerWithGalaxies(page, baseURL!, 4);
   await page.goto('/galaxy/coleccion?tier=common');
   await expect(page.getByRole('article').first()).toBeVisible();
-  const before = await page.getByRole('article').count();
+  // The real count from the server: the list shows a page of 30 at most (CollectionScreen PAGE), and 50 scans can
+  // bring more commons than that.
+  const commons = async () => ((await (await page.request.get('/galaxy/api/galaxies?tier=common&limit=1')).json()) as { counts: { common: number } }).counts.common;
+  const before = await commons();
   expect(before).toBeGreaterThanOrEqual(5);
   await page.getByRole('button', { name: 'Fusionar', exact: true }).click();
   const picks = page.getByRole('button', { name: /^Seleccionar / });
@@ -71,5 +74,6 @@ test('fusionar cinco comunes da una poco común y la revela', async ({ page, bas
   await expect(reveal.getByRole('article')).toContainText('Poco común', { timeout: 20_000 });
   await reveal.getByRole('button', { name: 'Seguir' }).click();
   await reveal.getByRole('button', { name: 'Cerrar' }).click();
-  await expect(page.getByRole('article')).toHaveCount(before - 5);
+  await expect.poll(commons).toBe(before - 5);
+  await expect(page.getByRole('article')).toHaveCount(Math.min(before - 5, 30));
 });

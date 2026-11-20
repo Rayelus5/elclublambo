@@ -1,12 +1,16 @@
 import type { LabNodeView, LabView } from '@galaxy/shared';
-import { Link } from 'react-router';
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { useLab, useUpgradeLabNode } from '../api/lab';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { labIconUrl } from './icons';
 import { BackLink } from '../ui/BackLink';
-import { Redshift } from './Redshift';
+import { Dialog } from '../ui/Dialog';
+import { useReducedMotion } from '../ui/motion';
+import { LabBoard } from './board/LabBoard';
+import { Redshift, useRedshiftShown } from './Redshift';
 
 // The Laboratorio (GDD §10.6, DESIGN_SYSTEM §8 octies): a lab blueprint with four branches, each a tree: a node's item
 // holds the list of the nodes it opens. Each node says
@@ -132,14 +136,29 @@ function NodeItem(props: { node: LabNodeView; kids: Map<string, LabNodeView[]>; 
 export function LabScreen() {
   const lab = useLab();
   const upgrade = useUpgradeLabNode();
+  const reduced = useReducedMotion();
+  const [params, setParams] = useSearchParams();
+  const [redshift, setRedshift] = useState(false);
+  const redshiftShown = useRedshiftShown();
+  // The whiteboard by default (shop and lab plan, F3); the list stays one press away (and in the address).
+  const list = params.get('vista') === 'lista';
   const v = lab.data;
   const names = new Map((v?.nodes ?? []).map((n) => [n.id, n.name]));
   return (
-    <div className="screen-root lab-root">
+    <div className={`screen-root lab-root${list ? '' : ' board'}`}>
       <div className="lab">
         <header className="collection-bar">
           <BackLink fallback="/estacion" />
           <h1>{t.title}</h1>
+          {v && v.open ? (
+            <div className="tabs lab-views" role="group" aria-label={t.board.viewsLabel}>
+              {(['board', 'list'] as const).map((k) => (
+                <button key={k} type="button" aria-pressed={(k === 'list') === list} onClick={() => setParams(k === 'list' ? { vista: 'lista' } : {}, { replace: true })}>
+                  {t.board.views[k]}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="lip panel hud">
             {v ? (
               <>
@@ -167,7 +186,16 @@ export function LabScreen() {
             </Link>
           </div>
         ) : null}
-        {v && v.open ? (
+        {v && v.open && !list ? (
+          <LabBoard
+            view={v}
+            reduced={reduced}
+            pending={upgrade.isPending}
+            onUpgrade={(n) => upgrade.mutate({ node: n.id, level: n.level + 1, ...(n.core === 'season' && v.season ? { season: v.season.id } : {}) })}
+            onRedshift={redshiftShown ? () => setRedshift(true) : null}
+          />
+        ) : null}
+        {v && v.open && list ? (
           <div className="lab-tree">
             {BRANCHES.map((branch) => (
               <section key={branch} className={`lab-branch b-${branch}`} aria-labelledby={`lab-${branch}`}>
@@ -202,7 +230,12 @@ export function LabScreen() {
             ))}
           </div>
         ) : null}
-        <Redshift />
+        {list || (v && !v.open) ? <Redshift /> : null}
+        {redshift ? (
+          <Dialog title={t.board.redshift} onClose={() => setRedshift(false)} className="lab-redshift-dialog">
+            <Redshift />
+          </Dialog>
+        ) : null}
       </div>
     </div>
   );

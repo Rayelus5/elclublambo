@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { copy } from '../../copy/es';
-import { ArenaSection, CursorSection, HelpSectionInRun, SoundSection } from '../../settings/SettingsSections';
+import { SettingsPanel, type SettingsTab } from '../../settings/SettingsPanel';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 
-// Pause (GDD §5.2): continue, the same settings as the home menu (open beta: sound, aiming, the cursor; help waits for
-// the menu), and abandoning the run — a retreat that pays half, so it asks first.
+// Pause (GDD §5.2): continue, the same settings as the home menu (the same tabs; help waits for the menu), and
+// abandoning the run — a retreat that pays half, so it asks first.
 
 export function PauseMenu({
   manualAim,
@@ -13,6 +13,7 @@ export function PauseMenu({
   onResume,
   onAbandon,
   onSkipTutorial,
+  onDebug,
   title = copy.arena.pause,
   abandonBody = copy.arena.abandonBody,
 }: {
@@ -22,12 +23,15 @@ export function PauseMenu({
   onAbandon: () => void;
   /** In the tutorial's run: leave the tutorial and keep playing (polish phase 3). */
   onSkipTutorial?: () => void;
+  /** The admin debug mode (2026-11-15), solo runs only: opens its side panel. */
+  onDebug?: () => void;
   /** Co-op (multiplayer plan): the world does not stop, so it is a menu, and abandoning says what it means there. */
   title?: string;
   abandonBody?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [settings, setSettingsOpen] = useState(false);
+  const [tab, setTab] = useState<SettingsTab>('sonido');
   if (confirming) {
     return (
       <Dialog title={copy.arena.abandon} role="alertdialog" onClose={() => setConfirming(false)} className="pause confirm">
@@ -46,17 +50,8 @@ export function PauseMenu({
   if (settings) {
     return (
       <Dialog title={copy.settings.title} onClose={onResume} className="pause pause-settings">
-        {/* Two columns, so everything fits without scrolling on a 1280×720 screen. */}
-        <div className="pause-settings-body">
-          <div className="pause-settings-col">
-            <SoundSection />
-            <ArenaSection aim={manualAim} onAim={onManualAim} />
-          </div>
-          <div className="pause-settings-col">
-            <CursorSection />
-            <HelpSectionInRun />
-          </div>
-        </div>
+        {/* The same tabs as the home menu, so everything fits without scrolling on a 1280×720 screen. */}
+        <SettingsPanel tab={tab} onTab={setTab} inRun aim={manualAim} onAim={onManualAim} />
         <div className="modal-actions">
           <button type="button" className="lip pill" onClick={() => setSettingsOpen(false)} data-autofocus>
             {copy.settings.back}
@@ -78,6 +73,11 @@ export function PauseMenu({
           <Icon name="gear" />
           <span>{copy.settings.title}</span>
         </button>
+        {onDebug ? (
+          <button type="button" className="lip pill" onClick={onDebug}>
+            {copy.arena.debug.open}
+          </button>
+        ) : null}
         {onSkipTutorial ? (
           <button type="button" className="lip pill" onClick={onSkipTutorial}>
             {copy.tour.skip}

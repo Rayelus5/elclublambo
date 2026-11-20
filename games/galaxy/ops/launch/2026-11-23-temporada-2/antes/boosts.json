@@ -1,0 +1,20 @@
+{
+  "list": [
+    {
+      "id": "lanzamiento-monedas",
+      "name": "Lanzamiento de la Beta Abierta",
+      "currency": "coins",
+      "factor": 1.5,
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-16T23:00:00.000Z"
+    },
+    {
+      "id": "lanzamiento-polvo",
+      "name": "Lanzamiento de la Beta Abierta",
+      "currency": "dust",
+      "factor": 1.5,
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-16T23:00:00.000Z"
+    }
+  ]
+}

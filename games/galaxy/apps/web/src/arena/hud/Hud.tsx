@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { spriteDataUrl } from '../sprites';
+import { useKeyLabels } from '../../settings/keybinds';
 
 // The run's HUD (DESIGN_SYSTEM §8 quinquies): experience across the top, life and level on the left, time and layer
 // in the middle, loot and pause on the right, the build along the bottom. Read a few times per second from the
@@ -34,21 +35,49 @@ function Kit({ items, content, kind }: { items: { id: string; level: number; evo
   );
 }
 
+/**
+ * The dash (SIM 1.12.0): its key, then a diamond per charge, lit when ready, and the next one filling as it comes back.
+ * While the short pause between two dashes runs, the ready ones dim.
+ */
+export function DashMeter({ dash }: { dash: HudSnapshot['dash'] }) {
+  const { charges, max, recharge, rechargeTotal, pause } = dash;
+  const filling = charges < max && rechargeTotal > 0 ? Math.max(0, Math.min(1, 1 - recharge / rechargeTotal)) : 0;
+  const waiting = pause > 0;
+  const keys = useKeyLabels();
+  const label = copy.arena.dash.label(keys.dashAll, charges, max, charges < max ? Math.max(1, Math.ceil(recharge)) : 0);
+  return (
+    <div className={`hud-dash${charges > 0 && !waiting ? ' ready' : ''}${waiting ? ' waiting' : ''}`} role="img" aria-label={label} title={label}>
+      <kbd aria-hidden="true">{keys.dash}</kbd>
+      <span className="hud-dash-charges" aria-hidden="true">
+        {Array.from({ length: max }, (_, k) => (
+          <i key={k} className={k < charges ? 'on' : k === charges ? 'next' : undefined} style={k === charges ? ({ '--k': filling } as CSSProperties) : undefined} />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 /** The run's HUD; without `onPause` (the panel's replayer, M6d-3) it has no pause button of its own. */
 export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; content: Content; onPause?: () => void; announce: string }) {
   const hp = Math.max(0, Math.round(hud.hp));
   const maxHp = Math.round(hud.maxHp);
   const low = hud.hp <= hud.maxHp * 0.3;
+  const still = hud.still;
   const phaseText = hud.phase === 'waves' ? copy.arena.coreIn(clockText(hud.phaseLeft)) : hud.phase === 'boss' ? copy.arena.core : copy.arena.beaconLeft(Math.ceil(hud.phaseLeft));
   return (
     <div className="arena-hud">
       <div className="hud-xp" role="progressbar" aria-label={copy.arena.xp} aria-valuemin={0} aria-valuemax={hud.xpNext} aria-valuenow={Math.floor(hud.xp)} style={pct(hud.xp, hud.xpNext)}>
         <i />
       </div>
+      {still.level > 0 ? (
+        <div className={`hud-static level-${still.level}`} role="status" aria-label={copy.arena.still.title}>
+          {still.level === 1 ? copy.arena.still.warn(Math.ceil(still.left)) : copy.arena.still.hurt}
+        </div>
+      ) : null}
       <div className="hud-top">
         <div className="hud-vitals lip panel">
           <span className="hud-level">{copy.arena.levelShort(hud.level)}</span>
-          <div className={`hud-hp${low ? ' low' : ''}`} role="progressbar" aria-label={copy.arena.hp} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp} style={pct(hp, maxHp)}>
+          <div className={`hud-hp${low ? ' low' : ''}${still.level === 2 ? ' blocked' : ''}`} role="progressbar" aria-label={copy.arena.hp} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp} style={pct(hp, maxHp)}>
             <i />
             {hud.shield > 0 && <s style={pct(hud.shield, hud.maxHp)} />}
             <b>
@@ -56,6 +85,7 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
               <small>/{maxHp}</small>
             </b>
           </div>
+          <DashMeter dash={hud.dash} />
         </div>
         <div className="hud-center lip panel">
           <span className="hud-time" aria-label={`${copy.arena.time} ${clockText(hud.tick / 60)}`}>
@@ -77,6 +107,12 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
             <Icon name="wrench" />
             <b aria-hidden="true">{Math.floor(hud.loot.components)}</b>
           </span>
+          {hud.loot.signals > 0 ? (
+            <span className="hud-res signals" role="img" aria-label={copy.arena.signalsLabel(hud.loot.signals)}>
+              <Icon name="ticket" />
+              <b aria-hidden="true">{hud.loot.signals}</b>
+            </span>
+          ) : null}
           <span className="hud-res kills" role="img" aria-label={`${hud.kills} ${copy.arena.kills.toLowerCase()}`}>
             <Icon name="target" />
             <b aria-hidden="true">{hud.kills}</b>

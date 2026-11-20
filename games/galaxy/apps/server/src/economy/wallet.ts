@@ -85,3 +85,31 @@ export async function debit(
   await record(trx, accountId, currency, -amount, balance, reason, ref, opKey);
   return balance;
 }
+
+/**
+ * Takes up to `amount` (> 0), never below 0 (a refund taking back what is left of a purchase; shop and lab plan, F4):
+ * returns what it took, recorded in the ledger like any debit. The balance row is locked while it decides.
+ */
+export async function debitUpTo(
+  trx: Kysely<DB>,
+  accountId: string,
+  currency: Currency | string,
+  amount: number,
+  reason: string,
+  ref: unknown = {},
+  opKey: string | null = null,
+): Promise<number> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new RangeError(`debit amount must be a positive integer: ${amount}`);
+  const row = await trx.selectFrom('galaxy.balances').select('amount').where('account_id', '=', accountId).where('currency', '=', currency).forUpdate().executeTakeFirst();
+  const taken = Math.min(Number(row?.amount ?? 0), amount);
+  if (taken <= 0) return 0;
+  const after = await trx
+    .updateTable('galaxy.balances')
+    .set({ amount: sql`amount - ${taken}` })
+    .where('account_id', '=', accountId)
+    .where('currency', '=', currency)
+    .returning('amount')
+    .executeTakeFirstOrThrow();
+  await record(trx, accountId, currency, -taken, Number(after.amount), reason, ref, opKey);
+  return taken;
+}

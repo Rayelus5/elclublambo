@@ -120,8 +120,6 @@ export async function adminDeals(db: Kysely<DB>, q: AdminDealsQuery): Promise<Ad
     .selectFrom('galaxy.trades as t')
     .innerJoin('galaxy.accounts as a', 'a.id', 't.a_id')
     .innerJoin('galaxy.accounts as b', 'b.id', 't.b_id')
-    .leftJoin('galaxy.galaxies as ga', 'ga.id', 't.a_galaxy')
-    .leftJoin('galaxy.galaxies as gb', 'gb.id', 't.b_galaxy')
     .leftJoin('galaxy.deal_reversals as r', 'r.trade_id', 't.id')
     .leftJoin('galaxy.accounts as rb', 'rb.id', 'r.by_id');
   if (user === null) return { kind: 'trades', rows: [], page: q.page, pages: 1 };
@@ -139,12 +137,8 @@ export async function adminDeals(db: Kysely<DB>, q: AdminDealsQuery): Promise<Ad
       't.expires_at',
       'a.username as a',
       'b.username as b',
-      'ga.id as ga_id',
-      'ga.name as ga_name',
-      'ga.tier as ga_tier',
-      'gb.id as gb_id',
-      'gb.name as gb_name',
-      'gb.tier as gb_tier',
+      't.a_coins',
+      't.b_coins',
       'r.created_at as r_at',
       'rb.username as r_by',
       'r.reason as r_reason',
@@ -155,13 +149,30 @@ export async function adminDeals(db: Kysely<DB>, q: AdminDealsQuery): Promise<Ad
     .limit(ADMIN_DEALS_PAGE_SIZE)
     .offset(offset(q.page))
     .execute();
-  const galaxy = (id: string | null, name: string | null, tier: number | null): DealGalaxy | null => (id ? { id, name: name ?? '', tier: tier ?? 0 } : null);
+  // What each side gives, for the page's trades at once (trades 2.0: several galaxies a side).
+  const items = rows.length
+    ? await db
+        .selectFrom('galaxy.trade_items as i')
+        .innerJoin('galaxy.galaxies as g', 'g.id', 'i.galaxy_id')
+        .select(['i.trade_id', 'i.side', 'g.id', 'g.name', 'g.tier'])
+        .where(
+          'i.trade_id',
+          'in',
+          rows.map((r) => r.id),
+        )
+        .orderBy('g.tier', 'desc')
+        .orderBy('g.name')
+        .execute()
+    : [];
+  const gives = (trade: string, side: 'a' | 'b'): DealGalaxy[] => items.filter((i) => i.trade_id === trade && i.side === side).map((i) => ({ id: i.id, name: i.name, tier: i.tier }));
   const out: AdminTradeRow[] = rows.map((r) => ({
     id: r.id,
     a: r.a,
     b: r.b,
-    aGalaxy: galaxy(r.ga_id, r.ga_name, r.ga_tier),
-    bGalaxy: galaxy(r.gb_id, r.gb_name, r.gb_tier),
+    aGalaxies: gives(r.id, 'a'),
+    bGalaxies: gives(r.id, 'b'),
+    aCoins: Number(r.a_coins),
+    bCoins: Number(r.b_coins),
     status: r.status === 'open' && new Date(r.expires_at) <= new Date() ? 'expired' : r.status,
     createdAt: iso(r.created_at),
     closedAt: r.closed_at ? iso(r.closed_at) : null,
@@ -198,20 +209,18 @@ export async function adminCancelTrade(deps: AdminMarketDeps, actor: AuditActor,
 
 type Move = { galaxy: string; fromId: string; toId: string; at: Date };
 
-/** What a deal moved: a sale moved one galaxy from the seller to the buyer; a done trade, two, crosswise. */
+/** What a deal moved: a sale moved one galaxy from the seller to the buyer; a done trade, each side's to the other. */
 async function movesOf(db: Kysely<DB>, kind: 'listing' | 'trade', id: string): Promise<Move[]> {
   if (kind === 'listing') {
     const l = await db.selectFrom('galaxy.market_listings').select(['status', 'galaxy_id', 'seller_id', 'buyer_id', 'sold_at']).where('id', '=', id).executeTakeFirst();
     if (!l || l.status !== 'sold' || !l.buyer_id || !l.sold_at) throw new HttpError(409, 'listing_gone');
     return [{ galaxy: l.galaxy_id, fromId: l.seller_id, toId: l.buyer_id, at: new Date(l.sold_at) }];
   }
-  const t = await db.selectFrom('galaxy.trades').select(['status', 'a_id', 'b_id', 'a_galaxy', 'b_galaxy', 'closed_at']).where('id', '=', id).executeTakeFirst();
-  if (!t || t.status !== 'done' || !t.a_galaxy || !t.b_galaxy || !t.closed_at) throw new HttpError(409, 'trade_gone');
+  const t = await db.selectFrom('galaxy.trades').select(['status', 'a_id', 'b_id', 'closed_at']).where('id', '=', id).executeTakeFirst();
+  if (!t || t.status !== 'done' || !t.closed_at) throw new HttpError(409, 'trade_gone');
   const at = new Date(t.closed_at);
-  return [
-    { galaxy: t.a_galaxy, fromId: t.a_id, toId: t.b_id, at },
-    { galaxy: t.b_galaxy, fromId: t.b_id, toId: t.a_id, at },
-  ];
+  const items = await db.selectFrom('galaxy.trade_items').select(['side', 'galaxy_id']).where('trade_id', '=', id).orderBy('galaxy_id').execute();
+  return items.map((i) => (i.side === 'a' ? { galaxy: i.galaxy_id, fromId: t.a_id, toId: t.b_id, at } : { galaxy: i.galaxy_id, fromId: t.b_id, toId: t.a_id, at }));
 }
 
 async function galaxyLineage(db: Kysely<DB>, m: Move, deal: string): Promise<GalaxyLineage> {
@@ -239,17 +248,18 @@ async function galaxyLineage(db: Kysely<DB>, m: Move, deal: string): Promise<Gal
     .selectFrom('galaxy.trades as t')
     .innerJoin('galaxy.accounts as a', 'a.id', 't.a_id')
     .innerJoin('galaxy.accounts as b', 'b.id', 't.b_id')
+    .innerJoin('galaxy.trade_items as i', 'i.trade_id', 't.id')
     .leftJoin('galaxy.deal_reversals as r', 'r.trade_id', 't.id')
-    .select(['t.id', 't.closed_at', 't.a_galaxy', 'a.username as a', 'b.username as b'])
+    .select(['t.id', 't.closed_at', 'i.side', 'a.username as a', 'b.username as b'])
     .where('t.status', '=', 'done')
     .where('t.closed_at', '>', m.at)
     .where('t.id', '!=', deal)
-    .where((eb) => eb.or([eb('t.a_galaxy', '=', m.galaxy), eb('t.b_galaxy', '=', m.galaxy)]))
+    .where('i.galaxy_id', '=', m.galaxy)
     .where('r.id', 'is', null)
     .execute();
   const laterMoves: LaterMove[] = [
     ...sales.map((s) => ({ kind: 'sale' as const, id: s.id, at: iso(s.sold_at!), from: s.from, to: s.to })),
-    ...trades.map((t) => ({ kind: 'trade' as const, id: t.id, at: iso(t.closed_at!), from: t.a_galaxy === m.galaxy ? t.a : t.b, to: t.a_galaxy === m.galaxy ? t.b : t.a })),
+    ...trades.map((t) => ({ kind: 'trade' as const, id: t.id, at: iso(t.closed_at!), from: t.side === 'a' ? t.a : t.b, to: t.side === 'a' ? t.b : t.a })),
   ].sort((x, y) => x.at.localeCompare(y.at));
   // Dust spent on its levels since the deal: reverting would hand it to the other side, so it blocks (the admin settles
   // it by hand).
@@ -288,7 +298,7 @@ async function reversalRow(db: Kysely<DB>, kind: 'listing' | 'trade', id: string
 export async function dealLineage(db: Kysely<DB>, kind: 'listing' | 'trade', id: string): Promise<DealLineage> {
   const galaxies = await Promise.all((await movesOf(db, kind, id)).map((m) => galaxyLineage(db, m, id)));
   const reversal = await reversalRow(db, kind, id);
-  const money = kind === 'listing' ? await saleMoney(db, id) : undefined;
+  const money = kind === 'listing' ? await saleMoney(db, id) : await tradeMoney(db, id);
   return { galaxies, returnable: reversal === null && galaxies.every((g) => g.returnable), reversal, ...(money ? { money } : {}) };
 }
 
@@ -298,6 +308,21 @@ async function saleMoney(db: Kysely<DB>, id: string): Promise<{ price: number; o
   const bal = await db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', l.seller_id).where('currency', '=', 'coins').executeTakeFirst();
   const price = Number(l.price);
   const owed = price - Number(l.commission ?? 0);
+  return { price, owed, recoverable: Math.min(owed, Number(bal?.amount ?? 0)) };
+}
+
+/**
+ * What reverting a trade with coins moves (trades 2.0): the coins back to who paid them, and what the other side
+ * received (less the commission) taken back as far as their coins reach. Nothing for a trade without coins.
+ */
+async function tradeMoney(db: Kysely<DB>, id: string): Promise<{ price: number; owed: number; recoverable: number } | undefined> {
+  const t = await db.selectFrom('galaxy.trades').select(['a_id', 'b_id', 'a_coins', 'b_coins', 'commission']).where('id', '=', id).executeTakeFirst();
+  if (!t) return undefined;
+  const price = Number(t.a_coins) || Number(t.b_coins);
+  if (price === 0) return undefined;
+  const receiver = Number(t.a_coins) > 0 ? t.b_id : t.a_id;
+  const bal = await db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', receiver).where('currency', '=', 'coins').executeTakeFirst();
+  const owed = price - Number(t.commission ?? 0);
   return { price, owed, recoverable: Math.min(owed, Number(bal?.amount ?? 0)) };
 }
 
@@ -352,21 +377,47 @@ export async function revertSale(deps: AdminMarketDeps, actor: AuditActor, s: Se
   });
 }
 
-/** Reverts a done trade: each galaxy back to who gave it, freed from any hold. Once per trade, with the password. */
+/**
+ * Reverts a done trade: each galaxy back to who gave it, freed from any hold; coins that changed hands back to who paid
+ * them, and what the other side received taken back as far as their coins reach (the shortfall recorded, as a sale's).
+ * Once per trade, with the password.
+ */
 export async function revertTrade(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string, password: string): Promise<{ reverted: true }> {
   const parties = await deps.db.selectFrom('galaxy.trades').select(['a_id', 'b_id']).where('id', '=', id).executeTakeFirst();
   await guardParties(deps.db, s, [parties?.a_id ?? null, parties?.b_id ?? null]);
   await confirmPassword(deps.db, s, password);
   return inTransaction(deps.db, async (trx) => {
-    const t = await trx.selectFrom('galaxy.trades').select(['status', 'a_id', 'b_id', 'a_galaxy', 'b_galaxy']).where('id', '=', id).forUpdate().executeTakeFirst();
-    if (!t || t.status !== 'done' || !t.a_galaxy || !t.b_galaxy) throw new HttpError(409, 'trade_gone');
+    const t = await trx.selectFrom('galaxy.trades').select(['status', 'a_id', 'b_id', 'a_coins', 'b_coins', 'commission']).where('id', '=', id).forUpdate().executeTakeFirst();
+    if (!t || t.status !== 'done') throw new HttpError(409, 'trade_gone');
     await revertable(trx, 'trade', id);
-    const held: Record<string, Hold[]> = { [t.a_galaxy]: await releaseHolds(trx, t.a_galaxy), [t.b_galaxy]: await releaseHolds(trx, t.b_galaxy) };
-    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id, locked: false }).where('id', '=', t.a_galaxy).execute();
-    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id, locked: false }).where('id', '=', t.b_galaxy).execute();
-    await trx.insertInto('galaxy.deal_reversals').values({ trade_id: id, by_id: actor.id, reason, details: JSON.stringify({ held }) }).execute();
+    const items = await trx.selectFrom('galaxy.trade_items').select(['side', 'galaxy_id']).where('trade_id', '=', id).orderBy('galaxy_id').execute();
+    const held: Record<string, Hold[]> = {};
+    for (const i of items) held[i.galaxy_id] = await releaseHolds(trx, i.galaxy_id);
+    const giverOf = (side: 'a' | 'b') => (side === 'a' ? t.a_id : t.b_id);
+    for (const side of ['a', 'b'] as const) {
+      const ids = items.filter((i) => i.side === side).map((i) => i.galaxy_id);
+      if (ids.length) await trx.updateTable('galaxy.galaxies').set({ owner_id: giverOf(side), locked: false }).where('id', 'in', ids).execute();
+    }
+    // The coins, when there were: back to who paid them, taken back from who got them as far as their coins reach.
+    const price = Number(t.a_coins) || Number(t.b_coins);
+    let money: { refunded: number; recovered: number; shortfall: number } | null = null;
+    if (price > 0) {
+      const [payer, receiver] = Number(t.a_coins) > 0 ? [t.a_id, t.b_id] : [t.b_id, t.a_id];
+      const ref = { trade: id };
+      await credit(trx, payer, 'coins', price, 'trade_revert', ref, `revert:${id}:payer`);
+      const owed = price - Number(t.commission ?? 0);
+      const bal = await trx.selectFrom('galaxy.balances').select('amount').where('account_id', '=', receiver).where('currency', '=', 'coins').forUpdate().executeTakeFirst();
+      const recovered = Math.min(owed, Number(bal?.amount ?? 0));
+      if (recovered > 0) await debit(trx, receiver, 'coins', recovered, 'trade_revert', ref, `revert:${id}:receiver`);
+      money = { refunded: price, recovered, shortfall: owed - recovered };
+    }
+    await trx
+      .insertInto('galaxy.deal_reversals')
+      .values({ trade_id: id, by_id: actor.id, reason, details: JSON.stringify({ held, ...(money ?? {}) }) })
+      .execute();
     const [a, b] = [await nameOf(trx, t.a_id), await nameOf(trx, t.b_id)];
-    await writeAudit(trx, { actor, action: 'trade.revert', targetType: 'trade', targetId: id, before: { held }, after: { [t.a_galaxy]: a, [t.b_galaxy]: b }, reason });
+    const back = Object.fromEntries(items.map((i) => [i.galaxy_id, i.side === 'a' ? a : b]));
+    await writeAudit(trx, { actor, action: 'trade.revert', targetType: 'trade', targetId: id, before: { held }, after: { ...back, ...(money ?? {}) }, reason });
     return { reverted: true };
   });
 }

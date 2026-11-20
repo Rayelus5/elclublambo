@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { type LiveEvent, type RoomsView, type RoomView } from '@galaxy/shared';
+import { type AdminLoadView, type LiveEvent, PROBE_TEST, type RoomsView, type RoomView } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
 import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // Rooms (multiplayer plan, phase 5): who may play in a group, public/private/friends rooms, Entrar rápido, the leader's
-// powers, blocks, invites with privacy, who may launch, and the admin's live rooms.
+// powers, blocks, invites with privacy, who may launch, and the admin's live rooms. The limits (2026-11-17): rooms open
+// at a time, nobody launches alone, and the ping the lobby measures.
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
-  ctx = await testApp();
+  // Many rooms here stay open (the default limit is 10); the limit itself has its own app below.
+  ctx = await testApp({ configOverrides: { coop: { maxRooms: 500 } } });
 });
 afterAll(() => ctx.close());
 
@@ -156,10 +158,95 @@ describe('salas', () => {
   test('despegar pide que todos estén listos y lo hace el líder (las partidas, en coop-runs.test)', async () => {
     const [a, b] = [await player(), await player()];
     const room = await create(a, 'private');
+    // Alone in the room (2026-11-17, the owner): a group run needs company.
+    expect(room.canStart).toBe(false);
+    const alone = await act(a, '/start');
+    expect(alone.statusCode).toBe(409);
+    expect(alone.json()).toMatchObject({ error: 'room_alone' });
     await act(b, '/join', { code: room.code });
     expect((await act(a, '/start')).json()).toMatchObject({ error: 'room_not_ready' });
     await act(b, '/ready', { ready: true });
     expect((await act(b, '/start')).json()).toMatchObject({ error: 'room_not_leader' });
+  });
+
+  test('quien cambia de sonda en el hangar la cambia en la sala, y los demás lo ven al momento', async () => {
+    const [a, b] = [await player(), await player()];
+    // b's test gives Bastión and Chispa is granted: b may fly either.
+    await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('bastion')) }, { cookie: b.cookie });
+    await ctx.db.insertInto('galaxy.probe_grants').values({ account_id: b.id, probe: 'spark', created_at: new Date() }).execute();
+    const room = await create(a, 'private');
+    await act(b, '/join', { code: room.code });
+    const probeOfB = (v: RoomView | null | undefined) => v?.members.find((m) => m.username === b.username)?.probe;
+    expect(probeOfB((await rooms(a)).mine)).toBe('bastion');
+    const sa = await live(a);
+    await settle();
+    expect((await put(ctx.app, '/galaxy/api/hangar/probe', { probe: 'spark' }, { cookie: b.cookie })).statusCode).toBe(200);
+    await settle();
+    // Without pressing Listo: the room shows the new probe, and a hears it on its live socket.
+    expect(probeOfB((await rooms(a)).mine)).toBe('spark');
+    expect(sa.events.some((e) => e.type === 'room' && probeOfB(e.room) === 'spark')).toBe(true);
+    sa.ws.terminate();
+  });
+});
+
+describe('límites del servidor', () => {
+  test('la lista dice cuántas salas hay abiertas y cuántas caben', async () => {
+    const p = await player();
+    await create(p, 'private');
+    const v = await rooms(p);
+    expect(v.rooms.max).toBe(500);
+    expect(v.rooms.count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('con el servidor lleno, Entrar rápido entra en una sala con hueco; si no hay, room_limit', async () => {
+    const full = await testApp({ configOverrides: { coop: { maxRooms: 1 } } });
+    const reg = async () => {
+      const res = await post(full.app, '/galaxy/api/auth/register', { username: uniqueName('lim'), password: 'una-clave-larga' });
+      const cookie = sessionCookie(res);
+      await put(full.app, '/galaxy/api/tutorial', { action: 'skip' }, { cookie });
+      return cookie;
+    };
+    try {
+      const [a, b, c] = [await reg(), await reg(), await reg()];
+      expect((await post(full.app, '/galaxy/api/rooms', { kind: 'private', sector: 'outer-nebula' }, { cookie: a })).statusCode).toBe(200);
+      // The only room is private: there is no room for b, and none may open.
+      const quick = await post(full.app, '/galaxy/api/rooms/quick', undefined, { cookie: b });
+      expect(quick.statusCode).toBe(503);
+      expect(quick.json()).toMatchObject({ error: 'room_limit' });
+      expect(((await get(full.app, '/galaxy/api/rooms', { cookie: c })).json() as RoomsView).rooms).toEqual({ count: 1, max: 1 });
+      // When it closes, a place frees.
+      await post(full.app, '/galaxy/api/rooms/leave', undefined, { cookie: a });
+      expect((await post(full.app, '/galaxy/api/rooms/quick', undefined, { cookie: b })).statusCode).toBe(200);
+    } finally {
+      await full.close();
+    }
+  });
+
+  test('el ping responde 204 al momento, sin sesión y sin caché', async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/galaxy/api/ping' });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body).toBe('');
+  });
+});
+
+describe('carga del servidor', () => {
+  test('el personal ve la carga del servidor (salas, partidas, sockets, CPU, memoria); un jugador no', async () => {
+    const p = await player();
+    expect((await get(ctx.app, '/galaxy/api/admin/load', { cookie: p.cookie })).statusCode).toBe(403);
+    await create(p, 'private');
+    const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'moderator');
+    const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
+    const staff = sessionCookie(await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) }));
+    const res = await get(ctx.app, '/galaxy/api/admin/load', { cookie: staff });
+    expect(res.statusCode).toBe(200);
+    const v = res.json() as AdminLoadView;
+    expect(v.now.rooms.lobby).toBeGreaterThanOrEqual(1);
+    expect(v.now.rooms.max).toBe(500);
+    expect(v.now.players).toBeGreaterThanOrEqual(1);
+    expect(v.now.memory.rss).toBeGreaterThan(0);
+    expect(v.sampleMs).toBe(15_000);
+    expect(Array.isArray(v.history)).toBe(true);
   });
 });
 

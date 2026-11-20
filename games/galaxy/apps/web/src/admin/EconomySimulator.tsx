@@ -1,8 +1,11 @@
-import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, simulateEconomy } from '@galaxy/shared';
-import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, step } from '@galaxy/sim';
+import { HScroll } from '../ui/HScroll';
+import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, sectorPay, simulateEconomy } from '@galaxy/shared';
+import { botInput, botPick, type Content, createSim, eventLootUpTo, runSummary, satelliteSignalsUpTo, step } from '@galaxy/sim';
+import { useLiveContent } from '../api/content';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
 import { copy, fmt } from '../copy/es';
+import { Select } from '../ui/Select';
 
 // The economy simulator (GDD §16.6; M6d-5, DESIGN_SYSTEM §8 quatervicies), under the editor of `runs` and `boosts`:
 // three runs played by the simulation's bot in the chosen sector and length, in slices (the page stays alive, and it can
@@ -14,13 +17,17 @@ const CHUNK = 3000;
 const SEEDS = ['20261108', '20261109', '20261110'];
 const PER_DAY = [60, 180, 360];
 const yieldToPage = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+/** The bot's runs without the in-run events: their loot is added from the seed, as if every one was looted. */
+const withoutEvents = (content: Content): Content => ({ ...content, events: { ...content.events, slots: [] } });
 
 type RunsConfig = ConfigValue<'runs'>;
 
 export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { editing: 'runs' | 'boosts'; draft: Record<string, unknown>; lengths?: number[] }) {
   const ids = useId();
   const keys = useConfigKeys();
-  const [sector, setSector] = useState(DEFAULT_CONTENT.sectors[0]!.id);
+  // The published content (2026-11-16): the bot plays what players play.
+  const content = useLiveContent();
+  const [sector, setSector] = useState(content.sectors[0]!.id);
   const [minutes, setMinutes] = useState(lengths[0]!);
   const [perDay, setPerDay] = useState(PER_DAY[1]!);
   const [pct, setPct] = useState<number | null>(null);
@@ -33,7 +40,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
       alive.current = false;
     };
   }, []);
-  const liveOf = <K extends 'runs' | 'boosts'>(key: K) => parseConfig(key, keys.data?.find((k) => k.key === key)?.data ?? {});
+  const liveOf = <K extends 'runs' | 'boosts' | 'sectors'>(key: K) => parseConfig(key, keys.data?.find((k) => k.key === key)?.data ?? {});
 
   const run = async () => {
     stop.current = false;
@@ -42,7 +49,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
     const ticks = Math.round(minutes * 60 * 60);
     const samples: EconomySample[] = [];
     for (const [i, seed] of SEEDS.entries()) {
-      const sim = createSim({ seed, content: DEFAULT_CONTENT, sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
+      const sim = createSim({ seed, content: withoutEvents(content), sector, probes: [{ probe: 'lumen', relics: [] }], record: false });
       while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
         for (let n = 0; n < CHUNK && sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing'); n++) {
           if (sim.status === 'choosing') step(sim, sim.probes.map((p) => ({ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer) : -1 })));
@@ -57,17 +64,28 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
         setPct(Math.round(((i + sim.tick / ticks) / SEEDS.length) * 100));
       }
       const s = runSummary(sim);
-      samples.push({ outcome: sim.status === 'dead' ? 'died' : sim.status === 'extracted' ? 'extracted' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot: s.loot });
+      // The bot never chases the abandoned satellites (SIM 1.10.0): count every one the seed had in the time played, as
+      // a player who breaks them all would (the most the economy can get from them).
+      const layerSeconds = content.sectors.find((x) => x.id === sector)?.layerSeconds ?? 300;
+      const satellites = satelliteSignalsUpTo(seed, content.satellites, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      // Nor the in-run events (2026-11-16): the bot plays without them, and every one the seed had is added, looted.
+      const events = eventLootUpTo(seed, content, sector, { depth: s.depth, ticks: s.ticks, layerSeconds });
+      const loot = s.loot.map((l, k) =>
+        k === 0 ? { ...l, coins: l.coins + events.coins, dust: l.dust + events.dust, components: l.components + events.components, signals: satellites } : { ...l, signals: 0 },
+      );
+      samples.push({ outcome: sim.status === 'dead' ? 'died' : sim.status === 'extracted' ? 'extracted' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot });
     }
     const at = new Date();
     const liveRuns = liveOf('runs');
     const liveBoosts = liveOf('boosts');
     const draftRuns = editing === 'runs' ? (draft as unknown as RunsConfig) : liveRuns;
     const draftBoosts = editing === 'boosts' ? (draft as unknown as BoostsConfig) : liveBoosts;
+    // What the chosen sector pays (2026-11-16), as the server pays it.
+    const pay = sectorPay(liveOf('sectors'), sector);
     setPct(null);
     setResult({
-      live: simulateEconomy(samples, liveRuns, liveBoosts, { minutesPerDay: perDay, at }),
-      draft: simulateEconomy(samples, draftRuns, draftBoosts, { minutesPerDay: perDay, at }),
+      live: simulateEconomy(samples, liveRuns, liveBoosts, { minutesPerDay: perDay, at, sector: pay }),
+      draft: simulateEconomy(samples, draftRuns, draftBoosts, { minutesPerDay: perDay, at, sector: pay }),
       samples: samples.length,
     });
   };
@@ -92,37 +110,33 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
         <div className="field">
           <label htmlFor={`${ids}-sector`}>{t.sector}</label>
           <div className="control">
-            <select id={`${ids}-sector`} value={sector} onChange={(e) => setSector(e.target.value)}>
-              {DEFAULT_CONTENT.sectors.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <Select id={`${ids}-sector`} size="lg" block value={sector} options={content.sectors.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
           </div>
         </div>
         <div className="field">
           <label htmlFor={`${ids}-len`}>{t.length}</label>
           <div className="control">
-            <select id={`${ids}-len`} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-              {lengths.map((m) => (
-                <option key={m} value={m}>
-                  {t.minutes(m)}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-len`}
+              size="lg"
+              block
+              value={String(minutes)}
+              options={lengths.map((m) => ({ value: String(m), label: t.minutes(m) }))}
+              onChange={(v) => setMinutes(Number(v))}
+            />
           </div>
         </div>
         <div className="field">
           <label htmlFor={`${ids}-day`}>{t.dayLength}</label>
           <div className="control">
-            <select id={`${ids}-day`} value={perDay} onChange={(e) => setPerDay(Number(e.target.value))}>
-              {PER_DAY.map((m) => (
-                <option key={m} value={m}>
-                  {t.minutes(m)}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-day`}
+              size="lg"
+              block
+              value={String(perDay)}
+              options={PER_DAY.map((m) => ({ value: String(m), label: t.minutes(m) }))}
+              onChange={(v) => setPerDay(Number(v))}
+            />
           </div>
         </div>
         {pct === null ? (
@@ -151,7 +165,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
           <p className="panel-note" role="status">
             {t.estimate(result.samples, result.draft.perDay.runs)}
           </p>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table economy-table">
               <caption>{t.tableTitle}</caption>
               <thead>
@@ -173,7 +187,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           {result.draft.capped > 0 ? <p className="panel-note">{t.capped(result.draft.capped)}</p> : null}
         </>
       ) : null}

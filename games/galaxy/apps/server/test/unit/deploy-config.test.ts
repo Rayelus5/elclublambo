@@ -20,6 +20,29 @@ test('el túnel manda /galaxy al contenedor galaxy antes que la regla general de
   expect(ingress[catchAll]!.service).toBe('http://web:3000');
 });
 
+test('el túnel manda galaxysurvivor.es y www al contenedor galaxy, sin ruta, justo antes del 404 final', () => {
+  const ingress = load('deploy/preprod/cloudflared/config.yml').ingress as Rule[];
+  const own = ingress.slice(-3, -1);
+  expect(own).toEqual([
+    { hostname: 'galaxysurvivor.es', service: 'http://galaxy:8080' },
+    { hostname: 'www.galaxysurvivor.es', service: 'http://galaxy:8080' },
+  ]);
+  expect(ingress.at(-1)).toEqual({ service: 'http_status:404' });
+  // After every pre.elclub.party rule: the old host's order does not change.
+  const lastPre = ingress.findLastIndex((r) => r.hostname === 'pre.elclub.party');
+  expect(ingress.length - 3).toBeGreaterThan(lastPre);
+});
+
+test('el dominio propio va en el environment de compose, con la mudanza hecha, y cada clave está en DEPLOY_PRE', () => {
+  const g = load('deploy/preprod/docker-compose.yml').services.galaxy;
+  // Public values only (never a secret: those live in galaxy.env).
+  // The move is on (the owner, 2026-11-17): pre.elclub.party's page loads show the notice and send to the new domain.
+  expect(g.environment).toEqual({ GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es', GALAXY_LEGACY_REDIRECT_FROM: 'pre.elclub.party' });
+  const guide = readFileSync(root + 'games/galaxy/docs/DEPLOY_PRE.md', 'utf8');
+  for (const key of Object.keys(g.environment)) expect(guide, key).toContain(`\`${key}\``);
+  expect(guide).toContain('## Dominio propio');
+});
+
 test('el servicio galaxy de compose está endurecido y en la red de Supabase', () => {
   const compose = load('deploy/preprod/docker-compose.yml');
   const g = compose.services.galaxy;
@@ -68,6 +91,19 @@ test('el Dockerfile copia el package.json de cada paquete del workspace (si no, 
     const copies = dockerfile.split('\n').filter((l) => l.startsWith('COPY ') && l.includes(m));
     expect(copies.length, m).toBeGreaterThanOrEqual(1); // in the base stage both installs start from
   }
+});
+
+// A broken ENV line stops `docker compose build` on PRE, and galaxy-ci never builds the image (landing review, 2026-11-17:
+// a literal «\n» instead of a line break). Every ENV instruction, joined over its continuations, is KEY=value pairs.
+test('las instrucciones ENV del Dockerfile son pares CLAVE=valor bien partidos', () => {
+  const dockerfile = readFileSync(root + 'games/galaxy/Dockerfile', 'utf8');
+  const joined = dockerfile.replace(/\\\r?\n\s*/g, ' ');
+  const envs = joined.split('\n').filter((l) => l.startsWith('ENV '));
+  expect(envs.length).toBeGreaterThan(0);
+  for (const line of envs) {
+    for (const pair of line.slice(4).trim().split(/\s+/)) expect(pair, line).toMatch(/^[A-Z_][A-Z0-9_]*=[^\s\\]*$/);
+  }
+  expect(envs.join(' ')).toContain('LANDING_DIST=/app/landing-dist');
 });
 
 test('el pipeline de PRE construye, reinicia y comprueba galaxy', () => {

@@ -1,9 +1,10 @@
-import { deriveSeed, dna, drawTraits, galaxyName, scoreTraits, subRng, tierOfScore, type Traits } from '@galaxy/engine';
-import type { FeaturedTrait } from './types';
+import { deriveSeed, dna, drawTraits, galaxyName, isMythicScore, scoreTraits, subRng, tierOfScore, type Traits } from '@galaxy/engine';
+import { type FeaturedTrait, MYTHIC } from './types';
 
 // «Rareza coherente» (GDD §7): the tier is drawn first, then candidate seeds are tried until one's traits fall in
 // that tier's score band (and carry the featured trait, if any). The galaxy is always exactly
-// renderFromSeed(seed) — traits are never fixed, so what the server stores is what every client draws.
+// renderFromSeed(seed) — traits are never fixed, so what the server stores is what every client draws. A mythic is a
+// candidate in the engine's top band (MYTHIC_BAND, with a phenomenon); the five tiers keep their own bands.
 export const MAX_CANDIDATES = 200_000;
 
 export interface GeneratedGalaxy {
@@ -13,6 +14,19 @@ export interface GeneratedGalaxy {
   score: number;
   name: string;
   designation: string;
+}
+
+/**
+ * A galaxy from its own seed (2026-11-17, the scanner's showcase): the same traits, name and designation the engine
+ * draws for that seed, and the tier its score falls in. generateGalaxy's seeds come back exactly.
+ */
+export function galaxyOfSeed(seed: bigint): GeneratedGalaxy & { tier: number } {
+  const traits = drawTraits(subRng(seed, 'traits'));
+  const score = scoreTraits(traits);
+  const hasPhenomenon = traits.phenomenon !== 'none';
+  const tier = isMythicScore(score, hasPhenomenon) ? MYTHIC : tierOfScore(score, hasPhenomenon);
+  const id = dna(traits);
+  return { seed, traits, dna: id, score, name: galaxyName(seed), designation: `GX-${id.slice(0, 6).toUpperCase()}`, tier };
 }
 
 export function generateGalaxy(
@@ -26,7 +40,8 @@ export function generateGalaxy(
     const traits = drawTraits(subRng(seed, 'traits'));
     if (featured && (traits as Readonly<Record<string, string | undefined>>)[featured.trait] !== featured.value) continue;
     const score = scoreTraits(traits);
-    if (tierOfScore(score, traits.phenomenon !== 'none') !== tier) continue;
+    const hasPhenomenon = traits.phenomenon !== 'none';
+    if (tier === MYTHIC ? !isMythicScore(score, hasPhenomenon) : tierOfScore(score, hasPhenomenon) !== tier) continue;
     const id = dna(traits);
     return { seed, traits, dna: id, score, name: galaxyName(seed), designation: `GX-${id.slice(0, 6).toUpperCase()}` };
   }

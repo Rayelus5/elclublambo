@@ -1,4 +1,4 @@
-import type { ElementId } from './content/types';
+import type { ElementId, EventKind } from './content/types';
 
 /**
  * What happened during one `step`, for the renderer (effects), the sound and the HUD. The list is emptied at the
@@ -8,15 +8,43 @@ export type SimEvent =
   | { t: 'hit'; x: number; y: number; amount: number; crit: boolean; element: ElementId | null }
   | { t: 'kill'; x: number; y: number; enemy: string; elite: boolean }
   | { t: 'hurt'; probe: number; amount: number }
-  | { t: 'pickup'; probe: number; kind: 'xp' | 'coin' | 'dust' | 'repair' | 'magnet' | 'component'; value: number }
+  | { t: 'pickup'; probe: number; kind: 'xp' | 'coin' | 'dust' | 'repair' | 'magnet' | 'component' | 'signal'; value: number }
+  /** An abandoned satellite (SIM 1.10.0) came drifting by, broke (it drops a signal) or drifted away. */
+  | { t: 'satellite'; what: 'appear' | 'break' | 'gone'; x: number; y: number }
   /** A breakable prop of the ground broke (systems/props.ts). */
   | { t: 'propBreak'; x: number; y: number; look: number }
-  /** A dash (a quirk's jump, a comet's charge): from (fx, fy) to (tx, ty) over `ticks` (0: instant), for the effects. */
-  | { t: 'dash'; probe: number; kind: 'quirk' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
+  /**
+   * A mythic relic's singularity (plan «rareza Mítica» M2) opened at (x, y), pulling within `radius`, or collapsed there,
+   * hitting within `radius`.
+   */
+  | { t: 'singularity'; probe: number; what: 'open' | 'collapse'; x: number; y: number; radius: number }
+  /**
+   * A relic's anomaly went off (a negative glitch, render only): `blink` threw the probe from (fx, fy) to (tx, ty),
+   * `freeze` froze what was within `radius`, `strike` hit the enemies at `targets` (x, y pairs).
+   */
+  | { t: 'anomaly'; probe: number; what: 'blink' | 'freeze' | 'strike'; fx: number; fy: number; tx: number; ty: number; radius: number; targets: number[] }
+  /**
+   * The player's dash (SIM 1.12.0): from (fx, fy) to (tx, ty) over `ticks`, for the effects; `comet` when a comet relic
+   * makes it hit what it crosses.
+   */
+  | { t: 'dash'; probe: number; kind: 'player' | 'comet'; fx: number; fy: number; tx: number; ty: number; ticks: number }
   | { t: 'levelUp'; probe: number; level: number }
   | { t: 'evolve'; probe: number; from: string; to: string }
   | { t: 'fire'; weapon: string; x: number; y: number }
-  | { t: 'telegraph'; kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink'; x: number; y: number; angle: number; ticks: number; radius: number }
+  /**
+   * A warning before a strike. Nov plan B4: `laser` is a beam `radius` long from (x, y) along `angle` that will turn `arc`
+   * steps (signed); `closing` is a ring of `radius` around (x, y) closing in, its way out `arc` steps wide around `angle`.
+   */
+  | {
+      t: 'telegraph';
+      kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink' | 'laser' | 'closing' | 'meteor';
+      x: number;
+      y: number;
+      angle: number;
+      ticks: number;
+      radius: number;
+      arc?: number;
+    }
   /** A healer's or corruptor's pulse (GDD §5.5). */
   | { t: 'support'; x: number; y: number; range: number; effect: 'heal' | 'shield' }
   /** A warned teleport has landed (fauna or a Core). */
@@ -40,4 +68,11 @@ export type SimEvent =
   | { t: 'offerAuto'; probe: number; index: number }
   | { t: 'element'; x: number; y: number; element: ElementId }
   | { t: 'reaction'; id: string; x: number; y: number }
-  | { t: 'quirk'; probe: number; kind: string };
+  | { t: 'quirk'; probe: number; kind: string }
+  /** Fase cuántica (Nov plan B2): a hit went through the probe without harm. */
+  | { t: 'evade'; probe: number }
+  /** «La Estática te alcanza» (2026-11-16): the warning, the start of the harm, leaving the area; and a tick for sound. */
+  | { t: 'static'; probe: number; what: 'warn' | 'start' | 'stop' }
+  | { t: 'staticTick'; probe: number }
+  /** In-run events (2026-11-16): one comes, is completed (with what it dropped), fails or ends with the Núcleo. */
+  | { t: 'worldEvent'; kind: EventKind; what: 'appear' | 'done' | 'fail' | 'end'; x: number; y: number; coins?: number; dust?: number; components?: number };

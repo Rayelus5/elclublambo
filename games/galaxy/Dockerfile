@@ -1,4 +1,5 @@
-# Galaxy Survivor image (GDD §18.1): one Node 22 process serving the API (/galaxy/api/*) and the Vite build (/galaxy/*).
+# Galaxy Survivor image (GDD §18.1): one Node 22 process serving the API (/galaxy/api/*), the Vite build (/galaxy/*)
+# and the landing of galaxysurvivor.es at the site root (apps/landing, plan «galaxysurvivor.es»).
 # No secret is a build arg: DATABASE_URL and GALAXY_TOTP_KEY arrive at runtime (deploy/preprod/galaxy.env.example).
 #
 # Both installs read the lockfile (no resolution) and share pnpm's content store through a BuildKit cache mount, so a
@@ -15,6 +16,7 @@ COPY packages/engine/package.json packages/engine/
 COPY packages/sim/package.json packages/sim/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+COPY apps/landing/package.json apps/landing/
 
 FROM base AS build
 # --ignore-scripts: native pieces (argon2, esbuild, tailwind oxide) ship as prebuilt optional packages.
@@ -34,13 +36,15 @@ FROM node:22-bookworm-slim AS run
 WORKDIR /app/apps/server
 ENV NODE_ENV=production \
     PORT=8080 \
-    WEB_DIST=/app/web-dist
+    WEB_DIST=/app/web-dist \
+    LANDING_DIST=/app/landing-dist
 RUN groupadd --system --gid 1001 galaxy && useradd --system --uid 1001 --gid galaxy --no-create-home galaxy
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/server/node_modules ./node_modules
 COPY --from=build /app/apps/server/package.json ./package.json
 COPY --from=build /app/apps/server/dist ./dist
 COPY --from=build /app/apps/web/dist /app/web-dist
+COPY --from=build /app/apps/landing/dist /app/landing-dist
 USER galaxy
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

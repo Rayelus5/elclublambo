@@ -1,4 +1,4 @@
-import { TIERS, type Tier } from '@galaxy/shared';
+import { FUSION_TOP, TIERS, type Tier } from '@galaxy/shared';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
@@ -34,7 +34,7 @@ export function FuseBar({
       <div className="fuse-progress">
         <Icon name="fuse" />
         <b>{copy.collection.fuseProgress(selected, count)}</b>
-        <span>{tier && index < TIERS.length - 1 ? copy.collection.fuseResult(copy.tiers[tier], copy.tiers[TIERS[index + 1]!]) : copy.collection.fuseHelp(count)}</span>
+        <span>{tier && index < FUSION_TOP ? copy.collection.fuseResult(copy.tiers[tier], copy.tiers[TIERS[index + 1]!]) : copy.collection.fuseHelp(count)}</span>
       </div>
       <div className="fuse-cost">
         {cost !== undefined ? <span className={short ? 'short' : undefined}>{copy.collection.fuseCost(cost)}</span> : null}

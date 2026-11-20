@@ -1,13 +1,14 @@
-import { activeAnomaly, type CoopClientMessage, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, type LiveEvent, parseConfig } from '@galaxy/shared';
+import { activeAnomaly, type CoopClientMessage, sectorPay, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, type LiveEvent, parseConfig } from '@galaxy/shared';
 import { createReplayer, decodeLog, type Content, SIM_VERSION } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
+import { labSeasonId } from '../lab/levels';
 import { ensureHangar, testedProbe } from '../runs/hangar';
 import { loadoutSnapshot, newRunSeed } from '../runs/service';
-import { CoopRun, type CoopRunBase, type CoopSlot, type Gone, type PlaySocket } from './relay';
+import { CoopRun, type CoopRunBase, type CoopSlot, type Gone, type PlaySocket, START_GATE, type StartGate } from './relay';
 import type { Room } from './rooms';
 import { settleCoop } from './settle';
 
@@ -17,8 +18,6 @@ import { settleCoop } from './settle';
 
 const CLOCK_MS = 16;
 const SAVE_EVERY_MS = 5_000;
-/** The run starts this long after launching: every player loads the arena first. */
-export const LEAD_MS = 3_000;
 /** A run whose log was not saved for this long belongs to no live server: it is paid as interrupted. */
 const ORPHAN_MS = 30_000;
 const RECOVER_EVERY_MS = 60_000;
@@ -30,6 +29,8 @@ export interface CoopDeps {
   log?: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void };
   /** Pay orphaned runs at start and every minute (off in tests, which call recover() themselves). */
   autoRecover?: boolean;
+  /** How a run's start waits for its players and counts down (relay.ts START_GATE; shorter in tests). */
+  startGate?: StartGate;
 }
 
 export class CoopService {
@@ -64,6 +65,26 @@ export class CoopService {
   }
 
   /**
+   * The group runs playing now, for the admin's server load (2026-11-17): how many, their players with the run open, the
+   * share of a CPU core their referees take together and the worst step's p99 (ms).
+   */
+  liveStats(): { runs: number; connected: number; coreShare: number; p99: number } {
+    let runs = 0;
+    let connected = 0;
+    let coreShare = 0;
+    let p99 = 0;
+    for (const run of this.runs.values()) {
+      if (run.ended) continue;
+      runs++;
+      connected += run.connectedCount();
+      const cpu = run.cpu();
+      coreShare += cpu.coreShare;
+      p99 = Math.max(p99, cpu.p99);
+    }
+    return { runs, connected, coreShare, p99 };
+  }
+
+  /**
    * Launches a room's run: every member's hangar probe and loadout snapshotted, the run and one row per player kept,
    * and the clock started a moment later. The room's checks (leader, everyone ready, sector) are the caller's.
    */
@@ -71,7 +92,7 @@ export class CoopService {
     const features = await this.deps.config.get('features');
     if (!features.coop) throw new HttpError(403, 'coop_disabled');
     if (!features.runs) throw new HttpError(503, 'runs_disabled');
-    const [{ value: content, version: contentVersion }, probes, lab, planetarium, redshift, season, coopCfg] = await Promise.all([
+    const [{ value: content, version: contentVersion }, probes, lab, planetarium, redshift, season, coopCfg, sectorsCfg] = await Promise.all([
       this.deps.config.getVersioned('content'),
       this.deps.config.get('probes'),
       this.deps.config.get('lab'),
@@ -79,9 +100,11 @@ export class CoopService {
       this.deps.config.get('redshift'),
       this.deps.config.get('season'),
       this.deps.config.get('coop'),
+      this.deps.config.get('sectors'),
     ]);
     const now = this.now();
     const anomaly = activeAnomaly(season, content, now)?.id ?? null;
+    const labSeason = labSeasonId(lab, season, now);
     const rules = coopRulesOf(coopCfg);
     const seed = newRunSeed();
     const members = [...room.members].sort((a, b) => a.joinedAt - b.joinedAt);
@@ -93,8 +116,8 @@ export class CoopService {
       for (const m of members) {
         if ((await testedProbe(trx, m.accountId)) === null) throw new HttpError(409, 'probe_test_required');
         const hangar = await ensureHangar(trx, m.accountId);
-        const snap = await loadoutSnapshot(trx, m.accountId, hangar.probe, hangar.slots, { content, probes, lab, planetarium, redshift });
-        players.push({ username: m.username, probe: hangar.probe, relics: snap.relics, bonuses: snap.bonuses, variant: snap.variant });
+        const snap = await loadoutSnapshot(trx, m.accountId, hangar.probe, hangar.slots, { content, probes, lab, planetarium, redshift, labSeason });
+        players.push({ username: m.username, probe: hangar.probe, relics: snap.relics, bonuses: snap.bonuses, variant: snap.variant, skin: snap.skin });
         snapshots.push({ accountId: m.accountId, payout: snap.payout });
       }
       const row = await trx
@@ -125,7 +148,7 @@ export class CoopService {
             sector: room.sector,
             probe: p.probe,
             relics: JSON.stringify(p.relics),
-            upgrades: JSON.stringify({ bonuses: p.bonuses, variant: p.variant, payout: snapshots[slot]!.payout, anomaly }),
+            upgrades: JSON.stringify({ bonuses: p.bonuses, variant: p.variant, payout: snapshots[slot]!.payout, anomaly, skin: p.skin ?? null }),
             content_version: contentVersion,
             sim_version: SIM_VERSION,
             start_key: `coop:${row.id}`,
@@ -134,6 +157,8 @@ export class CoopService {
             slot,
             party_size: n,
             points_factor: pointsFactor,
+            // What its sector pays, fixed at the start (2026-11-16).
+            sector_factor: sectorPay(sectorsCfg, room.sector),
           })
           .returning('id')
           .executeTakeFirstOrThrow();
@@ -143,7 +168,8 @@ export class CoopService {
       return { id: row.id, slots, players };
     });
     const base: CoopRunBase = { id, seed, sector: room.sector, anomaly, content, contentVersion, rules, players, startedAt: now.toISOString() };
-    const run = new CoopRun(id, room.id, base, slots, Date.now() + LEAD_MS);
+    // The clock waits for every player's socket, then counts down (the start gate): no fixed lead any more.
+    const run = new CoopRun(id, room.id, base, slots, Date.now(), this.deps.startGate ?? START_GATE);
     this.runs.set(id, run);
     let resolve!: () => void;
     const promise = new Promise<void>((r) => (resolve = r));
@@ -163,7 +189,7 @@ export class CoopService {
     const slot = run.slotOf(accountId);
     if (slot < 0) return null;
     setImmediate(() => {
-      if (socket.readyState === 1 && !run.ended) run.attach(slot, socket);
+      if (socket.readyState === 1 && !run.ended) run.attach(slot, socket, Date.now());
     });
     return { run, slot };
   }
@@ -185,6 +211,7 @@ export class CoopService {
   message(run: CoopRun, slot: number, msg: CoopClientMessage, socket: PlaySocket): void {
     if (msg.t === 'in') run.input(slot, msg.mx, msg.my, msg.aim);
     else if (msg.t === 'pick') run.pick(slot, msg.i, msg.seq);
+    else if (msg.t === 'dash') run.dash(slot, msg.a);
     else if (msg.t === 'leave') this.leaveOnPurpose(run, slot);
     else if (msg.t === 'ping') socket.send(JSON.stringify({ t: 'pong', at: msg.at }));
     else if (msg.t === 'mark') run.mark(slot, msg.kind, msg.x, msg.y, Date.now());
@@ -297,7 +324,7 @@ export class CoopService {
     try {
       await this.saveLast(run);
       const results = await settleCoop(
-        { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log },
+        { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log, live: { send: (id, e) => this.notify(id, e) } },
         { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome, idle: run.slots.map((_, i) => run.idle(i)) },
       );
       for (let slot = 0; slot < run.slots.length; slot++) {
@@ -307,6 +334,8 @@ export class CoopService {
         else if (result) this.notify(run.slots[slot]!.accountId, { type: 'coopResult', outcome, result });
       }
       run.tellWatchers({ t: 'end', outcome, result: null });
+      // What the referee cost (2026-11-16): ms per step and the share of a core, to size the homelab.
+      this.deps.log?.info({ run: run.id, players: run.slots.length, ticks: run.referee.tick, ...run.cpu() }, 'coop_cpu');
     } catch (err) {
       this.deps.log?.error({ err: (err as Error).name, run: run.id }, 'coop_settle_failed');
       run.broadcast({ t: 'end', outcome, result: null });
@@ -395,7 +424,7 @@ export class CoopService {
     // How it really ended, if its log reaches the end (a payment retried after a failure); otherwise interrupted.
     const status = replayer.sim.status;
     const real: CoopOutcome = status === 'dead' ? 'died' : status === 'extracted' ? 'extracted' : outcome;
-    await settleCoop({ db: this.deps.db, config: this.deps.config, now: () => now, log: this.deps.log }, { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: real });
+    await settleCoop({ db: this.deps.db, config: this.deps.config, now: () => now, log: this.deps.log, live: { send: (id, e) => this.notify(id, e) } }, { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: real });
   }
 
   private async contentOf(version: number): Promise<Content> {

@@ -7,6 +7,8 @@ export const PICK = 1;
 /** Co-op (log version 2): a pick made while the world runs, with the offer it answers; a presence change. */
 export const PICK_SEQ = 2;
 export const PRESENCE = 3;
+/** The player's dash (SIM 1.12.0), on the tick it started, with the pointer's angle sent with it (−1: none). */
+export const DASH = 4;
 
 const lastMove = new WeakMap<InputLog, number[]>();
 

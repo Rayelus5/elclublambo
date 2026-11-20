@@ -1,0 +1,391 @@
+{
+  "daily": {
+    "count": 4,
+    "pool": [
+      {
+        "id": "d-runs3",
+        "name": "Juega 3 incursiones",
+        "stat": "runs",
+        "target": 3,
+        "reward": {
+          "coins": 150,
+          "dust": 0,
+          "signal": 0,
+          "xp": 50,
+          "points": 10
+        }
+      },
+      {
+        "id": "d-kills300",
+        "name": "Elimina 300 enemigos",
+        "stat": "kills",
+        "target": 300,
+        "reward": {
+          "coins": 150,
+          "dust": 20,
+          "signal": 0,
+          "xp": 0,
+          "points": 10
+        }
+      },
+      {
+        "id": "d-boss1",
+        "name": "Purga un Núcleo",
+        "stat": "bossKills",
+        "target": 1,
+        "reward": {
+          "coins": 0,
+          "dust": 40,
+          "signal": 0,
+          "xp": 0,
+          "points": 15
+        }
+      },
+      {
+        "id": "d-extract1",
+        "name": "Extrae una vez",
+        "stat": "extractions",
+        "target": 1,
+        "reward": {
+          "coins": 200,
+          "dust": 0,
+          "signal": 0,
+          "xp": 0,
+          "points": 15
+        }
+      },
+      {
+        "id": "d-minutes20",
+        "name": "Juega 20 minutos",
+        "stat": "minutes",
+        "target": 20,
+        "reward": {
+          "coins": 120,
+          "dust": 0,
+          "signal": 0,
+          "xp": 60,
+          "points": 10
+        }
+      },
+      {
+        "id": "d-pull1",
+        "name": "Haz una tirada",
+        "stat": "pulls",
+        "target": 1,
+        "reward": {
+          "coins": 0,
+          "dust": 15,
+          "signal": 0,
+          "xp": 0,
+          "points": 5
+        }
+      },
+      {
+        "id": "d-depth2",
+        "name": "Llega a la capa 2",
+        "stat": "depth",
+        "target": 2,
+        "reward": {
+          "coins": 150,
+          "dust": 0,
+          "signal": 0,
+          "xp": 0,
+          "points": 10
+        }
+      },
+      {
+        "id": "d-boss3",
+        "name": "Purga 3 Núcleos",
+        "stat": "bossKills",
+        "target": 3,
+        "reward": {
+          "coins": 500,
+          "dust": 0,
+          "signal": 1,
+          "xp": 0,
+          "points": 20
+        }
+      },
+      {
+        "id": "d-extract3",
+        "name": "Extrae 3 veces",
+        "stat": "extractions",
+        "target": 3,
+        "reward": {
+          "coins": 600,
+          "dust": 0,
+          "signal": 0,
+          "xp": 0,
+          "points": 20
+        }
+      },
+      {
+        "id": "d-depth3",
+        "name": "Llega a la capa 3",
+        "stat": "depth",
+        "target": 3,
+        "reward": {
+          "coins": 400,
+          "dust": 60,
+          "signal": 0,
+          "xp": 0,
+          "points": 20
+        }
+      }
+    ]
+  },
+  "weekly": {
+    "count": 4,
+    "pool": [
+      {
+        "id": "w-runs15",
+        "name": "Juega 15 incursiones",
+        "stat": "runs",
+        "target": 15,
+        "reward": {
+          "coins": 800,
+          "dust": 0,
+          "signal": 1,
+          "xp": 0,
+          "points": 50
+        }
+      },
+      {
+        "id": "w-boss5",
+        "name": "Purga 5 Núcleos",
+        "stat": "bossKills",
+        "target": 5,
+        "reward": {
+          "coins": 0,
+          "dust": 200,
+          "signal": 1,
+          "xp": 0,
+          "points": 60
+        }
+      },
+      {
+        "id": "w-kills3000",
+        "name": "Elimina 30.000 enemigos",
+        "stat": "kills",
+        "target": 30000,
+        "reward": {
+          "coins": 900,
+          "dust": 0,
+          "signal": 0,
+          "xp": 0,
+          "points": 50
+        }
+      },
+      {
+        "id": "w-extract5",
+        "name": "Extrae 10 veces",
+        "stat": "extractions",
+        "target": 10,
+        "reward": {
+          "coins": 1000,
+          "dust": 0,
+          "signal": 1,
+          "xp": 0,
+          "points": 60
+        }
+      },
+      {
+        "id": "w-fuse2",
+        "name": "Fusiona 2 veces",
+        "stat": "fusions",
+        "target": 2,
+        "reward": {
+          "coins": 0,
+          "dust": 150,
+          "signal": 0,
+          "xp": 0,
+          "points": 30
+        }
+      },
+      {
+        "id": "w-components200",
+        "name": "Recoge 800 componentes",
+        "stat": "components",
+        "target": 800,
+        "reward": {
+          "coins": 600,
+          "dust": 120,
+          "signal": 0,
+          "xp": 0,
+          "points": 30
+        }
+      },
+      {
+        "id": "w-group3",
+        "name": "Juega 3 partidas en grupo",
+        "stat": "coopRuns",
+        "target": 3,
+        "reward": {
+          "coins": 700,
+          "dust": 0,
+          "signal": 1,
+          "xp": 0,
+          "points": 50
+        }
+      },
+      {
+        "id": "w-boss20",
+        "name": "Purga 20 Núcleos",
+        "stat": "bossKills",
+        "target": 20,
+        "reward": {
+          "coins": 2500,
+          "dust": 0,
+          "signal": 2,
+          "xp": 0,
+          "points": 100
+        }
+      },
+      {
+        "id": "w-depth5",
+        "name": "Llega a la capa 5",
+        "stat": "depth",
+        "target": 5,
+        "reward": {
+          "coins": 0,
+          "dust": 400,
+          "signal": 3,
+          "xp": 0,
+          "points": 100
+        }
+      },
+      {
+        "id": "w-group6",
+        "name": "Juega 6 partidas en grupo",
+        "stat": "coopRuns",
+        "target": 6,
+        "reward": {
+          "coins": 1500,
+          "dust": 0,
+          "signal": 2,
+          "xp": 0,
+          "points": 80
+        }
+      },
+      {
+        "id": "w-revive10",
+        "name": "Reanima a 10 compañeros",
+        "stat": "revives",
+        "target": 10,
+        "reward": {
+          "coins": 0,
+          "dust": 300,
+          "signal": 2,
+          "xp": 0,
+          "points": 80
+        }
+      }
+    ]
+  },
+  "season": [
+    {
+      "id": "s-runs100",
+      "name": "Juega 100 incursiones",
+      "stat": "runs",
+      "target": 100,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-boss40",
+      "name": "Purga 40 Núcleos",
+      "stat": "bossKills",
+      "target": 40,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-depth5",
+      "name": "Llega a la capa 5",
+      "stat": "depth",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-legend3",
+      "name": "Consigue 5 legendarias",
+      "stat": "legendaries",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 500,
+        "signal": 0,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-boss120",
+      "name": "Purga 120 Núcleos",
+      "stat": "bossKills",
+      "target": 120,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 10,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-depth6",
+      "name": "Llega a la capa 6",
+      "stat": "depth",
+      "target": 6,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-group30",
+      "name": "Juega 30 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 30,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-extract60",
+      "name": "Extrae 60 veces",
+      "stat": "extractions",
+      "target": 60,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 400
+      }
+    }
+  ]
+}

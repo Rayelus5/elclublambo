@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { type MissionsView, PROBE_TEST } from '@galaxy/shared';
 import { SIM_VERSION, encodeLog, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { get, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
+import { get, openLive, post, put, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // Missions and achievements (GDD §12.3; M7a): a run counts, collecting pays once, achievements unlock titles.
 let clock = new Date(Date.now() - 2 * 3_600_000);
@@ -51,4 +51,15 @@ test('las misiones del día son las mismas para dos cuentas y una sin completar 
   expect(va.daily.missions).toHaveLength(3);
   const m = va.daily.missions[0]!;
   expect((await post(ctx.app, `/galaxy/api/missions/${va.daily.period}/${m.id}/claim`, undefined, { cookie: a, headers: { 'idempotency-key': randomUUID() } })).json()).toMatchObject({ error: 'mission_not_ready' });
+});
+
+test('un logro que se desbloquea avisa al momento, una sola vez', async () => {
+  const cookie = await player();
+  const live = await openLive(ctx.app, cookie);
+  await run(cookie);
+  await run(cookie);
+  await settle();
+  const first = live.notices().filter((n) => n.kind === 'achievement' && n.id === 'a-first-run');
+  expect(first).toEqual([{ kind: 'achievement', id: 'a-first-run', name: 'Primer despegue', tier: 'bronze' }]);
+  live.ws.terminate();
 });

@@ -3,6 +3,7 @@ import type { Offer, ProbeState, Sim } from '../types';
 import { relicElement } from './elements';
 import { refreshStats } from './stats';
 import { persistentFor } from './weapons';
+import { healProbe } from './healing';
 
 // Level-up offers (GDD §5.1): 1 of 3 among new weapons (weight 1), weapon levels (1.2), new passives (1) and passive
 // levels (1.2), never past content.limits or a max level. With nothing left to offer: a repair (30 % of max life).
@@ -87,7 +88,7 @@ export function offerFor(sim: Sim, p: ProbeState): Offer[] {
 
 export function applyOffer(sim: Sim, p: ProbeState, offer: Offer): void {
   if (offer.kind === 'heal') {
-    p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * HEAL_SHARE);
+    healProbe(sim, p, p.stats.maxHp * HEAL_SHARE, 'other');
     return;
   }
   if (offer.kind === 'evolve') {

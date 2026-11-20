@@ -1,9 +1,12 @@
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { HScroll } from '../ui/HScroll';
 import { Link } from 'react-router';
-import { useAdminRooms } from '../api/rooms';
+import { useAdminRooms, useAdminSoloLive } from '../api/rooms';
+import { clockText } from '../arena/hud/Hud';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useModDialog } from './ModerationScreen';
+import { useContentNames } from '../api/content-names';
+import { ServerLoad } from './ServerLoad';
 
 // Moderación › Salas en vivo (multiplayer plan, phase 5): every open room with its code, kind, sector, state, players
 // (connected or not) and how long since anything changed; a moderator closes one with a reason (audited), and its
@@ -11,14 +14,16 @@ import { useModDialog } from './ModerationScreen';
 
 const t = copy.admin.moderation;
 const r = t.rooms;
-const sectorName = (id: string) => DEFAULT_CONTENT.sectors.find((s) => s.id === id)?.name ?? id;
+const so = t.solo;
 
 export function LiveRooms() {
   const rooms = useAdminRooms();
+  const { sectorName } = useContentNames();
   const dialog = useModDialog();
   const rows = rooms.data?.rooms ?? [];
   return (
     <div className="mod-pane">
+      <ServerLoad />
       <p className="panel-note">
         {r.live}
         {rooms.data ? `, ${r.count(rows.length)}` : ''}
@@ -31,7 +36,7 @@ export function LiveRooms() {
       ) : null}
       {rooms.data && rows.length === 0 ? <p className="panel-note">{r.none}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{r.title}</caption>
             <thead>
@@ -80,8 +85,59 @@ export function LiveRooms() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
+      <SoloRuns />
     </div>
+  );
+}
+
+/** Plan «escáner pro», part G: the solo runs being played now, each leading to its live view. */
+function SoloRuns() {
+  const solo = useAdminSoloLive();
+  const { sectorName, probeName } = useContentNames();
+  const rows = solo.data?.runs ?? [];
+  return (
+    <>
+      {solo.error ? (
+        <p className="field-error" role="alert">
+          {errorText(solo.error, copy.errors)}
+        </p>
+      ) : null}
+      {solo.data && rows.length === 0 ? <p className="panel-note">{so.none}</p> : null}
+      {rows.length > 0 ? (
+        <HScroll variant="table" className="admin-table-wrap">
+          <table className="admin-table">
+            <caption>{so.tableTitle}</caption>
+            <thead>
+              <tr>
+                {(['player', 'sector', 'probe', 'time', 'state', 'watchers', 'actions'] as const).map((c) => (
+                  <th key={c} scope="col">
+                    {so.cols[c]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((run) => (
+                <tr key={run.runId}>
+                  <td>{run.player}</td>
+                  <td>{sectorName(run.sector)}</td>
+                  <td>{probeName(run.probe)}</td>
+                  <td>{clockText(run.tick / 60)}</td>
+                  <td>{so.states[run.state] ?? run.state}</td>
+                  <td>{run.watchers}</td>
+                  <td className="admin-room-actions">
+                    <Link className="lip pill small" to={`/admin/moderacion/directo/solo/${run.runId}`} aria-label={so.watchOf(run.player)}>
+                      {so.watch}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </HScroll>
+      ) : null}
+    </>
   );
 }

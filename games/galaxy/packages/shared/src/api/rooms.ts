@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
 
@@ -9,6 +10,19 @@ import { usernameSchema } from '../account';
 export const ROOM_KINDS = ['public', 'private', 'friends'] as const;
 export type RoomKind = (typeof ROOM_KINDS)[number];
 export const ROOM_MAX = 4;
+/** A group run needs company (2026-11-17, the owner): alone in a room, the player is sent to solo mode instead. */
+export const ROOM_MIN = 2;
+
+/**
+ * Why a room cannot launch yet, or null: `alone` while it has fewer than two players, `ready` while a mate has not
+ * said «Listo» (the leader launches, it needs none). A mate whose connection drops still counts: a blip must not block
+ * the launch, the lobby sweep takes out whoever stays gone, and the run's start waits for everyone to connect.
+ */
+export function roomStartBlock(members: readonly { ready: boolean; leader: boolean }[]): 'alone' | 'ready' | null {
+  if (members.length < ROOM_MIN) return 'alone';
+  if (!members.every((m) => m.ready || m.leader)) return 'ready';
+  return null;
+}
 
 /** A room code: six letters and digits without the ones that look alike (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -27,11 +41,12 @@ export const roomTargetSchema = z.object({ username: usernameSchema }).strict();
 
 export type RoomState = 'lobby' | 'starting' | 'running' | 'ended';
 
-export interface RoomMember {
+export interface RoomMember extends PlayerLook {
   username: string;
   level: number;
-  /** The probe it will fly (its hangar's choice). */
+  /** The probe it will fly (its hangar's choice), and the skin it wears (null: the base drawing). */
   probe: string;
+  skin: string | null;
   ready: boolean;
   /** Its live socket is open. */
   connected: boolean;
@@ -48,7 +63,7 @@ export interface RoomView {
   members: RoomMember[];
   max: number;
   createdAt: string;
-  /** Whether the leader may launch now (everyone ready, co-op runs open). */
+  /** Whether the leader may launch now (two or more connected, everyone ready, co-op runs open). */
   canStart: boolean;
   /** The run it is playing (phase 6), while it lasts. */
   run: { id: string } | null;
@@ -69,6 +84,8 @@ export interface PublicRoom {
 export interface RoomsView {
   /** The room I am in, if any. */
   mine: RoomView | null;
+  /** Rooms open now on the server (waiting or playing) and how many fit at once (live config `coop.maxRooms`). */
+  rooms: { count: number; max: number };
   open: PublicRoom[];
   /** Co-op is open to me (the switch, and the tutorial done) and why not. */
   allowed: boolean;

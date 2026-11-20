@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import type { PlayerReportPage } from '@galaxy/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
@@ -39,7 +40,7 @@ export function PlayerReports() {
       ) : null}
       {reports.data && rows.length === 0 ? <p className="panel-note">{p.none}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table" aria-label={t.tabs.players}>
             <thead>
               <tr>
@@ -79,7 +80,7 @@ export function PlayerReports() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </div>
   );

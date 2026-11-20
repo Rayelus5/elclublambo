@@ -199,7 +199,8 @@ describe('grabación', () => {
     }
     const kinds = new Set<number>();
     for (let i = 2; i < sim.log!.events.length; i += 6) kinds.add(sim.log!.events[i]!);
-    expect([...kinds].sort()).toEqual([0, 2, 3]);
+    // Moves, picks while the world runs, presence and (SIM 1.12.0) the bots' dashes.
+    expect([...kinds].sort()).toEqual([0, 2, 3, 4]);
     expect(sim.probes.some((p) => p.level >= 2)).toBe(true);
     const bytes = encodeLog(sim.log!);
     expect(bytes[0]).toBe(2);

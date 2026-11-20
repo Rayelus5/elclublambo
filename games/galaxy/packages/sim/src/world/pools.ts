@@ -24,6 +24,8 @@ export const ENEMY_FIELDS = {
   boss: 'u8',
   /** 0 none, 1 shielded, 2 swift, 3 volatile. */
   elite: 'u8',
+  /** A bounty hunter of the in-run events (2026-11-16): it flees, and killing it pays its event's prize. */
+  bounty: 'u8',
   /** Behaviour state (0: moving; charge: 1 winding up, 2 dashing; …). */
   state: 'u8',
   timer: 'i32',
@@ -54,6 +56,12 @@ export const ENEMY_FIELDS = {
   /** Shattered: extra damage taken (fraction) and ticks left; the armoured front is broken meanwhile. */
   vulnT: 'i32',
   vulnBonus: 'f64',
+  /**
+   * Held by a probe's shot (a harpoon's catch, a body the sling threw, Nov plan B3): 1 + the shot's slot (0: free) and
+   * that shot's generation. It neither walks nor is pushed meanwhile; a hold whose shot is gone is no hold.
+   */
+  held: 'u16',
+  heldGen: 'u16',
 } as const;
 
 export const SHOT_FIELDS = {
@@ -83,6 +91,11 @@ export const SHOT_FIELDS = {
   target: 'i32',
   /** Bit 1: already split (evolutions with `split` split once per shot). */
   flags: 'u8',
+  /** A point the shot heads for or reaches (a shell's landing, a throw's aim, a lighthouse beam's tip; Nov plan B3). */
+  tx: 'f64',
+  ty: 'f64',
+  /** The ticks it was given (a shell's flight: its arc is 1 − ttl / life). */
+  life: 'i32',
 } as const;
 
 export const FOE_SHOT_FIELDS = {
@@ -143,7 +156,7 @@ export const PICKUP_FIELDS = {
   to: 'u8',
 } as const;
 
-export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5 } as const;
+export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5, signal: 6 } as const;
 
 /**
  * Breakable props of the sector's ground (rocks, ice, coral, slag, rift crystals): placed per chunk from the run

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { type ConfigKey, parseConfig, type Role } from '@galaxy/shared';
+import { type ConfigKey, type ConfigValue, type LiveEvent, type LiveNotice, parseConfig, type Role } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { Secret, TOTP } from 'otpauth';
@@ -9,6 +9,7 @@ import { type ConfigService, createConfigService } from '../src/config/service';
 import { createDb } from '../src/db';
 import type { DB } from '../src/db/schema';
 import type { Env } from '../src/env';
+import type { ShopGateway } from '../src/shop/gateway';
 
 /** Local (or CI) Postgres as galaxy_api; scripts/dev-db-role.mjs sets the dev password. */
 export const TEST_DATABASE_URL =
@@ -24,7 +25,15 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     GALAXY_TOTP_KEY: TEST_TOTP_KEY,
     PORT: 8080,
     WEB_DIST: '/nonexistent-web-dist',
+    LANDING_DIST: '/nonexistent-landing-dist',
+    legal: {},
     TRUST_CF_IP: true,
+    stripe: null,
+    stripeIssue: null,
+    GALAXY_CANONICAL_ORIGIN: null,
+    GALAXY_LEGACY_REDIRECT_FROM: [],
+    domainIssues: [],
+    GALAXY_PWA: true,
     ...overrides,
   };
 }
@@ -66,6 +75,14 @@ export function get(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
   return app.inject({ method: 'GET', url, headers: headers(opts) });
 }
 
+export function patch(app: FastifyInstance, url: string, body?: unknown, opts: InjectOpts = {}) {
+  return app.inject({ method: 'PATCH', url, payload: body as object | undefined, headers: headers(opts) });
+}
+
+export function del(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
+  return app.inject({ method: 'DELETE', url, headers: headers(opts) });
+}
+
 /** Current TOTP code for a base32 secret (SHA1, 6 digits, 30 s), computed independently with otpauth. */
 export function totpNow(base32: string, at: Date = new Date()): string {
   return TOTP.generate({ secret: Secret.fromBase32(base32), algorithm: 'SHA1', digits: 6, period: 30, timestamp: at.getTime() });
@@ -103,12 +120,22 @@ export async function testApp(
     pool?: { max: number; timeoutMs: number };
     /** Live config cache lifetime; 0 reads the database every time. */
     configTtlMs?: number;
+    /** The shop's payment gateway (test/fake-gateway.ts); none by default (a closed shop). */
+    shopGateway?: ShopGateway | null;
+    /** The server's disk for «Almacenamiento»; the real one by default. */
+    disk?: () => Promise<{ totalBytes: number; freeBytes: number } | null>;
+    /**
+     * Fields this app sees over what the database's live config holds, key by key (2026-11-17: the room limit, 10 by
+     * default, would trip files that open many rooms). The rest of each key still comes from the database.
+     */
+    configOverrides?: Partial<Record<ConfigKey, Record<string, unknown>>>;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
   const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
-  const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
-  const app = await buildApp({ env, db, now: opts.now, config });
+  const base = opts.config ?? (opts.configTtlMs === undefined && !opts.configOverrides ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
+  const config = base && opts.configOverrides ? overridden(base, opts.configOverrides) : base;
+  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null, disk: opts.disk });
   opts.beforeReady?.(app);
   await app.ready();
   return {
@@ -121,6 +148,25 @@ export async function testApp(
   };
 }
 
+/** A config service whose reads carry `overrides` over each key's value (and its version, unchanged). */
+function overridden(base: ConfigService, overrides: Partial<Record<ConfigKey, Record<string, unknown>>>): ConfigService {
+  const over = <K extends ConfigKey>(key: K, value: ConfigValue<K>): ConfigValue<K> => (overrides[key] ? parseConfig(key, { ...(value as object), ...overrides[key] }) : value);
+  return {
+    ...base,
+    get: async (key) => over(key, await base.get(key)),
+    getVersioned: async (key) => {
+      const r = await base.getVersioned(key);
+      return { ...r, value: over(key, r.value) };
+    },
+  };
+}
+
+/**
+ * The live config `sectors` with every sector paying ×1 and the season sector open to everyone (2026-11-16): for the
+ * tests whose figures were written before pay by sector; integration/sector-pay.test.ts checks the real defaults.
+ */
+export const NEUTRAL_SECTORS = { pay: {}, seasonUnlock: null };
+
 /**
  * A ConfigService that serves fixed values (schema defaults merged with `overrides`) without touching the shared DB,
  * so a test can close a banner or switch the gacha off without affecting other tests.
@@ -130,8 +176,25 @@ export function fixedConfig(overrides: Partial<Record<ConfigKey, unknown>>): Con
     get: async (key) => parseConfig(key, overrides[key] ?? {}),
     getVersioned: async (key) => ({ value: parseConfig(key, overrides[key] ?? {}), version: 0 }),
     versions: async () => [],
+    summaries: async () => [],
+    version: async () => null,
+    latest: async () => [],
     active: async () => [],
     publish: async () => ({ version: 0 }),
     publishMany: async () => ({ versions: {} }),
   } as ConfigService;
 }
+
+/**
+ * A live socket as the browser opens it (real-time notices plan), with every event it receives and the notices among
+ * them. Close it with `ws.terminate()` at the end of the test.
+ */
+export async function openLive(app: FastifyInstance, cookie: string) {
+  const events: LiveEvent[] = [];
+  const ws = await app.injectWS('/galaxy/api/live/ws', { headers: { origin: ORIGIN, cookie: `gs_sid=${cookie}` } });
+  ws.on('message', (data) => events.push(JSON.parse(String(data)) as LiveEvent));
+  return { ws, events, notices: (): LiveNotice[] => events.flatMap((e) => (e.type === 'notice' ? [e.notice] : [])) };
+}
+
+/** Lets what the server pushes arrive. */
+export const settle = (ms = 150) => new Promise((r) => setTimeout(r, ms));

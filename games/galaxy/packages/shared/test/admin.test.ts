@@ -3,8 +3,10 @@ import {
   ADMIN_SECTIONS,
   API_ERROR_CODES,
   adminBanSchema,
+  adminDeleteSchema,
   adminGalaxyGrantSchema,
   adminGalaxyRevokeSchema,
+  adminPlayerListSchema,
   adminRenameSchema,
   adminSearchSchema,
   adminWalletSchema,
@@ -28,6 +30,9 @@ describe('cambios a un jugador', () => {
   test('conceder una galaxia elige rareza y acabado, y la semilla si se quiere', () => {
     expect(adminGalaxyGrantSchema.parse({ tier: 'epic', finish: 'holo', reason: 'Premio del torneo' })).toEqual({ tier: 'epic', finish: 'holo', reason: 'Premio del torneo' });
     expect(adminGalaxyGrantSchema.parse({ tier: 'rare', finish: 'normal', seed: '18446744073709551615', reason: 'Reposición' }).seed).toBe('18446744073709551615');
+    expect(() => adminGalaxyGrantSchema.parse({ tier: 'divine', finish: 'holo', reason: 'Premio' })).toThrow();
+    // A mythic (plan «rareza Mítica») can be granted, always with a special finish.
+    expect(adminGalaxyGrantSchema.parse({ tier: 'mythic', finish: 'prismatic', reason: 'Premio' }).tier).toBe('mythic');
     expect(() => adminGalaxyGrantSchema.parse({ tier: 'mythic', finish: 'normal', reason: 'Premio' })).toThrow();
     expect(() => adminGalaxyGrantSchema.parse({ tier: 'rare', finish: 'normal', seed: '-1', reason: 'Premio' })).toThrow();
   });
@@ -49,6 +54,22 @@ describe('buscar y auditar', () => {
     expect(() => adminSearchSchema.parse({ q: '' })).toThrow();
   });
 
+  test('la lista de jugadores: sin texto, estado, orden, sentido y página, todo con valores por defecto', () => {
+    expect(adminPlayerListSchema.parse({})).toEqual({ q: '', state: 'all', sort: 'created', dir: 'desc', page: 1 });
+    expect(adminPlayerListSchema.parse({ q: ' vega ', state: 'banned', sort: 'seen', dir: 'asc', page: '4' })).toEqual({ q: 'vega', state: 'banned', sort: 'seen', dir: 'asc', page: 4 });
+    expect(() => adminPlayerListSchema.parse({ state: 'nadie' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ sort: 'coins' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ page: '0' })).toThrow();
+    expect(() => adminPlayerListSchema.parse({ q: 'x'.repeat(65) })).toThrow();
+  });
+
+  test('eliminar pide motivo, contraseña y el nombre escrito; reservar el nombre es opcional', () => {
+    expect(adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: ' vega ' })).toEqual({ reason: 'Lo pidió', password: 'clave', confirm: 'vega', reserveName: false });
+    expect(adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: 'vega', reserveName: true }).reserveName).toBe(true);
+    expect(() => adminDeleteSchema.parse({ reason: 'Lo pidió', confirm: 'vega' })).toThrow();
+    expect(() => adminDeleteSchema.parse({ reason: 'Lo pidió', password: 'clave', confirm: '' })).toThrow();
+  });
+
   test('el registro se filtra por quién, qué, a quién y fechas, por páginas', () => {
     expect(auditQuerySchema.parse({})).toEqual({ page: 1 });
     expect(auditQuerySchema.parse({ actor: 'rayelus', action: 'player.ban', from: '2026-11-01', page: '3' })).toEqual({ actor: 'rayelus', action: 'player.ban', from: '2026-11-01', page: 3 });
@@ -56,7 +77,7 @@ describe('buscar y auditar', () => {
   });
 
   test('las secciones de un jugador y sus errores', () => {
-    expect(ADMIN_SECTIONS).toEqual(['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat', 'social']);
+    expect(ADMIN_SECTIONS).toEqual(['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat', 'social', 'shop']);
     for (const code of ['password_wrong', 'player_not_found']) expect(API_ERROR_CODES).toContain(code);
   });
 });

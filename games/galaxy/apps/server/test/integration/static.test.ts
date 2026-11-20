@@ -5,7 +5,17 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { CSP } from '../../src/security/headers';
 import { testApp } from '../helpers';
 
-const INDEX = '<!doctype html><title>Galaxy Survivor</title><div id="root"></div>';
+// The build's index.html as Vite leaves it: the server swaps the title and puts its head at the marker.
+const INDEX = '<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>Galaxy Survivor</title><!--gs:head--></head><body><div id="root"></div></body></html>';
+/** The shell for a screen: the original document around the head, with that screen's title, never the raw file. */
+function expectShell(body: string, title: string) {
+  expect(body.startsWith('<!doctype html><html lang="es"><head><meta charset="utf-8" />')).toBe(true);
+  expect(body.endsWith('</head><body><div id="root"></div></body></html>')).toBe(true);
+  expect(body).toContain(`<title>${title}</title>`);
+  expect(body).toContain('<meta name="robots" content="noindex">');
+  expect(body).not.toContain('<!--gs:head-->');
+  expect(body.match(/<title>/g)).toHaveLength(1);
+}
 let dir: string;
 let ctx: Awaited<ReturnType<typeof testApp>>;
 
@@ -24,13 +34,21 @@ afterAll(async () => {
 
 const get = (url: string) => ctx.app.inject({ method: 'GET', url });
 
-test('/galaxy/ sirve index.html sin caché y con la CSP', async () => {
+test('/galaxy/ sirve el shell sin caché, con la CSP y sin indexar', async () => {
   const res = await get('/galaxy/');
   expect(res.statusCode).toBe(200);
-  expect(res.body).toBe(INDEX);
+  expectShell(res.body, 'Galaxy Survivor');
   expect(res.headers['content-type']).toMatch(/text\/html/);
   expect(res.headers['cache-control']).toBe('no-cache');
+  expect(res.headers['x-robots-tag']).toBe('noindex');
   expect(res.headers['content-security-policy']).toBe(CSP);
+});
+
+test('/galaxy/index.html nunca se sirve tal cual: también es el shell', async () => {
+  const res = await get('/galaxy/index.html');
+  expect(res.statusCode).toBe(200);
+  expectShell(res.body, 'Galaxy Survivor');
+  expect(res.headers['x-robots-tag']).toBe('noindex');
 });
 
 test('los assets con hash se cachean un año', async () => {
@@ -46,13 +64,38 @@ test('otros archivos de la raíz se sirven sin caché larga', async () => {
   expect(res.headers['cache-control']).toBe('no-cache');
 });
 
-test('fallback de SPA: una ruta de la web devuelve index.html con 200', async () => {
-  for (const url of ['/galaxy/entrar', '/galaxy/crear-cuenta?x=1', '/galaxy/a/b/c']) {
+test('fallback de SPA: una ruta de la web devuelve el shell con su título y 200', async () => {
+  const cases = [
+    ['/galaxy/entrar', 'Entrar | Galaxy Survivor'],
+    ['/galaxy/crear-cuenta?x=1', 'Crear cuenta | Galaxy Survivor'],
+    ['/galaxy/perfil/vega', 'Perfil | Galaxy Survivor'],
+    ['/galaxy/a/b/c', 'Galaxy Survivor'],
+  ] as const;
+  for (const [url, title] of cases) {
     const res = await get(url);
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toBe(INDEX);
+    expect(res.statusCode, url).toBe(200);
+    expectShell(res.body, title);
     expect(res.headers['cache-control']).toBe('no-cache');
+    expect(res.headers['x-robots-tag']).toBe('noindex');
   }
+});
+
+test('el manifest solo se ofrece en el host canónico; las tarjetas apuntan a él', async () => {
+  const canonical = await testApp({ env: { WEB_DIST: dir, GALAXY_CANONICAL_ORIGIN: 'https://galaxysurvivor.es' } });
+  try {
+    const at = (host: string) => canonical.app.inject({ method: 'GET', url: '/galaxy/crear-cuenta?ref=ABCD', headers: { host } });
+    const own = await at('galaxysurvivor.es');
+    expect(own.body).toContain('<link rel="manifest" href="/galaxy/manifest.webmanifest">');
+    expect(own.body).toContain('<meta property="og:url" content="https://galaxysurvivor.es/galaxy/crear-cuenta?ref=ABCD">');
+    const old = await at('pre.elclub.party');
+    expect(old.statusCode).toBe(200);
+    expect(old.body).not.toContain('rel="manifest"');
+    expect(old.body).toContain('<meta property="og:image" content="https://galaxysurvivor.es/og/og-es-v1.jpg">');
+  } finally {
+    await canonical.close();
+  }
+  // Without a canonical origin (dev, e2e) every host gets it.
+  expect((await get('/galaxy/')).body).toContain('<link rel="manifest" href="/galaxy/manifest.webmanifest">');
 });
 
 test('HEAD de una ruta de la web responde como GET (200, html, sin cuerpo)', async () => {
@@ -98,6 +141,6 @@ test('fuera de /galaxy no se sirve nada', async () => {
 
 test('no se puede salir del directorio de la web', async () => {
   const res = await get('/galaxy/..%2f..%2fpackage.json');
-  expect(res.statusCode === 404 || res.body === INDEX).toBe(true);
+  expect(res.statusCode === 404 || res.body.includes('<div id="root">')).toBe(true);
   expect(res.body).not.toContain('"name"');
 });

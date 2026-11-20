@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Multiplayer plan, phase 2: the lock on a galaxy (detail and grid) and the automatic fusion's dialog (its starting
 // point from the filters, the preview, the confirmation and what it made).
@@ -26,8 +27,8 @@ const g = (id: string, tier: Tier = 'common', over: Partial<GalaxySummary> = {})
   createdAt: '2026-11-06T20:00:00Z',
   ...over,
 });
-const page = (items: GalaxySummary[]): CollectionPage => ({ items, counts: { common: 25, uncommon: 0, rare: 0, epic: 0, legendary: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } });
-const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 400, signal: 0 } };
+const page = (items: GalaxySummary[]): CollectionPage => ({ items, counts: { common: 25, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } });
+const gacha: GachaView = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 400, signal: 0 } };
 const detail = (over: Partial<GalaxyDetail> = {}): GalaxyDetail => ({ ...g('g9', 'rare'), origin: 'pull', lineage: [], dna: 'ab'.repeat(32), dust: 30, levelUp: { dust: 20 }, refund: 0, ...over });
 const screens = { '/coleccion': <CollectionScreen />, '/coleccion/:id': <CollectionScreen /> };
 
@@ -48,7 +49,7 @@ test('poner y quitar el candado desde el detalle; con candado no se desintegra y
   let locked = false;
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'rare')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'rare')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail(locked ? { locked: true } : {})),
     'PUT /galaxy/api/galaxies/g9/lock': (body) => {
       locked = (body as { locked: boolean }).locked;
@@ -68,7 +69,7 @@ test('poner y quitar el candado desde el detalle; con candado no se desintegra y
 test('en la rejilla una galaxia con candado lleva su candado y no se puede elegir para fusionar', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1', 'common', { locked: true }), g('c2')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1', 'common', { locked: true }), g('c2')])),
   });
   const user = userEvent.setup();
   renderAt('/coleccion', screens);
@@ -84,8 +85,8 @@ test('la fusión automática parte del filtro de rareza, enseña la previsión y
   const bodies: unknown[] = [];
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
-    'GET /galaxy/api/galaxies?tier=common&sort=new&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
+    'GET /galaxy/api/galaxies?tier=common&sort=rarity&limit=30': () => jsonResponse(200, page([g('c1'), g('c2')])),
     'POST /galaxy/api/galaxies/fuse-auto': (body) => {
       bodies.push(body);
       return (body as { preview: boolean }).preview ? jsonResponse(200, preview) : jsonResponse(200, made);
@@ -98,8 +99,8 @@ test('la fusión automática parte del filtro de rareza, enseña la previsión y
   await waitFor(() => expect(screen.getByRole('button', { name: new RegExp(`^${copy.tiers.common}`) })).toHaveAttribute('aria-pressed', 'true'));
   await user.click(screen.getByRole('button', { name: t.open }));
   const dialog = await screen.findByRole('dialog', { name: t.title });
-  expect(within(dialog).getByLabelText(t.from)).toHaveValue('common');
-  expect(within(dialog).getByLabelText(t.upTo)).toHaveValue('uncommon');
+  expect(within(dialog).getByRole('combobox', { name: t.from })).toHaveTextContent(new RegExp(`^${copy.tiers.common}$`));
+  expect(within(dialog).getByRole('combobox', { name: t.upTo })).toHaveTextContent(new RegExp(`^${copy.tiers.uncommon}$`));
   expect(await within(dialog).findByText(t.total(6, 150, 250))).toBeInTheDocument();
   expect(dialog).toHaveTextContent(t.kept([t.keptWhy.locked(2), t.keptWhy.finishes(1)]));
   expect(dialog).toHaveTextContent(t.upperBound);
@@ -115,7 +116,7 @@ test('cambiar el «Desde» por encima del «Hasta» sube el «Hasta» y vuelve a
   const bodies: { criteria: Record<string, unknown> }[] = [];
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('c1')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1')])),
     'POST /galaxy/api/galaxies/fuse-auto': (body) => {
       bodies.push(body as { criteria: Record<string, unknown> });
       return jsonResponse(200, { ...preview, steps: [], fusions: 0, dust: 0 });
@@ -128,7 +129,9 @@ test('cambiar el «Desde» por encima del «Hasta» sube el «Hasta» y vuelve a
   const dialog = await screen.findByRole('dialog', { name: t.title });
   expect(await within(dialog).findByText(t.nothing)).toBeInTheDocument();
   expect(within(dialog).getByRole('button', { name: t.confirmNone })).toBeDisabled();
-  await user.selectOptions(within(dialog).getByLabelText(t.from), 'rare');
-  expect(within(dialog).getByLabelText(t.upTo)).toHaveValue('epic');
+  await pickOption(user, within(dialog).getByRole('combobox', { name: t.from }), copy.tiers.rare);
+  expect(within(dialog).getByRole('combobox', { name: t.upTo })).toHaveTextContent(new RegExp(`^${copy.tiers.epic}$`));
+  // The dialog stays open: the list closed on its own.
+  expect(screen.getByRole('dialog', { name: t.title })).toBeInTheDocument();
   await waitFor(() => expect(bodies.some((b) => b.criteria['from'] === 'rare' && b.criteria['upTo'] === 'epic')).toBe(true));
 });

@@ -8,30 +8,35 @@ import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { Soon } from './Soon';
 import { useCatalogSummary } from '../api/catalog';
+import { useGacha } from '../api/economy';
+import { NotesLink } from '../notes/NotesScreen';
+import { InstallPill } from '../pwa/InstallPill';
 
-// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the two modes, the event and today's
-// missions, the six section tiles and the footer. Everything a later milestone builds is shown but locked: the
+// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the scanner and the station, the event and
+// today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike; and
+// the install pill while the browser offers it). Everything a later milestone builds is shown but locked: the
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
-function Mode({ kind, icon, title, hint, d, to, tour }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string; tour?: string }) {
+function Mode({ kind, icon, title, hint, d, to, tour, badge }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string; tour?: string; badge?: string }) {
   if (to) {
     return (
       <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" data-tour={tour} style={style({ '--d': d })}>
         <span className="chip">
-          <Icon name={icon} />
+          <Icon name={icon} outline />
         </span>
         <span className="text">
           <b>{title}</b>
           <span>{hint}</span>
         </span>
+        {badge ? <span className="mode-badge">{badge}</span> : null}
       </Link>
     );
   }
   return (
     <button type="button" className={`lip mode ${kind} locked enter`} style={style({ '--d': d })} disabled title={copy.hub.soon}>
       <span className="chip">
-        <Icon name={icon} />
+        <Icon name={icon} outline />
       </span>
       <span className="text">
         <b>{title}</b>
@@ -51,7 +56,7 @@ function EventButton() {
     return (
       <button type="button" className="lip event locked enter" style={style({ '--d': '1s' })} disabled>
         <span className="chip">
-          <Icon name="comet" />
+          <Icon name="comet" outline />
         </span>
         <span className="text">
           <b>{copy.hub.event}</b>
@@ -63,7 +68,7 @@ function EventButton() {
   return (
     <Link to="/misiones?pestana=evento" className="lip event enter" data-sfx="hover" style={style({ '--d': '1s' })}>
       <span className="chip">
-        <Icon name="comet" />
+        <Icon name="comet" outline />
       </span>
       <span className="text">
         <b>{event.name}</b>
@@ -93,6 +98,9 @@ function Tile({ to, icon, title, sub, color, d, badge, label }: { to: string; ic
 export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   const clan = useMyClan().data;
   const catalogReady = useCatalogSummary().data?.ready ?? 0;
+  const gacha = useGacha().data;
+  // The resource shop (shop and lab plan, F5): only while it is open for this account, with a sign while an offer runs.
+  const shop = gacha?.shop;
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
@@ -106,7 +114,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           </span>
         </Link>
         <div className="modes">
-          <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" to="/incursion" />
+          <Mode kind="m-nova" icon="radar" title={copy.hub.scan} hint={copy.hub.scanHint} d=".88s" to="/escaner" tour="scanner" badge={gacha?.freePullAvailable ? copy.hub.freePull : undefined} />
           <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" tour="home" />
         </div>
       </div>
@@ -129,7 +137,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
         />
         <Tile to="/taller" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
         <Tile to="/misiones?pestana=logros" icon="trophy" title={copy.hub.achievements} sub={copy.hub.achievementsHint} color="var(--color-solar)" d="1.18s" />
-        <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="var(--color-uv-soft)" d="1.22s" />
+        <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="color-mix(in oklab, var(--color-sky) 78%, white)" d="1.22s" />
         <Tile to="/clasificacion" icon="podium" title={copy.hub.ranking} sub={copy.social.rankingTile} color="var(--color-nova)" d="1.26s" />
         <Tile to="/codice" icon="book" title={copy.hub.codex} sub={copy.hub.codexHint} color="var(--color-solar-2)" d="1.3s" />
       </div>
@@ -143,6 +151,19 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>
         </Link>
+        <NotesLink style={style({ '--d': '1.4s' })} />
+        {shop?.open ? (
+          <Link to="/tienda" className="lip pill enter hub-shop" data-sfx="hover" style={style({ '--d': '1.42s' })} aria-label={shop.offer ? copy.hub.shopOffer : undefined}>
+            <Icon name="store" />
+            <span>{copy.hub.shop}</span>
+            {shop.offer ? (
+              <span className="tile-badge hub-shop-badge" aria-hidden="true">
+                {copy.hub.offer}
+              </span>
+            ) : null}
+          </Link>
+        ) : null}
+        <InstallPill style={style({ '--d': '1.46s' })} />
       </div>
     </nav>
   );

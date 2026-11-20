@@ -1,9 +1,10 @@
-import type { HangarView, ProbeCard } from '@galaxy/shared';
+import { DEFAULT_COSMETICS, type HangarView, type ProbeCard } from '@galaxy/shared';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
+import { useCosmeticsView } from '../api/cosmetics';
 import { useGacha } from '../api/economy';
 import { useChooseProbe, useHangar } from '../api/runs';
-import { spriteDataUrl } from '../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
 import { copy, quirkText } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -11,8 +12,9 @@ import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
 import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
+import { SpriteLoop } from '../ui/SpriteLoop';
 import bayUrl from './art/bay.png';
-import { ProbeLevel, Unlock, WeaponPicker } from './parts';
+import { previewed, ProbeLevel, SkinPicker, type SkinPreview, Unlock, WeaponPicker } from './parts';
 import { playEquip, playLevelUp } from './sfx';
 
 // The probe workshop (the owner's «taller espacial»): every probe in the roster (locked ones say what earns them), the
@@ -24,24 +26,38 @@ import { playEquip, playLevelUp } from './sfx';
 const t = copy.workshop;
 const BAY_W = 128;
 const BAY_H = 72;
+// The grid's height on screen (`.workshop-grid`: min(780px, 100dvh − 140px)) and the gap between the bay and its plate.
+const GRID_MAX = 780;
+const GRID_CHROME = 140;
+const PLATE_GAP = 16;
 
-/** The bay's pixel size: the biggest whole number of screen pixels per art pixel that fits its box (measured as soon
- * as the box exists, and again whenever it changes size). */
+/**
+ * The bay's pixel size: the biggest whole number of screen pixels per art pixel that fits its column's width and, with
+ * its plate under it, the grid's height on screen. The bay sits at the top of its column and its plate right under it
+ * (the owner), so the height comes from the screen, never from the column: a tall sheet beside it (the skins) stretches
+ * the column but not the art. Measured as soon as the boxes exist, and again whenever they or the window change size.
+ */
 function useBayScale() {
   const [el, ref] = useState<HTMLDivElement | null>(null);
+  const [plate, plateRef] = useState<HTMLDivElement | null>(null);
   const [px, setPx] = useState(4);
   useEffect(() => {
     if (!el) return;
     const fit = () => {
-      const r = el.getBoundingClientRect();
-      setPx(Math.max(2, Math.floor(Math.min(r.width / BAY_W, r.height / BAY_H))));
+      const height = Math.min(GRID_MAX, window.innerHeight - GRID_CHROME) - (plate?.getBoundingClientRect().height ?? 0) - PLATE_GAP;
+      setPx(Math.max(2, Math.floor(Math.min(el.getBoundingClientRect().width / BAY_W, height / BAY_H))));
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     ro?.observe(el);
-    return () => ro?.disconnect();
-  }, [el]);
-  return { ref, px };
+    if (plate) ro?.observe(plate);
+    window.addEventListener('resize', fit);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, [el, plate]);
+  return { ref, plateRef, px };
 }
 
 function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
@@ -73,7 +89,7 @@ function Roster({ view, selected, onSelect }: { view: HangarView; selected: stri
                 onClick={() => onSelect(p.id)}
               >
                 <span className="workshop-pick-art">
-                  <img src={spriteDataUrl(p.sprite, 3)} alt="" />
+                  <img src={spriteDataUrl(probeDrawing(p.skin, p.sprite), 3)} alt="" />
                   {!p.unlocked ? <Icon name="lock" /> : null}
                 </span>
                 <span className="workshop-pick-text">
@@ -134,7 +150,10 @@ export function WorkshopScreen() {
   const [params, setParams] = useSearchParams();
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const [clamp, setClamp] = useState(0);
-  const { ref: bayRef, px } = useBayScale();
+  // The skin the bay previews (2026-11-17), for the probe it was chosen on.
+  const [preview, setPreview] = useState<SkinPreview & { probe?: string }>({});
+  const skinNames = useCosmeticsView().data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
+  const { ref: bayRef, plateRef, px } = useBayScale();
   useEffect(() => {
     if (!celebrate) return;
     const id = setTimeout(() => setCelebrate(null), 2600);
@@ -149,6 +168,9 @@ export function WorkshopScreen() {
   const pending = choose.isPending;
   const maxHp = Math.max(1, ...(view?.probes.map((p) => p.hp) ?? [1]));
   const maxSpeed = Math.max(1, ...(view?.probes.map((p) => p.speed) ?? [1]));
+  const look = probe && preview.probe === probe.id ? preview : {};
+  const shownSkin = probe ? previewed(look, probe.skin) : null;
+  const previewing = !!probe && shownSkin !== probe.skin;
 
   return (
     <div className="screen-root workshop-root">
@@ -171,16 +193,23 @@ export function WorkshopScreen() {
               <div className="workshop-bay-frame" ref={bayRef}>
                 <div className="workshop-bay-art" style={{ '--px': `${px}px`, backgroundImage: `url(${bayUrl})` } as CSSProperties}>
                   <span className="workshop-scan" aria-hidden="true" />
-                  <img
+                  <SpriteLoop
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    src={spriteDataUrl(probe.sprite, 12)}
-                    alt=""
+                    id={probeDrawing(shownSkin, probe.sprite)}
+                    data-drawing={probeDrawing(shownSkin, probe.sprite)}
+                    scale={12}
+                    reduced={reduced}
                   />
+                  {previewing ? (
+                    <span className="workshop-preview-tag" aria-live="polite">
+                      {t.preview(shownSkin ? (skinNames.find((k) => k.id === shownSkin)?.name ?? shownSkin) : t.skinBase)}
+                    </span>
+                  ) : null}
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>
               </div>
-              <div className="workshop-plate">
+              <div className="workshop-plate" ref={plateRef}>
                 <h2>{probe.name}</h2>
                 <span className="workshop-pips" aria-label={copy.hangar.level(probe.level, probe.maxLevel)}>
                   {Array.from({ length: probe.maxLevel }, (_, i) => (
@@ -218,6 +247,8 @@ export function WorkshopScreen() {
                   </p>
                 ) : null}
               </div>
+              {/* Under «Equipar», outside the plate the bay is sized against: it may run below the fold. */}
+              {probe.unlocked ? <SkinPicker key={probe.id} probe={probe} preview={look} onPreview={(next) => setPreview({ ...next, probe: probe.id })} /> : null}
             </section>
             <Sheet
               key={probe.id}

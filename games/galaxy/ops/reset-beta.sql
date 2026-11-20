@@ -1,6 +1,6 @@
 -- Galaxy Survivor: start the open beta from zero (2026-11-10). Deletes every player's (and every staff account's)
 -- data, as if nobody had ever signed up, and keeps everything that is not a player's: the live config and its
--- history (galaxy.game_config_versions), the audit log, the title notices and the reserved usernames.
+-- history (galaxy.game_config_versions), the audit log, the title notices, the reserved usernames and the release notes.
 --
 -- Run it as `postgres` (the tables' owner) with the galaxy app STOPPED, after a full backup. It opens a transaction and
 -- never ends it: append `COMMIT;` to apply it or `ROLLBACK;` to rehearse it (docs/DEPLOY_PRE.md, «Lanzamiento de la
@@ -22,6 +22,10 @@ do $$
 begin
   if not exists (select 1 from information_schema.schemata where schema_name = 'galaxy') then
     raise exception 'Esta base no tiene el esquema galaxy';
+  end if;
+  -- Real money (the resource shop): once there is a purchase, this reset can never run again.
+  if exists (select 1 from galaxy.shop_purchases) then
+    raise exception 'Hay compras con dinero real en la tienda: este borrado ya no se puede usar';
   end if;
 end $$;
 
@@ -68,6 +72,7 @@ truncate table
   galaxy.galaxies,
   galaxy.hangars,
   galaxy.lab_nodes,
+  galaxy.lab_season_nodes,
   galaxy.ledger,
   galaxy.loadouts,
   galaxy.login_challenges,
@@ -94,6 +99,10 @@ truncate table
   galaxy.season_results,
   galaxy.season_route_claims,
   galaxy.sessions,
+  galaxy.settings,
+  galaxy.shop_alerts,
+  galaxy.shop_blocks,
+  galaxy.shop_stripe_events,
   galaxy.social_prefs,
   galaxy.station_rooms,
   galaxy.trade_alerts,
@@ -117,7 +126,7 @@ declare
 begin
   for t in
     select tablename from pg_tables
-    where schemaname = 'galaxy' and tablename not in ('game_config_versions', 'admin_audit_log', 'title_notices', 'reserved_usernames')
+    where schemaname = 'galaxy' and tablename not in ('game_config_versions', 'admin_audit_log', 'title_notices', 'reserved_usernames', 'release_notes')
   loop
     execute format('select count(*) from galaxy.%I', t) into n;
     if n <> 0 then

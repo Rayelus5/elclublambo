@@ -19,12 +19,16 @@ import { MarketScreen } from './market/MarketScreen';
 import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
 import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
-import { CommunicationScreen } from './admin/CommunicationScreen';
+import { CommunicationScreen } from './admin/communication/CommunicationScreen';
 import { StatsScreen } from './admin/StatsScreen';
+import { StorageScreen } from './admin/StorageScreen';
 import { RunsScreen } from './admin/RunsScreen';
 import { ReplayScreen } from './admin/ReplayScreen';
 import { WatchScreen } from './admin/WatchScreen';
+import { SoloWatchScreen } from './admin/SoloWatchScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
+import { ContentScreen } from './admin/content/ContentScreen';
+import { PackLibraryScreen } from './admin/mail/PackLibraryScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
@@ -39,8 +43,13 @@ import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { ChatHost } from './chat/ChatPanel';
 import { LiveConnection } from './live/LiveConnection';
+import { SettingsSync } from './settings/SettingsSync';
+import { NotesScreen } from './notes/NotesScreen';
+import { NewsAdmin } from './admin/NewsAdmin';
+import { NotesAdmin } from './admin/NotesAdmin';
+import { MusicRehearsal } from './admin/MusicRehearsal';
 import { FriendsHost } from './social/FriendsPanel';
-import { FriendToasts } from './social/FriendToasts';
+import { LiveToasts } from './live/Toasts';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
@@ -48,13 +57,18 @@ import { Entrar } from './routes/Entrar';
 import { Recuperar } from './routes/Recuperar';
 import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
+import { DocumentTitle } from './shell/DocumentTitle';
 import { MissionsScreen } from './missions/MissionsScreen';
 import { CatalogScreen } from './collection/CatalogScreen';
+import { RevealRehearsal } from './admin/RevealRehearsal';
 import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
 import { TrophiesScreen } from './season/TrophiesScreen';
 import { SettingsScreen } from './hub/SettingsScreen';
+import { ShopScreen } from './shop/ShopScreen';
+import { ShopAdminScreen } from './admin/shop/ShopAdminScreen';
+import { ReferralsScreen } from './admin/referrals/ReferralsScreen';
 
 function Splash() {
   return (
@@ -111,6 +125,7 @@ export function App() {
   return (
     <>
       <MusicStarter />
+      <DocumentTitle />
       <UiSounds />
       <TourProvider />
       <Routes>
@@ -124,6 +139,7 @@ export function App() {
         <Route path="/incursion/sala" element={<Navigate to="/incursion" replace />} />
         <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
         <Route path="/taller" element={<SignedIn><WorkshopScreen /></SignedIn>} />
+        <Route path="/tienda" element={<SignedIn><ShopScreen /></SignedIn>} />
         <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
         <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
         <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
@@ -138,6 +154,7 @@ export function App() {
         <Route path="/temporada" element={<SignedIn><SeasonScreen /></SignedIn>} />
         <Route path="/trofeos" element={<SignedIn><TrophiesScreen /></SignedIn>} />
         <Route path="/ajustes" element={<SignedIn><SettingsScreen /></SignedIn>} />
+        <Route path="/notas-de-version" element={<SignedIn><NotesScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>
@@ -145,13 +162,24 @@ export function App() {
             <Route path="jugadores/:username" element={<PlayerScreen />} />
             <Route path="auditoria" element={<AuditScreen />} />
             <Route path="configuracion" element={<ConfigScreen />} />
+            {/* The run content's own page (the content editor, 2026-11-16): drafts on the server. */}
+            <Route path="configuracion/content" element={<ContentScreen />} />
+            <Route path="configuracion/mail" element={<PackLibraryScreen />} />
+            <Route path="configuracion/mail/avanzado" element={<ConfigKeyScreen keyName="mail" />} />
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
             <Route path="eventos" element={<EventsScreen />} />
             <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
+            <Route path="referidos" element={<ReferralsScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
+            <Route path="almacenamiento" element={<StorageScreen />} />
             <Route path="partidas" element={<RunsScreen />} />
             <Route path="partidas/:id" element={<ReplayScreen />} />
+            <Route path="tienda" element={<ShopAdminScreen />} />
+            <Route path="escaner-ensayo" element={<RevealRehearsal />} />
+            <Route path="notas-de-version" element={<NotesAdmin />} />
+            <Route path="tablon" element={<NewsAdmin />} />
+            <Route path="musica" element={<MusicRehearsal />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />
@@ -160,6 +188,7 @@ export function App() {
             <Route path="silencios" element={<Mutes />} />
             <Route path="salas" element={<LiveRooms />} />
             <Route path="directo/:runId" element={<WatchScreen />} />
+            <Route path="directo/solo/:runId" element={<SoloWatchScreen />} />
             <Route element={<AdminOnly />}>
               <Route path="clanes" element={<ClanList />} />
               <Route path="clanes/:tag" element={<ClanPage />} />
@@ -181,8 +210,9 @@ export function App() {
       </Routes>
       <ChatHost />
       <FriendsHost />
-      <FriendToasts />
+      <LiveToasts />
       <LiveConnection />
+      <SettingsSync />
       <TrailTracker />
     </>
   );

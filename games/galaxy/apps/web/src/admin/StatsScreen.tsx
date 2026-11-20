@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type AdminStats, STATS_PERIODS, type StatsPeriod, type StatsSection, TIERS } from '@galaxy/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
@@ -9,7 +10,10 @@ import { copy } from '../copy/es';
 const t = copy.admin.stats;
 const whole = new Intl.NumberFormat('es-ES');
 const compact = new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 });
-const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+const percentOne = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+const percentTwo = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 2 });
+/** A share with one decimal, or two under 1 % (a mythic's 0,05 % would round away). */
+const percent = { format: (x: number) => (x > 0 && x < 0.01 ? percentTwo : percentOne).format(x) };
 const big = (n: number) => (Math.abs(n) >= 100_000 ? compact.format(n) : whole.format(n));
 const hour = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
 const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -189,7 +193,7 @@ function Currencies({ s }: { s: AdminStats }) {
       </SectionHead>
       {s.currencies.length === 0 ? <p className="panel-note">{t.noFlows}</p> : null}
       {s.currencies.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table stats-flows">
             <caption className="sr-only">{t.currenciesTitle}</caption>
             <thead>
@@ -221,7 +225,7 @@ function Currencies({ s }: { s: AdminStats }) {
               </tbody>
             ))}
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </section>
   );
@@ -254,7 +258,7 @@ function Pulls({ s }: { s: AdminStats }) {
         </p>
       </SectionHead>
       <p className="stats-sub">{total ? t.pullsTotal(total) : t.noPulls}</p>
-      <div className="admin-table-wrap">
+      <HScroll variant="table" className="admin-table-wrap">
         <table className="admin-table stats-pulls">
           <caption className="sr-only">{t.pullsTitle}</caption>
           <thead>
@@ -288,7 +292,7 @@ function Pulls({ s }: { s: AdminStats }) {
             })}
           </tbody>
         </table>
-      </div>
+      </HScroll>
       <p className="stats-sub">{t.expectedNote}</p>
     </section>
   );

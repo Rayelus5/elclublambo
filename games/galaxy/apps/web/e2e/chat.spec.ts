@@ -76,11 +76,11 @@ test('dos jugadores hablan en Comunidad en vivo, uno denuncia, y sin nivel no se
 
   const sheet = await openChat(page);
   const readerSheet = await openChat(reader);
-  await expect(readerSheet.getByRole('textbox', { name: 'Mensaje' })).toBeEnabled();
+  await expect(readerSheet.getByRole('combobox', { name: 'Mensaje' })).toBeEnabled();
 
   // One writes; the other sees it come in without reloading.
   const text = `Hola desde la estación ${randomBytes(3).toString('hex')}`;
-  const field = sheet.getByRole('textbox', { name: 'Mensaje' });
+  const field = sheet.getByRole('combobox', { name: 'Mensaje' });
   await field.fill(text);
   await expect(sheet.getByText(`${[...text].length} de 280`)).toBeVisible();
   await field.press('Enter');
@@ -107,7 +107,7 @@ test('dos jugadores hablan en Comunidad en vivo, uno denuncia, y sin nivel no se
   const rookie = await third.newPage();
   await newAccount(rookie);
   const rookieSheet = await openChat(rookie);
-  await expect(rookieSheet.getByRole('textbox', { name: 'Mensaje' })).toBeDisabled();
+  await expect(rookieSheet.getByRole('combobox', { name: 'Mensaje' })).toBeDisabled();
   await expect(rookieSheet.getByText('Necesitas nivel 5 para escribir')).toBeVisible();
   await expect(rookieSheet.getByRole('log').getByText(text)).toBeVisible();
   await expect(rookieSheet.getByRole('tab', { name: 'Clan' })).toHaveCount(0);

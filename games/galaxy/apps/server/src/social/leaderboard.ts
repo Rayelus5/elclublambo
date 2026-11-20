@@ -57,8 +57,12 @@ export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, minRunS
 
 async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, minRunSeconds: number): Promise<Ranked[]> {
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
-  // A co-op run's points are scaled by the players it started with (multiplayer plan: runs.points_factor).
-  const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60) * r.points_factor)::int`;
+  // A co-op run's points are scaled by the players it started with (multiplayer plan: runs.points_factor), and every
+  // run's by what its sector pays (2026-11-16: runs.sector_factor) — in double precision, in the same order as
+  // creditRunProgress, so the ranking adds up exactly what each run's results said. `points_factor` is a `real`: cast
+  // straight to double, 0,7 is 0,69999998…, and a run of 10 points ranked 6 where its results said 7 (review of
+  // 2026-11-16); through numeric, rounded, it is the config's 0,7 again.
+  const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)::float8 * round(r.points_factor::numeric, 6)::float8 * r.sector_factor)::int`;
   // Group records live in the group ranking only: depth and purges count solo runs.
   const soloOnly = tab === 'general' ? sql`` : sql`and r.coop_run_id is null`;
   const value =
@@ -133,11 +137,15 @@ export function groupRanking(db: Kysely<DB>, cfg: SeasonConfig, minRunSeconds: n
       const team = [...r.members].sort().join(',');
       if (seen.has(team)) continue;
       seen.add(team);
-      const probes = Array.isArray(r.players) ? (r.players as { probe?: unknown }[]) : [];
+      const probes = Array.isArray(r.players) ? (r.players as { probe?: unknown; skin?: unknown }[]) : [];
       const prev = out[out.length - 1];
       out.push({
         rank: prev && prev.depth === r.depth && prev.cores === r.cores ? prev.rank : out.length + 1,
-        players: r.names.map((username, i) => ({ username, probe: typeof probes[i]?.probe === 'string' ? (probes[i]!.probe as string) : 'lumen' })),
+        players: r.names.map((username, i) => ({
+          username,
+          probe: typeof probes[i]?.probe === 'string' ? (probes[i]!.probe as string) : 'lumen',
+          skin: typeof probes[i]?.skin === 'string' ? (probes[i]!.skin as string) : null,
+        })),
         depth: r.depth,
         cores: r.cores,
         seconds: Math.round(r.ticks / 60),
@@ -197,7 +205,21 @@ export async function clanRanking(db: Kysely<DB>, season: SeasonConfig, account:
 
 export const clanRow = (c: RankedClan): ClanRow => ({ rank: c.rank ?? 0, tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, members: c.members, value: c.value });
 
-const row = (r: Ranked, account: AccountConfig): LeaderRow => ({ rank: r.rank, username: r.username, level: levelOf(r.xp, account).level, value: r.value });
+const row = (r: Ranked, account: AccountConfig, looks: Map<string, { avatar: string | null; frame: string | null }> = new Map()): LeaderRow => ({
+  rank: r.rank,
+  username: r.username,
+  level: levelOf(r.xp, account).level,
+  value: r.value,
+  avatar: looks.get(r.accountId)?.avatar ?? null,
+  frame: looks.get(r.accountId)?.frame ?? null,
+});
+
+/** The avatar and frame of the accounts shown (Nov plan C2), read fresh: the ranking itself is cached. */
+async function looksOf(db: SocialDeps['db'], ids: string[]): Promise<Map<string, { avatar: string | null; frame: string | null }>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db.selectFrom('galaxy.accounts').select(['id', 'avatar', 'frame']).where('id', 'in', ids).execute();
+  return new Map(rows.map((r) => [r.id, { avatar: r.avatar, frame: r.frame }]));
+}
 
 export async function leaderboard(deps: SocialDeps, viewerId: string, tab: LeaderTab): Promise<Leaderboard> {
   const [cfg, account] = await Promise.all([deps.config.get('season'), deps.config.get('account')]);
@@ -216,11 +238,13 @@ export async function leaderboard(deps: SocialDeps, viewerId: string, tab: Leade
   }
   const ranked = await ranking(deps.db, cfg, tab, account.minRunSeconds);
   const mine = ranked.find((r) => r.accountId === viewerId);
+  const top = ranked.slice(0, cfg.top);
+  const looks = await looksOf(deps.db, [...top.map((r) => r.accountId), ...(mine ? [mine.accountId] : [])]);
   return {
     season: info,
     tab,
-    rows: ranked.slice(0, cfg.top).map((r) => row(r, account)),
-    me: mine ? row(mine, account) : null,
+    rows: top.map((r) => row(r, account, looks)),
+    me: mine ? row(mine, account, looks) : null,
     total: ranked.length,
   };
 }

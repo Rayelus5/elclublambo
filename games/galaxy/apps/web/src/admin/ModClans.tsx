@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { useId, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
@@ -42,7 +43,7 @@ export function ClanList() {
       ) : null}
       {clans.data && rows.length === 0 ? <p className="panel-note">{t.none}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
@@ -67,7 +68,7 @@ export function ClanList() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </div>
   );
@@ -146,7 +147,7 @@ export function ClanPage() {
           {copy.admin.done}
         </p>
       ) : null}
-      <div className="admin-table-wrap">
+      <HScroll variant="table" className="admin-table-wrap">
         <table className="admin-table">
           <caption>{t.rosterTitle}</caption>
           <thead>
@@ -192,7 +193,7 @@ export function ClanPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </HScroll>
       {open ? (
         <ActionDialog
           url={open.url}

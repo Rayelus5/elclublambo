@@ -3,7 +3,7 @@ import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { parseConfig } from '../src/index';
 
 test('features y auth tienen valores por defecto', () => {
-  expect(parseConfig('features', {})).toEqual({ registrationOpen: true, maintenance: false, gacha: true, runs: true, market: true, trades: true, chat: true, friends: true, coop: true });
+  expect(parseConfig('features', {})).toEqual({ registrationOpen: true, maintenance: false, gacha: true, runs: true, market: true, trades: true, offers: true, board: true, chat: true, friends: true, coop: true });
   expect(parseConfig('auth', {})).toEqual({
     sessionDays: 30,
     adminSessionHours: 12,
@@ -25,7 +25,7 @@ test('auth rechaza valores fuera de rango o no enteros', () => {
 
 test('features rechaza tipos incorrectos y conserva los valores dados', () => {
   expect(() => parseConfig('features', { maintenance: 'sí' })).toThrow();
-  expect(parseConfig('features', { maintenance: true })).toEqual({ registrationOpen: true, maintenance: true, gacha: true, runs: true, market: true, trades: true, chat: true, friends: true, coop: true });
+  expect(parseConfig('features', { maintenance: true })).toEqual({ registrationOpen: true, maintenance: true, gacha: true, runs: true, market: true, trades: true, offers: true, board: true, chat: true, friends: true, coop: true });
 });
 
 test('una clave desconocida lanza', () => {
@@ -48,7 +48,7 @@ test('runs tiene los valores de partida de la economía de las incursiones', () 
     daily: { hours: [3, 4, 5], multipliers: [1, 0.75, 0.5, 0.25] },
     signalChancePerBoss: 0.1,
     material: { perLayer: 6, perBoss: 10, perHundredKills: 2 },
-    caps: { killsPerMinute: 900, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000, runMaterial: 500, runComponents: 30, componentsPerMinute: 20, propDustPerMinute: 30 },
+    caps: { killsPerMinute: 900, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000, runMaterial: 500, runComponents: 30, componentsPerMinute: 20, propDustPerMinute: 30, satelliteSignals: 3 },
     expireHours: 24,
     startPerHour: 30,
   });

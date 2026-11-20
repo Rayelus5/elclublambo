@@ -8,6 +8,7 @@ import { LiveChat, Mutes, Reports } from '../src/admin/ModerationScreen';
 import { copy } from '../src/copy/es';
 import { TopBar } from '../src/hub/TopBar';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Moderation on the web (GDD §16.1, §16.4; M6c-1): a moderator (TOTP) reaches the panel but only its Moderación; the
 // report queue resolves with a reason; the live chat lists hidden messages and restores them; a mute takes a
@@ -22,7 +23,7 @@ const channels: ModChannel[] = [
   { key: 'global', label: 'Comunidad', lastAt: '2026-11-08T09:00:00.000Z' },
   { key: 'clan:0f8f0d0e-6c1b-4c39-9a37-1f7b0c4c2a11', label: '[GX] Galácticos', lastAt: '2026-11-08T08:00:00.000Z' },
 ];
-const message = (over: Partial<ModMessage> = {}): ModMessage => ({ id: '41', channel: 'global', author: 'vega', body: 'esto molesta', at: '2026-11-08T09:00:00.000Z', hidden: null, reports: 0, ...over });
+const message = (over: Partial<ModMessage> = {}): ModMessage => ({ id: '41', channel: 'global', author: 'vega', body: 'esto molesta', at: '2026-11-08T09:00:00.000Z', hidden: null, reports: 0, pending: 0, ...over });
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
 
@@ -82,20 +83,17 @@ test('sin denuncias pendientes lo dice', async () => {
   expect(await screen.findByText(t.noReports)).toBeInTheDocument();
 });
 
-test('el chat en vivo lista los ocultos con quién los ocultó, se puede pausar y restaura uno con motivo', async () => {
+test('los mensajes listan los ocultos con quién los ocultó, y restaurar uno pide motivo', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
     [`GET ${M}/channels`]: () => jsonResponse(200, channels),
-    [`GET ${M}/messages?channel=global`]: () =>
+    [`GET ${M}/messages?channel=all`]: () =>
       jsonResponse(200, [message({ id: '42', body: 'hola a todos', author: 'nova' }), message({ hidden: { reason: 'moderator', by: 'vigia', at: '2026-11-08T09:02:00.000Z' } })]),
     [`POST ${M}/messages/41/restore`]: () => jsonResponse(200, { hidden: false }),
   });
   renderAt('/admin/moderacion/chat', { '/admin/moderacion/chat': <LiveChat /> });
   const hidden = await screen.findByRole('article', { name: t.messageOf('vega') });
   expect(within(hidden).getByText(t.hiddenBy('vigia'))).toBeInTheDocument();
-  expect(screen.getByText(t.live)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: t.pause }));
-  expect(screen.getByText(t.paused)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: t.words })).toHaveAttribute('href', '/admin/configuracion/chat');
   await userEvent.click(within(hidden).getByRole('button', { name: t.restore }));
   const dialog = await screen.findByRole('dialog', { name: t.restore });
@@ -108,7 +106,7 @@ test('el filtro de palabras no se ofrece a un moderador', async () => {
   mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, mod),
     [`GET ${M}/channels`]: () => jsonResponse(200, channels),
-    [`GET ${M}/messages?channel=global`]: () => jsonResponse(200, [message()]),
+    [`GET ${M}/messages?channel=all`]: () => jsonResponse(200, [message()]),
   });
   renderAt('/admin/moderacion/chat', { '/admin/moderacion/chat': <LiveChat /> });
   await screen.findByRole('article', { name: t.messageOf('vega') });
@@ -128,7 +126,7 @@ test('silenciar una cuenta pide nombre, duración y motivo; la lista se levanta 
   await userEvent.click(screen.getByRole('button', { name: t.mute }));
   const dialog = await screen.findByRole('dialog', { name: t.mute });
   await userEvent.type(within(dialog).getByLabelText(t.username), 'vega');
-  await userEvent.selectOptions(within(dialog).getByLabelText(copy.admin.fields.duration), '1440');
+  await pickOption(userEvent, within(dialog).getByLabelText(copy.admin.fields.duration), '1440');
   await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Spam');
   await userEvent.click(within(dialog).getByRole('button', { name: t.muteSubmit }));
   await waitFor(() => expect(posted(fetch, `${M}/mutes`)).toEqual([{ username: 'vega', minutes: 1440, reason: 'Spam' }]));
@@ -175,11 +173,11 @@ test('disolver un clan pide la contraseña del admin', async () => {
   await waitFor(() => expect(locationOf(screen.getByTestId('location')).pathname).toBe('/admin/moderacion/clanes'));
 });
 
-test('un moderador con TOTP tiene el escudo del panel en la barra y su etiqueta dice Moderador', async () => {
+test('un moderador con TOTP tiene el escudo del panel en la barra, sin etiqueta de staff', async () => {
   mockApi({});
   renderAt('/', { '/': <TopBar me={mod} wallet={undefined} freePull={false} onLogout={() => {}} leaving={false} /> });
   expect(await screen.findByRole('link', { name: copy.admin.title })).toHaveAttribute('href', '/admin');
-  expect(screen.getByText(copy.hub.moderator)).toBeInTheDocument();
+  expect(screen.queryByText('Moderador')).not.toBeInTheDocument();
 });
 
 test('expulsar al último miembro deja la página diciendo que el clan ya no existe', async () => {

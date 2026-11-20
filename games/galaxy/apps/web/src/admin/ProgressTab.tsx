@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import type { AdminProgress } from '@galaxy/shared';
 import { useState } from 'react';
 import { useAdminProgress } from '../api/admin';
@@ -177,7 +178,7 @@ export function ProgressTab({ username }: { username: string }) {
       ) : null}
 
       <section className="progress-part">
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{g.gachaTitle}</caption>
             <thead>
@@ -203,11 +204,11 @@ export function ProgressTab({ username }: { username: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       </section>
 
       <section className="progress-part">
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{g.probesTitle}</caption>
             <thead>
@@ -247,13 +248,13 @@ export function ProgressTab({ username }: { username: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       </section>
 
       <div className="progress-pair">
         <div className="progress-stack">
           <section className="progress-part">
-            <div className="admin-table-wrap">
+            <HScroll variant="table" className="admin-table-wrap">
               <table className="admin-table">
                 <caption>{g.roomsTitle}</caption>
                 <thead>
@@ -273,7 +274,7 @@ export function ProgressTab({ username }: { username: string }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </HScroll>
           </section>
 
           <section className="progress-part progress-season" aria-labelledby="progress-season-title">
@@ -291,7 +292,7 @@ export function ProgressTab({ username }: { username: string }) {
           </section>
         </div>
         <section className="progress-part">
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table">
               <caption>{g.labTitle}</caption>
               <thead>
@@ -311,7 +312,7 @@ export function ProgressTab({ username }: { username: string }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
         </section>
       </div>
 

@@ -1,9 +1,11 @@
+import { HScroll } from '../ui/HScroll';
 import { type AdminAlertRow, type AdminListingRow, type AdminTradeRow, type DealReversal, type GalaxyLineage, LISTING_STATUSES, TIERS, TRADE_STATUSES } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useAdminAlerts, useAdminDeals, useDealLineage } from '../api/admin-market';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { Select } from '../ui/Select';
 import { useSettled } from '../ui/useSettled';
 import { ActionDialog } from './ActionDialog';
 import { Pager } from './DataTable';
@@ -95,6 +97,23 @@ function StatusCell({ status, reversal }: { status: string; reversal: DealRevers
 }
 
 const galaxyCell = (g: { name: string; tier: number } | null) => <td className={g ? `deal-galaxy tier-${TIERS[g.tier]}` : undefined}>{g ? g.name : '—'}</td>;
+/** What a side of a trade gives (trades 2.0): its galaxies, each in its rarity's colour, and its coins. */
+const givesCell = (galaxies: { id: string; name: string; tier: number }[], coins: number) => (
+  <td>
+    {galaxies.length === 0 && coins === 0 ? (
+      '—'
+    ) : (
+      <span className="deal-gives">
+        {galaxies.map((g) => (
+          <span key={g.id} className={`deal-galaxy tier-${TIERS[g.tier]}`}>
+            {g.name}
+          </span>
+        ))}
+        {coins > 0 ? <span className="deal-coins">{copy.market.price(coins)}</span> : null}
+      </span>
+    )}
+  </td>
+);
 
 /**
  * Comercio (DESIGN_SYSTEM §8 novodecies): the history of listings or of trades, filtered by account and status from
@@ -157,14 +176,14 @@ export function Commerce() {
         <div className="field">
           <label htmlFor={`${ids}-status`}>{t.status}</label>
           <div className="control">
-            <select id={`${ids}-status`} value={status} onChange={(e) => change({ estado: e.target.value || null, pagina: null })}>
-              <option value="">{t.all}</option>
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {t.statuses[s]}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-status`}
+              size="lg"
+              block
+              value={status}
+              options={[{ value: '', label: t.all }, ...statuses.map((s) => ({ value: s, label: t.statuses[s] ?? s }))]}
+              onChange={(v) => change({ estado: v || null, pagina: null })}
+            />
           </div>
         </div>
       </div>
@@ -180,9 +199,9 @@ export function Commerce() {
       ) : null}
       {data && data.rows.length === 0 ? <p className="panel-note">{kind === 'listings' ? t.noListings : t.noTrades}</p> : null}
       {data && data.rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           {data.kind === 'listings' ? <ListingsTable rows={data.rows} onAction={start} /> : <TradesTable rows={data.rows} onAction={start} />}
-        </div>
+        </HScroll>
       ) : null}
       {data ? <Pager page={data.page} pages={data.pages} onPage={(p) => change({ pagina: p > 1 ? String(p) : null })} /> : null}
       {open?.action === 'cancel' ? (
@@ -277,9 +296,9 @@ function TradesTable({ rows, onAction }: { rows: AdminTradeRow[]; onAction: (o: 
               <time dateTime={r.closedAt ?? r.createdAt}>{when(r.closedAt ?? r.createdAt)}</time>
             </td>
             <td>{r.a}</td>
-            {galaxyCell(r.aGalaxy)}
+            {givesCell(r.aGalaxies, r.aCoins)}
             <td>{r.b}</td>
-            {galaxyCell(r.bGalaxy)}
+            {givesCell(r.bGalaxies, r.bCoins)}
             <StatusCell status={r.status} reversal={r.reversal} />
             <td>
               <div className="admin-row-actions">
@@ -348,7 +367,7 @@ export function Alerts() {
       ) : null}
       {alerts.data && rows.length === 0 ? <p className="panel-note">{reviewed ? t.noReviewed : t.noAlerts}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{t.alertsTitle}</caption>
             <thead>
@@ -397,7 +416,7 @@ export function Alerts() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {alerts.data ? <Pager page={alerts.data.page} pages={alerts.data.pages} onPage={setPage} /> : null}
       {open ? (

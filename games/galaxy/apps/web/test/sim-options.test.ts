@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { simOptions } from '../src/arena/sim-options';
 
 // The arena builds its simulation from the run the server started (M4b-1): the probe with its relics, its level's
-// bonuses and its starting weapon, recorded for the replay.
+// bonuses and its starting weapon, recorded for the replay. The skin is only drawing: the simulation never sees it.
 
 test('la simulación sale con las reliquias, los bonos, la variante y la anomalía de la incursión', () => {
   const run: RunStart = {
@@ -16,6 +16,7 @@ test('la simulación sale con las reliquias, los bonos, la variante y la anomal�
     bonuses: [{ stat: 'maxHp', value: 0.09 }],
     variant: 'pulse-twin',
     anomaly: 'contagion',
+    skin: 'skin-lumen-coral',
     content: DEFAULT_CONTENT,
     contentVersion: 3,
     startedAt: '2026-11-07T10:00:00Z',

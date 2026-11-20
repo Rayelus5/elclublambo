@@ -18,4 +18,10 @@ ingress:
     service: http://kong:8000
   - hostname: pre-api.elclub.party
     service: http_status:404
+  # Galaxy Survivor's own domain: the whole host is the game server's (it redirects www to the apex itself). After every
+  # elclub.party rule, so their order does not change.
+  - hostname: galaxysurvivor.es
+    service: http://galaxy:8080
+  - hostname: www.galaxysurvivor.es
+    service: http://galaxy:8080
   - service: http_status:404

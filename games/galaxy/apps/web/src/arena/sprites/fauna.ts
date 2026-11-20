@@ -1,56 +1,10 @@
 import { P } from './palette';
 import { grid, type SpriteDef } from './types';
 
-// The probe and the Static's fauna (DESIGN_SYSTEM §8 quater). Hand-drawn grids, light from the top left, 1 px
+// The Static's fauna (DESIGN_SYSTEM §8 quater; the probes are in probe-art.ts). Hand-drawn grids, light from the top left, 1 px
 // outline. Every species has its own hue so it reads at a glance.
 
 const C: [number, number] = [0.5, 0.5];
-
-export const PROBE_LUMEN: SpriteDef = {
-  w: 16,
-  h: 16,
-  fps: 12,
-  anchor: C,
-  palette: P,
-  frames: [
-    grid(
-      '................',
-      '.....kkkkk......',
-      '....kYiiiYk.....',
-      '...kkkkkkkkk....',
-      '..kiiwwwwwiikk..',
-      '.kiwwwwwwwwibbk.',
-      '.kiwwwwwkkkkibk.',
-      'okiwwwwkccwckbk.',
-      'skiwwwwkcccckbk.',
-      'okiiwwwwkkkkibk.',
-      '.kbiiiiiiiiibbk.',
-      '..kbbiiiiiibbk..',
-      '...kkkkkkkkkk...',
-      '....kYiiiYk.....',
-      '.....kkkkk......',
-      '................',
-    ),
-    grid(
-      '................',
-      '.....kkkkk......',
-      '....kYiiiYk.....',
-      '...kkkkkkkkk....',
-      '..kiiwwwwwiikk..',
-      '.kiwwwwwwwwibbk.',
-      'okiwwwwwkkkkibk.',
-      'skiwwwwkccwckbk.',
-      'wkiwwwwkcccckbk.',
-      'skiiwwwwkkkkibk.',
-      'okbiiiiiiiiibbk.',
-      '..kbbiiiiiibbk..',
-      '...kkkkkkkkkk...',
-      '....kYiiiYk.....',
-      '.....kkkkk......',
-      '................',
-    ),
-  ],
-};
 
 export const MITE: SpriteDef = {
   w: 8,

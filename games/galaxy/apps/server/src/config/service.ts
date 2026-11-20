@@ -7,9 +7,18 @@ import { HttpError } from '../errors';
 import type { ConfigReader } from './reader';
 
 export type ConfigVersion = { version: number; data: unknown; createdAt: string; createdBy: string | null; note: string };
+/** A version without its data (the content editor, 2026-11-16: the run content is about 180 KB a version). */
+export type ConfigVersionSummary = Omit<ConfigVersion, 'data'>;
 
 export interface ConfigService extends ConfigReader {
+  /** A key's history, oldest first, with each version's data (the shop's price history reads it). */
   versions(key: ConfigKey): Promise<ConfigVersion[]>;
+  /** A key's history, oldest first, without the data (the admin panel's list). */
+  summaries(key: ConfigKey): Promise<ConfigVersionSummary[]>;
+  /** One version with its data, or null. */
+  version(key: ConfigKey, version: number): Promise<ConfigVersion | null>;
+  /** The newest version of every key that has one, without the data. */
+  latest(): Promise<Array<ConfigVersionSummary & { key: string }>>;
   active(): Promise<Array<{ key: string; version: number; data: unknown }>>;
   publish<K extends ConfigKey>(key: K, data: unknown, actor: AuditActor, reason: string, opts?: { baseVersion?: number }): Promise<{ version: number }>;
   /**
@@ -70,13 +79,32 @@ export function createConfigService(
         .where('key', '=', key)
         .orderBy('version', 'asc')
         .execute();
-      return rows.map((r) => ({
-        version: r.version,
-        data: r.data,
-        createdAt: r.created_at.toISOString(),
-        createdBy: r.created_by,
-        note: r.note,
-      }));
+      return rows.map((r) => ({ version: r.version, data: r.data, createdAt: r.created_at.toISOString(), createdBy: r.created_by, note: r.note }));
+    },
+
+    async summaries(key) {
+      const rows = await db
+        .selectFrom('galaxy.game_config_versions')
+        .select(['version', 'created_at', 'created_by', 'note'])
+        .where('key', '=', key)
+        .orderBy('version', 'asc')
+        .execute();
+      return rows.map((r) => ({ version: r.version, createdAt: r.created_at.toISOString(), createdBy: r.created_by, note: r.note }));
+    },
+
+    async version(key, version) {
+      const r = await db
+        .selectFrom('galaxy.game_config_versions')
+        .select(['version', 'data', 'created_at', 'created_by', 'note'])
+        .where('key', '=', key)
+        .where('version', '=', version)
+        .executeTakeFirst();
+      return r ? { version: r.version, data: r.data, createdAt: r.created_at.toISOString(), createdBy: r.created_by, note: r.note } : null;
+    },
+
+    async latest() {
+      const rows = await db.selectFrom('galaxy.game_config_active').select(['key', 'version', 'created_at', 'created_by', 'note']).execute();
+      return rows.map((r) => ({ key: r.key, version: r.version, createdAt: r.created_at.toISOString(), createdBy: r.created_by, note: r.note }));
     },
 
     async active() {

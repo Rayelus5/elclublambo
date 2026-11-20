@@ -1,4 +1,4 @@
-import type { GachaView, HangarView, ProbeTestRequest, ProbeTestResult, RunResult, RunStart, StartRunRequest } from '@galaxy/shared';
+import type { GachaView, HangarView, ProbeTestRequest, ProbeTestResult, RunResult, RunStart, StartRunRequest, TestRunResponse } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
@@ -95,6 +95,16 @@ export function useChooseVariant() {
   });
 }
 
+/** The skin a probe wears (plan «skins», part C): one of mine of that probe, or null for its base drawing. */
+export function useChooseSkin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { probe: string; skin: string | null }) => api<HangarView>(`/hangar/probes/${v.probe}/skin`, { method: 'PUT', body: { skin: v.skin } }),
+    onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+    onError: () => void qc.invalidateQueries({ queryKey: HANGAR_KEY }),
+  });
+}
+
 /** The probe test, sent once at the end (GDD §6). The hangar is refreshed: it now has its probe. */
 export function useProbeTest() {
   const qc = useQueryClient();
@@ -109,6 +119,11 @@ export function useStartRun() {
     mutationFn: (req: StartRunRequest) => api<RunStart>('/runs', { method: 'POST', body: req, headers: keyFor('run-start') }),
     onSettled: (_data, error) => endIntent('run-start', error),
   });
+}
+
+/** The admin debug mode (2026-11-15): the admin's own open solo run becomes a test run on the server. */
+export function markTestRun(runId: string): Promise<TestRunResponse> {
+  return api<TestRunResponse>(`/runs/${runId}/test`, { method: 'POST', body: {} });
 }
 
 export function finishRun(p: PendingRun): Promise<RunResult> {

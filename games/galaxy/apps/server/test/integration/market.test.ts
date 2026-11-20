@@ -1,9 +1,13 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { type GalaxyDetail, generateGalaxy, type MarketPage, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
+import { commissionOf, type GalaxyDetail, generateGalaxy, type MarketOffersView, type MarketPage, type MarketStats, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
-import { fixedConfig, get, post, put, randomIp, sessionCookie, testApp, uniqueName } from '../helpers';
+import { expireListings } from '../../src/market/jobs';
+import { expireOffers } from '../../src/market/offers';
+import { refreshMarketStats } from '../../src/market/service';
+import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // The market on the server (GDD §14.6, §14.7; M5c-1): who may trade, listing a galaxy at least at its rarity's floor
 // (it stays in escrow), browsing, buying it once (the commission sinks), withdrawing it, today's caps, and the alerts
@@ -12,7 +16,7 @@ import { fixedConfig, get, post, put, randomIp, sessionCookie, testApp, uniqueNa
 type Ctx = Awaited<ReturnType<typeof testApp>>;
 let ctx: Ctx;
 beforeAll(async () => {
-  ctx = await testApp({ config: fixedConfig({ market: { perDay: { listings: 3, purchases: 10 } } }) });
+  ctx = await testApp({ config: fixedConfig({ market: { perDay: { listings: 3, purchases: 10 }, offers: { perListing: 2 } } }) });
 });
 afterAll(() => ctx.close());
 
@@ -107,6 +111,15 @@ describe('poner en venta', () => {
     expect((await list(s, ex, 50)).json()).toEqual({ error: 'galaxy_exhibited' });
     const other = await player();
     expect((await list(s, await own(other.id), 50)).json()).toEqual({ error: 'galaxy_not_found' });
+  });
+
+  test('una mítica no se pone en venta mientras el mercado no lo permita (plan «rareza Mítica»)', async () => {
+    const s = await player();
+    const g = await own(s.id, 'mythic');
+    const res = await list(s, g, 20_000);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'mythic_not_listable' });
+    expect((await browse(s)).rules).toMatchObject({ mythicListing: false, minPrice: { legendary: 6000, mythic: 15_000 } });
   });
 
   test('el límite de anuncios del día', async () => {
@@ -222,7 +235,8 @@ describe('comprar', () => {
     const other = await player();
     const { galaxyId, listingId } = await listed(s);
     // As if the seller offered it in a swap the instant its listing expired, while this purchase waited.
-    await ctx.db.insertInto('galaxy.trades').values({ a_id: s.id, b_id: other.id, a_galaxy: galaxyId, a_offered: true, expires_at: new Date(Date.now() + DAY) }).execute();
+    const trade = await ctx.db.insertInto('galaxy.trades').values({ a_id: s.id, b_id: other.id, a_offered: true, expires_at: new Date(Date.now() + DAY) }).returning('id').executeTakeFirstOrThrow();
+    await ctx.db.insertInto('galaxy.trade_items').values({ trade_id: trade.id, side: 'a', galaxy_id: galaxyId, held: true }).execute();
     expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
     expect(await ownerOf(galaxyId)).toBe(s.id);
   });
@@ -288,4 +302,249 @@ describe('avisos al admin', () => {
 
 test('sin sesión no se ve el mercado', async () => {
   expect((await get(ctx.app, '/galaxy/api/market')).statusCode).toBe(401);
+});
+
+describe('avisos en tiempo real', () => {
+  test('el vendedor se entera de la venta con lo que cobra y su cartera; el comprador no, y repetir la compra no repite el aviso', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { galaxyId, listingId } = await listed(s, 'uncommon', 600, 'Vía Lactea');
+    const [ls, lb] = [await openLive(ctx.app, s.cookie), await openLive(ctx.app, b.cookie)];
+    const headers = key();
+    expect((await buy(b, listingId, headers)).statusCode).toBe(200);
+    await buy(b, listingId, headers);
+    await settle();
+    expect(ls.notices()).toEqual([
+      {
+        kind: 'sale',
+        listing: listingId,
+        galaxy: { id: galaxyId, name: 'Vía Lactea', tier: 'uncommon' },
+        price: 600,
+        net: 558,
+        buyer: { username: b.username, avatar: null, frame: null },
+        wallet: expect.objectContaining({ coins: 558 }),
+      },
+    ]);
+    expect(lb.notices()).toEqual([]);
+    ls.ws.terminate();
+    lb.ws.terminate();
+  });
+
+  test('una compra que no se hace no avisa', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { listingId } = await listed(s, 'common', 50);
+    expect((await cancel(s, listingId)).statusCode).toBe(200);
+    const ls = await openLive(ctx.app, s.cookie);
+    expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
+    await settle();
+    expect(ls.notices()).toEqual([]);
+    ls.ws.terminate();
+  });
+});
+
+// The market at scale (the owner, 2026-11-14: «profesional para 100.000 anuncios»): a page at a time from a cursor that
+// never repeats nor skips, the filters, each listing following its galaxy's level, the job that marks what expired,
+// and the public numbers.
+describe('a escala', () => {
+  /** A listing straight in the table (today's cap is 3 in this app), its galaxy's values copied by the trigger. */
+  async function put24(seller: P, word: string, n: number, price = (i: number) => 500 + i) {
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const galaxyId = await own(seller.id, i % 2 ? 'rare' : 'common', `${word} ${i}`);
+      const row = await ctx.db
+        .insertInto('galaxy.market_listings')
+        .values({ galaxy_id: galaxyId, seller_id: seller.id, price: price(i), listed_at: new Date(Date.now() - (n - i) * 1000), expires_at: new Date(Date.now() + 7 * DAY) })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      ids.push(row.id);
+    }
+    return ids;
+  }
+
+  test('de página en página con el cursor: sin repetir ni saltar, aunque entren anuncios entre medias', async () => {
+    const s = await player();
+    const word = `Kq${randomBytes(4).toString('hex')}`;
+    const ids = await put24(s, word, 30);
+    const viewer = await player();
+    const first = await browse(viewer, `?sort=cheap&q=${word}`);
+    expect(first.listings).toHaveLength(24);
+    expect(first.next).toEqual(expect.any(String));
+    // A cheaper one listed meanwhile does not move the second page (common, above its floor of 50).
+    await put24(s, word, 1, () => 60);
+    const second = await browse(viewer, `?sort=cheap&q=${word}&cursor=${first.next}`);
+    expect(second.next).toBeNull();
+    expect([...first.listings, ...second.listings].map((l) => l.id)).toEqual(ids);
+    // A cursor of another order is refused.
+    expect((await get(ctx.app, `/galaxy/api/market?sort=dear&cursor=${first.next}`, { cookie: viewer.cookie })).statusCode).toBe(400);
+  });
+
+  test('filtros: rareza, nivel, precio y los más raros primero', async () => {
+    const s = await player();
+    const word = `Fq${randomBytes(4).toString('hex')}`;
+    const ids = await put24(s, word, 6, (i) => 1000 * (i + 1));
+    const viewer = await player();
+    expect((await browse(viewer, `?tier=rare&q=${word}`)).listings.map((l) => l.id).sort()).toEqual([ids[1], ids[3], ids[5]].sort());
+    expect((await browse(viewer, `?minPrice=2000&maxPrice=4000&sort=cheap&q=${word}`)).listings.map((l) => l.id)).toEqual([ids[1], ids[2], ids[3]]);
+    const rare = (await browse(viewer, `?sort=rare&q=${word}`)).listings.map((l) => l.galaxy.tier);
+    expect(rare.slice(0, 3)).toEqual(['rare', 'rare', 'rare']);
+    expect((await browse(viewer, `?minLevel=2&q=${word}`)).listings).toEqual([]);
+  });
+
+  test('un anuncio sigue a su galaxia: si sube de nivel, se ordena y se filtra con el nivel nuevo', async () => {
+    const s = await player();
+    const word = `Lq${randomBytes(4).toString('hex')}`;
+    const [a, b] = await put24(s, word, 2);
+    const galaxy = await ctx.db.selectFrom('galaxy.market_listings').select('galaxy_id').where('id', '=', b!).executeTakeFirstOrThrow();
+    await ctx.db.updateTable('galaxy.galaxies').set({ level: 4 }).where('id', '=', galaxy.galaxy_id).execute();
+    const viewer = await player();
+    expect((await browse(viewer, `?sort=level&q=${word}`)).listings.map((l) => l.id)).toEqual([b, a]);
+    expect((await browse(viewer, `?minLevel=3&q=${word}`)).listings.map((l) => l.id)).toEqual([b]);
+  });
+
+  test('la tarea del mercado marca lo caducado y cuenta los números públicos', async () => {
+    const s = await player();
+    const word = `Eq${randomBytes(4).toString('hex')}`;
+    const [gone] = await put24(s, word, 1);
+    await ctx.db.updateTable('galaxy.market_listings').set({ expires_at: new Date(Date.now() - 1000), listed_at: new Date(Date.now() - 2000) }).where('id', '=', gone!).execute();
+    expect(await expireListings(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect((await ctx.db.selectFrom('galaxy.market_listings').select('status').where('id', '=', gone!).executeTakeFirstOrThrow()).status).toBe('expired');
+
+    const seller = await player();
+    const buyer = await player({ coins: 20_000 });
+    const { listingId } = await listed(seller, 'epic', 9999, `${word} Cara`);
+    expect((await buy(buyer, listingId)).statusCode).toBe(200);
+    await refreshMarketStats(ctx.db, new Date());
+    const stats = (await get(ctx.app, '/galaxy/api/market/stats', { cookie: buyer.cookie })).json() as MarketStats;
+    expect(stats.week.sales).toBeGreaterThanOrEqual(1);
+    expect(stats.day.gold).toBeGreaterThanOrEqual(9999);
+    expect(stats.byTier.epic?.sales).toBeGreaterThanOrEqual(1);
+    expect(stats.top?.price).toBeGreaterThanOrEqual(9999);
+    expect(stats.updatedAt).toEqual(expect.any(String));
+    expect((await get(ctx.app, '/galaxy/api/market/stats')).statusCode).toBe(401);
+  });
+});
+
+// Offers on listings (the owner, 2026-11-14: «se reserva» the gold): the coins leave the balance when an offer is made
+// and come back when it ends without a sale; accepting sells at once at its amount; a listing that leaves sale closes
+// its offers and gives their coins back; a full listing takes a new one only above its lowest, which is outbid.
+describe('ofertas', () => {
+  const offerOn = (p: P, listingId: string, amount: number, headers = key()) => post(ctx.app, `/galaxy/api/market/listings/${listingId}/offers`, { amount }, { cookie: p.cookie, headers });
+  const act = (p: P, id: string, action: 'accept' | 'reject' | 'withdraw') => post(ctx.app, `/galaxy/api/market/offers/${id}/${action}`, undefined, { cookie: p.cookie, headers: key() });
+  const offersOf = async (p: P) => (await get(ctx.app, '/galaxy/api/market/offers', { cookie: p.cookie })).json() as MarketOffersView;
+  const held = async (p: P) => Number((await ctx.db.selectFrom('galaxy.coin_holds').select(sql<string>`coalesce(sum(amount), 0)`.as('n')).where('account_id', '=', p.id).where('status', '=', 'held').executeTakeFirstOrThrow()).n);
+
+  test('hacer una oferta reserva las monedas; dentro del mínimo y por debajo del precio; subirla devuelve la anterior', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 3000);
+    const buyer = await player({ coins: 5000 });
+    expect((await offerOn(buyer, listingId, 1000)).json()).toEqual({ error: 'offer_too_low' });
+    expect((await offerOn(buyer, listingId, 3000)).json()).toEqual({ error: 'offer_too_high' });
+    expect((await offerOn(seller, listingId, 2000)).json()).toEqual({ error: 'own_listing' });
+    const first = await offerOn(buyer, listingId, 2000);
+    expect(first.statusCode).toBe(200);
+    expect(await coins(buyer)).toBe(3000);
+    expect(await held(buyer)).toBe(2000);
+    expect((await offerOn(buyer, listingId, 1800)).json()).toEqual({ error: 'offer_not_higher' });
+    expect((await offerOn(buyer, listingId, 2500)).statusCode).toBe(200);
+    expect(await coins(buyer)).toBe(2500);
+    expect(await held(buyer)).toBe(2500);
+    const page = await browse(buyer);
+    const shown = page.listings.find((l) => l.id === listingId);
+    if (shown) expect(shown).toMatchObject({ offers: 1, myOffer: 2500 });
+    const view = await offersOf(buyer);
+    expect(view.held).toBe(2500);
+    expect(view.sent.map((o) => o.status)).toEqual(expect.arrayContaining(['open', 'withdrawn']));
+    expect((await offersOf(seller)).received.find((o) => o.status === 'open')).toMatchObject({ amount: 2500, buyer: buyer.username });
+  });
+
+  test('aceptar vende al momento a ese precio, y las demás ofertas se cierran con sus monedas de vuelta', async () => {
+    const seller = await player();
+    const { listingId, galaxyId } = await listed(seller, 'epic', 4000);
+    const [a, b] = [await player({ coins: 5000 }), await player({ coins: 5000 })];
+    const offerA = (await offerOn(a, listingId, 3000)).json() as { id: string };
+    await offerOn(b, listingId, 2500);
+    const before = await coins(seller);
+    const res = await act(seller, offerA.id, 'accept');
+    expect(res.json()).toMatchObject({ sold: true, net: 3000 - commissionOf(3000, 0.07) });
+    expect(await ownerOf(galaxyId)).toBe(a.id);
+    expect(await coins(seller)).toBe(before + 3000 - commissionOf(3000, 0.07));
+    expect(await coins(a)).toBe(2000);
+    expect(await held(a)).toBe(0);
+    // The other offer closed and its coins are back.
+    expect(await coins(b)).toBe(5000);
+    expect(await held(b)).toBe(0);
+    const row = await ctx.db.selectFrom('galaxy.market_listings').select(['status', 'price', 'buyer_id']).where('id', '=', listingId).executeTakeFirstOrThrow();
+    expect(row).toMatchObject({ status: 'sold', buyer_id: a.id });
+    expect(Number(row.price)).toBe(3000);
+    // Not twice.
+    expect((await act(seller, offerA.id, 'accept')).statusCode).toBe(409);
+  });
+
+  test('rechazar, retirar o quitar el anuncio devuelven las monedas', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 4000);
+    const [a, b, c] = [await player({ coins: 3000 }), await player({ coins: 3000 }), await player({ coins: 3000 })];
+    // Two at a time here (perListing 2): the third comes once the first two are gone.
+    const oa = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    const ob = (await offerOn(b, listingId, 2100)).json() as { id: string };
+    expect((await act(seller, oa.id, 'reject')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    expect((await act(a, ob.id, 'withdraw')).statusCode).toBe(404);
+    expect((await act(b, ob.id, 'withdraw')).statusCode).toBe(200);
+    expect(await coins(b)).toBe(3000);
+    expect((await offerOn(c, listingId, 2200)).statusCode).toBe(200);
+    expect(await coins(c)).toBe(800);
+    expect((await cancel(seller, listingId)).statusCode).toBe(200);
+    expect(await coins(c)).toBe(3000);
+    expect(await held(c)).toBe(0);
+    const ledger = await ctx.db.selectFrom('galaxy.ledger').select(['reason', 'delta']).where('account_id', '=', c.id).orderBy('id').execute();
+    expect(ledger.map((r) => r.reason)).toEqual(expect.arrayContaining(['market_offer_hold', 'market_offer_release']));
+  });
+
+  test('un anuncio lleno de ofertas solo admite una que supere la más baja, que queda superada', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 9000);
+    const buyers = [await player({ coins: 9000 }), await player({ coins: 9000 }), await player({ coins: 9000 })];
+    await offerOn(buyers[0]!, listingId, 2000);
+    await offerOn(buyers[1]!, listingId, 2500);
+    expect((await offerOn(buyers[2]!, listingId, 2000)).json()).toEqual({ error: 'offer_beaten' });
+    expect((await offerOn(buyers[2]!, listingId, 2100)).statusCode).toBe(200);
+    expect(await coins(buyers[0]!)).toBe(9000);
+    expect((await offersOf(buyers[0]!)).sent[0]?.status).toBe('outbid');
+  });
+
+  // The bug the owner hit on PRE (2026-11-14: «Esa oferta ya no está abierta» al retirar): the Ofertas tab acts with the
+  // ids its own list gives, so they have to be the offers' (not their galaxies').
+  test('la pestaña Ofertas actúa con los ids que ella misma recibe: retirar, rechazar y aceptar', async () => {
+    const seller = await player();
+    const { listingId, galaxyId } = await listed(seller, 'epic', 4000);
+    const [a, b] = [await player({ coins: 3000 }), await player({ coins: 3000 })];
+    const made = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    const sent = (await offersOf(a)).sent;
+    expect(sent.map((o) => o.id)).toEqual([made.id]);
+    expect(sent[0]!.listing.galaxy.id).toBe(galaxyId);
+    expect((await act(a, sent[0]!.id, 'withdraw')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    await offerOn(a, listingId, 2100);
+    await offerOn(b, listingId, 2200);
+    const received = (await offersOf(seller)).received.filter((o) => o.status === 'open');
+    const fromA = received.find((o) => o.buyer === a.username)!;
+    const fromB = received.find((o) => o.buyer === b.username)!;
+    expect((await act(seller, fromA.id, 'reject')).statusCode).toBe(200);
+    expect(await coins(a)).toBe(3000);
+    expect((await act(seller, fromB.id, 'accept')).statusCode).toBe(200);
+    expect(await ownerOf(galaxyId)).toBe(b.id);
+  });
+
+  test('una oferta pasada de tiempo caduca y devuelve sus monedas', async () => {
+    const seller = await player();
+    const { listingId } = await listed(seller, 'epic', 4000);
+    const a = await player({ coins: 3000 });
+    const o = (await offerOn(a, listingId, 2000)).json() as { id: string };
+    await ctx.db.updateTable('galaxy.market_offers').set({ created_at: new Date(Date.now() - 2000), expires_at: new Date(Date.now() - 1000) }).where('id', '=', o.id).execute();
+    expect(await expireOffers(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect(await coins(a)).toBe(3000);
+    expect((await offersOf(a)).sent[0]?.status).toBe('expired');
+  });
 });

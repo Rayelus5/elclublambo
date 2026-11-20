@@ -3,7 +3,34 @@ import type { JsonSchema } from '@galaxy/shared';
 // Reading a config key's JSON Schema for its form (polish phase 4): what kind of control each node is, a fresh value
 // for a new item, and paths into the draft.
 
-export type Kind = 'object' | 'record' | 'list' | 'row' | 'words' | 'number' | 'boolean' | 'enum' | 'datetime' | 'text' | 'variant' | 'fixed' | 'unknown';
+export type Kind =
+  | 'object'
+  | 'record'
+  | 'list'
+  | 'row'
+  | 'words'
+  | 'number'
+  | 'boolean'
+  | 'enum'
+  | 'datetime'
+  | 'text'
+  | 'variant'
+  | 'fixed'
+  | 'tuple'
+  | 'choice'
+  | 'unknown';
+
+/** An array's item shape (a tuple's `items: false` reads as no shape). */
+export function itemsOf(node: JsonSchema): JsonSchema {
+  return node.items || {};
+}
+
+/** The values of a node that is a set of fixed values: its `enum`, its `const`, or a union of those. */
+function fixedValues(node: JsonSchema): unknown[] | null {
+  if (node.enum) return node.enum;
+  if (node.const !== undefined) return [node.const];
+  return null;
+}
 export type Path = (string | number)[];
 
 /** A node without its null option: the node itself and whether null is allowed (its default kept). */
@@ -12,6 +39,12 @@ export function unwrap(node: JsonSchema): { node: JsonSchema; nullable: boolean 
   const rest = node.anyOf.filter((n) => n.type !== 'null');
   const nullable = rest.length < node.anyOf.length;
   if (rest.length === 1) return { node: { ...rest[0], default: node.default ?? rest[0]!.default }, nullable };
+  // A union of fixed values (4 | 8; a stat or «vision»): one choice among all of them (the content editor, 2026-11-16).
+  const values = rest.map(fixedValues);
+  if (values.every((v) => v !== null)) {
+    const all = [...new Set(values.flat())];
+    return { node: { type: typeof all[0] === 'number' ? 'number' : 'string', enum: all, default: node.default }, nullable };
+  }
   // A union of strings (a fixed word or a pattern, like «signal» or «signal:<event>»): free text.
   if (rest.every((n) => n.type === 'string')) return { node: { type: 'string', default: node.default }, nullable };
   return { node: { ...node, anyOf: rest }, nullable };
@@ -20,12 +53,16 @@ export function unwrap(node: JsonSchema): { node: JsonSchema; nullable: boolean 
 export function kindOf(node: JsonSchema): Kind {
   if (node.oneOf) return 'variant';
   if (node.const !== undefined) return 'fixed';
+  if (node.enum) return 'enum';
+  // A union of objects told apart by the key each one requires ({passive} | {element}).
+  if (node.anyOf && node.anyOf.length > 1 && node.anyOf.every((o) => o.type === 'object' && o.properties && o.required?.length)) return 'choice';
   switch (node.type) {
     case 'object':
       if (node.properties) return 'object';
       return node.additionalProperties && typeof node.additionalProperties === 'object' ? 'record' : 'unknown';
     case 'array': {
-      const item = unwrap(node.items ?? {}).node;
+      if (node.prefixItems) return 'tuple';
+      const item = unwrap(itemsOf(node)).node;
       if (item.type === 'object' || item.oneOf) return 'list';
       return item.type === 'string' ? 'words' : 'row';
     }
@@ -84,7 +121,8 @@ export function emptyOf(node: JsonSchema): unknown {
     case 'list':
     case 'row':
     case 'words':
-      return Array.from({ length: n.minItems ?? 0 }, () => emptyOf(n.items ?? {}));
+      if (n.prefixItems) return n.prefixItems.map(emptyOf);
+      return Array.from({ length: n.minItems ?? 0 }, () => emptyOf(itemsOf(n)));
     case 'number': {
       if (n.minimum !== undefined) return n.minimum;
       if (n.exclusiveMinimum !== undefined) return Math.min(n.maximum ?? Infinity, n.exclusiveMinimum + 1);
@@ -158,6 +196,21 @@ export function liveIds(value: unknown, pattern = '', out = new Set<string>()): 
     for (const [k, v] of Object.entries(value)) liveIds(v, pattern ? `${pattern}.${k}` : k, out);
   }
   return out;
+}
+
+/**
+ * A free id from `base`: itself, else «base-2», «base-3»… cut so it never passes 32 letters. A name every object
+ * inherits («constructor», «toString») is never free: plain lookups by id would find the inherited one.
+ */
+export function uniqueId(base: string, taken: (id: string) => boolean): string {
+  const busy = (id: string) => taken(id) || id in Object.prototype;
+  const root = (base || 'nueva-entrada').slice(0, 32);
+  if (!busy(root)) return root;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const id = `${root.slice(0, 32 - suffix.length)}${suffix}`;
+    if (!busy(id)) return id;
+  }
 }
 
 /** «Semana de la Fisura» → «semana-de-la-fisura»: an id from a name (lowercase, no accents, dashes, 32 at most). */

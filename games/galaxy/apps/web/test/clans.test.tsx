@@ -16,7 +16,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.clans;
 const me = (level = 6): MeResponse => ({ id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level });
-const gacha = (coins: number): GachaView => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins, dust: 0, signal: 0 } });
+const gacha = (coins: number): GachaView => ({ banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins, dust: 0, signal: 0 } });
 const rules = { maxMembers: 30, createCost: { coins: 2000 }, minLevel: 5 };
 const list: ClanList = {
   clans: [
@@ -250,7 +250,7 @@ test('la pestaña Clanes de la clasificación enseña los clanes con su emblema,
     level: 6,
     season: null,
     records: { maxDepth: 1, purges: 0, runs: 1 },
-    collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 } },
+    collection: { total: 0, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 } },
     planetarium: { prestige: 0, exhibits: 0, cover: null },
     clan: { tag: 'GX', name: 'Galácticos', emblem: 'comet', color: 'uv' },
   };

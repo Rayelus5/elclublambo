@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { type PublicRoom, ROOM_CODE_ALPHABET, ROOM_MAX, type RoomKind, type RoomState, type RoomView } from '@galaxy/shared';
+import { type PublicRoom, ROOM_CODE_ALPHABET, ROOM_MAX, type RoomKind, type RoomState, type RoomView, roomStartBlock } from '@galaxy/shared';
 import { HttpError } from '../errors';
 
 // The rooms of co-op runs (multiplayer plan, phase 5), in memory like the live hub: the beta runs one container, and
@@ -13,6 +13,11 @@ export interface MemberInit {
   username: string;
   level: number;
   probe: string;
+  /** The skin their probe wears (plan «skins»; null: its base drawing). */
+  skin?: string | null;
+  /** Nov plan C2: how they show on the pads (null: their name's drawing / no frame). */
+  avatar?: string | null;
+  frame?: string | null;
 }
 
 interface Member extends MemberInit {
@@ -77,6 +82,13 @@ export class RoomManager {
 
   all(): Room[] {
     return [...this.rooms.values()];
+  }
+
+  /** The rooms open now by state (all of them count towards `maxRooms`), for the admin's server load. */
+  counts(): { lobby: number; starting: number; running: number } {
+    const c = { lobby: 0, starting: 0, running: 0 };
+    for (const r of this.rooms.values()) if (r.state !== 'ended') c[r.state]++;
+    return c;
   }
 
   private touch(room: Room): void {
@@ -201,8 +213,8 @@ export class RoomManager {
     this.touch(room);
   }
 
-  /** A member's hangar changed (its probe), or its level: the room shows it. */
-  refresh(accountId: string, patch: Partial<Pick<Member, 'probe' | 'level'>>): Room | null {
+  /** A member's hangar changed (its probe or its skin), or its level: the room shows it. */
+  refresh(accountId: string, patch: Partial<Pick<Member, 'probe' | 'skin' | 'level'>>): Room | null {
     const room = this.roomOf(accountId);
     if (!room) return null;
     Object.assign(room.members.find((m) => m.accountId === accountId)!, patch);
@@ -245,6 +257,7 @@ export class RoomManager {
 
   view(room: Room, online: (accountId: string) => boolean, coopOpen: boolean): RoomView {
     const members = [...room.members].sort((a, b) => a.joinedAt - b.joinedAt);
+    const seats = members.map((m) => ({ username: m.username, avatar: m.avatar ?? null, frame: m.frame ?? null, level: m.level, probe: m.probe, skin: m.skin ?? null, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader }));
     return {
       id: room.id,
       code: room.code,
@@ -252,10 +265,11 @@ export class RoomManager {
       leader: members.find((m) => m.accountId === room.leader)?.username ?? '',
       sector: room.sector,
       state: room.state,
-      members: members.map((m) => ({ username: m.username, level: m.level, probe: m.probe, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader })),
+      members: seats,
       max: ROOM_MAX,
       createdAt: new Date(room.createdAt).toISOString(),
-      canStart: coopOpen && room.state === 'lobby' && members.length >= 1 && members.every((m) => m.ready || m.accountId === room.leader),
+      // Two or more connected, every mate ready (2026-11-17: alone, the player plays solo instead).
+      canStart: coopOpen && room.state === 'lobby' && roomStartBlock(seats) === null,
       run: room.runId ? { id: room.runId } : null,
     };
   }

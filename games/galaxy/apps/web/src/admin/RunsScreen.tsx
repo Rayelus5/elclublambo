@@ -1,5 +1,5 @@
+import { HScroll } from '../ui/HScroll';
 import type { AdminRunRow } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useAdminRuns } from '../api/admin-runs';
@@ -8,6 +8,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useSettled } from '../ui/useSettled';
 import { Pager } from './DataTable';
+import { useContentNames } from '../api/content-names';
 
 // The panel's runs (GDD §16.2, §16.6; M6d-3): every run, newest first, by player and «sospechosas», each leading to its
 // replay. The filters live in the URL, so a link or a reload keeps them.
@@ -16,12 +17,11 @@ const t = copy.admin.runs;
 const date = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A sector's or a probe's name from the content the game ships with (an id it does not know stays as it is). */
-export const sectorName = (id: string) => DEFAULT_CONTENT.sectors.find((s) => s.id === id)?.name ?? id;
-export const probeName = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id)?.name ?? id;
 export const outcomeText = (o: AdminRunRow['outcome']) => t.outcomes[o ?? 'open'];
 
 export function RunsScreen() {
   const ids = useId();
+  const { sectorName, probeName } = useContentNames();
   const [params, setParams] = useSearchParams();
   const suspicious = params.get('sospechosas') === '1';
   const group = params.get('grupo') === '1';
@@ -77,7 +77,7 @@ export function RunsScreen() {
       {data && data.runs.length === 0 ? <p className="panel-note">{t.empty}</p> : null}
       {data && data.runs.length > 0 ? (
         <>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -113,7 +113,7 @@ export function RunsScreen() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           <Pager page={data.page} pages={data.pages} onPage={(p) => change({ pagina: p > 1 ? String(p) : null })} />
         </>
       ) : null}

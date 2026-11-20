@@ -27,7 +27,8 @@ test('un rango reinicia el Laboratorio, da su bonus y su título, no toca la col
   // Level 5 and three Laboratorio levels, with the room repaired and a galaxy in the collection.
   await ctx.db.insertInto('galaxy.account_xp').values({ account_id: id, xp: 1000 }).execute();
   await ctx.db.insertInto('galaxy.station_rooms').values({ account_id: id, room: 'lab', level: 1, updated_at: new Date() }).onConflict((oc) => oc.columns(['account_id', 'room']).doUpdateSet({ level: 1 })).execute();
-  await ctx.db.insertInto('galaxy.lab_nodes').values([{ account_id: id, node: 'probe-hp', level: 3, updated_at: new Date() }]).execute();
+  // A node of the tree (only those count: shop and lab plan, F2a).
+  await ctx.db.insertInto('galaxy.lab_nodes').values([{ account_id: id, node: 'hull', level: 3, updated_at: new Date() }]).execute();
   await get(ctx.app, '/galaxy/api/gacha', { cookie });
   await post(ctx.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 10, pay: 'signal' }, { cookie, headers: { 'idempotency-key': randomUUID() } });
   const galaxies = async () => (await ctx.db.selectFrom('galaxy.galaxies').select((eb) => eb.fn.countAll<string>().as('n')).where('owner_id', '=', id).executeTakeFirstOrThrow()).n;

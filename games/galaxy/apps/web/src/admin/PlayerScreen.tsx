@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { ADMIN_CURRENCIES, ADMIN_SECTIONS, type AdminPlayer, type AdminSectionName, FINISHES, GALAXY_TYPES, TIERS } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -8,6 +9,7 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { ActionDialog, type FieldSpec } from './ActionDialog';
 import { cellText, DataTable, Pager } from './DataTable';
+import { DeletePlayerDialog } from './DeletePlayerDialog';
 import { ProgressTab } from './ProgressTab';
 
 const t = copy.admin;
@@ -22,9 +24,19 @@ const COLUMNS: Record<AdminSectionName, string[]> = {
   market: ['at', 'kind', 'status', 'detail'],
   chat: ['at', 'channel', 'body', 'hidden'],
   social: ['at', 'kind', 'username'],
+  shop: ['at', 'product', 'status', 'amount', 'refunded', 'paid'],
 };
 
-type Action = { key: string; title: string; path: string; fields?: FieldSpec[]; password: (v: Record<string, string>) => boolean; build?: (v: Record<string, string>) => Record<string, unknown>; code?: boolean };
+type Action = {
+  key: string;
+  title: string;
+  path: string;
+  fields?: FieldSpec[];
+  password: (v: Record<string, string>) => boolean;
+  build?: (v: Record<string, string>) => Record<string, unknown>;
+  valid?: (v: Record<string, string>) => boolean;
+  code?: boolean;
+};
 
 function actionsFor(p: AdminPlayer): Action[] {
   const always = () => true;
@@ -47,11 +59,13 @@ function actionsFor(p: AdminPlayer): Action[] {
       path: 'galaxies',
       fields: [
         { name: 'tier', label: t.fields.tier, kind: 'select', options: TIERS.map((x) => [x, copy.tiers[x]]) },
-        { name: 'finish', label: t.fields.finish, kind: 'select', options: FINISHES.map((x) => [x, copy.finishes[x]]) },
+        { name: 'finish', label: t.fields.finish, kind: 'select', options: FINISHES.map((x) => [x, copy.finishes[x]]), hint: t.finishHint },
         { name: 'type', label: t.fields.type, kind: 'select', options: [['', t.anyType], ...GALAXY_TYPES.map((x): [string, string] => [x, copy.traitValues.galaxy_type[x as keyof typeof copy.traitValues.galaxy_type] ?? x])] },
         { name: 'seed', label: t.fields.seed, kind: 'text', optional: true },
       ],
       password: never,
+      // A mythic always has a special finish (the server refuses it otherwise).
+      valid: (v) => !(v['tier'] === 'mythic' && v['finish'] === 'normal'),
       build: (v) => ({ tier: v['tier'], finish: v['finish'], ...(v['type'] ? { type: v['type'] } : {}), ...(v['seed']?.trim() ? { seed: v['seed'].trim() } : {}) }),
     },
     { key: 'xp', title: t.actions.xp, path: 'xp', fields: [{ name: 'xp', label: t.fields.xp, kind: 'number' }], password: always, build: (v) => ({ xp: Number(v['xp']) }) },
@@ -160,6 +174,7 @@ export function PlayerScreen() {
   const [tab, setTab] = useState<Tab>('summary');
   const [open, setOpen] = useState<Action | null>(null);
   const [done, setDone] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const p = player.data;
   if (!p) {
@@ -188,6 +203,7 @@ export function PlayerScreen() {
       <header className="admin-player-head">
         <h1>{p.username}</h1>
         <p className="admin-chips">
+          {p.deletedAt ? <span className="admin-chip bad">{t.deletedOn(day(p.deletedAt))}</span> : null}
           {p.banned ? <span className="admin-chip bad">{p.banned.permanent ? t.states.bannedForever : t.states.bannedUntil(day(p.banned.until))}</span> : <span className="admin-chip ok">{t.states.ok}</span>}
           {p.muted ? <span className="admin-chip warn">{t.states.muted(day(p.muted.until))}</span> : null}
           {p.leaderboardExcluded ? <span className="admin-chip warn">{t.states.excluded}</span> : null}
@@ -202,6 +218,7 @@ export function PlayerScreen() {
           </div>
         ))}
       </dl>
+      {p.deletedAt ? null : (
       <div className="admin-actions">
         {actions.map((a) => (
           <button
@@ -217,19 +234,31 @@ export function PlayerScreen() {
             {a.title}
           </button>
         ))}
+        <button type="button" className="lip pill small danger" aria-haspopup="dialog" onClick={() => setDeleting(true)}>
+          <Icon name="trash" />
+          <span>{t.actions.delete}</span>
+        </button>
       </div>
+      )}
+      {deleting ? (
+        <DeletePlayerDialog
+          username={p.username}
+          onDone={(anon) => navigate('/admin/jugadores', { replace: true, state: { deleted: [p.username, anon] } })}
+          onClose={() => setDeleting(false)}
+        />
+      ) : null}
       {done ? (
         <p className="admin-done" role="status">
           {t.done}
         </p>
       ) : null}
-      <div className="tabs admin-tabs" role="tablist" aria-label={p.username}>
+      <HScroll className="tabs admin-tabs" role="tablist" aria-label={p.username}>
         {TABS.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
             {t.tabs[k]}
           </button>
         ))}
-      </div>
+      </HScroll>
       <div role="tabpanel" aria-label={t.tabs[tab]}>
         {tab === 'summary' ? (
           <Summary p={p} />
@@ -251,6 +280,7 @@ export function PlayerScreen() {
           fields={open.fields}
           password={open.password}
           build={open.build}
+          {...(open.valid ? { valid: open.valid } : {})}
           result={
             open.code
               ? (r) => (

@@ -17,9 +17,14 @@ export interface FieldInfo {
   /** The singular noun of a list's items («evento»), for «Añadir evento». */
   noun?: string;
   /** The options come from the live content. */
-  options?: 'anomalies' | 'sectors' | 'probes';
+  /** Where its choices come from: the live sectors, anomalies and probes, or any source a form is given (the content editor's enemies, trait values…). */
+  options?: string;
   /** A list of words, one per line. */
   lines?: boolean;
+  /** The heading it goes under among its siblings («Identidad», «Vida y daño»): fields of one section stay together. */
+  section?: string;
+  /** A technical knob: behind «Más ajustes», closed unless it has a problem. */
+  advanced?: boolean;
 }
 
 export interface Category {
@@ -36,9 +41,12 @@ export const CATEGORIES: Category[] = [
   { id: 'events', title: 'Eventos y multiplicadores', description: 'Metas por tiempo limitado y pagos dobles de fin de semana. Los eventos se crean mejor desde Eventos', icon: 'target', keys: ['events', 'boosts'] },
   { id: 'missions', title: 'Misiones y logros', description: 'Lo que sale cada día y cada semana, los logros y el álbum', icon: 'list', keys: ['missions', 'achievements', 'catalog'] },
   { id: 'gacha', title: 'Escáner', description: 'Probabilidades, garantías, precios y escáneres activos', icon: 'radar', keys: ['gacha'] },
-  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market'] },
+  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market', 'referrals'] },
   { id: 'coop', title: 'En grupo', description: 'Salas, cartas, caídas y reanimación, y cómo cambian la dificultad y el botín con los jugadores', icon: 'clan', keys: ['coop'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
+  { id: 'mail', title: 'Buzón', description: 'Packs de regalos, plantillas y qué regalo es tan grande que solo lo envía un superadmin', icon: 'mail', keys: ['mail', 'mailLimits'] },
+  { id: 'shop', title: 'Tienda', description: 'Packs de pago, precios de Stripe, ofertas y límites', icon: 'store', keys: ['shop'] },
+  { id: 'cosmetics', title: 'Cosméticos', description: 'Avatares, marcos y títulos del perfil: nombres, rareza y cómo se consiguen', icon: 'starOn', keys: ['cosmetics'] },
   {
     id: 'advanced',
     title: 'Avanzado',
@@ -50,9 +58,6 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const ADVANCED_KEYS = new Set<ConfigKey>(CATEGORIES.find((c) => c.advanced)!.keys);
-/** Too large for a form: only its JSON. */
-export const JSON_ONLY = new Set<ConfigKey>(['content']);
-
 export const KEY_INFO: Record<ConfigKey, { title: string; description: string }> = {
   features: { title: 'Interruptores', description: 'Partes del juego que se pueden apagar' },
   auth: { title: 'Cuentas y sesiones', description: 'Duración de las sesiones y límites contra abusos' },
@@ -80,9 +85,14 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   catalog: { title: 'Catálogo', description: 'Premios por completar el álbum' },
   achievements: { title: 'Logros', description: 'Metas para siempre con títulos y marcos' },
   boosts: { title: 'Multiplicadores', description: 'Pagos multiplicados durante un tiempo' },
+  shop: { title: 'Tienda de recursos', description: 'Si está abierta y para quién, los packs con su precio de Stripe, las ofertas y el límite diario' },
+  cosmetics: { title: 'Cosméticos del perfil', description: 'Avatares, marcos y títulos: nombre, rareza, de dónde salen y el texto de cómo conseguirlos' },
+  referrals: { title: 'Referidos', description: 'Código obligatorio al registrarse, regalos al invitado y al dueño, nivel de activación y topes contra cuentas secundarias' },
+  mail: { title: 'Biblioteca del buzón', description: 'Los packs de regalos y las plantillas de mensaje que se usan desde Comunicación, y cuándo avisa el buzón de que algo caduca' },
+  mailLimits: { title: 'Límites de los regalos', description: 'A partir de qué regalo o de cuántos destinatarios un mensaje solo lo puede enviar un superadmin. Solo un superadmin lo cambia' },
 };
 
-const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria'] as const;
+const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria', 'Mítica'] as const;
 const FINISH_NAMES = ['Normal', 'Holo', 'Prismático', 'Relieve braille', 'Corrupto'] as const;
 const SEASON_TIER_NAMES = ['Bronce', 'Plata', 'Oro', 'Platino', 'Estelar'] as const;
 const level = (from: number) => (i: number) => `Nivel ${i + from}`;
@@ -111,6 +121,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     runs: { label: 'Incursiones' },
     market: { label: 'Mercado' },
     trades: { label: 'Trueques' },
+    offers: { label: 'Ofertas en el mercado' },
+    board: { label: 'Tablón de trueques' },
     chat: { label: 'Chat' },
     friends: { label: 'Amigos' },
     coop: { label: 'Partidas en grupo' },
@@ -126,13 +138,15 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   gacha: {
     tiers: { label: 'Rarezas' },
-    'tiers.base': { label: 'Probabilidad de cada rareza', unit: 'percent', items: TIER_NAMES, hint: 'Deben sumar 100 %' },
+    'tiers.base': { label: 'Probabilidad de cada rareza', unit: 'percent', items: TIER_NAMES.slice(0, 5), hint: 'Deben sumar 100 %. La mítica va aparte' },
+    mythic: { label: 'Probabilidad de mítica', unit: 'percent', hint: 'Se tira antes que las demás en cada escaneo. La garantía nunca da una mítica' },
     ...pity('standard'),
     ...pity('welcome'),
     'welcome.signals': { label: 'Señales de regalo al empezar' },
     ...pity('featured'),
     costs: { label: 'Precios' },
     'costs.coins': { label: 'Un escaneo con monedas' },
+    'costs.coinsFive': { label: 'Cinco escaneos con monedas', hint: 'Por defecto 475: un 5 % menos que cinco sueltos' },
     'costs.coinsTen': { label: 'Diez escaneos con monedas' },
     'costs.signals': { label: 'Señales por escaneo' },
     dailyFree: { label: 'Escaneo gratis cada día' },
@@ -148,7 +162,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   galaxies: {
     disintegrate: { label: 'Desintegrar' },
-    'disintegrate.tier': { label: 'Polvo por rareza', items: TIER_NAMES },
+    'disintegrate.tier': { label: 'Polvo por rareza', items: TIER_NAMES, hint: 'Sin valor de mítica, da lo mismo que una legendaria' },
     'disintegrate.finish': { label: 'Multiplicador por acabado', unit: 'factor', items: FINISH_NAMES },
     fusion: { label: 'Fusión' },
     'fusion.count': { label: 'Galaxias por fusión' },
@@ -180,6 +194,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'caps.runComponents': { label: 'Componentes por incursión', hint: 'Lo más que paga una incursión en componentes de objetos rotos' },
     'caps.componentsPerMinute': { label: 'Componentes por minuto', hint: 'Lo más creíble que recoge un jugador por minuto' },
     'caps.propDustPerMinute': { label: 'Polvo de objetos por minuto', hint: 'Polvo que pueden añadir los objetos rotos, aparte de los enemigos' },
+    'caps.satelliteSignals': { label: 'Señales de satélites por incursión', hint: 'Lo más que paga una incursión en señales de satélites abandonados; nunca más de los que trajo su semilla' },
     expireHours: { label: 'Una incursión sin terminar caduca a las', unit: 'hours' },
     startPerHour: { label: 'Incursiones por hora y cuenta' },
   },
@@ -235,8 +250,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   coop: {
     minLevel: { label: 'Nivel mínimo', hint: 'Además hay que acabar o saltar el tutorial' },
-    maxRooms: { label: 'Salas abiertas a la vez como máximo' },
-    lobbyIdleMinutes: { label: 'Una sala sin cambios se cierra tras', unit: 'minutes' },
+    maxRooms: { label: 'Salas abiertas a la vez como máximo', hint: 'Cuentan las que esperan y las que juegan. Con el tope lleno no se crea ninguna' },
+    lobbyIdleMinutes: { label: 'Una sala sin cambios se cierra tras', unit: 'minutes', hint: 'Libera su hueco para otra' },
     invitesPerMinute: { label: 'Invitaciones por minuto' },
     pickSeconds: { label: 'Tiempo para elegir carta', unit: 'seconds', hint: 'Pasado este tiempo se elige una al azar' },
     downSeconds: { label: 'Tiempo caído antes de quedar fuera', unit: 'seconds' },
@@ -273,6 +288,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'minPrice.rare': { label: 'Rara' },
     'minPrice.epic': { label: 'Épica' },
     'minPrice.legendary': { label: 'Legendaria' },
+    'minPrice.mythic': { label: 'Mítica', hint: 'Sin valor, el de la legendaria' },
+    mythicListing: { label: 'Se pueden vender míticas', hint: 'Los trueques de míticas siempre están permitidos' },
     maxPrice: { label: 'Precio máximo' },
     commission: { label: 'Comisión de cada venta', unit: 'percent' },
     days: { label: 'Un anuncio dura', unit: 'days' },
@@ -287,6 +304,17 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     tradeDays: { label: 'Un trueque dura', unit: 'days' },
     openTrades: { label: 'Trueques abiertos por cuenta' },
     tradeAlertTierGap: { label: 'Avisar de trueques con rarezas separadas por', hint: 'Número de rarezas de diferencia' },
+    tradeGalaxies: { label: 'Galaxias por lado de un trueque' },
+    board: { label: 'Tablón de trueques' },
+    'board.open': { label: 'Publicaciones abiertas por cuenta' },
+    'board.perDay': { label: 'Publicaciones por día' },
+    'board.days': { label: 'Una publicación dura', unit: 'days' },
+    'board.answers': { label: 'Respuestas por publicación', hint: 'Llena, no admite más hasta que alguna se cierre' },
+    offers: { label: 'Ofertas' },
+    'offers.hours': { label: 'Una oferta dura', unit: 'hours', hint: 'Nunca más que el anuncio' },
+    'offers.open': { label: 'Ofertas abiertas por cuenta' },
+    'offers.perDay': { label: 'Ofertas por día' },
+    'offers.perListing': { label: 'Ofertas por anuncio', hint: 'Lleno, una nueva tiene que superar a la más baja' },
   },
   clans: {
     maxMembers: { label: 'Miembros como máximo' },
@@ -310,7 +338,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   planetarium: {
     slots: { label: 'Pedestales' },
     points: { label: 'Prestigio por galaxia expuesta' },
-    'points.tiers': { label: 'Por rareza', items: TIER_NAMES },
+    'points.tiers': { label: 'Por rareza', items: TIER_NAMES, hint: 'Sin valor de mítica, cuenta como una legendaria' },
     'points.finish': { label: 'Extra por acabado especial' },
     xpPerPoint: { label: 'Experiencia extra por punto', unit: 'percent' },
     cap: { label: 'Experiencia extra como máximo', unit: 'percent' },
@@ -319,7 +347,12 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   sectors: {
     unlocks: { label: 'Qué abre cada sector', options: 'sectors' },
     'unlocks.*.sector': { label: 'En el sector', options: 'sectors' },
-    season: { label: 'Sector de temporada', hint: 'Abierto a todos; vacío si no hay', options: 'sectors' },
+    season: { label: 'Sector de temporada', hint: 'Abierto mientras dura su temporada; vacío si no hay', options: 'sectors' },
+    pay: { label: 'Paga de cada sector', options: 'sectors', hint: 'Monedas, polvo, material, componentes y puntos de temporada se multiplican por este valor; la experiencia, nunca por menos de ×1' },
+    'pay.*': { label: 'Paga', unit: 'factor' },
+    seasonUnlock: { label: 'Para abrir el sector de temporada', hint: 'Incursiones en cualquier sector. Quien ya lo jugó lo conserva. Vacío: abierto a todos' },
+    'seasonUnlock.value': { label: 'Incursiones' },
+    'seasonUnlock.stat': { label: 'Qué se cuenta' },
   },
   missions: {
     ...pool('daily', 'Diarias'),
@@ -366,6 +399,17 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     list: { label: 'Multiplicadores', noun: 'multiplicador' },
     'list[].currency': { label: 'Qué multiplica' },
     'list[].factor': { label: 'Por cuánto', unit: 'factor' },
+  },
+  // Referrals (plan «referidos», part R2): the gifts' coins, dust and signals read as everywhere else (COMMON).
+  referrals: {
+    required: { label: 'Código obligatorio para registrarse', hint: 'Sin el código de un jugador no se puede crear una cuenta' },
+    newcomerGifts: { label: 'Regalo del invitado', hint: 'Le llega al buzón al registrarse con un código' },
+    ownerGifts: { label: 'Premio del dueño', hint: 'Le llega al buzón cuando su invitado alcanza el nivel de activación' },
+    activationLevel: { label: 'Nivel de activación', hint: 'El nivel que tiene que alcanzar el invitado para que el dueño cobre' },
+    perCodePerDay: { label: 'Registros al día por código', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    ownerPerWeek: { label: 'Invitados a la semana por dueño', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    ipSignupsPerDay: { label: 'Registros al día desde una misma red', hint: 'Pasado este número, los siguientes esperan a que un admin los revise' },
+    sharedIpDays: { label: 'Red compartida con el dueño u otro invitado en los últimos', unit: 'days', hint: 'Si el invitado usa la misma red en este plazo, espera a que un admin lo revise' },
   },
 };
 
@@ -475,6 +519,11 @@ export const VALUES: Record<string, string> = {
   elemental: 'Potencia elemental',
   barrier: 'Barrera',
   curse: 'Maldición',
+  evasion: 'Esquiva',
+  bossDamage: 'Daño a Núcleos y élites',
+  execute: 'Remate',
+  knockback: 'Empuje',
+  movingDamage: 'Daño en marcha',
 };
 
 export const valueName = (v: unknown): string => (typeof v === 'string' ? (VALUES[v] ?? v) : String(v));
@@ -489,6 +538,8 @@ function humanize(segment: string): string {
 export function fieldInfo(key: ConfigKey, pattern: string): FieldInfo {
   const own = FIELDS[key]?.[pattern];
   if (own) return own;
+  // A field of one variant («behavior<shooter>.range»; the content editor, 2026-11-16) falls back to the plain field's.
+  if (pattern.includes('<')) return fieldInfo(key, pattern.replace(/<[^>]*>/g, ''));
   const last = pattern.replace(/\[\]$/, '').split(/[.[\]*]+/).filter(Boolean).at(-1) ?? pattern;
   return COMMON[last] ?? { label: humanize(last) };
 }

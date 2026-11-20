@@ -41,6 +41,11 @@ nano /opt/elclub/pre/galaxy.env
 | `GALAXY_PUBLIC_ORIGINS` | `https://pre.elclub.party` |
 | `GALAXY_TOTP_KEY` | la salida de `openssl rand -base64 32` (guárdala también en tu gestor de contraseñas) |
 | `NODE_ENV` | `production` |
+| `STRIPE_SECRET_KEY` | vacía hasta abrir la tienda; después, la clave restringida `rk_live_…` (ver «Tienda de recursos») |
+| `STRIPE_WEBHOOK_SECRET` | vacía hasta abrir la tienda; después, el `whsec_…` del webhook |
+| `STRIPE_PUBLISHABLE_KEY` | vacía hasta abrir la tienda; después, la clave publicable `pk_live_…` |
+
+Las tres de Stripe son opcionales. Si están vacías, o no son las tres del mismo modo, la tienda queda cerrada y el log de arranque dice `stripe_off` o `stripe_env_incomplete`; el resto del juego no cambia. Con las tres bien puestas, dice `stripe_ready` con su modo.
 
 ### 3. Comprobar que la API de Supabase no ve el esquema
 
@@ -938,6 +943,228 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 
 **Para volver atrás** (solo si algo sale muy mal): restaurar la copia del paso 1 con la aplicación parada.
 
+## Mejoras de noviembre: combate (SIM 1.9.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.9.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- el daño de los Núcleos aplica el del grupo (`coop.enemyDamage`, de ×1 a ×1,2 según cuántos jugáis) y el de la anomalía;
+- su vida aplica la de la anomalía (con «Estática férrea», ×1,25);
+- su daño propio del sector, `coreDamage`, vale 1 hasta publicar `content`, así que hasta entonces pegan como hoy;
+- los enemigos sujetos por el arpón o lanzados por la honda ya no hacen daño de contacto.
+
+**El contenido nuevo solo llega a PRE al publicar `content`.** Hay que publicarlo partiendo de lo vivo:
+- **Armas:** 5 nuevas (Arpón magnético, Honda gravitatoria, Señuelo holográfico, Faro de fotones y Mortero de racimo), con sus evoluciones.
+- **Pasivas:** 5 nuevas (Fase cuántica, Cazanúcleos, Protocolo de purga, Repulsor e Inercia), con sus topes en `caps`.
+- **Núcleos:** 12 formas nuevas.
+- **Sectores:** el ciclo de formas de cada uno (`bossCycle` y `deepBoss.cycle`) y la curva de dificultad calibrada (`enemyHp`, `enemyDamage`, `coreDamage`, `scaling` y `density`).
+- **Se conserva** el «Bosses Buff» de la vida de los Núcleos y las gotas de la Nebulosa retocadas desde el panel.
+
+**Cuánto cambia al publicar** (frente a `ops/launch/2026-11-10/content.json`; el daño de la fauna sube mucho al empezar y crece más despacio que la vida):
+
+| Sector | Daño de la fauna | Crece por minuto (daño) | Vida de la fauna | Crece por minuto (vida) | Daño de los Núcleos |
+|---|---|---|---|---|---|
+| Nebulosa | ×1 → ×1,65 | 6,5 % → 10 % | ×1,05 | 6 % → 9 % | ×1 → ×1,6 |
+| Anillos | ×1,03 → ×2,4 | 9 % → 10 % | ×1,1 | 7,5 % | ×1 → ×1,7 |
+| Arrecife | ×1,06 → ×1,15 | 6,5 % → 18 % | ×1,15 | 6 % → 14 % | ×1 → ×1,8 |
+| Forja | ×1,09 → ×1,6 | 6,5 % → 14 % | ×1,2 | 6 % → 10 % | ×1 → ×1,9 |
+| Fisura (temporada) | ×1,12 → ×2,4 | 9 % → 14 % | ×1,3 | 7,5 % → 12 % | ×1 → ×2,1 |
+
+Además, salen más enemigos por minuto (`density.perMinute` 0,18 → 0,24 y tope 3,5 → 4,5; en la Fisura, 0,3 y 4,5).
+
+**Curva calibrada con el bot** (`packages/sim/test/difficulty.test.ts`, `GALAXY_CALIBRATE=1`):
+- En la Nebulosa, quien empieza dura unos 5 minutos, un jugador medio unos 13–15 y un veterano unos 30.
+- Cada sector siguiente es más corto para el medio y el veterano, y el de temporada es el más duro.
+
+## Tienda de recursos: puesta en marcha
+
+La tienda (GDD §11.5) cobra con Stripe **en modo real**. Desde la primera compra, PRE es producción para los pagos: `ops/reset-beta.sql` se niega a borrar y una cuenta con compras no se puede borrar. Los secretos nunca pasan por el repo ni por el chat: solo los pegas tú en el servidor. Pasos, en orden:
+
+### 1. En Stripe (Dashboard, modo real)
+
+1. **Descriptor del cargo** (Configuración › Datos públicos de la empresa): lo que el jugador verá en su banco, por ejemplo `GALAXY SURVIVOR`.
+2. **Recibos por correo:** Configuración › Correos electrónicos de clientes › «Pagos correctos», activado.
+3. **Métodos de pago:** Configuración › Métodos de pago. Tarjeta, Apple Pay y Google Pay activados; el resto, apagados. El código ya solo pide tarjeta, que incluye Apple Pay y Google Pay.
+4. **Dominios de métodos de pago:** Configuración › Métodos de pago › Dominios. Añade `pre.elclub.party`. Si Stripe pide un archivo de verificación de Apple Pay, dímelo y lo servimos.
+5. **Radar** (Pagos › Fraude): bloquear si falla el CVC y si falla el código postal.
+6. **Avisos de disputas:** Configuración › Notificaciones › «Disputas», a tu correo.
+
+### 2. La clave restringida
+
+Desarrolladores › Claves de API › «Crear clave restringida», con el nombre `galaxy-pre` y estos permisos:
+
+| Recurso | Permiso |
+|---|---|
+| Checkout Sessions | Escritura |
+| Prices | Escritura (para «Crear en Stripe los que faltan»; Lectura si prefieres crearlos tú) |
+| Products | Escritura (igual que Prices) |
+| PaymentIntents, Charges, Disputes | Lectura |
+| Todo lo demás | Ninguno |
+
+Copia la clave `rk_live_…`. Sale una sola vez: guárdala en tu gestor de contraseñas. Copia también la **clave publicable** `pk_live_…`.
+
+### 3. El webhook
+
+Desarrolladores › Webhooks › «Añadir destino»:
+- **URL:** `https://pre.elclub.party/galaxy/api/shop/webhook`
+- **Versión de la API:** `2026-10-28.endive`, la del SDK del servidor (`STRIPE_API_VERSION` en `apps/server/src/shop/stripe-gateway.ts`).
+- **Eventos:**
+  - `checkout.session.completed`
+  - `checkout.session.async_payment_succeeded`
+  - `checkout.session.async_payment_failed`
+  - `checkout.session.expired`
+  - `charge.refunded`
+  - `charge.dispute.created`
+  - `charge.dispute.closed`
+
+Copia el **secreto de firma** `whsec_…`.
+
+### 4. Cloudflare
+
+Que ni el WAF ni Bot Fight Mode desafíen el `POST /galaxy/api/shop/webhook`: Stripe no resuelve desafíos. Si tienes reglas, añade una que salte esa ruta. Después de la primera compra, comprueba en Stripe › Webhooks › tu destino › Entregas que respondió `200`.
+
+### 5. Copia de seguridad
+
+Antes de abrir, programa una copia nocturna de la base de datos de PRE (`pg_dump` del esquema `galaxy` como mínimo) y que se copie fuera de la máquina. Una base de datos con dinero real no puede depender de un solo disco.
+
+### 6. En el servidor (por SSH, en el CT 103)
+
+```bash
+nano /opt/elclub/pre/galaxy.env
+```
+
+Rellena las tres líneas que ya están vacías al final:
+
+```
+STRIPE_SECRET_KEY=rk_live_…
+STRIPE_WEBHOOK_SECRET=whsec_…
+STRIPE_PUBLISHABLE_KEY=pk_live_…
+```
+
+Guarda y vuelve a crear el contenedor del juego para que lea el archivo (reiniciar no basta). Hazlo desde la copia del repo que usa el despliegue: la de `/opt/elclub/src` es antigua y no tiene el servicio `galaxy`.
+
+```bash
+cd /home/gh-runner/actions-runner/_work/elclublambo/elclublambo && docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
+docker logs elclub-pre-galaxy-1 2>&1 | grep -m1 stripe_
+```
+
+Debe salir `stripe_ready` con `"mode":"live"`. Si sale `stripe_env_incomplete`, falta una clave o no son las tres del mismo modo; si sale `stripe_off`, el archivo no tiene ninguna.
+
+### 7. En el panel (Admin › Tienda y Admin › Configuración › Tienda)
+
+1. **Precios de Stripe:** en Admin › Tienda › Precios, «Crear en Stripe los que faltan». Necesita tu contraseña y crea un precio en euros de pago único por producto. Pon cada `price_…` en su producto en Configuración › Tienda (o créalos tú en Stripe con el mismo importe) y después pulsa «Comprobar con Stripe»: todos deben salir «Correcto».
+2. **Datos legales:** en Configuración › Tienda › `legal`, tu nombre o razón social como vendedor y un contacto.
+3. **El producto de prueba:** añade uno de 0,50 € con `staffOnly: true` y su precio de Stripe.
+4. **Abrir solo para el staff:** `enabled: true` y `audience: staff`. Publica.
+
+### 8. La compra de prueba (tú, con tu cuenta de admin entrada con TOTP)
+
+1. Compra el producto de 0,50 €. Debe pasar todo esto:
+   - la celebración;
+   - una línea `shop` en tu libro de movimientos;
+   - la compra «Pagada» en Admin › Tienda › Compras;
+   - la entrega del webhook con `200` en Stripe;
+   - el recibo en tu correo.
+2. Prueba también Apple Pay en Safari y Google Pay en Chrome.
+3. La consola del navegador no debe tener errores de CSP.
+4. **La devolución:** devuélvela desde Stripe (Pagos › el pago › Reembolsar). Deben pasar estas cuatro cosas:
+   - se quita lo que te dio;
+   - tu tienda queda bloqueada;
+   - salta un aviso en Admin › Tienda › Avisos;
+   - te llega un mensaje al buzón.
+
+   Revisa el aviso y desbloquéate en Bloqueos.
+
+### 9. Abrir a todos
+
+Con tu OK, se prepara `shop` con `audience: everyone` (y el producto de prueba desactivado) en una carpeta de `ops/launch/`, se publica con la skill `galaxy-publicar-config` y se avisa en Noticias.
+
+### 10. En local
+
+Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y todo lo demás funciona igual. No hay modo de pruebas: la interfaz del pago se prueba con Stripe simulado en los tests (`apps/web/test/shop.test.tsx`).
+
+## Dominio propio
+
+El juego también responde en `galaxysurvivor.es`, siempre bajo `/galaxy`: `https://galaxysurvivor.es/galaxy/`, con la API en `/galaxy/api`. La cookie, las rutas y la CSP no cambian. Lo deciden dos variables públicas, sin secretos, en el `environment:` del servicio `galaxy` de `deploy/preprod/docker-compose.yml` (no en `galaxy.env`), para que cada cambio se revise y se revierta con un PR:
+
+| Variable | Valor | Qué hace |
+|---|---|---|
+| `GALAXY_CANONICAL_ORIGIN` | `https://galaxysurvivor.es` | El origen propio del juego. Se suma a `GALAXY_PUBLIC_ORIGINS`, que no se toca, así que la guarda CSRF y los sockets lo aceptan. Su `www` redirige a él. Si no es un origen limpio (`https://host`, sin barra ni ruta), se ignora con el aviso `canonical_origin_invalid` y el contenedor arranca igual |
+| `GALAXY_LEGACY_REDIRECT_FROM` | vacía | El interruptor de la mudanza: hosts antiguos separados por comas (`pre.elclub.party`) cuyas páginas pasan al dominio nuevo. Vacía, no redirige nada. Lo que no es un host (`https://…`, con puerto o el propio dominio nuevo) se ignora con `legacy_host_invalid` |
+
+**Las redirecciones** (`apps/server/src/security/host.ts`, justo después del plugin de WebSocket y antes que los estáticos, la guarda CSRF y la API):
+- **`www` → dominio sin `www`**, siempre, con la misma ruta y query: 301 en GET y HEAD, 308 en el resto. Un intento de WebSocket a `www` recibe la redirección con `Connection: close` y su conexión se cierra.
+- **Host antiguo → dominio nuevo**, solo con el interruptor puesto y si se cumple todo esto:
+  - GET o HEAD;
+  - la ruta es `/galaxy` o `/galaxy/…`, pero no `/galaxy/api/…` ni `/galaxy/assets/…`;
+  - es una ruta de la web y no un archivo: el último trozo no tiene extensión, así que `/galaxy/fonts/bungee-latin.woff2` y `/galaxy/favicon.svg` se quedan;
+  - `Sec-Fetch-Dest` falta o es `document`: una página, no un script, una fuente o un worker.
+
+  Así las pestañas abiertas siguen cargando sus trozos y sus fuentes y usando su API y sus sockets en el host antiguo, y la URL antigua del webhook de Stripe sigue cobrando.
+- Llevan `Cache-Control: private, max-age=86400`. `private` impide que el borde de Cloudflare las guarde (cachea un 301 de un archivo estático solo por su URL), y el día hace que una vuelta atrás llegue a los navegadores pronto.
+- El destino siempre se monta sobre el origen canónico. Una ruta que intentase salir de él (`//otro.com`) acaba en `https://galaxysurvivor.es/galaxy/`.
+
+**La vuelta de Stripe.** Cada pago vuelve al host donde empezó, el `Origin` de la petición ya validado; sin él, al origen canónico. Un pago abierto en un host y retomado desde el otro se cierra en Stripe y se abre otro.
+
+**Comprobar tras desplegar:**
+
+```bash
+docker logs elclub-pre-galaxy-1 2>&1 | grep -m1 '"msg":"domain"'
+```
+
+Debe salir `"canonical":"https://galaxysurvivor.es"` y `"legacy":[]`. Los avisos `canonical_origin_invalid`, `legacy_host_invalid` o `legacy_redirect_without_canonical` dicen qué valor se ignoró.
+
+**Antes de abrir el dominio (tú, en Cloudflare y Stripe):**
+- **Los registros DNS, solo con la portada desplegada.** Hasta que llegue la portada (`feature/galaxy-portada`), `https://galaxysurvivor.es/` responde un 404 en JSON. Cuando esté en PRE, crea `CNAME @` y `CNAME www` a `<UUID>.cfargotunnel.com`, los dos con proxy.
+- **«Always Use HTTPS»** activado en la zona `galaxysurvivor.es` (SSL/TLS › Edge Certificates).
+- **Nunca una regla de Cloudflare «dominio → www»** (Redirect Rules, Page Rules ni Bulk Redirects). El servidor ya manda `www` al dominio sin `www`, así que las dos juntas harían un bucle.
+- **Stripe** (modo real): Configuración › Métodos de pago › Dominios, añade `galaxysurvivor.es`. Sin él, Apple Pay y Google Pay no salen en el dominio nuevo.
+
+Con los registros puestos:
+
+```bash
+curl -sI 'https://www.galaxysurvivor.es/galaxy/entrar?ref=x'   # 301 a https://galaxysurvivor.es/galaxy/entrar?ref=x
+curl -s https://galaxysurvivor.es/galaxy/api/health             # {"ok":true,"db":"up"}
+```
+
+**La mudanza (hecha el 2026-11-17).** `GALAXY_LEGACY_REDIRECT_FROM: pre.elclub.party` en compose.
+
+- **El navegador** que abre una página de `pre.elclub.party/galaxy` (`Sec-Fetch-Dest: document`) ve el aviso «Galaxy Survivor se ha mudado», con el botón «Ir a galaxysurvivor.es» a la misma ruta y query. Lo decidió el propietario: solo el aviso, sin salto automático.
+  - Lo genera `apps/landing` (`render/moved.ts`, sin JS, con su hoja en `/galaxy/mudanza.css` y las fuentes de `/galaxy/fonts`, que existen en el host antiguo).
+  - Se sirve con un 200, `no-store` y `noindex`.
+- **Los rastreadores y las herramientas** (sin `Sec-Fetch-Dest`) reciben el 301, para que los buscadores pasen las direcciones al dominio nuevo.
+- **Las pestañas abiertas** terminan lo que juegan: la API, los sockets y los archivos del host antiguo siguen respondiendo.
+
+Comprobación:
+
+```bash
+curl -s -H 'Sec-Fetch-Dest: document' 'https://pre.elclub.party/galaxy/entrar?ref=abc' | grep -o 'href="https://galaxysurvivor.es[^"]*"'   # el aviso, con su botón
+curl -sI 'https://pre.elclub.party/galaxy/entrar?ref=abc'          # 301 a https://galaxysurvivor.es/galaxy/entrar?ref=abc
+curl -sI https://pre.elclub.party/galaxy/fonts/bungee-latin.woff2   # 200: los archivos se quedan
+curl -s https://pre.elclub.party/galaxy/api/health                  # sigue respondiendo JSON
+```
+
+**Volver atrás.**
+1. Se revierte ese PR y el interruptor vuelve a quedar vacío. El host antiguo vuelve entero, porque su API nunca se apagó.
+2. En Cloudflare, en la zona `elclub.party`: Caching › Configuration › Purge Cache › Custom Purge, por prefijo `pre.elclub.party/galaxy/` (si no deja, «Purge Everything»). Las redirecciones son `private` y el borde no debería tenerlas, pero así no queda ninguna.
+3. Los 301 que guardaron los navegadores caducan en un día.
+
+Para quitar el dominio del todo se revierte también el PR que lo trajo: `GALAXY_CANONICAL_ORIGIN` y las dos reglas del túnel.
+
+### Cabecera del juego y app instalable
+
+**La cabecera** (`apps/server/src/static.ts`, `renderShell`). El servidor escribe la cabecera de cada página del juego: el título de la pantalla (`@galaxy/shared`, `titleFor`), la descripción, los iconos y las tarjetas OG y Twitter con URL absolutas en `GALAXY_CANONICAL_ORIGIN`, para que los enlaces de invitación se vean bien. Todas llevan `noindex` (meta y `X-Robots-Tag`): solo se indexan la portada y las legales.
+
+**La app instalable.** En Chrome y Edge el juego se instala como una app de Windows.
+- El `<link rel="manifest">` solo sale en el host canónico (o sin canónico, en dev y e2e). Así `pre.elclub.party` nunca ofrece instalar ni registra el worker.
+- El worker (`/galaxy/sw.js`, `apps/server/src/pwa.ts`) solo atiende las cargas de página del juego: la red primero y, sin red, una página `offline.html`. Nunca toca la API, los assets, los sockets ni Stripe, y no guarda el shell, así que las actualizaciones llegan solas.
+- `GALAXY_PWA` (en `galaxy.env`, `on` por defecto) es su interruptor de apagado. Con `GALAXY_PWA=off` y el contenedor recreado, no sale el manifest y `/galaxy/sw.js` es un worker que borra sus cachés, se desregistra y recarga las pestañas que controlaba, en la siguiente carga de página de cada jugador. Para volver, se quita la línea (o `on`) y se recrea el contenedor.
+
+```bash
+curl -sI https://galaxysurvivor.es/galaxy/sw.js                 # 200, text/javascript, cache-control: no-cache
+curl -sI https://galaxysurvivor.es/galaxy/manifest.webmanifest  # 200, application/manifest+json
+```
+
 ## Operación
 
 | Tarea | Cómo |
@@ -945,9 +1172,574 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 | Código de recuperación para un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js issue-reset-code <usuario>` (24 h, un uso; queda auditado). El panel de admin lo hará en M6 |
 | Dar o quitar moneda a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js grant <usuario> <coins\|dust\|signal\|material\|components> <cantidad> --reason "<motivo>"` (una cantidad negativa la quita, nunca por debajo de 0). Queda en el libro de movimientos y auditado como `wallet.grant` |
 | Logs | `docker compose … logs -f galaxy` (JSON de pino; nunca llevan contraseñas, cookies ni tokens) |
+| Ver la carga del juego | Panel › Moderación › Salas en vivo, «Carga del servidor»: salas, partidas, conexiones, CPU del proceso y del árbitro, bucle de eventos y memoria, con la última hora (se reinicia con cada despliegue). La CPU es la del proceso Node, no la del CT |
 | Reiniciar | `docker compose … up -d --no-build galaxy` |
 | Un admin ha perdido su app de autenticación | `docker exec -it elclub-pre-galaxy-1 node dist/cli.js reset-totp <usuario>`: secreto nuevo, sesiones cerradas, queda auditado |
 | Rotar `GALAXY_TOTP_KEY` | Invalida todos los TOTP: solo si la clave se ha filtrado; después, `reset-totp` para cada admin |
 | Rotar la contraseña de `galaxy_api` | Paso 1 con otra contraseña, actualizar `galaxy.env` y `up -d galaxy` |
 | Publicar una clave de configuración sin el panel | `docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config <clave> - --reason "<motivo>" < archivo.json` (validada como en el panel y auditada como `cli`; un id de temporada nuevo archiva la anterior) |
 | Poner un aviso en la pantalla de título | `docker exec elclub-pre-galaxy-1 node dist/cli.js notice "<texto>" --tone info --days 7 --reason "<motivo>"` |
+| Ver lo publicado de una clave (solo lectura) | `docker exec elclub-pre-galaxy-1 node dist/cli.js show-config <clave>` da `{ key, version, data }`; con `--data`, solo los datos, para partir de ellos en un borrador |
+| Armar un borrador desde lo vivo (solo lectura) | `docker exec elclub-pre-galaxy-1 node dist/cli.js draft-config <clave> <campo[,campo…]> [--ids id,id…]`: cada campo tal como está publicado, más lo que trae el código desplegado (en las listas con id, las entradas que faltan, o solo las de `--ids`) |
+| Comprobar una carpeta de `ops/launch/` contra lo vivo | `node games/galaxy/scripts/ops-bundle.mjs <carpeta> \| ssh root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js check-config -"` (desde el repo, en Git Bash): cada clave como `--dry-run` y, después, todo junto (eventos y escáneres, temporada, destacadas, misiones, anomalía). No publica |
+| Comprobar un borrador sin publicarlo | `docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config <clave> - --dry-run < archivo.json`: lo valida sobre lo vivo y dice qué campos cambiarían (y en las listas, qué ids entran `+`, salen `-` o cambian `~`). No publica ni deja auditoría |
+| Tienda: compras pagadas sin entregar (el webhook no llegó) | `docker exec elclub-pre-galaxy-1 node dist/cli.js shop-reconcile [--days 7]`: pregunta a Stripe por cada pago reciente sin entregar, entrega los pagados y caduca los vencidos. También hay «Sincronizar» por compra en Admin › Tienda |
+| Tienda: desbloquear a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js shop-unblock <usuario> --reason "<motivo>"` (auditado como `cli`), o desde Admin › Tienda › Bloqueos |
+| Publicar contenido, temporadas y eventos preparados en `ops/launch/` | Con las skills del repo (`.claude/skills/galaxy-*`, ver `games/galaxy/AGENTS.md`): siempre `show-config` y `--dry-run` antes, y solo con el OK del propietario |
+
+## Un espacio vivo: satélites abandonados (SIM 1.10.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.10.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Satélites abandonados.** Más o menos en una de cada tres partidas llega uno; a veces dos, y rara vez tres, uno por capa desde la primera. Llega entre los 40 y los 240 s de las oleadas de su capa y pasa a la deriva durante 45 s. Si una sonda lo rompe, suelta una **señal** del Escáner profundo.
+- **Dónde está su ajuste.** Va en `content.satellites` y vale por defecto aunque el `content` publicado no lo traiga. El tope por partida es `runs.caps.satelliteSignals` (3).
+- **El calendario sale de la semilla de la partida** (`worldSchedule`). Una partida en solitario no se vuelve a simular, así que el servidor solo paga los satélites que su semilla tenía hasta la capa a la que llegó, con el contenido con el que empezó.
+- **En grupo** paga el árbitro: cada jugador recibe todas las señales de satélite que recogió el grupo, sin el reparto `coop.loot`.
+- **Lo que ve el jugador:**
+  - una flecha cian en el borde mientras el satélite está fuera de pantalla;
+  - el aviso de PERKINS la primera vez;
+  - las señales en el HUD;
+  - «N de satélites» en Resultados.
+
+## Sifón y «La Estática te alcanza» (SIM 1.16.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: los mandos nuevos de `content` entran con sus valores por defecto también para el contenido publicado. La simulación pasa a **SIM_VERSION 1.16.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **`content.healing`:** la vida robada a enemigos (Sifón, Sanguijuela y Sangría) cura solo del daño real y como mucho vida máxima × (0,01 + 0,4 × robo de vida) por segundo: Sifón 1 ≈ 1,4 %/s, Sifón 5 = 3 %/s, sin Sifón 1 %/s.
+- **`content.stillness`, «La Estática te alcanza»:**
+  - a los 8 s en un círculo de 56 avisa;
+  - desde los 12 s hace daño, del 2 %/s creciendo hasta el 15 %/s, y bloquea toda curación hasta salir (los kits esperan en el suelo);
+  - no cuenta en la baliza, reanimando a un compañero ni eligiendo carta en grupo.
+- **En pantalla:** el anillo de la zona y el aviso bajo la HUD.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+## Pendientes de la simulación (SIM 1.15.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar. La simulación pasa a **SIM_VERSION 1.15.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **El sitio para el Núcleo con la piscina llena** sale de la fauna normal: nunca de un élite o un inestable con la mecha encendida (un élite solo si no hay otra cosa). En grupo, del enemigo más lejano de su sonda viva más cercana, no del centro del grupo.
+- **`sectors[].scaling.hpLevelMax`** (nuevo, 1000 por defecto, sin efecto): el techo de la vida por nivel.
+- **Partidas de referencia profundas** (`DEEP_RUNS`): capas de 30 s y piscina de 30, hasta las capas 5–6 en solitario y en grupo de 4, en Node y en el navegador.
+- **Lo que cuesta el árbitro de grupo:**
+  - cada partida en grupo deja al acabar una línea `coop_cpu` en el log, con la media, p50 y p99 en ms por paso y la parte de un núcleo que ocupa;
+  - `node dist/cli.js bench-referee [--ticks N] [--players 1-4]` lo mide con la piscina de 400 llena, sin tocar la base de datos. **En el servidor de casa, solo con el OK del propietario y en una hora tranquila.**
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+## La Estática crece contigo (SIM 1.14.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.14.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **El Núcleo siempre aparece.** Con la piscina de enemigos llena cuando tocaba, no salía y la incursión se quedaba en su fase para siempre; ahora deja su sitio el enemigo más lejano.
+- **Mientras hay Núcleo caben menos enemigos vivos:** el tope baja con `density.bossFactor`, como ya bajaba su aparición.
+- **Ningún golpe mata de una vez:** `hitCap` (0,4 por defecto, también para el contenido publicado sin él) limita cada golpe al 40 % de la vida máxima; se sigue muriendo, de varios golpes.
+- **Mandos nuevos en `sectors`, neutros si el contenido publicado no los trae** (0, y `levelFrom` 1), así que el resto juega igual hasta publicar:
+  - `sectors[].scaling.hpPerLevel` y `levelFrom`: la vida de la fauna crece con el nivel más alto del equipo, de forma compuesta, a partir de `levelFrom`;
+  - `sectors[].scaling.coreHpPerLevel`: lo mismo para los Núcleos, en línea recta;
+  - `sectors[].scaling.coreRise`: cada Núcleo de la incursión con al menos ese tanto más de vida que el anterior;
+  - `sectors[].density.perLayer`: más enemigos vivos y más aparición por capa, salvo con el Núcleo.
+
+**Lo que hay que publicar después** (el propietario dio su OK el 2026-11-15): `content` con `enemies`, `bosses`, `sectors` y `hitCap` desde el código. La carpeta es `ops/launch/2026-11-15-vida-enemigos`; su `LEEME.md` lleva la tabla de calibración.
+
+**Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+## La explosión de Inestable ya no mata (SIM 1.13.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.13.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **El tope:** la explosión del élite Inestable se lleva como mucho el 60 % de la vida que tenga la sonda (`explode.keep`, 0,4 por defecto). Vale aunque el `content` publicado no traiga `keep`.
+- **Lo que se ve y se oye:** el estallido avisa a la pantalla (evento `blast`), con destello, onda, chispas y sonido, y su mecha pita. Las minas de los Núcleos usan el mismo estallido.
+
+**Lo que hay que publicar después** (con el OK del propietario): `content` con `elites.volatile.explode.delay` a 1,2 (en PRE está a 0,6) y `keep` a 0,4. La carpeta es `ops/launch/2026-11-14-inestable`.
+
+**Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+## El dash lo decide el jugador (SIM 1.12.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.12.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Dash con SHIFT o Espacio** (A o RB en mando) para todas las sondas, con cargas, recarga y una pausa corta entre dos. Chispa ya no esquiva sola: tiene un dash con una carga más. El Cometa ya no embiste solo: suma una carga por reliquia (hasta dos) y hace que el dash dañe lo que atraviesa.
+- **Dónde está su ajuste.** Va en `content.dash` y vale por defecto aunque el `content` publicado no lo traiga. La forma vieja de Chispa (`every`, `distance`) y del Cometa (`cooldown`, `distance`, `seconds`) sigue validando, pero ya no se usa: no hace falta volver a publicar `content`.
+  - Si se quiere que Chispa diga «con el dash más ágil» en su descripción, hay que publicar `probes` (sale de `draft-config`).
+  - Sus números nuevos (`charges`, `recharge`, `pause`) toman su valor por defecto si no están publicados.
+- **Registro de entradas.** El dash es un evento más (tipo 4, con el ángulo del puntero), también en solitario: un registro con dashes sigue siendo de versión 1. En grupo, el árbitro sella `{t:'dash'}` como una carta, uno por tick.
+- **Las partidas de referencia cambian:** el robot de calibración hace un dash cuando un golpe es inminente.
+- **Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, `recover()` y `settleFromLog` las vuelven a jugar con la simulación nueva. Sus registros no tienen dashes y el Cometa y Chispa ya no actúan solos, así que pueden acabar distinto. Antes de desplegar, comprueba que no hay salas en curso o acéptalo.
+- **Lo que ve el jugador:**
+  - el medidor junto a la vida (tecla, un rombo por carga, la siguiente llenándose);
+  - una cuarta pista en el briefing de la primera incursión y una línea de PERKINS la primera vez;
+  - la tabla «Controles» en Ajustes › Incursión;
+  - los textos de Chispa y del Cometa.
+
+## Singularidad, el poder de las míticas (SIM 1.11.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.11.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Singularidad.** Una mítica equipada como reliquia abre cada 12 s un agujero negro en el grupo de fauna más denso, atrae a la fauna 2 s y colapsa con daño en área (× la magnitud de la reliquia), lanzando hacia fuera a lo que sobrevive. Nunca atrae al Núcleo ni al botín, nunca se abre encima de una sonda en pie y hay una sola por sonda.
+- **Dónde está su ajuste.** Va en `content.relics.singularity` y vale por defecto aunque el `content` publicado (v7 en PRE) no lo traiga: no hace falta volver a publicar `content`. Si se publica `relics` de nuevo desde `draft-config`, el bloque sale del código.
+- **Las partidas de referencia no cambian:** juegan sin reliquias.
+- **Partidas en grupo a medias al desplegar:** al desplegar no existía ninguna mítica en PRE, así que ninguna partida en grupo de 1.10.0 a medias llevaba una. Pagarlas con la simulación nueva no puede divergir por la Singularidad.
+- **Aviso para cualquier subida de `SIM_VERSION`:** `recover()` (las partidas en grupo huérfanas) y `settleFromLog` (`apps/server/src/coop/service.ts`) vuelven a jugar el registro de entradas con la simulación del servidor desplegado, no con la versión con la que empezó la partida. Si el cambio toca a una partida en grupo a medias durante el despliegue, puede acabar con otro estado y otro pago. Antes de desplegar un cambio así, comprueba que no hay salas en curso o acéptalo.
+- **Lo que ve el jugador:**
+  - en la arena, el agujero negro con su anillo iridiscente, motas que caen en espiral y un estallido al colapsar (con movimiento reducido, sin motas y quieto);
+  - en el Hangar, «Singularidad» en el chip de poderes de la reliquia y en su ficha;
+  - en el escáner, clásico y pro, el revelado de una mítica con su silencio, su destello iridiscente, más rayos, más sacudida, su acorde y una capa de música más; el ensayo del escáner deja elegir «Clásica» o «Pro».
+
+## Eventos de la incursión (SIM 1.17.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: `content.events` entra con sus valores por defecto también para el contenido publicado. La simulación pasa a **SIM_VERSION 1.17.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae:**
+- **Eventos que da la semilla**, unos 1,5 por capa (de 5 a 10 en una partida de 25–30 min con el satélite), separados entre sí y del satélite, y nunca durante el Núcleo:
+  - **nave abandonada:** quedarse unos segundos dentro de su zona la saquea (y ahí la Estática no cuenta);
+  - **cápsula de suministros:** aterriza tras un aviso y se abre al tocarla;
+  - **cazarrecompensas:** un enemigo marcado que huye; si cae antes de escapar, suelta su botín;
+  - **peligros, sin botín:** lluvia de meteoritos avisada con círculos, tormenta de la Estática que te sigue despacio, emboscada que cierra un anillo de fauna y pozo de gravedad que atrae (se puede salir). Cada sector los nombra a su manera (granizo, esporas, escoria…) y los prefiere a su modo.
+- **Botín:** monedas, polvo y componentes que crecen con la capa. El servidor suma a sus topes lo más que pudieron soltar los eventos de la semilla en las capas y el tiempo jugados (`eventLootUpTo`): lo honrado no se recorta y lo inventado sigue dando `loot_cap`.
+- **En pantalla:** cada evento con su dibujo (Aseprite: la nave y el meteorito con el aspecto de cada sector), su indicador en el borde con la distancia y el tiempo que le queda (el satélite también dice su distancia), sus avisos en el centro (llega, lo que suelta, se pierde), sus sonidos y una frase de PERKINS la primera vez.
+- **Modo depuración:** el panel F2 trae cualquier evento al momento.
+- **Simulador de la economía:** el bot juega sin eventos y se suma el botín de todos los de su semilla, como si los saqueara.
+- **Revisión:**
+  - la Estática ya cuenta en grupo con una carta abierta (se puede mover mientras elige; subir de nivel sin parar la tenía apagada);
+  - el cazarrecompensas no hace daño al tocarlo;
+  - el daño de la tormenta y del pozo no deja la ventana de invulnerabilidad de un golpe.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae cada evento y cada peligro; completar cada uno da su aviso con lo que suelta; los resultados cobran ese botín sin `loot_cap`.
+
+## Peligros más grandes (SIM 1.18.0)
+
+**Qué cambia.** Sin migraciones ni configuración que publicar: cambian los valores por defecto de `content.events`, que el contenido publicado no fija. La simulación pasa a **SIM_VERSION 1.18.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae**, a petición del propietario («las áreas de daño… deberían de ser mucho mayores»):
+- cada meteorito: radio de 24 a 52, repartidos en 220;
+- la tormenta: radio de 70 a 130, y sale a 300;
+- el pozo: corazón que daña de 18 a 48, atracción de 150 a 220, y sale a 260;
+- la tormenta pinta sus chispas según su tamaño.
+
+**Partidas en grupo a medias al desplegar:** se vuelven a jugar con la simulación nueva y pueden acabar distinto.
+
+Comprueba con `rayelus` en una incursión de prueba: F2 → Eventos trae la lluvia de meteoritos, la tormenta y el pozo con sus áreas grandes.
+
+## Editor de contenido, P1: API de configuración ligera y contenido publicado en toda la web
+
+**Qué cambia.** Sin migraciones, sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- `GET /galaxy/api/admin/config/keys` ya no manda el contenido de las incursiones (marcado `lazy`); su página lo pide con `GET /galaxy/api/admin/config/:key`.
+- El historial de una clave llega sin los datos; cada versión se pide al cargarla (`GET …/:key/versions/:v`).
+- Publicar, validar y publicar en lote aceptan hasta 1 MiB: el contenido entero cabe en una publicación.
+- El Códice, la clasificación, el perfil (sondas), las listas de partidas y salas del admin y el simulador de la economía usan el contenido publicado.
+
+Comprueba con `rayelus`: Configuración → «Contenido de las incursiones» abre, su historial carga una versión, y el Códice enseña los nombres de lo publicado.
+
+## Editor de contenido, P2: borradores en el servidor
+
+**Qué cambia.**
+- **Migración** `20261116000200_galaxy_config_drafts.sql`: la tabla `galaxy.config_drafts`, con RLS y permisos solo para `galaxy_api`.
+- Sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- **API** `/galaxy/api/admin/config-drafts` (admin con TOTP): listar, crear, leer, guardar un campo (con revisión; 409 `draft_conflict`), renombrar, comprobar, juntar con lo publicado (con resoluciones), publicar (motivo y contraseña, `publishMany`) y descartar. Auditoría `config.draft.*`.
+- **Incursión de prueba con borrador:** `POST /runs` con `test: true` y `draft: <id>` juega el borrador sobre lo publicado; un sector o una sonda del borrador no necesitan estar abiertos ni ser propios.
+- **Panel:** `/admin/configuracion/content` muestra los borradores abiertos, uno nuevo, el editor (JSON por ahora) con guardado automático, «Juntar con lo publicado», probar, publicar, descartar, y las versiones publicadas (cualquiera vuelve como borrador).
+- **Hangar:** `?borrador=<id>` enseña el aviso con el título, el sector y la sonda del borrador, «Volver al borrador» y «Dejar de probar». El borrador de `sessionStorage` desaparece.
+- **Retención:** los borradores publicados o descartados se borran a los 30 días (trabajo horario).
+
+Comprueba con `rayelus`:
+1. Configuración → Contenido de las incursiones: crea un borrador y cambia `hitCap` en el JSON (sale «Guardado»).
+2. «Probar en incursión»: el hangar enseña el aviso con su sector y su sonda, y la incursión es de prueba.
+3. Publica el borrador o descártalo.
+
+## Editor de contenido, P3 y P4: motor de formularios y editor visual
+
+**Qué cambia.** Solo la web: sin migraciones, sin cambios en la simulación y sin configuración que publicar.
+
+**El código ya trae:**
+- **Motor de formularios** (P3): tuplas (`[mínimo, máximo]`, parejas de elementos), uniones de valores fijos (4 u 8, una estadística o la visión) y de objetos (`{ passive }` o `{ element }`), descripciones por variante y controles que sustituyen a un campo. Los campos se agrupan por sección y los técnicos quedan bajo «Más ajustes», que se abre si tienen un problema.
+- **Editor visual del contenido** (P4): las 10 zonas, la lista de cada colección (búsqueda sin tildes, dibujo, «Nueva» en lo añadido) y la ficha con sus 614 campos nombrados y explicados en español; los tipos (de arma, comportamiento, patrón, reacción…) salen con su nombre. Duplicar y añadir entradas; quitar solo lo no publicado. El JSON sigue en su pestaña.
+- **«Qué cambia» y «Problemas»** dicen el campo con su nombre («Tope de daño por golpe pasa de 40 % a 35 %») y los errores propios del contenido, en español («Apunta a «xyz», que no existe»).
+
+Comprueba con `rayelus`:
+1. Abre un borrador: el editor sale por zonas; en Fauna busca «ácaro» y ábrelo.
+2. Cambia su vida: sale «Guardado» y «Qué cambia» lo dice con su nombre.
+3. Duplica una entrada y quítala; una publicada no deja quitarse.
+
+## Editor de contenido, P5: galería de dibujos, selectores y «dónde se usa»
+
+**Qué cambia.** Sin migraciones ni configuración que publicar. La simulación no cambia de comportamiento: el esquema comprueba las referencias desde una sola lista (`contentRefs`), con los mismos mensajes.
+
+**El código ya trae:**
+- **Catálogo de arte** (`ART`, generado de la arena): publicar `content` con un `sprite` o un `icon` que no existe se rechaza en el panel, el servidor y la CLI («El dibujo «x» no existe en el juego»). La arena, si aun así le llega uno, pinta otro conocido.
+- **Galería de dibujos:** el dibujo de un enemigo, un Núcleo, una sonda o el icono de un arma o pasiva se elige de una galería por grupos, con búsqueda y el elegido animado.
+- **Selectores con dibujo:** elegir un enemigo, un Núcleo o un arma enseña su dibujo; las formas de un Núcleo se ponen en orden por nombre, sin escribir ids.
+- **Dónde se usa:** la ficha de un arma, pasiva, enemigo o Núcleo dice dónde se usa; lo nuevo que ya se usa no se quita hasta dejar de usarlo.
+
+Comprueba con `rayelus`:
+1. En un borrador, Fauna → un enemigo → «Cambiar dibujo»: elige otro y mira que cambia.
+2. Sectores → un sector → «Formas del Núcleo»: añade, sube y quita formas.
+3. Núcleos → La Colmena Rota: dice «Se usa en N sitios» y los nombra.
+
+## Editor de contenido, P6: controles ricos
+
+**Qué cambia.** Solo la web: ni migraciones, ni configuración que publicar, ni cambios en la simulación. Sí se añade `WEAPON_FIELDS`, un dato que la propia simulación comprueba.
+
+**El código ya trae:**
+- **Tabla de niveles de las armas:** una fila por nivel y una columna por número, cada una con una línea que enseña cómo crece. Las columnas que el tipo de arma no lee salen apagadas y al final.
+  - El mapa `WEAPON_FIELDS` está probado en la simulación: cambiar un número que el tipo no lee no cambia nada en la incursión, y cambiar uno que lee sí cambia algo.
+- **Tipos explicados:** cada tipo de arma, comportamiento, patrón, rasgo, reacción o fenómeno sale con lo que hace, en la lista y bajo lo elegido. «Otro: necesita programación» aparece pero no se puede elegir.
+- **Gráficos sobre su editor:**
+  - las fases de un Núcleo sobre su barra de vida, con sus ataques;
+  - cuándo sale cada enemigo de un sector y cuándo llegan sus oleadas;
+  - qué parte del total se lleva cada evento;
+  - la tabla de reacciones entre elementos.
+
+Comprueba con `rayelus`:
+1. Arsenal → un arma: la tabla de niveles con lo que no usa apagado.
+2. Fauna → un enemigo: el tipo de comportamiento explica lo que hace.
+3. Núcleos, Sectores, Eventos y Elementos: sus gráficos.
+
+## Editor de contenido, P7: avisos, dónde se notará y simulación rápida
+
+**Qué cambia.** No hay migraciones ni configuración que publicar. La simulación gana dos funciones que no tocan las incursiones:
+- `contentWarnings`, los avisos del contenido;
+- `playBot`, una incursión jugada por el bot de la calibración.
+
+**El código ya trae:**
+- **Avisos.** No impiden publicar, pero hay que marcar «He leído los avisos» para hacerlo.
+  - Un sector que no es más difícil que el anterior, o uno de temporada que no es el más duro.
+  - Un sector con menos de 5 familias de enemigos.
+  - Un arma base sin evolución.
+  - Un enemigo o un Núcleo que no se usan en ningún sitio.
+  - Pesos de evento para un sector que no existe.
+  - Avisos entre claves (`companionWarnings`): un sector nuevo sin desbloqueo ni paga en `sectors`, una sonda nueva sin desbloqueo en `probes`, o un sector de temporada que no es el de la temporada viva.
+- **Dónde se notará:** las incursiones, el hangar, el Códice o el taller, según lo que cambie. Las incursiones en marcha siguen con la versión con la que empezaron.
+- **Simulación rápida.** En un worker propio, el bot juega 3 incursiones de hasta 8 minutos con lo publicado y otras 3 con el borrador, con las mismas semillas. Después compara los minutos, la capa, cuántas vencen al primer Núcleo y cuántas mueren.
+
+Comprueba con `rayelus`:
+1. En un borrador, duplica un enemigo: sale el aviso «No sale en ningún sector…», y publicar pide marcar que lo has leído.
+2. «Comparar con el bot»: al cabo de un rato sale la tabla de lo publicado frente al borrador.
+
+## Editor de contenido, P8: los textos en el contenido
+
+**Qué cambia.** Hay campos opcionales nuevos en `content`; no hacen falta migraciones ni configuración que publicar.
+- **Los campos:** `lore` en sectores, Núcleos y enemigos; `radio` en sectores y Núcleos; `hazardNames` en sectores.
+- **La simulación no los lee,** así que `SIM_VERSION` no cambia y lo publicado antes sigue valiendo tal cual.
+- **El orden importa:** primero se despliega el código y después se publica contenido que use estos campos. Un servidor antiguo los rechazaría, porque el esquema es estricto.
+
+**El código ya trae:**
+- **Lectura con respaldo:** el Códice, la radio de PERKINS y los nombres de los peligros leen primero el contenido; si está vacío, usan el texto de siempre, que ahora vive en `codex/texts.ts` y `es.ts`.
+- **En el panel:** cada texto vacío enseña en gris el de siempre, y lo que se escriba lo sustituye.
+
+Comprueba con `rayelus`:
+1. En un borrador, Sectores → Anillos de Escarcha, sección Textos: las cajas enseñan en gris el texto de siempre.
+2. Escribe un texto propio para el Códice y pruébalo en una incursión: el Códice del juego no cambia hasta publicar.
+
+## Editor de contenido, P9a: asistentes «Crear…»
+
+**Qué cambia.** Solo cambia la web: no hay migraciones ni configuración que publicar.
+
+**El código ya trae** «Crear enemigo», «Crear pasiva», «Crear reacción», «Crear anomalía» y «Crear conjunto», encima de las zonas del editor. Cada asistente va por pasos:
+1. **Nombre y base.** El identificador sale del nombre. «Basado en» copia una entrada parecida.
+2. **Un paso por sección de sus campos.** Cada uno cuenta sus problemas, y los textos van al final.
+3. **«Dónde sale», solo en los enemigos.** Si se basa en otro enemigo, sale de inicio en los mismos sectores. Un enemigo que no sale en ningún sitio no se puede añadir.
+4. **Revisión.** Muestra los problemas y el botón «Añadir al borrador», que nunca publica.
+
+Comprueba con `rayelus`:
+1. En un borrador, «Crear enemigo», basado en el ácaro: al añadirlo se abre su ficha, y sale en la Nebulosa Exterior.
+2. «Crear reacción» basada en otra: la revisión avisa de que esa pareja ya reacciona.
+
+## Editor de contenido, P9b: asistentes con piezas enlazadas
+
+**Qué cambia.** Solo cambia la web: no hay migraciones ni configuración que publicar.
+
+**El código ya trae:**
+- **Crear Núcleo:** en «Dónde sale» se eligen los sectores donde sale por turnos como una forma más de su Núcleo (`bossCycle`).
+- **Crear sector:**
+  - entra antes del de temporada, porque el orden de los sectores es su dificultad;
+  - en «Desbloqueo» se elige tras qué sector se abre, qué hay que conseguir y su paga;
+  - el desbloqueo y la paga se guardan en la clave `sectors` del mismo borrador.
+- **Crear arma:**
+  - no se añade sin su evolución, que se crea en «Evolución» con su nombre y la pasiva que pide;
+  - si se basa en un arma que ya evoluciona, la evolución nueva copia la suya.
+- **Crear sonda:** su condición de desbloqueo va a la clave `probes` del mismo borrador.
+
+Comprueba con `rayelus`:
+1. En un borrador, «Crear sector» basado en los Anillos: queda antes de la Fisura, y publicar avisa de lo que falte.
+2. «Crear arma» basada en el Pulso: «Revisión» pide su evolución; con ella entran las dos.
+
+
+## Editor de contenido: menores pendientes
+
+**Qué cambia.** Solo cambia la web. La simulación sigue igual: `contentRefs` salta las partes rotas de un borrador, y en un contenido válido da lo mismo que antes. No hay migraciones ni configuración que publicar.
+
+**El código ya trae:**
+- **Publicar espera:** antes de publicar se guarda lo último que se cambió.
+- **«Dónde se usa» con el borrador roto:** sigue contando aunque otra parte del borrador esté rota.
+- **Tabla de niveles:** marca la celda que tiene un problema y dice cuál es.
+- **Al cambiar de entrada:** la ficha empieza cerrada.
+- **Asistentes:** sus pestañas se recorren con las flechas y tienen su panel accesible.
+- **Vida por nivel del equipo:** sus tres campos (cuánto crece, desde qué nivel y el techo) ya no van en «Más ajustes». El techo dice que 1000 es «sin techo».
+
+## Menos enjambre, Núcleos más despejados y un Amplificador que se nota (SIM 1.19.0)
+
+**Por qué.** Los jugadores contaban que «se me siguen acumulando exageradas cantidades de enemigos pequeños y me cuesta muchas veces matar a los núcleos». Medido con el bot: una sonda que no despega llega al tope de 240 enemigos vivos, y entre el 60 % y el 90 % son del enjambre; un combate contra el Núcleo que se alarga acaba rodeado.
+
+**Qué cambia:**
+- **Enjambre a raya** (`sectors[].swarm`, campo nuevo con valor por defecto). Con 60 del enjambre vivos (Ácaro, Celulita, Esquirla, Pólipo y Ascua), sus grupos dejan de salir y salen los demás. Desde el minuto 8 de la incursión salen un 10 % menos por minuto, hasta quedarse en la mitad, y su hueco lo ocupan otros. La mitad, y no el 30 %, porque calibrado (16 semillas, Nebulosa) es la única variante en la que ni el bot avanzado ni el Sifón tienen incursiones eternas. Lo publicado antes toma estos valores al desplegar.
+- **Contra el Núcleo:** aparece una cuarta parte de lo de siempre (`density.bossFactor` 0,25; antes, la mitad).
+- **Amplificador:** +10, +20, +35, +60 y +100 % (antes +10, +20, +30, +40 y +50 %).
+- **Curación del Sifón al 1,5 %** (`healing.base`, antes 1 %), por decisión del propietario. Calibrado, 2 de cada 16 incursiones del bot avanzado vuelven a ser eternas, y él lo acepta.
+
+**Después de desplegar:** `bossFactor`, el Amplificador y la curación ya están publicados en PRE con sus valores antiguos, así que hay que publicarlos (`sectors`, `passives` y `healing`) partiendo de lo vivo. El enjambre no hay que publicarlo: entra con su valor por defecto.
+
+## Buzón v2, P1: el motor de regalos
+
+**Qué cambia.**
+- **Migración** `20261116190000_galaxy_gift_grants.sql`: `season_adjustments.source` acepta también `mail`.
+- **Sin interfaz todavía**, y sin cambios en la simulación ni configuración que publicar.
+
+**El código ya trae:**
+- **Regalos de todo tipo** (`packages/shared/src/gifts/`): recursos (también material, componentes, señales de un evento y la moneda de la temporada), cosméticos, galaxias (rareza, acabado y un rasgo opcional), sondas, experiencia y puntos de temporada.
+- **Qué impide enviar un regalo:** que no exista o ya no se pueda dar (`giftIssues`).
+- **Qué lo hace grande:** pasar los límites de `mailLimits` (`bigGiftReasons`), y entonces solo lo envía un superadmin.
+- **`grantGifts`**, en el servidor, da cada regalo dentro de la transacción de quien lo llama.
+  - Los recursos van al libro de cuentas, con la clave `<clave>:<moneda>`.
+  - Las piezas, galaxias y sondas van a la auditoría.
+  - Las galaxias salen de una semilla que depende de la clave, así que la misma recogida da siempre las mismas.
+- **`galaxyValues`**: el escáner, la fusión y la concesión del admin escriben ahora las galaxias igual.
+
+## Buzón v2, P2: el correo en el servidor
+
+**Qué cambia.**
+- **Migración** `20261116190100_galaxy_mail_v2.sql`:
+  - cada mensaje tiene su tipo (`type`), y los que envió antes el juego quedan como `system`;
+  - cada mensaje marca si llevaba un regalo grande (`big`);
+  - cada recibo puede archivarse o borrarse (`archived_at`, `deleted_at`) y guarda lo que dio cada regalo (`granted`).
+- **Claves de configuración nuevas**, que entran con su valor por defecto y no hace falta publicar:
+  - `mail`: la biblioteca de packs y plantillas (vacía) y los días de aviso de caducidad (3);
+  - `mailLimits`: los límites de los regalos grandes. Solo la publica un superadmin.
+- **Sin interfaz nueva todavía.** El panel sigue enviando monedas, polvo y señales, que el servidor lee en el formato nuevo.
+
+**El código ya trae:**
+- **Al enviar:**
+  - los packs se copian de la biblioteca: lo enviado no cambia si después se edita el pack;
+  - un regalo imposible no se envía (`gift_invalid`, con cuál y por qué);
+  - un regalo grande solo lo envía un superadmin (`gift_needs_superadmin`, con los motivos);
+  - un regalo de la temporada o de un evento hace que el mensaje caduque cuando cierran.
+- **Al recoger:** cada regalo pasa por `grantGifts`, la carta guarda qué dio cada uno y la respuesta lo devuelve. Los mensajes de antes pagan con sus claves de siempre (`mail:<id>:<moneda>`).
+- **En el buzón:** «Recoger todo» (`POST /mailbox/claim-all`, hasta 50 mensajes), archivar (`PATCH /mailbox/:id`), borrar (`DELETE /mailbox/:id`, nunca con un regalo sin recoger) y páginas por bandeja, archivo y tipo, con el cursor. Las webs de antes siguen viendo lo mismo.
+- **Tipos automáticos:** la posventa de la tienda escribe `shop` y los referidos, `referral`.
+
+## Buzón v2, P3: regalos visuales y el nuevo formulario de envío
+
+**Qué cambia.** Solo la web del panel. No hay migraciones ni configuración que publicar.
+
+**El código ya trae, en Comunicación:**
+- **Tipo de mensaje:** una tarjeta por tipo, con su icono y su color (Anuncio, Regalo, Compensación, Evento, Recompensa y Personal).
+- **Selector de regalos por pestañas:**
+  - Recursos: todas las monedas, también las señales de los eventos abiertos y la moneda de la temporada;
+  - Estilo: la galería de skins, marcos, avatares y títulos dibujados, filtrada por pieza, por origen y por nombre;
+  - Galaxias: rareza, acabado, rasgo y cuántas, con una muestra a petición;
+  - Sondas;
+  - Progreso: experiencia y puntos de temporada;
+  - Packs de la biblioteca.
+- **La bandeja** reúne lo elegido, dice qué falla de cada regalo y deja quitarlo.
+- **Así lo verá el jugador:** la carta con el sello de su tipo y los regalos dibujados.
+- **Regalo grande:** se avisa al momento con sus motivos. Un admin no puede enviarlo; un superadmin sí.
+- **La lista de enviados** dice el tipo, dibuja los regalos y marca los grandes.
+
+**Para probarlo en PRE:** en Comunicación, envíate un mensaje de tipo Regalo con monedas, una skin y un pack. Una galaxia legendaria avisa de que es un regalo grande.
+
+## Buzón v2, P4: la biblioteca de packs
+
+**Qué cambia.** Solo la web del panel, más cinco dibujos de pack nuevos. No hay migraciones.
+
+**El código ya trae:**
+- **Biblioteca de packs:** es la página propia de la clave `mail` en Configuración (`/admin/configuracion/mail`). También se abre desde la pestaña Packs de Comunicación.
+  - Cada pack se ve con su dibujo y lo que da.
+  - Se crea y se cambia con el mismo selector de regalos que un mensaje, sin packs dentro.
+  - Se apaga sin borrarlo.
+  - Se publica la clave entera con su versión, un motivo y la contraseña. Si otro admin publicó antes, avisa con `config_conflict` y no pisa su versión.
+- **Dibujos:** paquete, cofre, cápsula, estrella, caja de suministros y regalo. Los cinco nuevos los pinta `art/mail/paint-packs.lua` en Aseprite, con el estilo del paquete.
+
+**Para probarlo en PRE:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje desde Comunicación.
+
+## Buzón v2, P5: envío programado, plantillas y estadísticas de lo enviado
+
+**Qué cambia.**
+- **Migración** `20261116200000_galaxy_mail_schedule.sql`: los mensajes tienen `scheduled_at` (cuándo sale) y `sent_at` (cuándo salió). Los de antes quedan como enviados al crearlos.
+- **Un trabajo nuevo en el servidor:** cada minuto envía los mensajes programados cuya hora ha llegado. Solo lo arranca la entrada de producción; las pruebas lo llaman directamente.
+- No hay configuración que publicar.
+
+**El código ya trae, en Comunicación:**
+- **«Ahora» o «Programar»:** como mucho, 90 días después.
+  - A quién llega se calcula al enviarlo, y lo envía una sola vez aunque coincidan dos servidores.
+  - El regalo grande se vuelve a comprobar con el rol de quien lo escribió.
+  - Uno pasado de caducidad no sale y queda en la auditoría.
+  - Retirarlo antes de su hora lo cancela.
+- **Plantillas de la biblioteca:**
+  - «Empezar con una plantilla» rellena el tipo, el texto, los regalos y la caducidad;
+  - «Guardar como plantilla» la publica en la clave `mail`, con versión, motivo y contraseña.
+- **«Duplicar»** copia un mensaje enviado al formulario.
+- **En la lista de enviados:**
+  - barras de leídos y recogidos;
+  - cuántos regalos ya tenían los jugadores y cuántos no se pudieron dar;
+  - el estado Programado, con su hora.
+
+**Para probarlo en PRE:** programa un mensaje para dentro de dos minutos. No sale en el buzón hasta su hora; después llega, con su aviso en directo.
+
+## Buzón v2, P6: el buzón del jugador
+
+**Qué cambia.** Sobre todo la web del jugador. El servidor solo añade datos a lo que ya respondía:
+- lo recogido trae la semilla de cada galaxia, para dibujar su carta;
+- el buzón trae los nombres de los eventos y de la moneda de temporada;
+- el aviso en directo de un correo dice su tipo y si trae regalo.
+
+No hay migraciones ni configuración que publicar.
+
+**El código ya trae, en el buzón:**
+- **Navegación:** Bandeja y Archivo, filtro por tipo con cuántos hay de cada uno y «Cargar más».
+- **Cada mensaje** lleva el icono y el color de su tipo y las marcas «Nuevo», «Con regalo» y «Caduca pronto».
+- **Acciones:**
+  - «Recoger todo»;
+  - «Archivar» y «Devolver a la bandeja»;
+  - «Borrar», que no se puede con un regalo sin recoger.
+- **Revelación de lo recogido:**
+  - cada regalo aparece con su dibujo, uno tras otro;
+  - lo que ya tenía el jugador lo dice;
+  - las galaxias salen como su carta, con el camino a la colección;
+  - con movimiento reducido, todo a la vez y quieto.
+- **El aviso en directo** dice «Tienes un regalo en el buzón» cuando lo trae, con el icono de su tipo.
+
+**Para probarlo en PRE:** envíate un regalo con una galaxia. En el buzón, «Recoger todo» enseña la revelación; «Ver en la colección» lleva a ella.
+
+## Buzón v2, P7: documentación y lista de comprobación
+
+**Qué cambia.**
+- La documentación del buzón v2:
+  - DESIGN_SYSTEM §8 vicies, con los tipos de mensaje, los regalos y los packs;
+  - CONTENIDO B10, con las claves `mail` y `mailLimits`;
+  - GDD §16.5;
+  - las skills `galaxy-publicar-config` y `galaxy-evento`.
+- Una biblioteca de ejemplo en `ops/plantillas/buzon/`.
+- No hay código ni migraciones.
+
+**Repaso de seguridad** (revisor independiente). No encontró nada crítico ni alto, y las cuatro cosas que encontró están arregladas aquí:
+- Una galaxia que tarda demasiado en hacerse ya no se puede regalar: una mítica con rasgo costaba casi un segundo por galaxia al recogerla, en el servidor en vivo. Ahora una galaxia regalada sale en menos de 20.000 candidatos y, al recogerla, cada intento tiene su tope.
+- Un mensaje programado no sale si quien lo escribió ya no es admin, está baneado o se borró su cuenta. Los programados pendientes salen siempre en la lista de enviados, aunque haya 50 envíos más nuevos.
+- Validar un borrador de configuración cuenta para el límite de 60 acciones por minuto del admin.
+- El buzón solo nombra los eventos que ya han empezado.
+
+**Lista de comprobación en PRE** (la prueba el propietario; no se crean cuentas):
+1. **Enviar un regalo de todo tipo:** en Comunicación, un mensaje de tipo Regalo para ti, con monedas, una skin, un pack y una galaxia épica. La carta de la derecha lo enseña igual que lo verá el jugador.
+2. **Regalo grande:**
+   - una galaxia legendaria avisa de que es grande;
+   - con un admin que no sea superadmin, el botón no deja enviarlo;
+   - un superadmin sí puede.
+3. **Envío programado:** prográmalo a dos minutos. No sale en el buzón hasta su hora, y después llega con su aviso en directo.
+4. **Recoger:** «Recoger todo» enseña la revelación, y la galaxia aparece en la colección.
+5. **Archivar y borrar:** archívalo y bórralo. Un mensaje con su regalo sin recoger no se deja borrar.
+6. **Biblioteca de packs:** Configuración → Buzón → Biblioteca del buzón. Crea un pack, publícalo y añádelo a un mensaje.
+7. **Plantilla:** «Guardar como plantilla» y, después, «Empezar con una plantilla».
+
+## La portada de galaxysurvivor.es (`apps/landing`)
+
+La raíz de galaxysurvivor.es es una portada estática que sirve el mismo contenedor. El juego sigue en `/galaxy`. Plan «galaxysurvivor.es», PR 4, y la spec `docs/superpowers/specs/2026-11-17-galaxy-portada-design.md`.
+
+**Qué es**
+- Lo genera el paquete `games/galaxy/apps/landing` al compilar la imagen (`pnpm build`). Sale:
+  - `/`;
+  - `/aviso-legal`, `/privacidad`, `/cookies` y `/condiciones`;
+  - un 404 de verdad, con noindex;
+  - `robots.txt`, `sitemap.xml` y `/.well-known/security.txt`;
+  - los iconos y la tarjeta para compartir (`/og/og-es-v1.jpg`).
+- Va a `/app/landing-dist` (variable `LANDING_DIST` de la imagen). El servidor la sirve con `apps/server/src/landing.ts`.
+- **Caché:**
+  - los archivos con hash de `/static/` se guardan un año;
+  - las páginas, `no-cache` con ETag.
+- Las rutas que no existen fuera de `/galaxy` dan la página 404. Dentro de `/galaxy` todo sigue como antes.
+- En `pre.elclub.party` no se ve: el túnel solo manda allí `/galaxy`.
+
+**Datos del titular (aviso legal, privacidad y condiciones de compra)**
+- El nombre comercial «GALAXY SURVIVOR» y `contacto@rayelus.com` ya están en las páginas.
+- El nombre legal, el NIF y el domicilio **nunca van al repositorio**, que es público. Se ponen en `/opt/elclub/pre/galaxy.env`:
+  - `GALAXY_LEGAL_HOLDER`: el nombre legal. Si GALAXY SURVIVOR no es una sociedad inscrita, el tuyo; GALAXY SURVIVOR queda como nombre comercial;
+  - `GALAXY_LEGAL_NIF`;
+  - `GALAXY_LEGAL_ADDRESS`.
+- Cada uno vacío quita su línea de las páginas, y el registro avisa con `legal_identity_missing` al arrancar.
+- Después de editarlo, recrear el contenedor, como con las claves de Stripe:
+
+  ```bash
+  cd /home/gh-runner/actions-runner/_work/elclublambo/elclublambo && docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
+  ```
+
+**El humo del despliegue**
+- `preproduction.yml` comprueba además que `http://127.0.0.1:8080/` responde con un `<h1`.
+
+**En local**
+- `pnpm -C games/galaxy/apps/landing build` compila la portada.
+- `node scripts/check.mjs`, desde la carpeta del paquete, la prueba en Chromium con la CSP del servidor:
+  - en 1280, 1600, 1920, 2560 y móvil;
+  - sin JS;
+  - con movimiento reducido;
+  - las legales y el 404.
+  Las capturas quedan en `__shots__/`.
+- **Recursos** (salidas comprometidas):
+  - `python art/brand/brand.py`: los iconos;
+  - `python scripts/assets.py <metraje del tráiler>`: los banners, los clips sin sonido y sus carátulas;
+  - `node scripts/faces.mjs`: las caras de las galaxias del escáner;
+  - `node scripts/og.mjs`: la tarjeta para compartir. Un diseño nuevo lleva una versión nueva en el nombre.
+
+**Textos**
+- `apps/landing/src/i18n/es.ts` y `i18n/legal/es.ts`. Las condiciones de compra repiten las de la tienda (`apps/web/src/copy/es.ts`, `shop.legal`): si cambian, cambian las dos y se sube `termsVersion`.
+- **Otro idioma:** un diccionario nuevo con la misma forma y una entrada en `i18n/locales.ts`, con su prefijo (`/en`) y su hreflang.
+- **«Novedades»:** son las tres primeras notas de `RELEASE_NOTES`, al compilar.
+
+## La vida da tregua del 8 al 30 (SIM 1.20.0)
+
+**Por qué.** El propietario, el 18/11/2026: los enemigos «siguen apareciendo y acumulándose hasta un punto insostenible». Medido con el bot (SIM 1.19.0), su vida crecía más que cualquier build, sobre todo por el nivel del equipo (×1,12 por nivel desde el 22) y la capa. A partir del minuto 15–20 ya no morían a tiempo y el campo se llenaba hasta el tope: el Sifón tenía de media 348 enemigos vivos en el minuto 20, y 400 en el 40.
+
+**Qué cambia.** Hay cuatro campos nuevos en `sectors[].scaling`, editables en Admin › Contenido › Sectores › Crecimiento de la dificultad.
+- **`hpHoldFrom` (8):** desde este minuto, la vida de la fauna se queda en la que tenía entonces, aunque suban los minutos, la capa o el nivel.
+- **`hpHoldUntil` (30):** desde este minuto deja de estar congelada.
+- **`hpDoubleEvery` (5):** a partir de `hpHoldUntil`, la vida se dobla cada tantos minutos.
+- **`hpHoldMax` (0):** tope fijo opcional para la vida congelada.
+
+El sector, el grupo y la anomalía siguen multiplicando encima. Los Núcleos no cambian. Si `hpHoldUntil` es menor o igual que `hpHoldFrom`, no hay tregua.
+
+**Después de desplegar no hay que publicar nada.** El contenido vivo no trae los campos y toma los valores por defecto. Para ajustarlos se publica `content` desde el editor.
+
+**Medido (16 semillas por fila; minutos de incursión y enemigos vivos de media):**
+
+| Sector | Perfil | Antes | Después | Vivos en el min 10 / 20 / 30 / 40, después | Llegan al límite de 50 min |
+|---|---|---|---|---|---|
+| Nebulosa | novato | 9,4 | 9,0 | 104 / – / – / – | 0 |
+| Nebulosa | medio | 12,5 | 23,6 | 110 / 50 / 81 / 216 | 0 |
+| Nebulosa | veterano | 14,3 | 38,4 | 59 / 61 / 61 / 166 | 0 |
+| Nebulosa | avanzado | 17,2 | 42,7 | 44 / 53 / 78 / 119 | 1 |
+| Nebulosa | Sifón | 17,3 | 42,7 | 47 / 60 / 77 / 113 | 1 |
+| Fisura | medio | 9,3 | 10,5 | 80 / 73 / 58 / 142 | 0 |
+| Fisura | veterano | 11,0 | 24,8 | 156 / 102 / 123 / 94 | 1 |
+| Fisura | avanzado | 14,4 | 46,1 | 57 / 61 / 112 / 203 | 6 |
+| Fisura | Sifón | 16,3 | 44,9 | 58 / 63 / 107 / 234 | 4 |
+
+**Lectura de la tabla:**
+- **Durante la tregua ya no se acumulan.** Hay entre 45 y 125 vivos donde antes llegaban a 236–400.
+- **Quien sobrevive al minuto 8 llega lejos.** Un veterano pasa de 14 a 38 minutos.
+- **Desde el 30 la vida doblada termina la incursión.** En la Nebulosa casi todos caen entre el 35 y el 50.
+- **En la Fisura la tregua llega pronto:** a esa altura su vida es menor que la de la Nebulosa. Por eso el avanzado dura más en la Fisura y 6 de 16 llegan al límite. La palanca está en el editor, sin código: que se doble antes en ese sector (`hpDoubleEvery`) o que la tregua empiece más tarde (`hpHoldFrom`).
+
+`difficulty.test.ts` (`GALAXY_CALIBRATE=1`) ya tiene estos objetivos. Además comprueba tres cosas:
+- que ningún perfil pase de 45 minutos de media;
+- que como mucho 2 de 16 lleguen al límite;
+- que en la Nebulosa no haya más de 150 vivos de media en los minutos 20 y 30.

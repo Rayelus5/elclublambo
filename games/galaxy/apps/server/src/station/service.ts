@@ -18,6 +18,7 @@ import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { Notices } from '../realtime/notices';
 import { accountLabEffects } from '../lab/levels';
 import { countStats, type MissionConfigs } from '../missions/service';
 import type { RunsDeps } from '../runs/hangar';
@@ -122,13 +123,13 @@ export function loadRefinery(deps: RunsDeps, trx: Db, accountId: string, amount:
 }
 
 /** `mcfg`: the mission configs (M7a), read by the caller before the transaction. */
-export function collectRefinery(deps: RunsDeps, trx: Db, accountId: string, key: string, mcfg?: MissionConfigs): Promise<StationView> {
+export function collectRefinery(deps: RunsDeps, trx: Db, accountId: string, key: string, mcfg?: MissionConfigs, out?: Notices): Promise<StationView> {
   return change(deps, trx, accountId, async (state) => {
     const ready = state.refinery.ready;
     if (ready <= 0) throw new HttpError(409, 'nothing_to_collect');
     await credit(trx, accountId, 'components', ready, 'refinery_collect', { ready }, key);
     // Missions and achievements (M7a).
-    if (mcfg) await countStats(trx, mcfg, accountId, { components: ready }, deps.now());
+    if (mcfg) await countStats(trx, mcfg, accountId, { components: ready }, deps.now(), out);
     await saveRefinery(trx, accountId, { ...state.refinery, ready: 0 });
   });
 }

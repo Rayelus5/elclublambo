@@ -1,14 +1,22 @@
-import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
+import { COOP_SUM_EVERY, type CoopGate, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
 import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AddFriendButton } from '../social/AddFriendButton';
+import { hudInsets } from './hud-insets';
 import { announceFor } from '../arena/announce';
+import { createNoticeQueue, noticesFor, type RunNotice as Notice } from '../arena/notices';
+import { RunNotice } from '../arena/hud/RunNotice';
 import { playEvents } from '../arena/arena-sfx';
-import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
+import { musicStinger, setMusicScene, startMusic } from '../audio/music';
+import { deepLayer, runScene } from '../audio/music/state';
+import { BeaconMarker, BossBar, EventMarkers } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
-import { emptyInput, readInput } from '../arena/input';
+import { DASH_BUTTONS, dashWaits, emptyInput, mouseCode, pointerAngle, readInput } from '../arena/input';
+import { actionOf, isAction } from '../settings/keybinds';
 import { createLockstep, type Lockstep } from '../arena/lockstep';
-import { manualAim as storedAim, setManualAim } from '../arena/settings';
+import { arenaZoom, manualAim as storedAim, setManualAim } from '../arena/settings';
+import { useWheelZoom } from '../arena/zoom';
 import type { Camera } from '../arena/stage/camera';
 import { createStage, type Stage } from '../arena/stage/stage';
 import { retryDelay } from '../chat/useChatSocket';
@@ -19,10 +27,12 @@ import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
 import type { CoopMark } from '@galaxy/shared';
 import { CoopCards, LifeNotice, SpectateBar, spectateTarget, TeamPanel } from './CoopHud';
+import { CoopLoading, LOADING_FADE_MS, LOADING_MIN_MS, type LoadingStep } from './CoopLoading';
 import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld } from './Marks';
 import { playMark } from './sfx';
 import { ReportDialog } from './ReportDialog';
 import { TeamResults, teamRows } from './TeamResults';
+import { usePrefs } from '../settings/prefs';
 
 // A co-op run in the browser (multiplayer plan, phase 6). The play socket says hello with the run and the sealed log
 // so far; from then on it brings the sealed events and the tick the server closed. The run is simulated only up to
@@ -32,6 +42,8 @@ import { TeamResults, teamRows } from './TeamResults';
 // from the start. At the end the server says what I was paid, and the room waits again.
 
 const HUD_EVERY_MS = 100;
+/** Ticks behind the last closed one that still count as playing live (the start's loading screen goes there). */
+const LIVE_EDGE = 4;
 const END_DELAY_MS = 1500;
 const FINAL = new Set([4401, 4403, 4404, 4400, 4409]);
 const t = copy.coop.arena;
@@ -69,6 +81,54 @@ export function CoopArena({
   const [world, setWorld] = useState<World | null>(null);
   const [link, setLink] = useState<Link>('connecting');
   const [result, setResult] = useState<{ result: RunResult | null } | null>(null);
+  // The loading screen (the owner, 2026-11-14): connecting, then the arena drawn, then caught up; a moment at least.
+  const [stageReady, setStageReady] = useState(false);
+  const [loading, setLoading] = useState<'on' | 'leaving' | 'off'>('on');
+  const loadingSince = useRef(0);
+  useEffect(() => {
+    loadingSince.current = Date.now();
+  }, []);
+  // The start (2026-11-17, the owner: the loading screen must really hide the start): who is in, and when the first
+  // tick is due on my clock (from the server's «starts in»); null gate: an older server, the screen goes as before.
+  const [gate, setGate] = useState<{ connected: boolean[]; startAt: number | null } | null>(null);
+  const takeGate = useCallback((g: CoopGate) => setGate({ connected: g.connected, startAt: g.startsIn === null ? null : clock.now() + g.startsIn }), [clock]);
+  /** My world runs at the live edge (the first ticks stepped, caught up): the screen can go. */
+  const [live, setLive] = useState(false);
+  const markLive = useCallback(() => setLive(true), []);
+  /** Whole seconds to the first tick while the screen shows (3, 2, 1), on the screen's clock. */
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const startAt = gate?.startAt ?? null;
+  useEffect(() => {
+    if (startAt === null || loading === 'off') return;
+    let on = true;
+    const tick = (n: number) => {
+      if (!on) return;
+      setCountdown(Math.ceil((startAt - n) / 1000));
+      clock.schedule(tick);
+    };
+    tick(clock.now());
+    return () => {
+      on = false;
+    };
+  }, [startAt, loading, clock]);
+  const gated = gate !== null;
+  const loadingStep: LoadingStep = !world ? 'connect' : !stageReady ? 'arena' : !gated ? 'sync' : gate.startAt === null ? 'team' : 'count';
+  useEffect(() => {
+    if (!stageReady || loading !== 'on') return;
+    // With a start gate it stays until my world runs (the countdown ends on the first tick); an older server: as before,
+    // a few frames of catching up. Always at least LOADING_MIN_MS, and gone at once if the run is already over.
+    // A run that is gone (it never started here, a restart): the screen goes and its «Volver» shows (review).
+    if (gated && !live && !result && link !== 'gone') return;
+    const wait = Math.max(LOADING_MIN_MS - (Date.now() - loadingSince.current), gated ? 0 : 350);
+    const id = setTimeout(() => setLoading('leaving'), wait);
+    return () => clearTimeout(id);
+  }, [stageReady, loading, gated, live, result, link]);
+  useEffect(() => {
+    if (loading !== 'leaving') return;
+    const id = setTimeout(() => setLoading('off'), LOADING_FADE_MS);
+    return () => clearTimeout(id);
+  }, [loading]);
+  const markReady = useCallback(() => setStageReady(true), []);
   const worldRef = useRef<World | null>(null);
   /** Every sealed event received (flat), to rebuild the world from the start. */
   const sealed = useRef<number[]>([]);
@@ -127,8 +187,12 @@ export function CoopArena({
           for (const v of missed) sealed.current.push(v);
           known.current = Math.max(known.current, events.length);
           closed.current = Math.max(closed.current, msg.to);
+          // A run already going (a reload, a staff watch): no countdown, it catches up as before (review).
+          if (msg.gate && (msg.gate.startsIn === null || msg.gate.startsIn >= 0)) takeGate(msg.gate);
           setLink('live');
           setEpoch((e) => e + 1);
+        } else if (msg.t === 'gate') {
+          takeGate(msg);
         } else if (msg.t === 'f') {
           worldRef.current?.feed.push(msg.ev);
           for (const v of msg.ev) sealed.current.push(v);
@@ -186,14 +250,15 @@ export function CoopArena({
   if (!world) {
     return (
       <div className="arena coop-arena">
-        <p className="coop-arena-status" role="status">
-          {t.connecting}
-        </p>
+        <CoopLoading start={null} step="connect" />
       </div>
     );
   }
   return (
+    <>
     <CoopWorld
+      onReady={markReady}
+      onLive={markLive}
       key={world.gen}
       marks={marks}
       start={world.start}
@@ -212,10 +277,25 @@ export function CoopArena({
         onAbandon();
       }}
     />
+    {loading !== 'off' ? (
+      <CoopLoading
+        start={world.start}
+        step={loadingStep}
+        leaving={loading === 'leaving'}
+        see={stageReady}
+        countdown={gate && !live ? countdown : null}
+        connected={gate?.connected ?? null}
+        rejoin={!gated && stageReady}
+        note={link === 'lost' ? t.lost : null}
+      />
+    ) : null}
+    </>
   );
 }
 
 function CoopWorld({
+  onReady,
+  onLive,
   marks,
   start,
   sim,
@@ -230,6 +310,10 @@ function CoopWorld({
   onExit,
   onAbandon,
 }: {
+  /** The arena is drawn and running (the loading screen can go). */
+  onReady?: () => void;
+  /** My world reached the live edge: the first ticks stepped and caught up (the start's loading screen goes). */
+  onLive?: () => void;
   marks: ShownMark[];
   clock: Clock;
   viewer: boolean;
@@ -249,15 +333,27 @@ function CoopWorld({
   const slot = viewer ? viewSlot : start.slot;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
+  useWheelZoom(canvasRef, stageRef);
   const loopRef = useRef<Lockstep | null>(null);
   const input = useRef(emptyInput());
   const lastSent = useRef<string>('');
   const seenReactions = useRef(new Set<string>());
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, slot));
+  // Centre-screen notices (2026-11-16): mine (my pickups, my Static) and the run's.
+  const runNotices = usePrefs((p) => p.runNotices);
+  const [notices] = useState(createNoticeQueue);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
   const [menu, setMenu] = useState(false);
+  // The menu open (over the running world): the dash keys belong to it then.
+  const menuRef = useRef(false);
+  useEffect(() => {
+    menuRef.current = menu;
+  }, [menu]);
   const [behind, setBehind] = useState(0);
   const [announce, setAnnounce] = useState('');
   const [ending, setEnding] = useState<'extracted' | 'died' | null>(null);
@@ -312,10 +408,19 @@ function CoopWorld({
     let disposed = false;
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events, sim.tick);
-      playEvents(events);
-      const said = announceFor(events, start.content, seenReactions.current);
+      playEvents(events, slot);
+      // The music's stingers (plan «banda sonora»): a new layer, the extraction (never for staff watching).
+      if (!viewer) {
+        for (const e of events) {
+          if (e.t === 'layer') musicStinger('layer');
+          else if (e.t === 'extracted') musicStinger('extract');
+        }
+      }
+      const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
+      notices.push(noticesFor(events, slot, start.content, sim.sector.id), Date.now());
     };
+    let wentLive = false;
     const loop = createLockstep({
       now: clock.now,
       schedule: clock.schedule,
@@ -323,6 +428,12 @@ function CoopWorld({
       closed: () => closed.current,
       step: () => {
         step(sim, feed.inputsFor(sim.tick + 1));
+        // At the live edge, or the world already over (it ended while catching up): the start's screen goes.
+        const over = sim.status === 'dead' || sim.status === 'extracted';
+        if (!wentLive && ((sim.tick >= 1 && closed.current - sim.tick <= LIVE_EDGE) || over)) {
+          wentLive = true;
+          onLive?.();
+        }
         // My world's hash for the referee (phase 6c), only near the live edge (not while catching up).
         if (sim.tick % COOP_SUM_EVERY === 0 && closed.current - sim.tick < COOP_SUM_EVERY) send({ t: 'sum', tick: sim.tick, h: stateHash(sim) });
         if (sim.events.length) onEvents(sim.events);
@@ -350,11 +461,16 @@ function CoopWorld({
     const biome = start.content.sectors.find((s) => s.id === start.sector)?.biome ?? 'nebula';
     void createStage(canvas, start.content, {
       reduced,
+      colorVision,
+      probeGlow,
       vision: relicVision(sim, sim.probes[slot]!),
       probe: slot,
+      me: slot,
       seed: start.seed,
       biome,
       names: start.players.map((p) => p.username),
+      skins: start.players.map((p) => p.skin ?? null),
+      zoom: arenaZoom(),
     }).then((stage) => {
       if (disposed) {
         stage.destroy();
@@ -363,6 +479,7 @@ function CoopWorld({
       stageRef.current = stage;
       fit();
       loop.start();
+      onReady?.();
     });
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     if (canvas.parentElement) ro?.observe(canvas.parentElement);
@@ -377,18 +494,41 @@ function CoopWorld({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Ajustes → Movimiento can change from the pause: the stage follows without restarting the run.
+  useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
+  useEffect(() => stageRef.current?.setColorVision(colorVision), [colorVision]);
+  useEffect(() => stageRef.current?.setProbeGlow(probeGlow), [probeGlow]);
+
   // The HUD a few times per second; friends see the layer.
   useEffect(() => {
     const id = setInterval(() => {
+      setNotice(notices.current(Date.now()));
       const h = hudSnapshot(sim, slot);
       hudRef.current = h;
       setHud(h);
+      // The music follows the run as in solo (plan «banda sonora»; before, a group run had none). Staff watching hear none.
+      if (!viewer) {
+        // Once the run is over the results' piece takes over (runScene says nothing then).
+        const scene = runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), false);
+        if (scene) setMusicScene(scene);
+      }
       watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
+      // Where the HUD covers the arena: the teammates' arrows keep out of it (Nov plan A2 review).
+      const canvas = canvasRef.current;
+      const box = canvas?.parentElement;
+      if (canvas && box) {
+        const at = (sel: string) => box.querySelector(sel)?.getBoundingClientRect() ?? null;
+        stageRef.current?.setInsets(hudInsets(canvas.getBoundingClientRect(), { top: at('.hud-top'), team: at('.coop-team'), kit: at('.hud-kit'), cards: at('.coop-cards') }));
+      }
     }, HUD_EVERY_MS);
-    return () => clearInterval(id);
-  }, [sim, slot, watch]);
+    if (!viewer) startMusic();
+    return () => {
+      clearInterval(id);
+      if (!viewer) setMusicScene({ kind: 'menu' });
+    };
+  }, [sim, slot, watch, viewer, notices]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);
@@ -414,13 +554,40 @@ function CoopWorld({
     [send, sim, slot],
   );
 
+  /** A dash (SHIFT, Space, the pad's A or RB; SIM 1.12.0), with where the pointer is for a probe standing still. */
+  const dashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropDash = useCallback(() => {
+    if (dashTimer.current) clearTimeout(dashTimer.current);
+    dashTimer.current = null;
+  }, []);
+  useEffect(() => dropDash, [dropDash]);
+  useEffect(() => {
+    if (menu) dropDash();
+  }, [menu, dropDash]);
+  const sendDash = useCallback(() => {
+    const go = () => {
+      dashTimer.current = null;
+      if (sim.probes[slot]?.life !== 'up' || menuRef.current) return;
+      const cam = stageRef.current?.camera();
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const from = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
+      send({ t: 'dash', a: pointerAngle(input.current, from) });
+    };
+    const me = sim.probes[slot];
+    if (me?.life !== 'up') return;
+    // A press a moment early (the pause between two dashes) goes out when the pause ends, not lost.
+    dropDash();
+    if (dashWaits(me.dash)) dashTimer.current = setTimeout(go, ((me.dash.pause - 1) * 1000) / 60);
+    else go();
+  }, [dropDash, send, sim, slot]);
+
   // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world. Q: the quick marks.
   useEffect(() => {
     if (viewer) return;
     const pointer = () => input.current.mouse ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
-      if (e.code === 'KeyQ') {
+      if (isAction('mark', e.code)) {
         if (!e.repeat && !wheelRef.current && sim.probes[slot]?.life !== 'left') {
           const at = pointer();
           wheelRef.current = { x: at.x, y: at.y, choice: 'here' };
@@ -428,15 +595,34 @@ function CoopWorld({
         }
         return;
       }
-      if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (e.code === 'Escape' || isAction('pause', e.code)) {
         setMenu((m) => !m);
         return;
       }
+      if (isAction('dash', e.code)) {
+        if (!e.repeat && !menuRef.current) sendDash();
+        e.preventDefault();
+        return;
+      }
       input.current.keys.add(e.code);
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+      if (actionOf(e.code) || e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     };
+    // Mouse buttons on the field (never on the HUD): the dash's, or a move.
+    const canvas = canvasRef.current;
+    const press = (e: PointerEvent) => {
+      const code = mouseCode(e.button);
+      if (isAction('dash', code)) {
+        if (!menuRef.current) sendDash();
+        e.preventDefault();
+      } else if (actionOf(code)) input.current.keys.add(code);
+    };
+    const release = (e: PointerEvent) => input.current.keys.delete(mouseCode(e.button));
+    const noMenu = (e: MouseEvent) => e.preventDefault();
+    canvas?.addEventListener('pointerdown', press);
+    canvas?.addEventListener('contextmenu', noMenu);
+    window.addEventListener('pointerup', release);
     const up = (e: KeyboardEvent) => {
-      if (e.code === 'KeyQ' && wheelRef.current) {
+      if (isAction('mark', e.code) && wheelRef.current) {
         const w = wheelRef.current;
         const p = pointer();
         sendMark(markFrom(p.x - w.x, p.y - w.y), w);
@@ -461,6 +647,7 @@ function CoopWorld({
     const idle = () => {
       input.current.keys.clear();
       input.current.pad = null;
+      dropDash();
       sendInput();
     };
     const hidden = () => {
@@ -477,20 +664,30 @@ function CoopWorld({
       window.removeEventListener('mousemove', move);
       window.removeEventListener('blur', idle);
       document.removeEventListener('visibilitychange', hidden);
+      canvas?.removeEventListener('pointerdown', press);
+      canvas?.removeEventListener('contextmenu', noMenu);
+      window.removeEventListener('pointerup', release);
     };
-  }, [sendInput, sendMark, sim, slot, viewer]);
+  }, [dropDash, sendDash, sendInput, sendMark, sim, slot, viewer]);
 
-  // Gamepad: the left stick moves, the right one aims.
+  // Gamepad: the left stick moves, the right one aims, A or RB dash (not while my cards are up: A picks there).
   useEffect(() => {
+    if (viewer) return;
     let raf = 0;
+    let dashWas = false;
     const poll = () => {
       const pad = typeof navigator.getGamepads === 'function' ? navigator.getGamepads()[0] : null;
-      if (pad) input.current.pad = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0, rx: pad.axes[2] ?? 0, ry: pad.axes[3] ?? 0 };
+      if (pad) {
+        input.current.pad = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0, rx: pad.axes[2] ?? 0, ry: pad.axes[3] ?? 0 };
+        const dash = DASH_BUTTONS.some((b) => pad.buttons[b]?.pressed);
+        if (dash && !dashWas && !menuRef.current && !sim.probes[slot]?.offer) sendDash();
+        dashWas = dash;
+      }
       raf = requestAnimationFrame(poll);
     };
     if (typeof requestAnimationFrame === 'function' && typeof navigator.getGamepads === 'function') raf = requestAnimationFrame(poll);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [sendDash, sim, slot, viewer]);
 
   const pick = useCallback(
     (i: number, seq: number) => {
@@ -525,7 +722,7 @@ function CoopWorld({
   if (showResult && result) {
     return result.result ? (
       <>
-        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} />} />
+        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} befriend={(u) => <AddFriendButton username={u} className="team-friend" />} />} />
         {reporting ? <ReportDialog runId={start.id} username={reporting} onClose={() => setReporting(null)} /> : null}
       </>
     ) : (
@@ -569,12 +766,14 @@ function CoopWorld({
       ) : null}
       <TeamPanel hud={hud} players={start.players} slot={slot} />
       {hud.boss && <BossBar boss={hud.boss} />}
+      {runNotices ? <RunNotice notice={notice} /> : null}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
+      <EventMarkers hud={hud} sector={sim.sector.id} camera={camera} width={size.w} height={size.h} />
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />
       {watching !== null && !ending ? <SpectateBar hud={hud} players={start.players} me={slot} watching={watching} onWatch={watch} /> : null}
-      {offer && !ending && !viewer ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
+      {!ending && !viewer ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} open={!!offer} reduced={reduced} /> : null}
       {link === 'lost' ? (
         <p className="coop-arena-status" role="status">
           {t.lost}

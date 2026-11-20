@@ -6,31 +6,41 @@ import {
   probeChoiceSchema,
   probeLevelUpSchema,
   probeVariantSchema,
+  probeSkinSchema,
   slotUnlockSchema,
   probeTestRequestSchema,
   sectorChoiceSchema,
   startRunRequestSchema,
   type HangarView,
+  type LiveContentView,
   type ProbeTestResult,
   type RunResult,
   type RunStart,
+  type TestRunResponse,
   activeAnomaly,
 } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireSession } from '../auth/guards';
+import { requireAdmin, requireSession } from '../auth/guards';
+import { inTransaction } from '../db/tx';
+import { clientIp } from '../security/client-ip';
 import { operationExists, runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
+import { withNotices } from '../realtime/notices';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { contentEtag } from './content-etag';
 import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
-import { chooseVariant, levelUpProbe } from './levels';
+import { chooseSkin, chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
-import { finishRun, startRun } from './service';
+import { finishRun, markTestRun, startRun } from './service';
 import { missionConfigs } from '../missions/service';
 import { creditRunExtras } from './extras';
+import { labSeasonId } from '../lab/levels';
+import type { SoloFeeds } from './solo-feeds';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import type { DraftService } from '../config/drafts';
 
 const idParam = z.object({ id: z.uuid() }).strict();
 /** A finished run carries its recorded inputs (≤ 2 MB of bytes, ~2.7 MB in base64). */
@@ -42,7 +52,27 @@ async function requireRuns(deps: RunsDeps): Promise<void> {
 
 const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 
-export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
+/** `onProbeChosen`: the probe (or its skin) was changed in the hangar (the rooms show it to the player's group). */
+/** The skin the chosen probe wears in a Hangar view. */
+const wornOf = (view: HangarView): string | null => view.probes.find((p) => p.id === view.probe)?.skin ?? null;
+
+/** Without the drafts service (some tests), a draft is never found. */
+const noDrafts: Pick<DraftService, 'merged'> = {
+  merged: async () => {
+    throw new HttpError(404, 'not_found');
+  },
+};
+
+export function registerRunRoutes(
+  api: FastifyInstance,
+  deps: RunsDeps & {
+    onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>;
+    feeds?: Pick<SoloFeeds, 'end'>;
+    trustCfIp?: boolean;
+    /** Config drafts (the content editor, 2026-11-16): a test run may play one. */
+    drafts?: Pick<DraftService, 'merged'>;
+  },
+): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
     return hangarView(deps, s.accountId);
@@ -73,7 +103,10 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const s = requireSession(req);
     const body = probeChoiceSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_probe', 60, 60);
-    return chooseProbe(deps, s.accountId, body);
+    const view = await chooseProbe(deps, s.accountId, body);
+    // The choice is made; telling the room is a courtesy that never fails it.
+    await deps.onProbeChosen?.(s.accountId, view.probe, wornOf(view)).catch((err: unknown) => req.log.warn({ err }, 'room probe refresh failed'));
+    return view;
   });
 
   // The next relic slot (M4c-1): an idempotent operation naming the slot it opens.
@@ -104,24 +137,67 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     return chooseVariant(deps, s.accountId, id, body.variant);
   });
 
+  // A probe's skin (plan «skins», part C): a plain update; the room sees it if it is the probe flying.
+  api.put('/galaxy/api/hangar/probes/:id/skin', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const { id } = probeParam.parse(req.params);
+    const body = probeSkinSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_skin', 60, 60);
+    const view = await chooseSkin(deps, s.accountId, id, body.skin);
+    if (id === view.probe) await deps.onProbeChosen?.(s.accountId, view.probe, wornOf(view)).catch((err: unknown) => req.log.warn({ err }, 'room skin refresh failed'));
+    return view;
+  });
+
+  // The live content, for what the web tells about relics and sets (plan «escáner pro», part D): its version and the
+  // simulation's as an ETag (content-etag.ts), so an unchanged one is a 304 and a deploy that changes it is not.
+  api.get('/galaxy/api/content', async (req, reply) => {
+    requireSession(req);
+    const { value, version } = await deps.config.getVersioned('content');
+    const etag = contentEtag(version);
+    reply.header('etag', etag).header('cache-control', 'private, max-age=60');
+    if (req.headers['if-none-match'] === etag) return reply.code(304).send();
+    const view: LiveContentView = { version, content: value };
+    return view;
+  });
+
   api.post('/galaxy/api/runs', async (req): Promise<RunStart> => {
     const s = requireSession(req);
     const key = idempotencyKey(req);
     const body = startRunRequestSchema.parse(req.body);
+    // A test run with a content draft (debug mode, 2026-11-15): admins with TOTP only, audited.
+    if (body.test) requireAdmin(req);
+    const test = body.test ? { id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp ?? false) } : undefined;
     await requireRuns(deps);
     const runs = await deps.config.get('runs');
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_start', runs.startPerHour, 3600);
-    const { value: content, version: contentVersion } = await deps.config.getVersioned('content');
-    const sectors = await deps.config.get('sectors');
-    const probes = await deps.config.get('probes');
+    const { value: liveContent, version: contentVersion } = await deps.config.getVersioned('content');
+    // A test run with a config draft (2026-11-16, P2): the draft over what is live (400 draft_invalid with its issues).
+    const draft = body.draft ? await (deps.drafts ?? noDrafts).merged(body.draft) : null;
+    const content = draft?.content ?? liveContent;
+    const sectors = draft?.sectors ?? (await deps.config.get('sectors'));
+    const probes = draft?.probes ?? (await deps.config.get('probes'));
     const lab = await deps.config.get('lab');
     const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
-    const anomaly = activeAnomaly(await deps.config.get('season'), content, now)?.id ?? null;
+    const season = await deps.config.get('season');
+    const anomaly = activeAnomaly(season, content, now)?.id ?? null;
+    const labSeason = labSeasonId(lab, season, now);
     const redshift = await deps.config.get('redshift');
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason, test, draft: !!draft }),
     );
+  });
+
+  // The debug mode (2026-11-15): before its first change to play, the admin's own open solo run becomes a test run. It
+  // stops being watched live (its clock no longer follows the wall's).
+  api.post('/galaxy/api/runs/:id/test', async (req): Promise<TestRunResponse> => {
+    const s = requireAdmin(req);
+    const { id } = idParam.parse(req.params);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_test', 60, 3600);
+    const actor = { id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp ?? false) };
+    await inTransaction(deps.db, (trx) => markTestRun(trx, actor, s.accountId, id));
+    deps.feeds?.end(id);
+    return { id, test: true };
   });
 
   // The global multipliers running now (GDD §16.3; M6d-5), for the hub and the hangar.
@@ -153,14 +229,19 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     ]);
     const now = deps.now();
     const mcfg = await missionConfigs(deps.config);
-    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
-      const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
-      // The season currency for its points, and the missions for what it did (runs/extras.ts).
-      await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now });
-      return r;
-    });
+    const result = await withNotices(deps.live, (out) =>
+      runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
+        const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
+        // The season currency for its points, and the missions for what it did (runs/extras.ts); a test run, nothing.
+        if (r.test) return r;
+        await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now }, {}, out);
+        return r;
+      }),
+    );
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();
+    // Part G: whoever watched it live hears it ended.
+    deps.feeds?.end(id);
     return result;
   });
 }

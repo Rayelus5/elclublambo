@@ -1,127 +1,493 @@
-import { useEffect, useId, useState } from 'react';
+import { NOTICE_MODES, type NoticeMode, TIERS } from '@galaxy/shared';
+import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
+import { useFriends, useSocialPrefs } from '../api/friends';
 import { useTutorialUpdate } from '../api/tutorial';
 import { type AudioSettings, getSettings, onSettings, setSettings } from '../audio/mixer';
-import { startMusic } from '../audio/music';
+import { musicChoices, startMusic } from '../audio/music';
+import type { MusicChoice } from '../audio/music/files';
 import { resetRadio } from '../arena/settings';
+import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { sfx } from '../scanner/sfx';
-import { CURSOR_COLORS, CURSOR_SIZES, type CursorSize, cursorSvg, readCursor, saveCursor } from '../ui/cursor';
+import { CURSOR_COLORS, CURSOR_SIZES, type CursorSize, cursorSvg, getCursor, onCursor, saveCursor } from '../ui/cursor';
 import { Icon } from '../ui/Icon';
+import { Segmented } from '../ui/Segmented';
+import { Select } from '../ui/Select';
+import { Slider } from '../ui/Slider';
+import { Switch } from '../ui/Switch';
+import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
+import { enterFullscreen, exitFullscreen, fullscreenAvailable, useFullscreen } from '../pwa/fullscreen';
+import { installable, installBrowser, promptInstall, useInstall } from '../pwa/install';
+import { ELEMENT_GLYPH } from '../arena/stage/palette';
+import { CHAT_NOTIFY_KEYS, COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
+import { SettingRow } from './SettingRow';
+import { type Action, ACTIONS, keyCap, keyLabel, resetKeybinds, setBinding, useKeybinds } from './keybinds';
 
-// The settings' sections (GDD §17.4; open beta), shared by the Ajustes screen and the run's pause so both are always
-// the same: sound, the run (aiming), the game's cursor, and help (in a run it waits for the home menu, since its
-// actions leave the run).
+// What each tab of the settings holds (GDD §17.4; open beta; redesigned in the «escáner pro» plan, part A), shared by
+// the Ajustes screen and the run's pause so both are always the same: sound, display, accessibility, the run, and help
+// (in a run it waits for the home menu, since its actions leave the run). Each one is a list of rows (SettingRow) with
+// the game's own controls.
 
 const t = copy.settings;
 
-function Volume({ label, value, onChange, disabled }: { label: string; value: number; onChange: (v: number) => void; disabled: boolean }) {
-  const id = useId();
+function Volume({ label, value, onChange, off }: { label: string; value: number; onChange: (v: number) => void; off: boolean }) {
   return (
-    <div className="setting-row">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} type="range" min={0} max={100} step={5} value={Math.round(value * 100)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value) / 100)} />
-      <output htmlFor={id}>{t.percent(Math.round(value * 100))}</output>
-    </div>
+    <SettingRow label={label} layout="wide" off={off}>
+      {(ids) => (
+        <Slider aria-labelledby={ids.label} value={Math.round(value * 100)} step={5} disabled={off} valueText={t.percent} onChange={(v) => onChange(v / 100)} />
+      )}
+    </SettingRow>
   );
 }
 
-function Section({ name, title, children }: { name: string; title: string; children: React.ReactNode }) {
-  const id = useId();
+/** Which chats tell me with a notice while I do not have them open (the owner, 2026-11-14): one switch each. */
+function ChatNotifyRow() {
+  const notify = usePrefs((p) => p.chatNotify);
   return (
-    <section className={`lip panel settings-group settings-${name}`} aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
-      {children}
-    </section>
+    <SettingRow label={t.chatNotify} hint={t.chatNotifyHint} layout="stack">
+      {(ids) => (
+        <div className="chat-notify" role="group" aria-labelledby={ids.label} aria-describedby={ids.hint}>
+          {CHAT_NOTIFY_KEYS.map((k) => (
+            <label key={k} className="chat-notify-item">
+              <Switch checked={notify[k]} onChange={(on) => setPrefs({ chatNotify: { ...notify, [k]: on } })} aria-label={t.chatNotifyOf[k]} />
+              <span aria-hidden="true">{t.chatNotifyOf[k]}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </SettingRow>
   );
 }
 
-export function SoundSection() {
+/** How notices reach me (the account's own setting, also on the profile): shown once the friends' view is here. */
+function NoticesRow() {
+  const friends = useFriends();
+  const prefs = useSocialPrefs();
+  const v = friends.data;
+  if (!v) return null;
+  return (
+    <SettingRow label={copy.notices.mode} hint={copy.notices.modeHint}>
+      {(ids) => (
+        <div className="setting-select">
+          <Select<NoticeMode>
+            aria-labelledby={ids.label}
+            aria-describedby={ids.hint}
+            value={v.prefs.notices}
+            disabled={prefs.isPending}
+            options={NOTICE_MODES.map((m) => ({ value: m, label: copy.notices.modes[m] }))}
+            onChange={(notices) => prefs.mutate({ ...v.prefs, notices })}
+          />
+          {prefs.isError ? (
+            <p className="field-error" role="alert">
+              {errorText(prefs.error, copy.errors)}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </SettingRow>
+  );
+}
+
+/** The soundtrack's style (plan «banda sonora»): it changes from the next bar, everywhere. */
+function MusicStyleRow({ off }: { off: boolean }) {
+  const style = usePrefs((p) => p.musicStyle);
+  const choices = musicChoices();
+  const value: MusicChoice = (choices as string[]).includes(style) ? (style as MusicChoice) : 'ambient';
+  return (
+    <SettingRow label={t.musicStyle} hint={t.musicStyleHint} off={off}>
+      {(ids) => (
+        <Select
+          aria-labelledby={ids.label}
+          aria-describedby={ids.hint}
+          value={value}
+          options={choices.map((c) => ({ value: c, label: t.musicStyles[c] }))}
+          onChange={(musicStyle) => setPrefs({ musicStyle })}
+        />
+      )}
+    </SettingRow>
+  );
+}
+
+/**
+ * Sound; `inRun` leaves out the account's notices mode and the effects' test (the run is sounding already), so the pause
+ * fits a 1280×720 screen with the music style in it.
+ */
+export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   useEffect(() => onSettings(setAudio), []);
   return (
-    <Section name="sound" title={t.sound}>
+    <>
       <Volume
         label={t.music}
         value={audio.music}
-        disabled={audio.muted}
+        off={audio.muted}
         onChange={(music) => {
           setSettings({ music });
           if (music > 0) startMusic();
         }}
       />
-      <Volume label={t.effects} value={audio.sfx} disabled={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
-      <label className="setting-check">
-        <input type="checkbox" checked={audio.ui} disabled={audio.muted} onChange={(e) => setSettings({ ui: e.target.checked })} />
-        <span>{t.uiSounds}</span>
-      </label>
-      <label className="setting-check">
-        <input type="checkbox" checked={audio.muted} onChange={(e) => setSettings({ muted: e.target.checked })} />
-        <span>{t.muteAll}</span>
-      </label>
-      <button type="button" className="lip pill small" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
-        <Icon name="sound" />
-        <span>{t.test}</span>
-      </button>
-    </Section>
+      <MusicStyleRow off={audio.muted || audio.music <= 0} />
+      <Volume label={t.effects} value={audio.sfx} off={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
+      <SettingRow label={t.uiSounds} hint={t.uiSoundsHint} off={audio.muted}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.ui} disabled={audio.muted} onChange={(ui) => setSettings({ ui })} />}
+      </SettingRow>
+      <SettingRow label={t.muteAll} hint={t.muteAllHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.muted} onChange={(muted) => setSettings({ muted })} />}
+      </SettingRow>
+      {inRun ? null : (
+        <SettingRow label={t.testTitle} hint={t.testHint} off={audio.muted || audio.sfx <= 0}>
+          {() => (
+            <button type="button" className="lip pill small setting-button" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
+              <Icon name="sound" />
+              <span>{t.test}</span>
+            </button>
+          )}
+        </SettingRow>
+      )}
+      {inRun ? null : <NoticesRow />}
+      {inRun ? null : <ChatNotifyRow />}
+    </>
   );
 }
 
-/** The run's own settings: aiming with the mouse (the pause passes the run's live switch). */
-export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean) => void }) {
+/**
+ * Installing the game as an app (galaxysurvivor.es plan, PR 3): the browser's offer behind the game's own button, a
+ * word once it is installed, or how this browser installs it (or that it cannot). Only where the page can be installed
+ * (the server links the manifest on the game's own host).
+ */
+function InstallRow() {
+  const { canPrompt, standalone, installed } = useInstall();
+  if (!installable()) return null;
+  const done = standalone || installed;
+  const how = !done && !canPrompt;
   return (
-    <Section name="arena" title={t.arena}>
-      <label className="setting-check">
-        <input type="checkbox" checked={aim} onChange={(e) => onAim(e.target.checked)} />
-        <span>{t.manualAim}</span>
-      </label>
-      <p className="panel-note">{t.manualAimHint}</p>
-    </Section>
+    <SettingRow label={t.install} hint={how ? t.installHow[installBrowser()] : t.installHint}>
+      {(ids) =>
+        done ? (
+          <span className="setting-status">
+            <Icon name="check" />
+            <span>{t.installDone}</span>
+          </span>
+        ) : canPrompt ? (
+          <button type="button" className="lip pill small setting-button" aria-describedby={ids.hint} onClick={() => void promptInstall()}>
+            <Icon name="install" />
+            <span>{t.installButton}</span>
+          </button>
+        ) : null
+      }
+    </SettingRow>
   );
 }
 
-/** The game's cursor: on or the system's, its size and its colour, applied at once. */
-export function CursorSection() {
-  const [cursor, setCursor] = useState(readCursor);
-  const ids = useId();
-  const change = (next: Parameters<typeof saveCursor>[0]) => setCursor(saveCursor(next));
+/** Full screen (galaxysurvivor.es plan, PR 3): the switch follows the browser, however full screen ends. */
+function FullscreenRow() {
+  const on = useFullscreen();
+  if (!fullscreenAvailable()) return null;
   return (
-    <Section name="cursor" title={t.cursor}>
-      <label className="setting-check">
-        <input type="checkbox" checked={cursor.on} onChange={(e) => change({ on: e.target.checked })} />
-        <span>{t.cursorOn}</span>
-      </label>
-      <div className="setting-row cursor-row">
-        <span id={`${ids}-size`}>{t.cursorSize}</span>
-        <div className="segmented cursor-sizes" role="radiogroup" aria-labelledby={`${ids}-size`}>
-          {(Object.keys(CURSOR_SIZES) as CursorSize[]).map((size) => (
-            <button key={size} type="button" role="radio" aria-checked={cursor.size === size} disabled={!cursor.on} onClick={() => change({ size })}>
-              {t.cursorSizes[size]}
-            </button>
-          ))}
-        </div>
+    <SettingRow label={t.fullscreen} hint={t.fullscreenHint}>
+      {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={on} onChange={(next) => void (next ? enterFullscreen() : exitFullscreen())} />}
+    </SettingRow>
+  );
+}
+
+/**
+ * The pro scanner, installing the game and full screen (home menu only), and the game's cursor: on or the system's,
+ * its size and its colour, at once.
+ */
+export function DisplaySection({ inRun = false }: { inRun?: boolean }) {
+  // The account's settings can arrive while this is open: it follows them.
+  const cursor = useSyncExternalStore(onCursor, getCursor);
+  const scannerPro = usePrefs((p) => p.scannerPro);
+  const change = (next: Parameters<typeof saveCursor>[0]) => saveCursor(next);
+  return (
+    <>
+      {inRun ? null : (
+        <SettingRow label={t.scannerPro} hint={t.scannerProHint}>
+          {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={scannerPro} onChange={(on) => setPrefs({ scannerPro: on })} />}
+        </SettingRow>
+      )}
+      {inRun ? null : <InstallRow />}
+      {inRun ? null : <FullscreenRow />}
+      <SettingRow label={t.cursorOn} hint={t.cursorOnHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={cursor.on} onChange={(on) => change({ on })} />}
+      </SettingRow>
+      <SettingRow label={t.cursorSize} off={!cursor.on}>
+        {(ids) => (
+          <Segmented<CursorSize>
+            aria-labelledby={ids.label}
+            className="cursor-sizes"
+            value={cursor.size}
+            disabled={!cursor.on}
+            options={(Object.keys(CURSOR_SIZES) as CursorSize[]).map((size) => ({ value: size, label: t.cursorSizes[size] }))}
+            onChange={(size) => change({ size })}
+          />
+        )}
+      </SettingRow>
+      <SettingRow label={t.cursorColor} layout="stack" off={!cursor.on}>
+        {(ids) => (
+          <div className="cursor-colors" role="radiogroup" aria-labelledby={ids.label}>
+            {CURSOR_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={cursor.color === c.hex}
+                aria-label={t.cursorColors[c.id]}
+                title={t.cursorColors[c.id]}
+                disabled={!cursor.on}
+                className="cursor-swatch"
+                onClick={() => change({ color: c.hex })}
+              >
+                <img src={cursorSvg('default', c.hex, 2)} alt="" width={36} height={36} />
+              </button>
+            ))}
+          </div>
+        )}
+      </SettingRow>
+    </>
+  );
+}
+
+function subscribeSystem(onChange: () => void): () => void {
+  let m: MediaQueryList | null = null;
+  try {
+    m = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  } catch {
+    m = null;
+  }
+  m?.addEventListener?.('change', onChange);
+  return () => m?.removeEventListener?.('change', onChange);
+}
+
+/** How the meaningful colours look now: the tiers, the four players, good and danger, the elements with their marks. */
+function ColorPreview({ mode }: { mode: ColorVisionMode }) {
+  const p = PALETTES[mode];
+  return (
+    <div className="cvd-preview" role="group" aria-label={t.preview}>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewTiers}</span>
+        {TIERS.map((tier, i) => (
+          <span key={tier} className="cvd-chip" data-tier={tier}>
+            <span className="cvd-pips" aria-hidden="true">
+              {'◆'.repeat(i + 1)}
+            </span>
+            {copy.tiers[tier]}
+          </span>
+        ))}
       </div>
-      <div className="setting-row cursor-row">
-        <span id={`${ids}-color`}>{t.cursorColor}</span>
-        <div className="cursor-colors" role="radiogroup" aria-labelledby={`${ids}-color`}>
-          {CURSOR_COLORS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="radio"
-              aria-checked={cursor.color === c.hex}
-              aria-label={t.cursorColors[c.id]}
-              title={t.cursorColors[c.id]}
-              disabled={!cursor.on}
-              className="cursor-swatch"
-              onClick={() => change({ color: c.hex })}
-            >
-              <img src={cursorSvg('default', c.hex, 2)} alt="" width={36} height={36} />
-            </button>
-          ))}
-        </div>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewTeam}</span>
+        {p.team.map((c, i) => (
+          <span key={c + i} className="cvd-chip cvd-team" style={{ '--mate': c } as CSSProperties}>
+            {t.player(i + 1)}
+          </span>
+        ))}
       </div>
-    </Section>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewSignals}</span>
+        <span className="cvd-chip cvd-good">{t.good}</span>
+        <span className="cvd-chip cvd-danger">{t.danger}</span>
+      </div>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewElements}</span>
+        {Object.entries(ELEMENT_GLYPH).map(([id, glyph]) => {
+          const name = (copy.hangar.elements as Record<string, string>)[id] ?? id;
+          return (
+            <span key={id} className="cvd-glyph" role="img" aria-label={name} title={name} style={{ '--el': p.element[id] } as CSSProperties}>
+              {[...glyph].map((cell, k) => (
+                <i key={k} data-on={cell === '1' || undefined} />
+              ))}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Motion and colour vision: the game's own, over the operating system's (the preview only in the menu: the pause
+ * must fit a 1280×720 screen). */
+export function AccessSection({ inRun = false }: { inRun?: boolean }) {
+  const motion = usePrefs((p) => p.motion);
+  const colorVision = usePrefs((p) => p.colorVision);
+  const probeGlow = usePrefs((p) => p.probeGlow);
+  const os = useSyncExternalStore(subscribeSystem, systemReduced, () => false);
+  return (
+    <>
+      <SettingRow
+        label={t.motion}
+        hint={
+          <>
+            {t.motionHint}
+            {motion === 'system' ? <span className="setting-hint-now">{t.motionSystem(os)}</span> : null}
+          </>
+        }
+      >
+        {(ids) => (
+          <Segmented<Motion>
+            aria-labelledby={ids.label}
+            aria-describedby={ids.hint}
+            value={motion}
+            options={MOTIONS.map((m) => ({ value: m, label: t.motions[m] }))}
+            onChange={(m) => setPrefs({ motion: m })}
+          />
+        )}
+      </SettingRow>
+      <SettingRow label={t.colorVision} hint={inRun ? undefined : t.colorVisionHint} layout={inRun ? 'side' : 'stack'}>
+        {(ids) => (
+          <div className="cvd-setting">
+            <Select<ColorVisionMode>
+              aria-labelledby={ids.label}
+              aria-describedby={ids.hint}
+              value={colorVision}
+              options={COLOR_VISIONS.map((m) => ({ value: m, label: t.colorVisions[m] }))}
+              onChange={(m) => setPrefs({ colorVision: m })}
+            />
+            {inRun ? null : <ColorPreview mode={colorVision} />}
+          </div>
+        )}
+      </SettingRow>
+      <SettingRow label={t.probeGlow} hint={inRun ? undefined : t.probeGlowHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={probeGlow} onChange={(on) => setPrefs({ probeGlow: on })} />}
+      </SettingRow>
+    </>
+  );
+}
+
+/**
+ * The run's own settings: aiming with the mouse (the pause passes the run's live switch) and the centre notices. In a
+ * run the two switches share a row, without their hints, so the pause fits 1280×720 with the controls below.
+ */
+export function ArenaSection({ aim, onAim, inRun = false }: { aim: boolean; onAim: (on: boolean) => void; inRun?: boolean }) {
+  const runNotices = usePrefs((p) => p.runNotices);
+  const switches = (
+    <>
+      <SettingRow label={t.manualAim} hint={inRun ? undefined : t.manualAimHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
+      </SettingRow>
+      <SettingRow label={t.runNotices} hint={inRun ? undefined : t.runNoticesHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={runNotices} onChange={(on) => setPrefs({ runNotices: on })} />}
+      </SettingRow>
+    </>
+  );
+  return (
+    <>
+      {inRun ? <div className="setting-pair">{switches}</div> : switches}
+      <Controls />
+    </>
+  );
+}
+
+/**
+ * The run's controls, rebindable (the owner, 2026-11-14): every action with its two slots (a key or a mouse button).
+ * Pressing a slot waits for the next key or button (Escape cancels, leaving the page or the window too); a key another
+ * action had leaves it, and the line under the title says so. The pad's buttons and what is fixed (aiming, the zoom,
+ * Escape) are shown, not changed. «Restaurar por defecto» brings everything back.
+ */
+function Controls() {
+  const binds = useKeybinds();
+  const [capture, setCapture] = useState<{ action: Action; slot: 0 | 1 } | null>(null);
+  const [said, setSaid] = useState('');
+  const name = (a: Action) => t.controlActions[a];
+  useEffect(() => {
+    if (!capture) return;
+    const take = (code: string) => {
+      const moved = setBinding(capture.action, capture.slot, code);
+      setSaid(moved ? t.controlsMoved(keyLabel(code), name(moved)) : t.controlsSet(keyLabel(code), name(capture.action)));
+      setCapture(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') setCapture(null);
+      else if (!e.repeat) take(e.code);
+    };
+    const onPointer = (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      take(`Mouse${e.button}`);
+    };
+    const onMenu = (e: MouseEvent) => e.preventDefault();
+    const cancel = () => setCapture(null);
+    // Capturing, ahead of everything else on the page (the pause's own Escape, the dialog's focus trap).
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    window.addEventListener('contextmenu', onMenu, true);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onPointer, true);
+      window.removeEventListener('contextmenu', onMenu, true);
+      window.removeEventListener('blur', cancel);
+    };
+  }, [capture]);
+  return (
+    <section className="controls" aria-labelledby="controls-title">
+      <div className="controls-head">
+        <h3 className="setting-label" id="controls-title">
+          {t.controls}
+        </h3>
+        <button
+          type="button"
+          className="lip pill small"
+          onClick={() => {
+            resetKeybinds();
+            setSaid(t.controlsResetDone);
+          }}
+        >
+          {t.controlsReset}
+        </button>
+      </div>
+      <p className="setting-hint controls-hint">{t.controlsHint}</p>
+      <p className="controls-said" role="status">
+        {capture ? t.controlsCaptureLive(name(capture.action)) : said}
+      </p>
+      <ul className="controls-grid">
+        {ACTIONS.map((a) => (
+          <li key={a} className="controls-row">
+            <span className="controls-what">{name(a)}</span>
+            <span className="controls-slots">
+              {([0, 1] as const).map((slot) => {
+                const code = binds[a][slot];
+                const waiting = capture?.action === a && capture.slot === slot;
+                return (
+                  <span key={slot} className="controls-slot">
+                    <button
+                      type="button"
+                      className={`controls-key${waiting ? ' waiting' : ''}${code ? '' : ' empty'}`}
+                      aria-label={t.controlsSlot(name(a), slot + 1, keyLabel(code))}
+                      onClick={() => {
+                        setSaid('');
+                        // Started on the release of this click: the press that started it is not the key.
+                        setTimeout(() => setCapture({ action: a, slot }), 0);
+                      }}
+                    >
+                      {waiting ? t.controlsCapture : keyCap(code) || '—'}
+                    </button>
+                    {code && !waiting ? (
+                      <button type="button" className="controls-clear" aria-label={t.controlsClear(name(a), slot + 1)} onClick={() => setBinding(a, slot, null)}>
+                        <Icon name="close" />
+                      </button>
+                    ) : null}
+                  </span>
+                );
+              })}
+            </span>
+          </li>
+        ))}
+        {t.controlFixed.map((row) => (
+          <li key={row.what} className="controls-row locked">
+            <span className="controls-what">{row.what}</span>
+            <span className="controls-slots">
+              <kbd>{row.keys}</kbd>
+              <small>{t.controlsFixed}</small>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="controls-pad">{t.controlsPad}</p>
+    </section>
   );
 }
 
@@ -131,71 +497,93 @@ export function HelpSection() {
   const restart = useTutorialUpdate();
   const navigate = useNavigate();
   return (
-    <Section name="help" title={t.help}>
-      <div className="setting-actions">
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() => {
-            resetRadio();
-            setDone(t.radioDone);
-          }}
-        >
-          {t.radio}
-        </button>
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() => {
-            try {
-              localStorage.removeItem('galaxy.firstSteps.hidden');
-            } catch {
-              // Private windows: nothing kept anyway.
-            }
-            setDone(t.firstStepsDone);
-          }}
-        >
-          {t.firstSteps}
-        </button>
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() =>
-            restart.mutate(
-              { action: 'restart' },
-              {
-                onSuccess: () => {
-                  resetRadio();
-                  navigate('/');
+    <>
+      <SettingRow label={t.radioTitle} hint={t.radioHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() => {
+              resetRadio();
+              setDone(t.radioDone);
+            }}
+          >
+            {t.radio}
+          </button>
+        )}
+      </SettingRow>
+      <SettingRow label={t.firstStepsTitle} hint={t.firstStepsHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() => {
+              try {
+                localStorage.removeItem('galaxy.firstSteps.hidden');
+              } catch {
+                // Private windows: nothing kept anyway.
+              }
+              setDone(t.firstStepsDone);
+            }}
+          >
+            {t.firstSteps}
+          </button>
+        )}
+      </SettingRow>
+      <SettingRow label={t.tutorialTitle} hint={t.tutorialHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() =>
+              restart.mutate(
+                { action: 'restart' },
+                {
+                  onSuccess: () => {
+                    resetRadio();
+                    navigate('/');
+                  },
                 },
-              },
-            )
-          }
-        >
-          {t.tutorial}
-        </button>
-      </div>
+              )
+            }
+          >
+            {t.tutorial}
+          </button>
+        )}
+      </SettingRow>
       {done ? (
-        <p className="panel-note" role="status">
+        <p className="setting-done" role="status">
+          <Icon name="check" />
           {done}
         </p>
       ) : null}
-    </Section>
+    </>
   );
 }
 
 /** Help during a run: the same actions, waiting for the home menu (they would leave the run). */
 export function HelpSectionInRun() {
   return (
-    <Section name="help" title={t.help}>
-      <div className="setting-actions">
-        {[t.radio, t.firstSteps, t.tutorial].map((label) => (
-          <button key={label} type="button" className="lip pill small" disabled>
-            {label}
-          </button>
-        ))}
-      </div>
-      <p className="panel-note">{t.helpInRun}</p>
-    </Section>
+    <>
+      {(
+        [
+          [t.radioTitle, t.radioHint, t.radio],
+          [t.firstStepsTitle, t.firstStepsHint, t.firstSteps],
+          [t.tutorialTitle, t.tutorialHint, t.tutorial],
+        ] as const
+      ).map(([title, hint, action]) => (
+        <SettingRow key={title} label={title} hint={hint} off>
+          {() => (
+            <button type="button" className="lip pill small setting-button" disabled>
+              {action}
+            </button>
+          )}
+        </SettingRow>
+      ))}
+      <p className="setting-done is-note">
+        <Icon name="info" />
+        {t.helpInRun}
+      </p>
+    </>
   );
 }

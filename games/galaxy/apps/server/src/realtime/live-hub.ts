@@ -1,4 +1,4 @@
-import type { Activity, LiveEvent, Presence } from '@galaxy/shared';
+import type { Activity, ChatChannel, LiveEvent, Presence } from '@galaxy/shared';
 import type { WebSocket } from 'ws';
 
 // The live socket's side on the server (multiplayer plan, phase 3): who is connected right now, what each account is
@@ -41,6 +41,10 @@ type Doing = { activity: Activity; layer?: number; room?: { size: number; max: n
 export class LiveHub {
   private readonly clients = new Set<Client>();
   private readonly doing = new Map<string, Doing>();
+  /** The chat channel each account has open on screen (the owner's chat asks, 2026-11-14). */
+  private readonly chatOpen = new Map<string, ChatChannel>();
+  /** Staff with moderation open on screen (they hear every new message and report). */
+  private readonly modOpen = new Set<string>();
   private readonly names = new Map<string, string>();
   private readonly leaving = new Map<string, NodeJS.Timeout>();
   private readonly ping: NodeJS.Timeout;
@@ -98,10 +102,19 @@ export class LiveHub {
       this.leaving.delete(id);
       if (this.isOnline(id)) return;
       this.doing.delete(id);
+      this.chatOpen.delete(id);
+      this.modOpen.delete(id);
       void this.announce(id);
     }, OFFLINE_GRACE_MS);
     timer.unref();
     this.leaving.set(id, timer);
+  }
+
+  /** Every account online now (plan «escáner pro», part F: the admin's «Conectados ahora»). */
+  onlineIds(): Set<string> {
+    const out = new Set(this.leaving.keys());
+    for (const c of this.clients) out.add(c.accountId);
+    return out;
   }
 
   isOnline(accountId: string): boolean {
@@ -126,6 +139,26 @@ export class LiveHub {
     if (JSON.stringify(doing) !== before) void this.announce(accountId);
   }
 
+  /** The chat channel an account has open now (null: its chat is closed, or it is offline). */
+  setChatOpen(accountId: string, channel: ChatChannel | null): void {
+    if (channel) this.chatOpen.set(accountId, channel);
+    else this.chatOpen.delete(accountId);
+  }
+
+  chatOpenOf(accountId: string): ChatChannel | null {
+    return this.chatOpen.get(accountId) ?? null;
+  }
+
+  /** Staff open or close moderation (the caller checks the account is staff). */
+  setModOpen(accountId: string, open: boolean): void {
+    if (open) this.modOpen.add(accountId);
+    else this.modOpen.delete(accountId);
+  }
+
+  modWatchers(): string[] {
+    return [...this.modOpen];
+  }
+
   /** Tells an account's friends its presence (offline when it hides its status). */
   async announce(accountId: string): Promise<void> {
     const username = this.names.get(accountId);
@@ -137,9 +170,16 @@ export class LiveHub {
 
   /** Pushes an event to every socket of an account. */
   send(accountId: string, event: LiveEvent): void {
+    this.sendMany([accountId], event);
+  }
+
+  /** Pushes one event to every socket of these accounts (a mail to many), serialized once. */
+  sendMany(accountIds: Iterable<string>, event: LiveEvent): void {
+    const to = new Set(accountIds);
+    if (to.size === 0) return;
     const data = JSON.stringify(event);
     for (const c of this.clients) {
-      if (c.accountId !== accountId || c.socket.readyState !== c.socket.OPEN) continue;
+      if (!to.has(c.accountId) || c.socket.readyState !== c.socket.OPEN) continue;
       if (c.socket.bufferedAmount > MAX_BUFFERED) {
         this.clients.delete(c);
         c.socket.terminate();

@@ -1,0 +1,22 @@
+{
+  "rare": {
+    "name": "Rovein",
+    "designation": "GX-B2A082"
+  },
+  "epic": {
+    "name": "Veinthra",
+    "designation": "GX-788BF3"
+  },
+  "legendary": {
+    "name": "Draylvi",
+    "designation": "GX-DD5BA8"
+  },
+  "uncommon": {
+    "name": "Osemtha",
+    "designation": "GX-4D1771"
+  },
+  "mythic": {
+    "name": "Lacor",
+    "designation": "GX-0E3C60"
+  }
+}

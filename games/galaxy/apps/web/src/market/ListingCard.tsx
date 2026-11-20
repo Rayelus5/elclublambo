@@ -3,6 +3,7 @@ import { useId } from 'react';
 import { Link } from 'react-router';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Icon } from '../ui/Icon';
 
 const t = copy.market;
@@ -18,6 +19,7 @@ export function ListingCard({
   gateId,
   canBuy,
   onBuy,
+  onSee,
 }: {
   l: MarketListing;
   own: boolean;
@@ -26,21 +28,30 @@ export function ListingCard({
   gateId: string | undefined;
   canBuy: boolean;
   onBuy: () => void;
+  /** Its preview: the 3D card and its powers (the owner, 2026-11-14). */
+  onSee?: () => void;
 }) {
   const missingId = useId();
   const short = coins === undefined ? 0 : Math.max(0, l.price - coins);
   return (
     <li className="lip panel market-card" data-tier={l.galaxy.tier}>
-      <GalaxyCard galaxy={l.galaxy} size={176} />
+      {onSee ? (
+        <button type="button" className="market-card-see" aria-haspopup="dialog" aria-label={t.seeOf(l.galaxy.name)} onClick={onSee}>
+          <GalaxyCard galaxy={l.galaxy} size={176} />
+        </button>
+      ) : (
+        <GalaxyCard galaxy={l.galaxy} size={176} />
+      )}
       <div className="market-card-body">
         <p className="market-tier">{copy.tiers[l.galaxy.tier]}</p>
         <p className="market-price">
           <Icon name="coin" />
-          <span>{t.price(l.price)}</span>
+          <CoinAmount n={l.price} />
         </p>
         <p className="market-seller">
           <Link to={`/perfil/${encodeURIComponent(l.seller)}`}>{l.seller}</Link>
         </p>
+        {l.myOffer ? <p className="market-my-offer">{t.offerMine(l.myOffer)}</p> : l.offers ? <p className="market-offers-count">{t.offerCount(l.offers)}</p> : null}
         {own ? (
           <span className="market-yours">{t.yours}</span>
         ) : (
@@ -55,8 +66,9 @@ export function ListingCard({
             >
               {t.buy}
             </button>
+            {/* How many coins are missing: not under the card (the owner, 2026-11-14), only the disabled button's description. */}
             {canBuy && short > 0 ? (
-              <span id={missingId} className="panel-note">
+              <span id={missingId} className="sr-only">
                 {t.missing(short)}
               </span>
             ) : null}

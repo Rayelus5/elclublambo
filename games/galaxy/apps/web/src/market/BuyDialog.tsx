@@ -5,6 +5,7 @@ import { useBuyListing } from '../api/market';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { CoinAmount } from '../ui/CoinAmount';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 
@@ -33,7 +34,7 @@ export function BuyDialog({ l, coins, onClose }: { l: MarketListing; coins: numb
             <>
               <p className="market-price">
                 <Icon name="coin" />
-                <span>{t.price(l.price)}</span>
+                <CoinAmount n={l.price} />
               </p>
               <p className="panel-note">{t.balanceAfter(before, before - l.price)}</p>
             </>

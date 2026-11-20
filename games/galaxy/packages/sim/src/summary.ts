@@ -44,7 +44,18 @@ export function stateHash(sim: Sim): string {
     h.num(p.hp);
     h.num(p.shield);
     h.num(p.alive ? 1 : 0);
+    // The player's dash (SIM 1.12.0).
+    h.num(p.dash.charges);
+    h.num(p.dash.recharge);
+    h.num(p.dash.pause);
+    h.num(p.dash.t);
+    h.num(p.dash.dir);
     h.num(p.level);
+    // «La Estática te alcanza» and the healing budget (SIM 1.16.0).
+    h.num(p.still.x);
+    h.num(p.still.y);
+    h.num(p.still.t);
+    h.num(p.healBank);
     h.num(p.xp);
     for (const w of p.weapons) {
       h.str(w.id);
@@ -97,6 +108,22 @@ export function stateHash(sim: Sim): string {
     h.num(l.coins);
     h.num(l.dust);
     h.num(l.components);
+    // SIM 1.10.0: only when there are any, so a run without satellites hashes as before.
+    if (l.signals) h.num(l.signals);
+  }
+  for (const s of sim.world.satellites) {
+    h.num(s.x);
+    h.num(s.y);
+    h.num(s.hp);
+  }
+  // In-run events (SIM 1.17.0).
+  for (const ev of sim.world.active) {
+    h.str(ev.kind);
+    h.num(ev.x);
+    h.num(ev.y);
+    h.num(ev.t);
+    h.num(ev.progress);
+    h.num(ev.n);
   }
   for (const b of sim.blasts) {
     h.num(b.x);
@@ -118,7 +145,7 @@ export function runSummary(sim: Sim): RunSummary {
     kills: sim.kills,
     bossKills: sim.bossKills,
     level: sim.probes.reduce((m, p) => Math.max(m, p.level), 1),
-    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust, components: l.components })),
+    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust, components: l.components, signals: l.signals })),
     hash: stateHash(sim),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { API_ERROR_CODES, chatMuteSchema, chatReportSchema, chatSendSchema, cleanBody, maskWords, parseConfig } from '../src/index';
+import { API_ERROR_CODES, chatMuteSchema, chatReportSchema, chatSendSchema, cleanBody, DEFAULT_CHAT_WORDS, maskWords, mentionsIn, parseConfig } from '../src/index';
 
 // The chats (GDD §14.4; M5b-2): what is written is cleaned (spaces, control characters, length) and the words of the
 // live filter are covered with asterisks, whole words only, whatever the case or the accents.
@@ -35,8 +35,8 @@ describe('limpiar lo escrito', () => {
 });
 
 describe('la configuración y la API', () => {
-  test('nivel 5, seis por minuto, 280 caracteres, 50 de historial, tres denuncias y sin palabras', () => {
-    expect(parseConfig('chat', {})).toEqual({ minLevel: 5, perMinute: 6, maxLength: 280, history: 50, hideAfter: 3, words: [] });
+  test('nivel 5, seis por minuto, 280 caracteres, 50 de historial, tres denuncias y la lista de partida', () => {
+    expect(parseConfig('chat', {})).toEqual({ minLevel: 5, perMinute: 6, maxLength: 280, history: 50, hideAfter: 3, words: [...DEFAULT_CHAT_WORDS] });
     expect(() => parseConfig('chat', { words: Array.from({ length: 501 }, (_, i) => `palabra${i}`) })).toThrow();
     expect(() => parseConfig('chat', { words: ['a'] })).toThrow();
   });
@@ -69,5 +69,36 @@ describe('lo que se conserva y lo que no', () => {
   test('una torre de marcas (zalgo) se queda en cuatro, y lo escrito se compone', () => {
     expect(cleanBody(`a${'\u0301'.repeat(50)}`, 280)).toBe(`\u00E1${'\u0301'.repeat(4)}`);
     expect(cleanBody('to\u0301nto', 280)).toBe('t\u00F3nto');
+  });
+});
+
+// Mentions (the owner's chat asks, 2026-11-14): «@nombre» names a player; each once, in lower case, five at most, and
+// never inside a word or an e-mail address.
+describe('mentionsIn', () => {
+  test('saca los @nombres en minúsculas, cada uno una vez y en su orden', () => {
+    expect(mentionsIn('hola @Vega y @orion_7, ¿venís? @vega')).toEqual(['vega', 'orion_7']);
+  });
+  test('no cuenta un correo, una @ suelta ni un nombre demasiado corto o largo', () => {
+    expect(mentionsIn('escribe a vega@correo.es o @ solo, @ab y @abcdefghijklmnopqrstu')).toEqual([]);
+  });
+  test('cinco como mucho', () => {
+    expect(mentionsIn('@aaa @bbb @ccc @ddd @eee @fff')).toEqual(['aaa', 'bbb', 'ccc', 'ddd', 'eee']);
+  });
+  test('admite signos alrededor: paréntesis, comas y el principio de línea', () => {
+    expect(mentionsIn('(@lyra), @deneb.\n@rigel!')).toEqual(['lyra', 'deneb', 'rigel']);
+  });
+});
+
+// The filter's starting list (the owner, 2026-11-14): words the live config accepts, none twice, which cover insults
+// whatever their case or accents, and leave mild exclamations alone.
+describe('la lista de partida del filtro', () => {
+  test('la acepta la configuración viva y es su valor por defecto', () => {
+    expect(new Set(DEFAULT_CHAT_WORDS).size).toBe(DEFAULT_CHAT_WORDS.length);
+    expect(parseConfig('chat', {}).words).toEqual([...DEFAULT_CHAT_WORDS]);
+  });
+  test('tapa insultos escritos de cualquier forma y deja las exclamaciones suaves', () => {
+    expect(maskWords('Eres un IMBÉCIL y un Gilipollas', DEFAULT_CHAT_WORDS)).toBe('Eres un ******* y un **********');
+    expect(maskWords('joder, qué mierda de suerte', DEFAULT_CHAT_WORDS)).toBe('joder, qué mierda de suerte');
+    expect(maskWords('you retard', DEFAULT_CHAT_WORDS)).toBe('you ******');
   });
 });

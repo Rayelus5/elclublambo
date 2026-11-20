@@ -2,6 +2,7 @@ import type { RunResult } from '@galaxy/shared';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { clockText } from '../arena/hud/Hud';
+import { setMusicScene } from '../audio/music';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { emitTour } from '../tour/bus';
@@ -58,6 +59,11 @@ function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal' | 'material' 
 export function ResultsScreen({ result, onAgain, team }: { result: RunResult; onAgain: () => void; team?: ReactNode }) {
   // The tour's first run ends here (polish phase 3).
   useEffect(() => emitTour('run:ended'), []);
+  // The results' own quiet piece (plan «banda sonora»), and the menu's again after.
+  useEffect(() => {
+    setMusicScene({ kind: 'results' });
+    return () => setMusicScene({ kind: 'menu' });
+  }, []);
   const r = result;
   const title = r.outcome === 'extracted' ? copy.results.extracted : r.outcome === 'died' ? copy.results.died : copy.results.abandoned;
   return (
@@ -82,8 +88,14 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         </div>
       </dl>
       {team}
+      {/* A test run of the admin debug mode (2026-11-15): nothing paid or counted, and it says so instead. */}
+      {r.test ? (
+        <p className="lip panel results-test" role="status">
+          {copy.results.test}
+        </p>
+      ) : null}
       {/* A result kept from before M5a (a pending run resent across the deploy) has no progress. */}
-      {r.progress ? (
+      {r.progress && !r.test ? (
       <section className="lip panel results-progress" aria-label={copy.social.progressTitle}>
         <span className="results-xp">{copy.social.xp(r.progress.xp)}</span>
         <span className={`results-level${r.progress.levelUp ? ' up' : ''}`}>
@@ -92,13 +104,15 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         </span>
         {r.progress.points > 0 ? <span className="results-points">{copy.social.points(r.progress.points)}</span> : null}
         {r.progress.shards ? (
-          <span className="results-points">
+          <span className="results-points results-shards">
+            <span aria-hidden="true">{copy.social.shards(r.progress.shards)}</span>
+            <span className="sr-only">{copy.social.shardsLabel(r.progress.shards)}</span>
             <Icon name="shard" />
-            {copy.social.shards(r.progress.shards)}
           </span>
         ) : null}
       </section>
       ) : null}
+      {r.test ? null : (
       <section className="lip panel results-loot" aria-label={copy.results.loot} data-tour="loot">
         <h2>{copy.results.loot}</h2>
         <table>
@@ -121,7 +135,8 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
             ))}
           </tbody>
         </table>
-        {r.breakdown.share < 1 && <p className="results-note static">{copy.results.half}</p>}
+        {r.breakdown.share < 1 && <p className="results-note static">{copy.results.share(Math.round(r.breakdown.share * 100), r.outcome === 'extracted')}</p>}
+        {r.breakdown.sector && r.breakdown.sector.factor !== 1 ? <p className="results-note static results-sector">{copy.results.sectorPay(r.breakdown.sector.factor)}</p> : null}
         {(r.breakdown.boosts ?? []).length > 0 && (
           <div className="results-daily results-boosts">
             <h3>{copy.boosts.resultsTitle}</h3>
@@ -149,10 +164,12 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
           <Paid kind="coins" value={r.payout.coins} />
           <Paid kind="dust" value={r.payout.dust} />
           {r.payout.signals > 0 && <Paid kind="signal" value={r.payout.signals} />}
+          {r.payout.satellites ? <span className="result-paid-note">{copy.results.fromSatellites(r.payout.satellites)}</span> : null}
           {r.payout.material > 0 && <Paid kind="material" value={r.payout.material} />}
           {(r.payout.components ?? 0) > 0 && <Paid kind="components" value={r.payout.components ?? 0} />}
         </div>
       </section>
+      )}
       <div className="results-actions">
         <Link to="/" className="lip pill">
           <Icon name="back" />

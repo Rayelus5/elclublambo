@@ -2,6 +2,7 @@ import { Rng } from '../math/rng';
 import type { Sim } from '../types';
 import { PICKUP } from '../world/pools';
 import { dropPickup } from './pickups';
+import { hitSatellitesArea, hitSatellitesShot, touchSatellites } from './world-events';
 
 // Breakable props of the ground (SIM 1.7.0): the rocks, ice, coral, slag and rift crystals of each sector. They are
 // placed per 256-unit chunk from the run seed, so the same run always has them in the same places; the chunks around
@@ -163,6 +164,8 @@ function propsNear(sim: Sim, x: number, y: number, radius: number, inside?: (dx:
 /** An area's damage tick or a blast: every prop inside takes it. */
 export function hitPropsArea(sim: Sim, x: number, y: number, radius: number, damage: number, probe: number, inside?: (dx: number, dy: number) => boolean): void {
   for (const i of propsNear(sim, x, y, radius, inside)) damageProp(sim, i, damage, probe);
+  // The abandoned satellites (world events) break the same way.
+  hitSatellitesArea(sim, x, y, radius, damage, inside);
 }
 
 /** A flying shot passing over props: each one takes its damage once, and the shot flies on. */
@@ -175,6 +178,7 @@ export function hitPropsShot(sim: Sim, shot: number): void {
     pr.shotGen[i] = s.gen[shot]!;
     damageProp(sim, i, s.damage[shot]!, s.owner[shot]!);
   }
+  hitSatellitesShot(sim, shot);
 }
 
 /** Something that stays in contact (orbs): it hits each prop every few ticks. */
@@ -185,4 +189,5 @@ export function touchProps(sim: Sim, x: number, y: number, radius: number, damag
     pr.touchT[i] = ORB_TICKS;
     damageProp(sim, i, damage, probe);
   }
+  touchSatellites(sim, x, y, radius, damage);
 }

@@ -1,21 +1,37 @@
 // Per-player arena settings kept in localStorage (a convenience: missing storage just means the defaults).
-const AIM_KEY = 'galaxy.aim.manual';
+// The mouse aim is on by default (the owner, 2026-11-13). Its key changed with it: what was kept under the old one
+// (`galaxy.aim.manual`, where many had it off) no longer counts, so everyone starts with it on.
+const AIM_KEY = 'galaxy.aim';
 const RADIO_KEY = 'galaxy.radio.seen';
+const ZOOM_KEY = 'galaxy.arena.zoom';
 
 export function manualAim(): boolean {
   try {
-    return localStorage.getItem(AIM_KEY) === '1';
+    return localStorage.getItem(AIM_KEY) !== '0';
   } catch {
-    return false;
+    // Private windows: what was chosen on this page.
+    return aimNow ?? true;
   }
 }
 
+const aimListeners = new Set<(on: boolean) => void>();
+
+/** Hears every change of the manual aim (the account's settings sync, the open Ajustes screen). */
+export function onManualAim(fn: (on: boolean) => void): () => void {
+  aimListeners.add(fn);
+  return () => aimListeners.delete(fn);
+}
+
+let aimNow: boolean | null = null;
+
 export function setManualAim(on: boolean): void {
+  aimNow = on;
   try {
     localStorage.setItem(AIM_KEY, on ? '1' : '0');
   } catch {
     // Private windows: this page only.
   }
+  for (const fn of aimListeners) fn(on);
 }
 
 /** PERKINS says each key line once per player (GDD §15: short, skippable, never twice). */
@@ -42,5 +58,23 @@ export function markRadioSeen(id: string): void {
     if (!list.includes(id)) localStorage.setItem(RADIO_KEY, [...list, id].join(','));
   } catch {
     // Private windows: this page only.
+  }
+}
+
+/** The arena's zoom the player left the wheel at (whole steps closer than the base view; 0 by default). */
+export function arenaZoom(): number {
+  try {
+    const n = Number(localStorage.getItem(ZOOM_KEY) ?? '0');
+    return Number.isInteger(n) && n >= 0 && n <= 16 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setArenaZoom(steps: number): void {
+  try {
+    localStorage.setItem(ZOOM_KEY, String(Math.max(0, Math.round(steps))));
+  } catch {
+    // Private windows: this run only.
   }
 }

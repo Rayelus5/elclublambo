@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { humanDiff, placeOf } from '../src/admin/forms/humanDiff';
 import { issueText } from '../src/admin/forms/issues';
 import { CATEGORIES, FIELDS, type FieldInfo, KEY_INFO } from '../src/admin/forms/labels';
-import { emptyOf, liveIds, parseNumber, setIn, slugOf, unwrap } from '../src/admin/forms/schema';
+import { emptyOf, itemsOf, liveIds, parseNumber, setIn, slugOf, unwrap } from '../src/admin/forms/schema';
 
 // The config forms' words and shape (polish phase 4): every label names a field that exists, every key has a home in
 // a category, changes read as sentences, and the checks across fields speak Spanish.
@@ -40,7 +40,7 @@ test('cada clave tiene nombre y está en una categoría de la portada', () => {
 test('un valor nuevo de cualquier clave pasa su propio esquema donde tiene valores por defecto', () => {
   // A fresh item from the form is a starting point: a boost or an event needs a name and dates the admin writes, but
   // the shape (fields, kinds) is the schema's.
-  const boost = emptyOf(unwrap(configJsonSchema('boosts').properties!.list!).node.items!) as Record<string, unknown>;
+  const boost = emptyOf(itemsOf(unwrap(configJsonSchema('boosts').properties!.list!).node)) as Record<string, unknown>;
   expect(Object.keys(boost).sort()).toEqual(['currency', 'endsAt', 'factor', 'id', 'name', 'startsAt']);
   expect(boost.currency).toBe('coins');
   expect(boost.factor).toBe(1);
@@ -82,7 +82,7 @@ function nodeAt(node: JsonSchema, pattern: string): JsonSchema | undefined {
     const list = seg.endsWith('[]');
     const name = list ? seg.slice(0, -2) : seg;
     at = name === '*' ? (unwrap(at).node.additionalProperties as JsonSchema) : unwrap(at).node.properties?.[name];
-    if (list && at) at = unwrap(at).node.items;
+    if (list && at) at = itemsOf(unwrap(at).node);
   }
   return at;
 }
@@ -92,7 +92,7 @@ test('solo los campos que se guardan de 0 a 1 se escriben como porcentaje (el á
     for (const [path, info] of Object.entries(fields)) {
       if (info.unit !== 'percent') continue;
       const n = unwrap(nodeAt(configJsonSchema(key), path)!).node;
-      const leaf = n.type === 'array' ? unwrap(n.items!).node : n.type === 'object' ? unwrap(n.additionalProperties as JsonSchema).node : n;
+      const leaf = n.type === 'array' ? unwrap(itemsOf(n)).node : n.type === 'object' ? unwrap(n.additionalProperties as JsonSchema).node : n;
       expect(leaf.maximum, `${key}: ${path}`).toBeLessThanOrEqual(1);
     }
   }

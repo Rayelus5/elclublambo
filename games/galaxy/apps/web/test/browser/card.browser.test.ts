@@ -105,3 +105,36 @@ test('en la fila del detalle la carta y su reverso guardan su 5:7 aunque la fila
   }
   host.remove();
 });
+
+test('el reverso de una mítica deja ver su braille, sus rasgos y su nombre sobre el vacío', { timeout: 60_000 }, async () => {
+  // The mythic's void (a layer under the frame) once covered the whole back in the Collection's detail (the 3D
+  // Inspector paints its own back, so only the DOM back showed it): the content sits above it, its name in light ink.
+  await page.viewport(1280, 900);
+  document.body.style.cssText = 'margin:0;background:#070a1c;';
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:0;top:0;z-index:10;display:flex;gap:28px;padding:28px;background:#070a1c;';
+  document.body.append(host);
+  const g = { ...galaxy(3, 'normal', 'mythic'), name: 'Orsel', designation: 'GX-F7F7A8' };
+  const braille = { ...g, id: 'gb', finish: 'braille' as Finish };
+  flushSync(() => createRoot(host).render([createElement(CardBack, { key: 'n', galaxy: g, size: 280 }), createElement(CardBack, { key: 'b', galaxy: braille, size: 280 })]));
+  const expected = renderFromSeed(BigInt(g.seed), { columns: 48 }).text;
+  await until(() => [...host.querySelectorAll('.relief')].every((r) => r.textContent === expected));
+
+  for (const back of host.querySelectorAll<HTMLElement>('.gcard-back')) {
+    for (const part of ['.gcard-relief', '.gcard-traits', '.gcard-back-name']) {
+      const el = back.querySelector<HTMLElement>(part)!;
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      expect(hit && el.contains(hit), `${part} se ve`).toBe(true);
+    }
+    // The name reads on the near black void: light ink, not the dark tint the other tiers print on their bright face.
+    const [red, green, blue] = getComputedStyle(back.querySelector('.gcard-back-name')!).color.match(/[\d.]+/g)!.map(Number);
+    expect(0.2126 * red! + 0.7152 * green! + 0.0722 * blue!).toBeGreaterThan(150);
+  }
+
+  if (import.meta.env['VITE_CARD_SHOTS']) {
+    await new Promise((r) => setTimeout(r, 300));
+    await page.screenshot({ path: '__shots__/card-back-mythic.png', element: host });
+  }
+  host.remove();
+});

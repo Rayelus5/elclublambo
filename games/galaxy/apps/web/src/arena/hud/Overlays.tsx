@@ -1,7 +1,9 @@
-import type { HudSnapshot } from '@galaxy/sim';
+import type { Content, HudSnapshot } from '@galaxy/sim';
 import type { CSSProperties } from 'react';
 import { copy } from '../../copy/es';
 import type { Camera } from '../stage/camera';
+import { eventName } from '../event-names';
+import { edgePoint } from '../stage/edge';
 
 // Boss bar, beacon marker and PERKINS on the radio (DESIGN_SYSTEM §8 quinquies).
 
@@ -21,27 +23,12 @@ export function BossBar({ boss }: { boss: NonNullable<HudSnapshot['boss']> }) {
 /** The beacon: a marker at the screen edge pointing at it when it is off screen, or a label over it. */
 export function BeaconMarker({ beacon, camera, width, height }: { beacon: NonNullable<HudSnapshot['beacon']>; camera: Camera | null; width: number; height: number }) {
   const zoom = camera?.zoom ?? 2;
-  const bars = camera?.bars ?? 0;
-  const fieldW = width - bars * 2;
-  const cx = bars + fieldW / 2;
-  const cy = height / 2;
-  const sx = cx + beacon.dx * zoom;
-  const sy = cy + beacon.dy * zoom - 40;
-  const pad = 56;
-  const inside = sx > bars + pad && sx < width - bars - pad && sy > pad && sy < height - pad;
+  // Measured from where the camera looks (a teammate's probe while out until the next layer), else from my probe.
+  const dx = camera ? beacon.x - camera.x : beacon.dx;
+  const dy = camera ? beacon.y - camera.y : beacon.dy;
+  const { x, y, angle, inside } = edgePoint({ width, height, bars: camera?.bars ?? 0 }, dx * zoom, dy * zoom - 40, 56);
   const holding = beacon.hold > 0 && beacon.hold < beacon.holdNeeded;
-  let x = sx;
-  let y = sy;
-  let angle = 0;
-  if (!inside) {
-    angle = Math.atan2(sy - cy, sx - cx);
-    const kx = (fieldW / 2 - pad) / Math.max(1e-6, Math.abs(Math.cos(angle)));
-    const ky = (height / 2 - pad) / Math.max(1e-6, Math.abs(Math.sin(angle)));
-    const k = Math.min(kx, ky);
-    x = cx + Math.cos(angle) * k;
-    y = cy + Math.sin(angle) * k;
-  }
-  const distance = Math.round(Math.hypot(beacon.dx, beacon.dy));
+  const distance = Math.round(Math.hypot(dx, dy));
   return (
     <div className={`hud-beacon${inside ? ' here' : ''}`} style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` } as CSSProperties}>
       {!inside && <span className="hud-beacon-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />}
@@ -50,6 +37,46 @@ export function BeaconMarker({ beacon, camera, width, height }: { beacon: NonNul
         <span>{holding ? `${Math.round((beacon.hold / beacon.holdNeeded) * 100)} %` : `${copy.arena.beaconLeft(Math.ceil(beacon.left))} · ${copy.arena.beaconDistance(distance)}`}</span>
       </span>
     </div>
+  );
+}
+
+export type MarkedEvent = { kind: 'satellite' | HudSnapshot['events'][number]['kind']; dx: number; dy: number; left?: number; progress?: number };
+
+/**
+ * Something to go for in the run (an abandoned satellite, SIM 1.10.0; the in-run events, 2026-11-16): off screen, an
+ * arrow at the screen edge with its name, what to do, how far it is and, when it runs out, the seconds it has left. On
+ * screen it says nothing (the stage draws it), but an abandoned ship being looted shows how far along it is.
+ */
+export function EventMarker({ event, sector, content, camera, width, height }: { event: MarkedEvent; sector: string; content?: Content; camera: Camera | null; width: number; height: number }) {
+  const zoom = camera?.zoom ?? 2;
+  const { x, y, angle, inside } = edgePoint({ width, height, bars: camera?.bars ?? 0 }, event.dx * zoom, event.dy * zoom - (event.kind === 'wreck' ? 34 : 0), 56);
+  const looting = event.kind === 'wreck' && (event.progress ?? 0) > 0;
+  if (inside && !looting) return null;
+  const t = copy.arena.events[event.kind];
+  const distance = Math.round(Math.hypot(event.dx, event.dy));
+  const details = looting
+    ? copy.arena.events.looting(Math.round((event.progress ?? 0) * 100))
+    : [t.hint, copy.arena.beaconDistance(distance), event.left !== undefined && event.kind !== 'wreck' ? copy.arena.events.left(Math.ceil(event.left)) : null].filter(Boolean).join(' · ');
+  return (
+    <div className={`hud-event ${event.kind}${inside ? ' here' : ''}`} style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` } as CSSProperties}>
+      {!inside && <span className="hud-event-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />}
+      <span className="hud-event-label">
+        <b>{eventName(event.kind, sector, content)}</b>
+        <span>{details}</span>
+      </span>
+    </div>
+  );
+}
+
+/** The markers of a snapshot: its satellite and its events. */
+export function EventMarkers({ hud, sector, content, camera, width, height }: { hud: Pick<HudSnapshot, 'satellite' | 'events'>; sector: string; content?: Content; camera: Camera | null; width: number; height: number }) {
+  return (
+    <>
+      {hud.satellite && <EventMarker event={{ kind: 'satellite', ...hud.satellite }} sector={sector} content={content} camera={camera} width={width} height={height} />}
+      {hud.events.map((e, k) => (
+        <EventMarker key={`${e.kind}-${k}`} event={e} sector={sector} content={content} camera={camera} width={width} height={height} />
+      ))}
+    </>
   );
 }
 

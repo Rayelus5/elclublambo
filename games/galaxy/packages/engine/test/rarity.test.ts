@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { calibrateRarity, deriveSeed, drawTraits, RARITY_BANDS, scoreTraits, subRng, tierOfScore, type Traits } from '../src/index';
+import { calibrateRarity, deriveSeed, drawTraits, isMythicScore, MYTHIC_BAND, MYTHIC_QUANTILE, RARITY_BANDS, scoreTraits, subRng, tierOfScore, type Traits } from '../src/index';
 
 // GDD §7 «rareza coherente»: a galaxy's score is the information of its traits (rare traits → high score); the five
 // tiers are score bands calibrated offline so that a random galaxy is common 50 %, uncommon 28 %, rare 13 %, epic 6 %
@@ -26,6 +26,33 @@ describe('calibración', () => {
       expect(Math.abs(counts[tier]! / n - share), `tier ${tier}`).toBeLessThan(0.01);
     });
   });
+});
+
+// The «Mítica» (sixth tier): a separate top band, the 0.9995 quantile of the same sample, that only the gacha's
+// mythic draw asks for. tierOfScore never returns it, so the five tiers (and every legendary) stay as they were.
+describe('Mítica', () => {
+  test('su banda es el cuantil 0,9995 de la calibración, por encima de la legendaria', () => {
+    expect(MYTHIC_QUANTILE).toBe(0.9995);
+    expect(MYTHIC_BAND).toBeGreaterThan(RARITY_BANDS[3]);
+    expect(tierOfScore(MYTHIC_BAND + 10, true)).toBe(4);
+  });
+
+  test('pide la banda y un fenómeno', () => {
+    expect(isMythicScore(MYTHIC_BAND, true)).toBe(true);
+    expect(isMythicScore(MYTHIC_BAND, false)).toBe(false);
+    expect(isMythicScore(MYTHIC_BAND - 0.001, true)).toBe(false);
+  });
+
+  test('en una muestra independiente sale en torno al 0,05 % de las galaxias', () => {
+    const n = 200_000;
+    let hits = 0;
+    for (let i = 0; i < n; i++) {
+      const traits = drawTraits(subRng(deriveSeed('rarity-check-mythic', i), 'traits'));
+      if (isMythicScore(scoreTraits(traits), traits.phenomenon !== 'none')) hits++;
+    }
+    expect(hits / n).toBeGreaterThan(0.0002);
+    expect(hits / n).toBeLessThan(0.001);
+  }, 120_000);
 });
 
 describe('puntuación', () => {

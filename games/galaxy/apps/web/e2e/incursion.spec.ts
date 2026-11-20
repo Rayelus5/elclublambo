@@ -2,8 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { expect, skipTutorial, test } from './fixtures';
 
 // A run against the real server (GDD §5.1): a new account takes the probe test (GDD §6, §12.2) and gets Bastión,
-// scans its welcome galaxies, equips one as a relic in the hangar, picks the season's rift (M3b-3) and launches there,
-// plays a few seconds with the keyboard, abandons from the pause menu and is paid half; the equipped galaxy cannot
+// scans its welcome galaxies, equips one as a relic in the hangar, sees the season's rift still closed (15 runs, 2026-11-16),
+// launches in the Nebulosa, plays a few seconds with the keyboard, abandons from the pause menu and is paid half; the equipped galaxy cannot
 // be disintegrated. Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
 
@@ -36,7 +36,7 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.goto('/galaxy/');
 
   // Ten welcome scans, so there are galaxies to equip.
-  await page.getByRole('link', { name: /Escáner profundo/ }).click();
+  await page.getByRole('link', { name: /^Escáner Obtén nuevas galaxias/ }).click();
   await page.getByRole('button', { name: /Escanear 10.*10 señales/ }).click();
   const stage = page.getByRole('dialog', { name: 'Escaneo de campo profundo' });
   await expect(stage.locator('.crt-image[data-ready="true"]')).toBeAttached({ timeout: 20_000 });
@@ -61,13 +61,15 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await expect(probes.getByText('Juega 3 incursiones')).toHaveCount(2);
   await page.getByRole('link', { name: /Volver/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/incursion$/);
-  // Sectors (M3b-3): five, the chain closed behind each Core, and the season open. The run goes to the rift.
+  // Sectors (M3b-3): five, the chain closed behind each Core, and the season's rift closed until 15 runs (2026-11-16);
+  // each open one says what it pays. The run goes to the Nebulosa.
   const sectors = page.getByRole('list', { name: 'Sectores' });
   await expect(sectors.getByRole('listitem')).toHaveCount(5);
   await expect(sectors.getByText(/^Derrota a /)).toHaveCount(3);
-  await sectors.getByRole('button', { name: 'Fisura de la Señal' }).click();
-  await expect(page.getByRole('heading', { name: 'Fisura de la Señal' })).toBeVisible();
-  await expect(sectors.getByRole('button', { name: 'Fisura de la Señal' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(sectors.getByText('Juega 15 incursiones')).toBeVisible();
+  await expect(sectors.getByRole('button', { name: 'Fisura de la Señal' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeVisible();
+  await expect(sectors.getByRole('button', { name: 'Nebulosa Exterior' })).toContainText('×0,8');
   // The day's yield waits in Condiciones de hoy, over Lanzar.
   await page.getByRole('button', { name: /^Condiciones de hoy/ }).click();
   const today = page.getByRole('dialog', { name: 'Condiciones de hoy' });
@@ -78,7 +80,11 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   // Equip the rarest galaxy in the first slot.
   await page.getByRole('button', { name: 'Elegir reliquia' }).first().click();
   const picker = page.getByRole('dialog', { name: 'Elige una reliquia' });
-  await picker.getByRole('button', { name: /^Equipar / }).first().click();
+  // Plan «escáner pro», part D: a galaxy opens its relic sheet first, and «Equipar» there equips it.
+  await picker.getByRole('button', { name: /^Ver lo que hace / }).first().click();
+  const sheet = page.getByRole('dialog', { name: /^Reliquia / });
+  await sheet.getByRole('button', { name: 'Equipar', exact: true }).click();
+  await expect(sheet).toHaveCount(0);
   const slot = page.getByRole('group', { name: 'Ranura 1' });
   await expect(slot).toBeVisible();
   const relicName = (await slot.locator('.lobby-slot-name').textContent())!.trim();
@@ -106,10 +112,10 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await expect(pause).toBeVisible();
   await pause.getByRole('button', { name: 'Abandonar incursión' }).click();
   const confirm = page.getByRole('alertdialog', { name: 'Abandonar incursión' });
-  await expect(confirm).toContainText('Se cobra la mitad del botín');
+  await expect(confirm).toContainText('Solo cobras una parte del botín');
   await confirm.getByRole('button', { name: 'Abandonar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Incursión abandonada' })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Sin extracción se cobra la mitad')).toBeVisible();
+  await expect(page.getByText(/^Sin extracción te llevas el \d+ % del botín$/)).toBeVisible();
 
   // Another run starts from the hangar, which keeps the relic.
   await page.getByRole('button', { name: 'Otra incursión' }).click();
@@ -117,8 +123,9 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
 
   // In the collection the equipped galaxy says so and cannot be disintegrated.
   await page.goto('/galaxy/coleccion');
-  const card = page.getByRole('article', { name: relicName });
-  await expect(card).toContainText('Equipada');
+  // Two galaxies of a scan can share a name: the equipped one is the one that says so.
+  const card = page.getByRole('article', { name: relicName }).filter({ hasText: 'Equipada' });
+  await expect(card).toHaveCount(1);
   await card.getByRole('link').click();
   const detail = page.getByRole('dialog', { name: relicName });
   await expect(detail.getByRole('button', { name: 'Desintegrar' })).toBeDisabled();

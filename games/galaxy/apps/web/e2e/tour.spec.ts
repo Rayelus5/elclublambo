@@ -20,15 +20,15 @@ test('una cuenta nueva empieza el tour tras su sonda, lo sigue y lo puede saltar
 
   const card = page.getByRole('dialog', { name: 'Tutorial' });
   await expect(card).toContainText('Soy PERKINS');
-  for (const text of ['Aquí arriba están tus recursos', 'Jugar lanza una incursión', 'Hogar es tu estación']) {
+  for (const text of ['Aquí arriba están tus recursos', 'Jugar lanza una incursión', 'En la Estación reparas salas']) {
     await card.getByRole('button', { name: 'Siguiente' }).click();
     await expect(card).toContainText(text);
   }
   await card.getByRole('button', { name: 'Siguiente' }).click();
   // An action step leaves the target usable: the player opens the Escáner themselves.
   const action = page.getByRole('region', { name: 'Tutorial' });
-  await expect(action).toContainText('Pulsa el Escáner profundo');
-  await page.getByRole('link', { name: /Escáner profundo/ }).click();
+  await expect(action).toContainText('Pulsa el Escáner.');
+  await page.getByRole('link', { name: /^Escáner Obtén nuevas galaxias/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/escaner$/);
   await expect(card).toContainText('probabilidades de cada rareza');
   await expect(page.getByRole('status').filter({ hasText: 'El inicio: hecho' })).toBeVisible();

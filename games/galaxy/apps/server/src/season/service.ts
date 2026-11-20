@@ -6,6 +6,7 @@ import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { ranking } from '../social/leaderboard';
 import { pendingResult } from './close';
+import { grantCosmetics } from '../cosmetics/service';
 
 // The season route and shop (GDD §11.1, §13.1; M7d-1). The score is the General leaderboard's (runs that count plus
 // the points of missions, achievements and admins), read before any transaction: the ranking reads with its own
@@ -36,9 +37,7 @@ async function payReward(trx: Kysely<DB>, accountId: string, seasonId: string, r
     if (reward[cur] > 0) await credit(trx, accountId, cur, reward[cur], reason, ref, key);
   }
   if (reward.shards > 0) await credit(trx, accountId, seasonCurrency(seasonId), reward.shards, reason, ref, key);
-  for (const [kind, value] of [['title', reward.title], ['frame', reward.frame]] as const) {
-    if (value) await trx.insertInto('galaxy.cosmetics').values({ account_id: accountId, kind, value }).onConflict((oc) => oc.doNothing()).execute();
-  }
+  await grantCosmetics(trx, accountId, reward);
 }
 
 export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: string, score: number, now: Date): Promise<SeasonView> {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { type Page, expect, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
-// The station against the real server (GDD §10): a new account enters from the Hogar and finds the Antenna broken,
+// The station against the real server (GDD §10): a new account enters from the Estación and finds the Antenna broken,
 // loads the refinery with raw material granted by the CLI and repairs the antenna with components. Writes e2e_*
 // accounts only.
 const PASS = 'una-clave-larga-e2e';
@@ -24,18 +24,18 @@ async function newAccount(page: Page): Promise<string> {
   return username;
 }
 
-test('la estación: entrar desde el Hogar, cargar la refinería y reparar la antena', async ({ page }) => {
+test('la estación: entrar desde el menú, cargar la refinería y reparar la antena', async ({ page }) => {
   const csp: string[] = [];
   page.on('console', (msg) => {
     if (/Content Security Policy/i.test(msg.text())) csp.push(msg.text());
   });
   const username = await newAccount(page);
-  await page.getByRole('link', { name: /Hogar/ }).click();
+  await page.getByRole('link', { name: /^Estación/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/estacion$/);
   const deck = page.getByRole('list', { name: 'Estación' });
   await expect(deck.getByRole('listitem')).toHaveCount(10);
   await expect(deck.getByRole('button', { name: /Antena/ })).toContainText('Rota');
-  await expect(deck.getByRole('link', { name: /Hangar/ })).toHaveAttribute('href', '/galaxy/incursion');
+  await expect(deck.getByRole('link', { name: /Taller/ })).toHaveAttribute('href', '/galaxy/taller');
   // M4b-2: the Laboratorio is repairable (broken until then); Comunicaciones opens its panel (M8 polish).
   await expect(deck.getByRole('button', { name: /Laboratorio/ })).toContainText('Rota');
   await deck.getByRole('button', { name: /Comunicaciones/ }).click();
@@ -51,7 +51,7 @@ test('la estación: entrar desde el Hogar, cargar la refinería y reparar la ant
   await expect(refinery.getByRole('slider', { name: 'Cantidad' })).toHaveValue('60');
   await refinery.getByRole('button', { name: 'Cargar 60' }).click();
   await expect(refinery.getByRole('progressbar', { name: 'En cola' })).toHaveAttribute('aria-valuenow', '60');
-  await expect(page.getByRole('img', { name: '0 de material en bruto' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '0 de material en bruto. Abrir la refinería' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(refinery).toBeHidden();
 

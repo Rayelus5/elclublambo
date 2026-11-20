@@ -16,7 +16,38 @@ const password = z.string().min(1).max(200);
 /** A chat as the tables key it: 'global', 'clan:<id>' or 'room:<id>' (a group room's, phase 6c). */
 const channelKey = z.union([z.literal('global'), z.string().regex(/^(clan|room):[0-9a-f-]{36}$/)]);
 
-export const modChannelQuerySchema = z.object({ channel: channelKey, before: z.string().regex(/^\d{1,18}$/).optional() }).strict();
+const messageId = z.string().regex(/^\d{1,18}$/);
+const iso = z.iso.datetime({ offset: true });
+/** Which messages: all, the ones players see, or the hidden ones. */
+export const MOD_STATES = ['all', 'visible', 'hidden'] as const;
+export type ModState = (typeof MOD_STATES)[number];
+
+/**
+ * The panel's search over every chat (the owner's chat asks, 2026-11-14), newest first, `before` pages back: a channel
+ * (or all of them), words in the text (3 letters at least, any part of a word), an author, hidden or visible,
+ * reported, and a window of dates.
+ */
+export const modChannelQuerySchema = z
+  .object({
+    channel: z.union([z.literal('all'), channelKey]).default('all'),
+    q: z.string().trim().min(3).max(100).optional(),
+    author: usernameSchema.optional(),
+    state: z.enum(MOD_STATES).default('all'),
+    reported: z.literal('1').optional(),
+    from: iso.optional(),
+    to: iso.optional(),
+    before: messageId.optional(),
+  })
+  .strict();
+export type ModSearch = z.input<typeof modChannelQuerySchema>;
+
+/** Hiding several messages at once (100 at most). */
+export const modHideManySchema = z.object({ ids: z.array(messageId).min(1).max(100), reason }).strict();
+/** Hiding what an account wrote lately: the last hour, day or week (500 messages at most). */
+export const MOD_AUTHOR_WINDOWS = [1, 24, 168] as const;
+export const modAuthorHideSchema = z.object({ hours: z.union([z.literal(1), z.literal(24), z.literal(168)]), reason }).strict();
+/** Hiding a message and muting its author in one go. */
+export const modHideMuteSchema = z.object({ minutes: z.number().int().min(1).max(43_200), reason: z.string().trim().min(3).max(140) }).strict();
 export const modReasonSchema = z.object({ reason }).strict();
 export const MOD_REPORTS_PAGE_SIZE = 50;
 export const modReportsQuerySchema = z.object({ page: z.coerce.number().int().min(1).max(10_000).default(1) }).strict();
@@ -50,9 +81,11 @@ export interface ModMessage {
   author: string;
   body: string;
   at: string;
-  /** Hidden by a moderator (by whom, if the account still exists) or by reports. */
-  hidden: { reason: 'moderator' | 'reports'; by: string | null; at: string } | null;
+  /** Hidden by a moderator (by whom, if the account still exists), by reports, or deleted (never shown again). */
+  hidden: { reason: 'moderator' | 'reports' | 'deleted'; by: string | null; at: string } | null;
+  /** Its reports, and those waiting since its last review. */
   reports: number;
+  pending: number;
 }
 
 /** A message waiting for a moderator: its reports since its last review. */

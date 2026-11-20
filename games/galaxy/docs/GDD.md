@@ -12,7 +12,7 @@
 
 ## 1. Qué es y por qué
 
-Galaxy Survivor es un juego web de escritorio, sin web3 ni dinero real, que une tres ganchos alrededor de un solo objeto: **la galaxia braille** generada por el motor de ElClub Nebula.
+Galaxy Survivor es un juego web de escritorio, sin web3, que une tres ganchos alrededor de un solo objeto: **la galaxia braille** generada por el motor de ElClub Nebula.
 
 1. **La tirada.** Un gachapón genera en el momento una galaxia única. Da la incertidumbre de lo aleatorio, el coleccionismo y estatus dentro del grupo.
 2. **La incursión.** Un survivor de 5 a 20 minutos: empiezas siendo nadie en un sector hostil y acabas arrasando gracias a tus mejoras y a tus reliquias. Cada partida es distinta.
@@ -24,7 +24,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 
 ### 1.1 Jugadores y éxito
 
-- **Primeros jugadores [U]:** amigos del usuario, de 16 a 30 años, en PRE (`pre.elclub.party/galaxy`).
+- **Primeros jugadores [U]:** amigos del usuario, de 16 a 30 años, en PRE (desde el 2026-11-17 en `galaxysurvivor.es/galaxy`; antes `pre.elclub.party/galaxy`).
 - **Ambición [U]:** si el juego se siente espectacular, vivo y profesional, abrirlo al público. Referentes de calidad: PokéBonk y PokeSurvivor; esencia del género: Vampire Survivors.
 - **Éxito [U]:** que sea adictivo y tenga sentido real: metas claras, rejugabilidad, builds variadas, colección que apetece completar.
 - **La beta [U]:** es el juego **completo y algo pulido**, no una versión recortada. Los amigos entran cuando estén todos los hitos.
@@ -39,7 +39,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 
 ### 1.3 No objetivos
 
-- Pagos con dinero real de cualquier tipo **[U]**.
+- ~~Pagos con dinero real de cualquier tipo~~. **Cambiado por el propietario (2026-11-11) [U]:** hay una tienda de recursos con dinero real (§11.5). Sigue sin venderse nada del escáner: ni señales ni tiradas.
 - Móvil, tableta o idiomas distintos del español **[U]**.
 - Cooperativo en la beta: el juego se prepara para él, pero no se entrega **[U]**.
 - Exponer o usar las 1.000 piezas de la colección NFT: las galaxias se generan en vivo **[U]**.
@@ -69,7 +69,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 ### 3.1 Una sesión típica [U+D]
 
 1. Entras en `/galaxy` y aparece la **pantalla de título** (§4).
-2. **Jugar** te lleva al último modo que usaste. **Supervivencia** abre la elección de sector; **Hogar**, la estación.
+2. **Jugar** te lleva al último modo que usaste. **Escáner** abre el gachapón; **Estación**, la estación.
 3. Lanzas incursiones. Traes monedas, polvo estelar, material en bruto y, rara vez, señales de galaxia o fragmentos de transmisión.
 4. En la estación recoges lo refinado, mejoras módulos y el laboratorio, tiras del gachapón, gestionas reliquias y colección, comercias.
 5. Las misiones diarias, el evento activo y la clasificación de temporada te dan metas cortas; el Catálogo ECN, la profundidad y los Núcleos, metas largas.
@@ -90,12 +90,12 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 - **Columna izquierda [U]:**
   - título animado (con «Galaxy Survivor» escrito en braille debajo);
   - **Jugar**, grande y lo más llamativo, retoma el último modo;
-  - al lado, apilados, **Supervivencia** y **Hogar**;
+  - al lado, apilados, **Escáner** («Obtén nuevas galaxias», rojo, con el aviso de tirada gratis) y **Estación** [U, 2026-11-11: el Escáner sustituye a Supervivencia, que repetía Jugar];
   - tarjeta del **evento activo** y tarjeta de **misiones**;
   - accesos: Colección, Sondas, Logros, Clan, Ranking, Códice;
-  - Ajustes y Guía.
+  - Ajustes, Guía y, mientras está abierta, Tienda, con el mismo estilo.
 - **Columna derecha [U]:** clasificación de la temporada con pestañas (General, Profundidad, Purgas, Clanes), podio, tu fila, tramos de premios y «Ver clasificación completa».
-- **Barra superior [U]:** perfil (avatar, nombre, nivel), polvo estelar, monedas, señales de galaxia, buzón de noticias, Comunidad (chat global) y Salir. A la izquierda, accesos al Escáner profundo (con aviso de tirada gratis) y al Mercado.
+- **Barra superior [U]:** perfil (avatar, nombre, nivel), polvo estelar, monedas, señales de galaxia, buzón de noticias, Comunidad (chat global) y Salir. A la izquierda, el Mercado; en la sala de las incursiones, también el Escáner profundo (con aviso de tirada gratis), que en la pantalla de título ya está en la columna izquierda.
 - **Cooperativo [D]:** acceso visible pero bloqueado, con la etiqueta «En desarrollo».
 
 ---
@@ -113,9 +113,20 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 ### 5.2 Controles [D]
 
 - Movimiento con WASD o flechas; ataque automático.
+- **Controles reasignables [U] (2026-11-14):** en Ajustes › Incursión cada acción tiene dos teclas o botones del ratón, con «Restaurar por defecto». Se guardan en la cuenta.
+  - Las acciones son moverse en las cuatro direcciones, dash, mejora 1, 2 y 3, confirmar la mejora, pausa y aviso rápido.
+  - Son fijos apuntar a mano (ratón o stick), acercar o alejar la vista (rueda) y Esc, que siempre pausa.
+  - El mando no se reasigna.
+- **Dash [U] (2026-11-13, SIM 1.12.0):** lo decide el jugador con **SHIFT o el clic izquierdo** por defecto (en mando, A o RB). Espacio dejó de ser su tecla el 2026-11-14, porque elegía cartas sin querer. Va hacia donde te mueves; quieto, hacia el ratón (o el stick derecho) o hacia donde apuntas. Es invulnerable mientras dura y un instante más. Todas las sondas lo tienen:
+  - **cargas** que vuelven una a una (la recarga sigue la stat de enfriamiento);
+  - una **pausa** corta entre dos dashes; una pulsación durante la pausa espera a que acabe;
+  - el HUD muestra junto a la vida su tecla, un rombo por carga y la siguiente llenándose.
+
+  Los números están en `content.dash` *(de partida: 1 carga, 6 s de recarga, 0,4 s de pausa, 90 u en 0,15 s y 0,1 s más de invulnerabilidad)*. Chispa y las reliquias Cometa lo mejoran (§6, §8.3).
 - Apuntado manual con el ratón **opcional** (conmutador en ajustes).
 - Soporte de mando.
 - Pausa en cualquier momento (en solitario).
+- **Cartas de mejora:** en solitario y en grupo, 1, 2 y 3 (o sus teclas) eligen al instante; en solitario, las flechas y Enter también. Las cartas no hacen caso a nada durante 0,35 s tras aparecer, para no elegir sin querer en pleno dash.
 
 ### 5.3 Armas, pasivas y evoluciones [D]
 
@@ -141,6 +152,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
   - los que curan o corrompen a otros;
   - invocadores.
 - **Élites [D]:** enemigos con **modificadores de Estática** (escudo, prisa, explosión al morir…).
+  - **Inestable** (petición del propietario, 2026-11-14: «puede instant killear al jugador … y es bastante injusto»): al morir avisa durante 1,2 s y estalla en su radio. Su daño crece como el del enemigo, pero se lleva como mucho el 60 % de la vida que tengas (`explode.keep` = 0,4), así que por sí sola nunca mata. Se ve y se oye al estallar.
 - **Jefes [D]:** los Núcleos de la Estática, con fases y patrones anunciados.
 - **Sectores [D]:** cada uno tiene su bioma, terreno, fauna propia y jefe. Los sectores más profundos son la meta de clasificación por profundidad.
 - **Contenido de la beta *(de partida)*:**
@@ -153,6 +165,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 ### 5.6 Dificultad [C]
 
 - La curva sube por tiempo y capa: densidad, élites, velocidad y nuevas familias.
+- **Tregua de vida (2026-11-18):** la vida de la fauna crece con los minutos, la capa y el nivel del equipo hasta el minuto 8. Del 8 al 30 se queda congelada, y desde el 30 se dobla cada 5 minutos, para que una incursión larga acabe en extraer o caer. Los minutos y el ritmo se ajustan en el panel (CONTENIDO A8 bis). Los Núcleos siguen su propia regla.
 - Se calibra con simulación (bots que juegan con builds tipo) para que una partida normal llegue a la capa 2–4 en el rango de 5 a 20 minutos.
 
 ### 5.7 Preparado para el cooperativo [U+D]
@@ -171,6 +184,7 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 
 - **Sondas [U]:** son los personajes. Cada una tiene su sprite pixel art, un arma inicial, una estadística fuerte y una peculiaridad. Por ejemplo, una exploradora rápida y frágil, una blindada y lenta, o una que empieza con un dron.
 - **Contenido de la beta *(de partida)*:** 8 sondas **[D]**.
+- **Chispa, «Dash ágil» (SIM 1.12.0):** su peculiaridad es un dash mejor: una carga más, que vuelve antes (4 s), una pausa más corta y más invulnerabilidad. Antes esquivaba sola un golpe cada 30 s.
 - **Sonda inicial por test [U]:**
   - Al crear la cuenta respondes un test de personalidad de **5 preguntas con 3 respuestas** cada una.
   - Cada respuesta suma puntos a una de las **3 sondas iniciales**, que están **equilibradas**: distinta táctica, ninguna mejor.
@@ -207,6 +221,10 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
   2. Se generan rasgos hasta caer en la **banda de puntuación** de ese nivel. Las bandas se calibran con simulación offline, porque el ranking del NFT no sirve con suministro infinito.
 
   Lo raro se ve raro.
+- **Mítica [U] (2026-11-13):** sexta rareza, por encima de la Legendaria, con su carta «Vacío iridiscente» (casi negra, con un marco que gira por cuatro tonos).
+  - Se tira antes que el nivel normal, en su propio flujo y con su propia probabilidad (`gacha.mythic`, 0,05 % previsto; 0 hasta que se publique). Con 0, cada tirada da lo mismo que antes.
+  - Es una galaxia de la banda más alta del motor (cuantil 0,9995, con fenómeno). La garantía nunca la da; al salir, reinicia la suerte de Legendaria.
+  - Siempre con acabado especial. No se fusiona ni sale de una fusión. No se vende en el mercado salvo `market.mythicListing`; los trueques sí.
 - **Acabado [U]:** se sortea aparte entre Normal, Holo, Prismático, Relieve braille y Corrupto (ultra-raro).
   - Probabilidades *de partida*: 85 / 10 / 3,5 / 1,3 / 0,2 %.
   - **Es solo estético [D]:** cuenta para el catálogo y el valor de mercado, no da poder.
@@ -226,8 +244,13 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 
 Las galaxias raras dan una **ventaja notable**: ataques más potentes, animaciones excepcionales y más aguante en la partida. Tener una muy rara se tiene que notar.
 
-- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×2,0.
+- Multiplicador de magnitud de la pasiva *(de partida)* **[D]**: Común ×1,0, Poco común ×1,15, Rara ×1,35, Épica ×1,6, Legendaria ×1,75 (era ×2,0; bajada en la beta abierta, 2026-11-13), Mítica ×1,9.
 - Las Legendarias garantizan un fenómeno.
+- **La Mítica tiene un poder propio [U] (2026-11-13), «Singularidad»**, además de sus poderes de reliquia (§8.3).
+  - Cada 12 s *(de partida)* se abre un agujero negro pequeño en el grupo de fauna más denso a 260 de la sonda. Durante 2 s atrae a la fauna a 120 de él (a 90 por segundo) y después colapsa: daña en 80 con 60 × la magnitud de la reliquia y lanza a 100 a lo que sobrevive.
+  - Nunca atrae al Núcleo ni al botín, y nunca se abre a menos de 70 de una sonda en pie, propia o de un compañero (atraería a la fauna encima de ella). Una sola por sonda: con varias míticas no se abre más a menudo y usa la más fuerte. Si su sonda cae o se ausenta con una abierta, colapsa en ese momento.
+  - El lanzamiento del colapso **[D]** evita que la fauna se quede en una bola para siempre: con ella quieta, las builds de área pasaban de los techos de §8.6.
+  - Los números viven en `content.relics.singularity` (con valor por defecto para el contenido publicado antes).
 - Las Comunes sirven para rellenar ranuras al principio, fusionar y desintegrar.
 
 ### 8.3 Rasgos → pasiva [D]
@@ -244,7 +267,7 @@ Tabla de partida, ajustable:
 | **Star Density** | Frecuencia |
 | **Palette** → elemento | Solar Gold: quemadura · Andromeda Blue: ralentización · Terminal Green: corrosión · Ultraviolet: descarga · Amber CRT: hackeo (el enemigo lucha un rato a tu favor) · Crimson Nebula: robo de vida · Emerald Void: daño a escudos · Neon Synapse: rebotes encadenados · Monochrome: daño puro con más crítico · Prismatic: rota elementos · Antimatter: invierte proyectiles enemigos |
 | **Background** | Bonus de entorno (recogida, visión, experiencia, suerte de botín, resistencia a la Estática) |
-| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: embestida · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: efecto glitch impredecible |
+| **Phenomenon** → habilidad única | Supernova: nova periódica · Satellite: dron · Globular: orbes · Comet: tu dash (§5.2) daña lo que atraviesa y suma una carga por reliquia, hasta dos (antes embestía solo al moverte) · Jets: láseres gemelos · Pulsar: ondas rítmicas · Einstein Ring: duplica proyectiles · Anomaly: un fallo de la realidad, al azar entre lanzarte lejos del enemigo más cercano, congelar lo cercano o descargar sobre varios enemigos; se ve como un glitch rojo y cian con su chasquido de estática |
 | **Conjunto** | Bonus por combinaciones de rasgos entre reliquias equipadas, por ejemplo 3 de la misma paleta o tipo + fenómeno |
 
 ### 8.4 Ranuras [U]
@@ -300,7 +323,8 @@ Tabla de partida, ajustable:
   - Si sale un fenómeno: «Fenómeno detectado».
   - Una Legendaria hace fallar la pantalla y suena un acorde.
   - Sello sonoro: el clac de una máquina Perkins de braille.
-  - Tiradas múltiples (x10) con revelado en secuencia y opción de saltar.
+  - Tiradas múltiples (x5 y x10) con revelado en secuencia y opción de saltar. Con señales cuestan una por escaneo; con monedas, cada tamaño su precio (100, 475 y 900 por defecto, `gacha.costs`), y «Mejor precio» marca el que menos cuesta por escaneo (2026-11-17).
+  - La pantalla enseña también lo que puede salir («Puede salirte»: legendarias y míticas encontradas, completadas con ejemplos) y los últimos hallazgos de todos (cuentas visibles, sin bloqueados, 14 días), con tus mejores de la semana (2026-11-17).
 
 ---
 
@@ -345,9 +369,9 @@ Tabla de partida, ajustable:
 
 | Recurso | Sale de | Se gasta en |
 |---|---|---|
-| **Monedas** | Incursiones, sobre todo; misiones; ventas en el mercado | Tiradas, mejoras, compras en el mercado |
-| **Polvo estelar** | Desintegrar galaxias; incursiones | Mejoras de reliquias, ranuras, fusiones, laboratorio |
-| **Material en bruto → componentes** | Incursiones → refinería | Reparar y mejorar módulos, hangar |
+| **Monedas** | Incursiones, sobre todo; misiones; ventas en el mercado; tienda (§11.5) | Tiradas, mejoras, compras en el mercado |
+| **Polvo estelar** | Desintegrar galaxias; incursiones; tienda (§11.5) | Mejoras de reliquias, ranuras, fusiones, laboratorio |
+| **Material en bruto → componentes** | Incursiones → refinería; componentes en la tienda (§11.5) | Reparar y mejorar módulos, hangar |
 | **Señales de galaxia** (boletos) | Misiones, logros, eventos, niveles, botín raro | Tiradas |
 | **Moneda de temporada** | Actividad de la temporada | Tienda de la temporada; lo que sobra se convierte en polvo con un cambio desfavorable |
 
@@ -412,6 +436,34 @@ Tabla de partida, ajustable:
   - que el rendimiento diario de §11.3 bis frene al jugador intenso sin castigar al normal, que no debería pasar de 3 h casi nunca;
   - que ningún bucle produzca más de lo que consume sin límite.
 - Los parámetros viven en configuración editable (§16.3).
+
+### 11.5 Tienda de recursos [U, 2026-11-11]
+
+**Qué vende [U].** Monedas, polvo estelar y componentes por dinero real, cobrados con Stripe en modo real:
+- 6 packs de cada recurso: cuanto más grande, mejor precio por unidad y más regalo;
+- packs combinados y un pack de bienvenida, una vez por cuenta;
+- **nunca señales del escáner**. Las monedas siguen comprando tiradas, como siempre.
+
+**Ofertas [U].** Se pueden apagar todas:
+- extra en la primera compra de cada pack;
+- pack de bienvenida;
+- ofertas por tiempo limitado, de «+X % de regalo» o de precio rebajado;
+- packs combinados.
+
+El precio tachado de una rebaja es el más bajo de los 30 días anteriores (directiva Ómnibus) y lo calcula el servidor; si no lo hay, no se tacha nada.
+
+**Protecciones [U]:**
+- límite de gasto diario por cuenta (día de Madrid);
+- una casilla obligatoria al pagar: mayor de edad o con permiso, y renuncia al desistimiento por entrega inmediata;
+- devolución o contracargo: se quita lo que quede de lo entregado (el saldo nunca baja de 0), se bloquea la tienda de esa cuenta y salta un aviso en el panel.
+
+**Reglas del servidor [U]:**
+- Todo es configuración viva (`shop`): productos, precios mostrados, precios de Stripe, ofertas y límites.
+- La tienda nace cerrada y, al abrirse, primero solo para el staff.
+- El servidor cobra con el precio de Stripe del producto, nunca con un importe del navegador, y comprueba que es el mostrado.
+- Lo que da una compra se fija al abrir el pago y se entrega una sola vez cuando Stripe confirma el cobro (webhook firmado o consulta de la compra), sin multiplicadores ni topes.
+- Un pago sin terminar no gasta nada: el pack de bienvenida y el extra de primera compra siguen a la vista, y no cuenta en el límite diario que ve el jugador. Si un pago sin terminar dejaría fuera una compra nueva (por el límite diario o por los pagos abiertos permitidos), se cierran primero en Stripe los más antiguos; uno que se llegó a pagar se entrega y cuenta, así que lo pagado nunca pasa del límite. Volver a pulsar «Comprar» en ese pack retoma el mismo pago de Stripe. Si ya no puede seguir (cambió el precio, el extra o las condiciones, o le quedan menos de 5 minutos), primero se cierra en Stripe y después se abre otro; si se llegó a pagar, se entrega.
+- Desde la primera compra real, PRE ya no se borra (`ops/reset-beta.sql` se niega).
 
 ---
 
@@ -522,6 +574,15 @@ Ver §15.
 - Cualquiera puede ver tu perfil y tu colección.
 - Desde ahí se puede visitar tu estación (§10).
 
+**Personalización del perfil (plan de noviembre C2–C5).**
+- Cada jugador elige en «Personalizar» (en su perfil) su avatar, su marco, su título y su banner.
+- **Avatares:** 12 de serie para todos. Los exclusivos se ganan con logros, el catálogo, la temporada y los eventos, o al vencer por primera vez a cada Núcleo (su retrato); otros se compran en la pestaña «Estilo» de la tienda (0,99–2,99 €, una vez por cuenta).
+- **Marcos y títulos:** se consiguen de la misma forma.
+- **El catálogo** es configuración viva (`cosmetics`): nombres, rarezas, de dónde sale cada pieza y el texto de cómo conseguirla.
+- **El banner** es una galaxia propia y lleva su acabado a la página del perfil. Deja de verse si la galaxia cambia de dueño.
+- **Avatar y marco** se ven en todas partes (barra, rankings, chat, clan, amigos, sala). El título se ve en el perfil.
+- **Devoluciones:** un cosmético de pago devuelto o en disputa se retira.
+
 ### 14.3 Clanes [U+D]
 
 - **Qué hacen [U]:** chat entre miembros, intercambios, eventos de clan y donar recursos.
@@ -540,12 +601,39 @@ Ver §15.
   - filtro de palabras editable por el admin;
   - botón de denunciar;
   - el admin puede ver y borrar mensajes, silenciar y banear.
-- **Técnica [D]:** WebSocket servido por el contenedor `galaxy` (§18.1).
+- **Sin leer y avisos [U]** (petición del propietario, 2026-11-14):
+  - **Qué cuenta:** cada canal lleva cuánto no has leído (lo de otros desde lo último que leíste, sin quien bloqueaste, 99 como mucho) y cuántas veces te nombran. Lo guarda el servidor, así que vale igual en todos tus dispositivos.
+  - **Con el chat cerrado:** un aviso dice quién escribió y dónde. Se elige por canal; de partida, clan, sala y menciones.
+- **Menciones [U]:** «@nombre» nombra a un jugador.
+  - Cinco como mucho por mensaje, guardadas por cuenta.
+  - Solo para quien puede leer el canal y no ha bloqueado al autor.
+- **Bloquear [U]:** desde el chat o desde un perfil, siempre con confirmación. Quien bloquea deja de ver los mensajes del bloqueado y, si eran amigos, dejan de serlo.
+- **Técnica [D]:**
+  - WebSocket servido por el contenedor `galaxy` (§18.1). Desde el 14/11 los mensajes van por el socket vivo, abierto en todo el juego.
+  - Clan y sala llegan enteros a sus miembros. Comunidad llega entera solo a quien la tiene abierta, a su autor y a quien nombra; el resto recibe cada 3 segundos cuántos llegaron.
 
 ### 14.5 Trueque [U]
 
-- Intercambio 1:1 confirmado por ambos.
+- Intercambio confirmado por ambos.
 - Lo ofrecido queda en depósito y cada trato tiene versiones: los dos confirman la misma.
+- **Trueques 2.0** (petición del propietario, 2026-11-14: «oro, hasta 3 galaxias por lado, contraofertas»):
+  - **Galaxias:** cada lado da hasta `market.tradeGalaxies` (3 de partida), en la tabla `trade_items`. Una galaxia está retenida mientras su dueño la ofrece en un trueque abierto, y en uno solo.
+  - **Monedas:** van en un solo lado del trato. Quien las da las tiene retenidas como una oferta (`coin_holds`, tipo `trade`). Al cerrarse el trato, el otro lado las cobra menos la comisión del mercado, que se guarda en el trueque.
+  - **Contraofertas:** cada cambio es una versión nueva que solo ha confirmado quien la hizo.
+  - **Historial** (`trade_events`, solo se añade): cada propuesta y contraoferta queda con su trato tal como era, más las confirmaciones, el cierre y la cancelación. Los dos lados lo ven.
+  - **Al cerrarse:** cerrar un trueque abierto, como sea (jugador, admin, baneo, revocar o la tarea del mercado al caducar), libera sus galaxias y devuelve sus monedas desde la propia base de datos.
+  - **Revertir** un trueque con monedas: se devuelven a quien las pagó y se recuperan del otro hasta donde llegue su saldo, como una venta.
+  - **Aviso de desequilibrio:** las rarezas más altas de cada lado, muy separadas; o solo monedas por galaxias, menos que el mínimo de la más rara.
+- **Tablón público** (petición del propietario, 2026-11-14):
+  - **Una publicación** (`trade_posts`, `trade_post_items`) dice qué da su autor: hasta `market.tradeGalaxies` galaxias y monedas.
+  - **Y qué busca:** rarezas, un tipo, una paleta, un fenómeno o monedas. Sin nada marcado, escucha propuestas.
+  - **Nota** de hasta 140 letras.
+  - **Nada de ella se retiene:** sus galaxias siguen libres para su dueño. El tablón solo enseña las que aún son suyas.
+  - **Responder** es proponer un trueque con `post_id` que pide lo que da la publicación (sus monedas exactas y algunas o todas sus galaxias). Cuenta contra la publicación, no contra los trueques abiertos de su autor.
+  - **Aceptar una respuesta** (el autor confirma su trueque) cierra la publicación y cancela las demás respuestas, con sus monedas de vuelta. Retirarla las cancela también.
+  - **Límites** en `market.board`: 3 abiertas por cuenta, 5 al día, 7 días de duración y 20 respuestas por publicación. El interruptor `board` lo apaga.
+  - **Bloqueos:** las parejas bloqueadas, en cualquier sentido, no comercian ni ven sus publicaciones.
+  - **El tablón se lee de página en página** con cursor, de la más nueva a la más vieja, y se filtra por la rareza de lo que da. La tarea del mercado caduca las publicaciones.
 
 ### 14.6 Mercado [U]
 
@@ -553,6 +641,23 @@ Ver §15.
 - **Precio mínimo por rareza**, impuesto por un *trigger*. Valores *de partida*: Común 50 · Poco común 120 · Rara 400 · Épica 1.500 · Legendaria 6.000 monedas.
 - **Comisión de venta** como sumidero: *de partida*, 7 %.
 - Bloqueo contra dobles compras.
+- **A escala** (petición del propietario, 2026-11-14: «profesional para 100.000 anuncios»):
+  - **Búsqueda y filtros:** por nombre o designación (índice de trigramas), rareza, acabado, tipo, paleta, fenómeno, nivel y precio.
+  - **Seis órdenes,** de página en página con un cursor: lo que entra entre medias nunca mueve ni repite lo que se ve, y no se cuenta nada.
+  - **Cada anuncio** guarda una copia de lo que se busca de su galaxia, que sigue a su nivel y su nombre.
+  - **Cada 5 minutos,** una tarea marca lo caducado.
+- **Estadísticas públicas:** ventas, monedas movidas y comisión de 24 h y 7 días, trueques, anuncios en venta, la semana por rareza y la venta más cara.
+- **Ver de cerca:** cada anuncio abre su carta 3D y sus poderes, con «Comprar».
+- **Ofertas** (petición del propietario, 2026-11-14: «se reserva» el oro):
+  - **Cuánto:** desde el mínimo de su rareza hasta una moneda menos que el precio (a ese precio, se compra).
+  - **Monedas reservadas:** salen del saldo al ofertar (tabla `coin_holds`, con su apunte en el libro) y vuelven al cerrarse sin venta.
+  - **Duración:** 48 h, nunca más que el anuncio.
+  - **Límites por comprador:** 10 abiertas y 30 al día, y una por anuncio, que se puede subir (la anterior se retira y vuelve).
+  - **Límite por anuncio:** 20. Lleno, una nueva tiene que superar a la más baja, que queda «Superada».
+  - **Aceptar:** vende al momento a esa cantidad, con la comisión de siempre, y cuenta como venta.
+  - **Al vender, retirar, caducar o cancelar desde admin:** un *trigger* cierra las demás ofertas, y las monedas vuelven.
+  - **Aviso en directo** al vendedor y al comprador.
+  - Todo se ajusta en `market.offers`, y el interruptor `offers` las apaga.
 
 ### 14.7 Antiabuso del comercio y de las partidas [D]
 
@@ -568,14 +673,17 @@ Ver §15.
 ### 14.8 Partidas en grupo [U+D]
 
 - **Quién [U]:**
-  - de 1 a 4 jugadores;
+  - de 2 a 4 jugadores: solo en la sala no se despega, y el lobby ofrece «Jugar en solitario», que sale de la sala (2026-11-17);
   - se juega en grupo tras acabar o saltar el tutorial y con el nivel que fije el admin;
   - solo se entra antes de despegar;
   - basta con que el líder tenga abierto el sector.
 - **Salas [U+D]:**
   - pública, solo amigos o privada, con código;
   - «Entrar rápido» busca una pública o la crea;
-  - el líder despega cuando todos están listos.
+  - el líder despega cuando todos están listos;
+  - el servidor tiene un tope de salas abiertas a la vez, 10 por defecto y ajustable en Admin › Configuración › En grupo (`coop.maxRooms`). Cuentan las que esperan y las que juegan. Con el tope lleno no se crea ninguna, «Entrar rápido» solo entra en una con hueco y el lobby ofrece jugar en solitario;
+  - una sala sin cambios se cierra a los 10 min (`coop.lobbyIdleMinutes`);
+  - el lobby enseña el servidor de juego (hoy uno, España) con su ping y cuántas salas hay abiertas («Salas 7/10»). La lista de servidores está en `packages/shared/src/api/servers.ts`, preparada para otros países.
 - **Cómo se juega [U]:**
   - **Sin pausa:** 15 s para elegir carta; si no, sale una al azar.
   - **Caídas:** quien cae tiene 30 s para que lo reanimen quedándose encima; si no, queda fuera hasta la siguiente capa.
@@ -586,6 +694,7 @@ Ver §15.
   - los puntos de temporada llevan su propio factor;
   - las partidas en grupo cuentan para las misiones y para la clasificación En grupo.
 - **Red [D]:**
+  - **salida (2026-11-17):** el reloj espera a que todos tengan la partida abierta (como mucho 10 s; quien falte queda ausente desde el primer tick) y cuenta 3 s; la pantalla de carga enseña quién está y la cuenta atrás sobre la arena ya dibujada, y se va con el primer tick;
   - *lockstep* con registro sellado por el servidor;
   - un árbitro en el servidor simula la misma partida y decide el pago;
   - cada 5 s los navegadores comparan su huella con la del árbitro y, si no coincide, rehacen el mundo desde el registro.
@@ -685,11 +794,20 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 ### 16.4 Moderación [U+D]
 
 - **Chats:**
-  - vista en vivo del global y de los de clan;
-  - borrar mensajes;
+  - **búsqueda en todos los chats** (petición del propietario, 2026-11-14):
+    - filtros: el texto (índice de trigramas), la cuenta, el chat, oculto o visible, denunciado y fechas;
+    - lo más nuevo primero, por id;
+    - pensada para cientos de miles de mensajes;
+  - el historial de una cuenta;
+  - **actuar:**
+    - ocultar y restaurar;
+    - ocultar varios a la vez (100) u ocultar lo último de una cuenta (hora, día o semana; 500);
+    - ocultar y silenciar de una vez;
+    - **eliminar**: no se deshace, y el texto se guarda como prueba hasta que caduca;
   - silenciar;
-  - filtro de palabras;
-  - **cola de denuncias**.
+  - filtro de palabras (lista de partida de insultos y odio, es y en);
+  - **cola de denuncias**: cada mensaje lleva sus denuncias (todas y las que esperan), mantenidas por triggers;
+  - **en directo:** el socket vivo avisa a la moderación abierta de cada mensaje y denuncia nuevos; nada se relee solo.
 - **Partidas en grupo (§14.8):**
   - salas en vivo, con cerrar una sala;
   - **ver en directo** una partida, con selector de cámara;
@@ -703,8 +821,25 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 
 ### 16.5 Comunicación [D]
 
-- **Buzón:** noticias para todos o por segmentos, con **regalos adjuntos**.
+- **Buzón** (v2, 2026-11-16):
+  - Mensajes para todos, una lista de cuentas o un segmento, ahora o **programados**.
+  - Cada uno es de un **tipo** con su estilo: Anuncio, Regalo, Compensación, Evento, Recompensa y Personal, más los del juego (Referidos, Tienda y Sistema).
+  - Pueden llevar **regalos de todo tipo:**
+    - recursos, también señales de evento y moneda de temporada;
+    - skins, marcos, avatares y títulos;
+    - galaxias de una rareza, acabado y rasgo;
+    - sondas, experiencia y puntos de temporada;
+    - **packs** de una biblioteca reutilizable.
+  - Los regalos grandes, por encima de los límites de la configuración, solo los envía un superadmin.
+  - **El jugador** filtra por tipo, archiva y borra, recoge todo de una vez y ve revelado lo que le dio cada regalo.
+  - **El panel** tiene plantillas, deja duplicar lo enviado y dice cuántos lo leyeron y lo recogieron.
 - **Avisos** en la pantalla de título.
+- **Tablón de noticias** (Admin › Tablón):
+  - Tarjetas por secciones: Destacado, Comunidad, Eventos y torneos y Novedades.
+  - Cada tarjeta lleva su título, su texto y una imagen: de la galería del juego, o subida en PNG, JPG o WebP de hasta 2 MB, comprobada por sus bytes y servida desde el mismo origen.
+  - Puede llevar a una pantalla del juego de una lista cerrada o a una página https, y tener fechas de inicio y fin.
+  - Las automáticas (las últimas notas, los eventos en marcha, la temporada con su anomalía, los multiplicadores y el Discord) cuentan lo que hay ahora. Solo se colocan, se ilustran o se ocultan, y no salen cuando no tienen nada que contar.
+  - Todo cambio, con motivo y auditado.
 
 ### 16.6 Paneles y herramientas [D]
 
@@ -759,7 +894,7 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 ### 17.4 Audio [U]
 
 - Sintetizado con WebAudio y un planificador anticipado.
-- **Música adaptativa** chiptune/synthwave por capas según la intensidad.
+- **Música adaptativa y generativa** (plan «banda sonora», a petición del propietario): 13 composiciones (4 del menú que se turnan, una por bioma de sector, 3 de Núcleo y la de resultados) que cada estilo toca a su manera (Ambiente espacial por defecto; Lo-fi espacial y Synthwave suave), con capas por intensidad, remates y variación con semilla en cada vuelta. Un archivo en `apps/web/src/assets/audio/musica/` sustituye a una pieza (ver su `LEEME.md`).
 - **Efectos del gachapón** que escalan con la rareza.
 - **Sello sonoro:** el clac de la máquina Perkins.
 
@@ -796,6 +931,8 @@ Se mantiene la arquitectura de `BRIEF.md` §4, validada. Resumen y cambios:
   - `worker-src 'self' blob:`;
   - `frame-ancestors 'none'`;
   - HSTS.
+  - **Excepción: Stripe.js para la tienda (§11.5).** Script, marcos, API e imágenes de Stripe, tal como los pide su guía de CSP: `js.stripe.com` y `*.js.stripe.com` en `script-src` y `frame-src`, `hooks.stripe.com` en `frame-src` (3D Secure), `api.stripe.com` en `connect-src` y `*.stripe.com` en `img-src`. Stripe.js solo se carga al abrir el pago.
+  - `Cross-Origin-Opener-Policy: same-origin-allow-popups`, porque Google Pay abre su propia ventana.
 
   PixiJS se importa como `pixi.js/unsafe-eval`.
 - **Pipeline:** `preproduction.yml` construye, reinicia y hace el smoke de `/galaxy/api/health`. Además, `galaxy-ci.yml` corre con runners de GitHub para los cambios en `games/**`.

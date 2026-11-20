@@ -1,0 +1,24 @@
+{
+  "banners": [
+    {
+      "id": "deep-scan",
+      "kind": "standard",
+      "name": "Escáner profundo",
+      "pityGroup": "standard",
+      "currency": "signal"
+    },
+    {
+      "id": "evento-ejemplo",
+      "kind": "event",
+      "name": "Escáner de ejemplo",
+      "pityGroup": "event-evento-ejemplo",
+      "currency": "signal:evento-ejemplo",
+      "featured": {
+        "trait": "phenomenon",
+        "value": "comet"
+      },
+      "startsAt": "2026-11-26T23:00:00.000Z",
+      "endsAt": "2026-11-29T23:00:00.000Z"
+    }
+  ]
+}

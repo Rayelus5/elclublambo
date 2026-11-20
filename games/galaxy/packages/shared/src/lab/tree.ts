@@ -4,6 +4,8 @@ import { STAT_KEYS, type StatBonus, type StatKey } from '@galaxy/sim';
 // costs, paid with star dust and components. The tree is live config (`lab`); `labEffects` turns what an account bought
 // into stat bonuses for its runs (one more sim source, so the brakes of §8.6 apply) and the multipliers of the runs'
 // pay, the refinery, the antenna, disintegration and fusion. Every multiplier is a fraction added (0.1 = +10 %).
+// Two cores (shop and lab plan, F2a): the permanent tree (`nodes`) and the season's (`season`), whose levels are kept by
+// season id, so each new season starts it empty. A node may give a little less with each level (`falloff`).
 
 // The node's shape is spelled out here (the registry's `lab` schema validates exactly this; the registry imports the
 // default tree from this file, so deriving the type from it would be circular).
@@ -27,9 +29,15 @@ export interface LabNode {
   requires: string | null;
   cost: { dust: number; components: number };
   growth: number;
+  /** Each level adds `per × falloff^(level − 1)` (1: every level the same). */
+  falloff: number;
+  /** Where the whiteboard puts it, when not where the layout would (degrees round its core, ring from it). */
+  at: { angle: number; ring: number } | null;
 }
 export interface LabConfig {
   nodes: LabNode[];
+  /** The season's tree, renewed every season: only stats and pay (what a run uses). */
+  season: LabNode[];
 }
 
 export interface LabEffects {
@@ -51,7 +59,7 @@ const node = (
   per: number,
   requires: string | null,
   cost: { dust: number; components: number },
-): LabNode => ({ id, branch, name, effect, per, max: 5, requires, cost, growth: 1.6 });
+): LabNode => ({ id, branch, name, effect, per, max: 5, requires, cost, growth: 1.6, falloff: 1, at: null });
 
 const ROOT = { dust: 40, components: 15 };
 const MID = { dust: 60, components: 20 };
@@ -85,23 +93,36 @@ export function labCost(n: LabNode, level: number): { dust: number; components: 
 
 const levelOf = (n: LabNode, levels: Record<string, number>) => Math.max(0, Math.min(n.max, Math.floor(levels[n.id] ?? 0)));
 
+/** What a node gives at `level`: each level adds `per × falloff^(i)` for i from 0 (so falloff 1 is `per × level`). */
+export function nodeTotal(n: Pick<LabNode, 'per' | 'falloff' | 'max'>, level: number): number {
+  const l = Math.max(0, Math.min(n.max, Math.floor(level)));
+  if (n.falloff === 1) return n.per * l;
+  return (n.per * (1 - n.falloff ** l)) / (1 - n.falloff);
+}
+
+/** What the next level adds (0 at the top). */
+export function nodeNextGain(n: Pick<LabNode, 'per' | 'falloff' | 'max'>, level: number): number {
+  return level >= n.max ? 0 : n.per * n.falloff ** Math.max(0, Math.floor(level));
+}
+
+/** A node's state among the nodes of its own tree (a requirement is always in the same tree). */
 export function labNodeStatus(
   n: LabNode,
   levels: Record<string, number>,
-  cfg: LabConfig,
+  tree: readonly LabNode[] | LabConfig,
 ): { level: number; max: number; unlocked: boolean; next: { dust: number; components: number } | null } {
+  const nodes = 'nodes' in tree ? tree.nodes : tree;
   const level = levelOf(n, levels);
-  const parent = n.requires ? cfg.nodes.find((x) => x.id === n.requires) : undefined;
+  const parent = n.requires ? nodes.find((x) => x.id === n.requires) : undefined;
   const unlocked = n.requires === null || (parent !== undefined && levelOf(parent, levels) >= 1);
   return { level, max: n.max, unlocked, next: level < n.max ? labCost(n, level + 1) : null };
 }
 
-/** What an account's levels add up to; unknown nodes are ignored and levels are clipped to each node's max. */
-export function labEffects(levels: Record<string, number>, cfg: LabConfig): LabEffects {
+/** One tree's levels into the totals; stat totals are returned by stat (one bonus per tree, the sim diminishes both). */
+function addTree(fx: LabEffects, nodes: readonly LabNode[], levels: Record<string, number>): Map<StatKey, number> {
   const stats = new Map<StatKey, number>();
-  const fx: LabEffects = structuredClone(NO_LAB_EFFECTS);
-  for (const n of cfg.nodes) {
-    const total = n.per * levelOf(n, levels);
+  for (const n of nodes) {
+    const total = nodeTotal(n, levelOf(n, levels));
     if (total === 0) continue;
     const e = n.effect;
     if (e.kind === 'stat') stats.set(e.stat, (stats.get(e.stat) ?? 0) + total);
@@ -111,6 +132,20 @@ export function labEffects(levels: Record<string, number>, cfg: LabConfig): LabE
     else if (e.kind === 'disintegrate') fx.disintegrate += total;
     else fx.fusion += total;
   }
-  fx.bonuses = STAT_KEYS.filter((k) => stats.has(k)).map((stat) => ({ stat, value: stats.get(stat)! }));
+  return stats;
+}
+
+/**
+ * What an account's levels add up to; unknown nodes are ignored and levels are clipped to each node's max. The
+ * season's levels count only while a season is open (null: none, or not asked): its stat bonuses come apart from the
+ * permanent ones, as another source.
+ */
+export function labEffects(levels: Record<string, number>, cfg: Pick<LabConfig, 'nodes'> & Partial<Pick<LabConfig, 'season'>>, seasonLevels: Record<string, number> | null = null): LabEffects {
+  const fx: LabEffects = structuredClone(NO_LAB_EFFECTS);
+  const permanent = addTree(fx, cfg.nodes, levels);
+  const season = seasonLevels ? addTree(fx, cfg.season ?? [], seasonLevels) : new Map<StatKey, number>();
+  for (const stats of [permanent, season]) {
+    for (const stat of STAT_KEYS) if (stats.has(stat)) fx.bonuses.push({ stat, value: stats.get(stat)! });
+  }
   return fx;
 }

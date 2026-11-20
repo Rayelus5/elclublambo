@@ -1,47 +1,94 @@
-import { TIERS, type BannerView, type PulledGalaxy, type PullRequest } from '@galaxy/shared';
-import { useId, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { useGacha, usePull } from '../api/economy';
-import { errorText } from '../auth/useMe';
-import { copy, fmt } from '../copy/es';
-import { WalletBar } from '../hub/WalletBar';
-import { Icon } from '../ui/Icon';
-import { RevealStage } from './RevealStage';
-import { BackLink } from '../ui/BackLink';
-import { emitTour } from '../tour/bus';
+import {
+  bestValue,
+  pullCost,
+  TIERS,
+  type BannerView,
+  type GachaView,
+  type PulledGalaxy,
+  type PullCount,
+  type PullRequest,
+  type ShownGalaxy,
+} from "@galaxy/shared";
+import type { CSSProperties } from "react";
+import { useEffect, useId, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { useFinds, useGacha, usePull } from "../api/economy";
+import { GalaxyCard } from "../cards/GalaxyCard";
+import { FindsTicker } from "./FindsTicker";
+import { Showcase } from "./Showcase";
+import { SkyRadar } from "./SkyRadar";
+import { errorText } from "../auth/useMe";
+import { copy, fmt } from "../copy/es";
+import { WalletBar } from "../hub/WalletBar";
+import { Icon } from "../ui/Icon";
+import { againPlan } from "./again";
+import { preloadProCinema } from "./pro/ProShell";
+import { RevealStage } from "./RevealStage";
+import { useRevealMode } from "./useRevealMode";
+import { BackLink } from "../ui/BackLink";
+import { emitTour } from "../tour/bus";
+import { tourActive, useTutorial } from "../api/tutorial";
 
 // The deep scan (GDD §9): everything the player needs to decide is visible BEFORE paying — the odds of each tier on
 // the next scan (rising luck included), how far the guaranteed Legendary is, the welcome luck — then scan with the
 // daily free scan, signals or coins. The server rolls; this screen only asks and plays the reveal.
-const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+const day = new Intl.DateTimeFormat("es-ES", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Madrid",
+});
 const traitNames = copy.traitNames;
 const traitValues = copy.traitValues as Record<string, Record<string, string>>;
 
 function Odds({ banner }: { banner: BannerView }) {
   const total = banner.sinceLegendary + banner.untilGuarantee;
+  // The guarantee as a charging core (2026-11-17): fuller and brighter as it nears; hot from 80 %.
+  const charge = total > 0 ? banner.sinceLegendary / total : 0;
   return (
     <div className="odds" data-tour="odds">
       <table aria-label={copy.scanner.odds}>
         <caption>{copy.scanner.odds}</caption>
         <tbody>
-          {[...TIERS].reverse().map((t) => (
-            <tr key={t} data-tier={t}>
-              <th scope="row">
-                <i aria-hidden="true" />
-                {copy.tiers[t]}
-              </th>
-              <td>{copy.scanner.rate(banner.nextRates[TIERS.indexOf(t)] ?? 0)}</td>
-            </tr>
-          ))}
+          {/* The mythic has its own chance (0 until the owner publishes it): its row shows only once it can come out. */}
+          {[...TIERS]
+            .reverse()
+            .filter((t) => t !== 'mythic' || (banner.nextRates[TIERS.indexOf(t)] ?? 0) > 0)
+            .map((t) => (
+              <tr key={t} data-tier={t}>
+                <th scope="row">
+                  <i aria-hidden="true" />
+                  {copy.tiers[t]}
+                </th>
+                <td>{copy.scanner.rate(banner.nextRates[TIERS.indexOf(t)] ?? 0)}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
-      <div className="pity" data-tour="pity">
+      <div
+        className="pity"
+        data-tour="pity"
+        data-hot={charge >= 0.8 ? "true" : undefined}
+        style={{ "--charge": charge.toFixed(3) } as CSSProperties}
+      >
+        <div
+          className="pity-core"
+          role="progressbar"
+          aria-label={copy.scanner.pityLabel}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={banner.sinceLegendary}
+        >
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle className="pity-track" cx="24" cy="24" r="20" pathLength={100} />
+            <circle className="pity-fill" cx="24" cy="24" r="20" pathLength={100} />
+          </svg>
+          <span className="pity-orb" aria-hidden="true" />
+        </div>
         <div className="pity-head">
           <b>{copy.scanner.untilGuarantee(banner.untilGuarantee)}</b>
           <span>{copy.scanner.sinceLegendary(banner.sinceLegendary)}</span>
-        </div>
-        <div className="pity-bar" aria-hidden="true">
-          <i style={{ width: `${total > 0 ? Math.round((banner.sinceLegendary / total) * 100) : 0}%` }} />
         </div>
       </div>
     </div>
@@ -52,23 +99,33 @@ function Odds({ banner }: { banner: BannerView }) {
  * An event scanner's featured galaxy, announced big (open beta): the trait in large letters, how many scans until it
  * is certain (the number set apart) and the way already walked towards it.
  */
-function FeaturedCard({ banner }: { banner: BannerView }) {
+function FeaturedCard({ banner, galaxy }: { banner: BannerView; galaxy?: ShownGalaxy }) {
   const id = useId();
   const f = banner.featured!;
   const until = banner.untilFeatured;
   const every = banner.featuredEvery;
-  const sentence = until !== undefined ? copy.scanner.untilFeatured(until) : null;
-  const num = until !== undefined ? fmt(until) : '';
+  const sentence =
+    until !== undefined ? copy.scanner.untilFeatured(until) : null;
+  const num = until !== undefined ? fmt(until) : "";
   const parts = sentence && sentence.includes(num) ? sentence.split(num) : null;
   return (
-    <section className="scan-featured" aria-labelledby={id}>
+    <section className={`scan-featured${galaxy ? " with-galaxy" : ""}`} aria-labelledby={id}>
       <span className="scan-featured-shine" aria-hidden="true" />
+      {galaxy ? (
+        // The featured galaxy, big (2026-11-17): the last one found, or an example with its trait.
+        <div className="scan-featured-galaxy">
+          <GalaxyCard galaxy={galaxy} size={118} columns={96} />
+          {galaxy.example ? <span className="showcase-example">{copy.scanner.showcase.example}</span> : null}
+        </div>
+      ) : null}
       <div className="scan-featured-main">
         <p className="scan-featured-kicker">
           <Icon name="starOn" />
           <span id={id}>{copy.scanner.featuredTitle}</span>
         </p>
-        <p className="scan-featured-value">{traitValues[f.trait]?.[f.value] ?? f.value}</p>
+        <p className="scan-featured-value">
+          {traitValues[f.trait]?.[f.value] ?? f.value}
+        </p>
         <p className="scan-featured-trait">
           <span>{traitNames[f.trait] ?? f.trait}</span>
           <span>{copy.scanner.featuredHint}</span>
@@ -88,8 +145,19 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
             )}
           </p>
           {every && until !== undefined ? (
-            <div className="scan-featured-bar" role="progressbar" aria-label={copy.scanner.featuredProgress} aria-valuemin={0} aria-valuemax={every} aria-valuenow={Math.max(0, every - until)}>
-              <i style={{ width: `${Math.round((Math.max(0, every - until) / every) * 100)}%` }} />
+            <div
+              className="scan-featured-bar"
+              role="progressbar"
+              aria-label={copy.scanner.featuredProgress}
+              aria-valuemin={0}
+              aria-valuemax={every}
+              aria-valuenow={Math.max(0, every - until)}
+            >
+              <i
+                style={{
+                  width: `${Math.round((Math.max(0, every - until) / every) * 100)}%`,
+                }}
+              />
             </div>
           ) : null}
         </div>
@@ -98,36 +166,189 @@ function FeaturedCard({ banner }: { banner: BannerView }) {
   );
 }
 
-function PullButton({ count, cost, disabled, onClick, solar, event, tour }: { count: 1 | 10; cost: string; disabled: boolean; onClick: () => void; solar?: boolean; event?: boolean; tour?: string }) {
+const SIZES: readonly PullCount[] = [1, 5, 10];
+
+/** The smallest pull this balance does not reach, and how much it lacks; null when every size can be paid. */
+export function shortOf(costs: GachaView["costs"], pay: "coins" | "signal", have: number): { size: PullCount; missing: number } | null {
+  for (const n of SIZES) {
+    const cost = pullCost(costs, n, pay);
+    if (have < cost) return { size: n, missing: cost - have };
+  }
+  return null;
+}
+
+type PullLook = "solar" | "pull-event" | "pull-coins";
+
+/**
+ * A pull button «Sobres» (2026-11-17, the owner's pick): the cards it opens (one, five in a fan, a deck of ten), its
+ * number and its price in a dark pill with the currency's icon. Its name says it whole («Escanear 10, 10 señales»).
+ */
+function PullButton({
+  count,
+  cost,
+  pay,
+  disabled,
+  onClick,
+  look,
+  tour,
+  best,
+}: {
+  count: PullCount;
+  cost: number;
+  pay: "coins" | "signal";
+  disabled: boolean;
+  onClick: () => void;
+  look: PullLook;
+  tour?: string;
+  /** The size that costs least per scan (gacha/costs.ts bestValue): «Mejor precio». */
+  best?: boolean;
+}) {
+  const costText = pay === "signal" ? copy.scanner.costSignals(cost) : copy.scanner.costCoins(cost);
   return (
-    <button type="button" className={`lip pull-btn${solar ? ' solar' : ''}${event ? ' pull-event' : ''}`} disabled={disabled} onClick={onClick} data-tour={tour}>
-      <b>{copy.scanner.pull(count)}</b>
-      <span>{cost}</span>
+    <button
+      type="button"
+      className={`lip pull-btn ${look}${best ? " best" : ""}`}
+      disabled={disabled}
+      onClick={onClick}
+      data-tour={tour}
+      data-count={count}
+      aria-label={`${copy.scanner.pull(count)}, ${costText}${best ? `, ${copy.scanner.bestValue}` : ""}`}
+    >
+      <span className="pull-shine" aria-hidden="true" />
+      {best ? (
+        <span className="pull-best" aria-hidden="true">
+          {copy.scanner.bestValue}
+        </span>
+      ) : null}
+      <span className="pull-fan" data-count={count} aria-hidden="true">
+        {Array.from({ length: count === 1 ? 1 : 5 }, (_, i) => (
+          <i key={i} style={count === 10 ? ({ "--k": i - 2 } as CSSProperties) : undefined} />
+        ))}
+      </span>
+      <span className="pull-n" aria-hidden="true">
+        ×{count}
+      </span>
+      <span className="pull-price" aria-hidden="true">
+        <Icon name={pay === "signal" ? "ticket" : "coin"} />
+        {fmt(cost)}
+      </span>
     </button>
+  );
+}
+
+/** One way of paying: ×1, ×5 and ×10 at their prices, the best value marked, and what the balance lacks under them. */
+function PullRow({
+  costs,
+  pay,
+  have,
+  busy,
+  onScan,
+  look,
+  tour,
+}: {
+  costs: GachaView["costs"];
+  pay: "coins" | "signal";
+  have: number;
+  busy: boolean;
+  onScan: (count: PullCount) => void;
+  look: PullLook;
+  tour?: string;
+}) {
+  const best = bestValue(costs, pay);
+  const short = busy ? null : shortOf(costs, pay, have);
+  return (
+    <div className="pull-row">
+      {SIZES.map((n) => {
+        const cost = pullCost(costs, n, pay);
+        return (
+          <PullButton
+            key={n}
+            count={n}
+            cost={cost}
+            pay={pay}
+            disabled={busy || have < cost}
+            onClick={() => onScan(n)}
+            look={look}
+            tour={n === 10 ? tour : undefined}
+            best={best === n}
+          />
+        );
+      })}
+      {short ? (
+        <p className="pull-short">
+          {copy.scanner.shortFor(pay === "signal" ? copy.scanner.missingSignals(short.missing) : copy.scanner.missingCoins(short.missing), short.size)}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
 export function ScannerScreen() {
   const gacha = useGacha();
+  const findsQuery = useFinds();
+  const finds = findsQuery.data;
   const pull = usePull();
   const [bannerId, setBannerId] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState<PulledGalaxy[] | null>(null);
+  // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
+  // The scanner it was too: «¡Escanear otra!» never scans in another one (Nov plan A review).
+  // The pro reveal opens while the request is out (`pulls` null) and keeps the last summary to come back to if it
+  // fails (`last`); `failed` opens its bands again (plan «escáner pro», part B).
+  const [revealed, setRevealed] = useState<{
+    pulls: PulledGalaxy[] | null;
+    last: PulledGalaxy[] | null;
+    count: PullCount;
+    pay: PullRequest["pay"];
+    banner: string;
+    failed?: boolean;
+    summaryOnly?: boolean;
+  } | null>(null);
+  const mode = useRevealMode();
+  // The tutorial's first scan (the owner): its summary leaves only «Cerrar», which moves the tutorial on; «Colección» or
+  // another scan took the player off the step it waits on.
+  const tutorial = useTutorial().data;
+  const guided = tourActive(tutorial) && tutorial?.chapter === "scanner";
+  // The cinema's chunk (GSAP, three.js) is fetched while the player reads the odds.
+  useEffect(() => {
+    if (mode !== "pro") return;
+    const timer = setTimeout(preloadProCinema, 1200);
+    return () => clearTimeout(timer);
+  }, [mode]);
   // `?tipo=evento` (from the event's missions tab) opens on the event scanner.
   const [params] = useSearchParams();
   const view = gacha.data;
-  const wanted = params.get('tipo') === 'evento' ? view?.banners.find((b) => b.kind === 'event') : undefined;
-  const banner = view?.banners.find((b) => b.id === bannerId) ?? wanted ?? view?.banners[0];
-  const isEvent = banner?.kind === 'event';
+  const wanted =
+    params.get("tipo") === "evento"
+      ? view?.banners.find((b) => b.kind === "event")
+      : undefined;
+  const banner =
+    view?.banners.find((b) => b.id === bannerId) ?? wanted ?? view?.banners[0];
+  const isEvent = banner?.kind === "event";
   const wallet = view?.wallet;
 
-  function scan(count: 1 | 10, pay: PullRequest['pay']): void {
-    if (!banner) return;
+  function scan(
+    count: PullCount,
+    pay: PullRequest["pay"],
+    on: string | undefined = banner?.id,
+  ): void {
+    if (!on) return;
+    const pro = mode === "pro";
+    if (pro)
+      setRevealed((r) => ({
+        pulls: null,
+        last: r?.pulls ?? r?.last ?? null,
+        count,
+        pay,
+        banner: on,
+      }));
     pull.mutate(
-      { banner: banner.id, count, pay },
+      { banner: on, count, pay },
       {
         onSuccess: (res) => {
-          setRevealed(res.pulls);
-          emitTour('scanner:pulled');
+          setRevealed({ pulls: res.pulls, last: null, count, pay, banner: on });
+          emitTour("scanner:pulled");
+        },
+        onError: () => {
+          if (pro) setRevealed((r) => (r ? { ...r, failed: true } : r));
         },
       },
     );
@@ -136,9 +357,26 @@ export function ScannerScreen() {
   const busy = pull.isPending;
   // The standard signals, or an event scanner's own (M7e-1).
   const signals = banner ? (wallet?.[banner.currency] ?? 0) : 0;
+  const againOn = revealed
+    ? view?.banners.find((b) => b.id === revealed.banner)
+    : undefined;
+  const again =
+    revealed && view && againOn
+      ? againPlan(
+          revealed.count,
+          revealed.pay,
+          view.costs,
+          wallet?.[againOn.currency] ?? 0,
+          wallet?.coins ?? 0,
+        )
+      : null;
   return (
-    <div className="screen-root collection-root scanner-root">
-      <div className={`collection scanner${isEvent ? ' is-event' : ''}`}>
+    <div className={`screen-root collection-root scanner-root${isEvent ? " is-event" : ""}`}>
+      {/* A nebula drifting behind the page (2026-11-17): blue, or violet for an event. */}
+      <div className="scanner-nebula" aria-hidden="true">
+        <i />
+      </div>
+      <div className={`collection scanner${isEvent ? " is-event" : ""}`}>
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{isEvent ? copy.scanner.eventTab : copy.scanner.title}</h1>
@@ -148,16 +386,30 @@ export function ScannerScreen() {
         </header>
 
         {view && view.banners.length > 1 ? (
-          <div className="scanner-tabs" role="group" aria-label={copy.scanner.title}>
+          <div
+            className="scanner-tabs"
+            role="group"
+            aria-label={copy.scanner.title}
+          >
             {view.banners.map((b) => (
-              <button key={b.id} type="button" className={`lip scanner-tab tab-${b.kind}`} aria-pressed={b.id === banner?.id} onClick={() => setBannerId(b.id)}>
-                <Icon name={b.kind === 'event' ? 'starOn' : 'radar'} />
-                <span className="scanner-tab-name">{b.kind === 'event' ? copy.scanner.eventTab : b.name}</span>
-                {b.kind === 'event' ? (
+              <button
+                key={b.id}
+                type="button"
+                className={`lip scanner-tab tab-${b.kind}`}
+                aria-pressed={b.id === banner?.id}
+                onClick={() => setBannerId(b.id)}
+              >
+                <Icon name={b.kind === "event" ? "starOn" : "radar"} />
+                <span className="scanner-tab-name">
+                  {b.kind === "event" ? copy.scanner.eventTab : b.name}
+                </span>
+                {b.kind === "event" ? (
                   <span className="scanner-tab-badge">
                     <Icon name="ticket" />
                     <b aria-hidden="true">{wallet?.[b.currency] ?? 0}</b>
-                    <span className="sr-only">{copy.hub.resource.eventSignal(wallet?.[b.currency] ?? 0)}</span>
+                    <span className="sr-only">
+                      {copy.hub.resource.eventSignal(wallet?.[b.currency] ?? 0)}
+                    </span>
                   </span>
                 ) : null}
               </button>
@@ -167,53 +419,95 @@ export function ScannerScreen() {
 
         {banner && view ? (
           <main className="scanner-main">
-            <section className="lip panel scanner-terminal" aria-labelledby="banner-name">
+            <section
+              className="lip panel scanner-terminal"
+              aria-labelledby="banner-name"
+            >
               <div className="crt idle" aria-hidden="true">
                 <div className="crt-screen">
-                  <span className="idle-braille">⠎⠉⠁⠝</span>
-                  <span className="idle-text">{copy.scanner.ready}</span>
+                  <SkyRadar rates={banner.nextRates} busy={busy} event={isEvent} />
                 </div>
               </div>
               <div className="banner-head">
-                <h2 id="banner-name">{isEvent ? copy.scanner.eventTab : banner.name}</h2>
-                {isEvent ? <span className="banner-sub">{banner.name}</span> : null}
-                {banner.welcome ? <span className="badge-new">{copy.scanner.welcome}</span> : null}
-                {banner.endsAt ? <span className="banner-ends">{copy.scanner.endsAt(day.format(new Date(banner.endsAt)))}</span> : null}
+                <h2 id="banner-name">
+                  {isEvent ? copy.scanner.eventTab : banner.name}
+                </h2>
+                {isEvent ? (
+                  <span className="banner-sub">{banner.name}</span>
+                ) : null}
+                {banner.welcome ? (
+                  <span className="badge-new">{copy.scanner.welcome}</span>
+                ) : null}
+                {banner.endsAt ? (
+                  <span className="banner-ends">
+                    {copy.scanner.endsAt(day.format(new Date(banner.endsAt)))}
+                  </span>
+                ) : null}
               </div>
-              {banner.featured ? <FeaturedCard banner={banner} /> : null}
+              {banner.featured ? <FeaturedCard banner={banner} galaxy={finds?.featured[banner.id]} /> : null}
+              <Showcase galaxies={finds?.showcase ?? []} />
             </section>
 
             <aside className="lip panel scanner-side">
               <Odds banner={banner} />
-              {pull.isError ? (
+              {pull.isError && !revealed ? (
                 <p className="summary error" role="alert">
                   <Icon name="alert" />
                   <span>{errorText(pull.error, copy.errors)}</span>
                 </p>
               ) : null}
-              {view.freePullAvailable && banner.kind === 'standard' ? (
-                <button type="button" className="lip pull-free" disabled={busy} onClick={() => scan(1, 'free')}>
-                  <Icon name="radar" />
+              {view.freePullAvailable && banner.kind === "standard" ? (
+                <button
+                  type="button"
+                  className="lip pull-free"
+                  disabled={busy}
+                  onClick={() => scan(1, "free")}
+                >
+                  <Icon name="radar" outline />
                   <span>
                     <b>{copy.scanner.free}</b>
                     <span>{copy.scanner.freeHint}</span>
                   </span>
                 </button>
               ) : null}
-              {banner.currency === 'signal' || banner.currency.startsWith('signal:') ? (
-                <div className="pull-row">
-                  <span className="pull-label">{banner.currency === 'signal' ? copy.scanner.withSignals : copy.scanner.withEventSignals(signals)}</span>
-                  <PullButton count={1} cost={copy.scanner.costSignals(view.costs.signals)} disabled={busy || signals < view.costs.signals} onClick={() => scan(1, 'signal')} solar={!isEvent} event={isEvent} />
-                  <PullButton count={10} cost={copy.scanner.costSignals(view.costs.signals * 10)} disabled={busy || signals < view.costs.signals * 10} onClick={() => scan(10, 'signal')} solar={!isEvent} event={isEvent} tour="pull10" />
-                </div>
-              ) : null}
-              <div className="pull-row">
-                <span className="pull-label">{copy.scanner.withCoins}</span>
-                <PullButton count={1} cost={copy.scanner.costCoins(view.costs.coins)} disabled={busy || (wallet?.coins ?? 0) < view.costs.coins} onClick={() => scan(1, 'coins')} />
-                <PullButton count={10} cost={copy.scanner.costCoins(view.costs.coinsTen)} disabled={busy || (wallet?.coins ?? 0) < view.costs.coinsTen} onClick={() => scan(10, 'coins')} />
+              {/* «Escanear» once, with what you hold (2026-11-17): the buttons need no labels of their own. */}
+              <div className="pull-head">
+                <span className="pull-title">{copy.scanner.pullTitle}</span>
+                <span className="pull-have">
+                  <span className={`pull-have-item ${isEvent ? "pull-have-uv" : "pull-have-signal"}`}>
+                    <Icon name="ticket" />
+                    <b aria-hidden="true">{fmt(signals)}</b>
+                    <span className="sr-only">{isEvent ? copy.hub.resource.eventSignal(signals) : copy.hub.resource.signal(signals)}</span>
+                  </span>
+                  <span className="pull-have-item pull-have-coins">
+                    <Icon name="coin" />
+                    <b aria-hidden="true">{fmt(wallet?.coins ?? 0)}</b>
+                    <span className="sr-only">{copy.hub.resource.coins(wallet?.coins ?? 0)}</span>
+                  </span>
+                </span>
               </div>
+              <PullRow
+                costs={view.costs}
+                pay="signal"
+                have={signals}
+                busy={busy}
+                onScan={(n) => scan(n, "signal")}
+                look={isEvent ? "pull-event" : "solar"}
+                tour="pull10"
+              />
+              <PullRow
+                costs={view.costs}
+                pay="coins"
+                have={wallet?.coins ?? 0}
+                busy={busy}
+                onScan={(n) => scan(n, "coins")}
+                look="pull-coins"
+              />
             </aside>
           </main>
+        ) : null}
+        {banner && view ? (
+          <FindsTicker recent={finds?.recent ?? []} mine={finds?.mine ?? []} loading={!finds && !findsQuery.isError} />
         ) : gacha.isError ? (
           <p className="summary error" role="alert">
             <Icon name="alert" />
@@ -228,16 +522,87 @@ export function ScannerScreen() {
 
       {revealed ? (
         <RevealStage
-          pulls={revealed}
+          pulls={revealed.pulls}
+          failed={revealed.failed}
+          summaryOnly={revealed.summaryOnly}
+          // The bands have opened again: back to the last summary (its error over the buttons), or to the scanner.
+          onAbort={() =>
+            setRevealed((r) =>
+              r?.last
+                ? {
+                    ...r,
+                    pulls: r.last,
+                    last: null,
+                    failed: false,
+                    summaryOnly: true,
+                  }
+                : null,
+            )
+          }
           onClose={() => {
             setRevealed(null);
-            emitTour('scanner:revealClosed');
+            emitTour("scanner:revealClosed");
           }}
+          status={
+            pull.isError ? (
+              <p className="summary error" role="alert">
+                <Icon name="alert" />
+                <span>{errorText(pull.error, copy.errors)}</span>
+              </p>
+            ) : revealed && !againOn ? (
+              <p className="summary-missing">{copy.scanner.againClosed}</p>
+            ) : again && again.missing > 0 ? (
+              <p className="summary-missing">
+                {again.currency === "signal"
+                  ? copy.scanner.missingSignals(again.missing)
+                  : copy.scanner.missingCoins(again.missing)}
+              </p>
+            ) : null
+          }
           actions={
-            <Link to="/coleccion" className="lip pill pill-solar">
-              <Icon name="cards" />
-              <span>{copy.scanner.toCollection}</span>
-            </Link>
+            guided ? null : (
+              <>
+                {again ? (
+                  <button
+                    type="button"
+                    className="lip pill pill-solar scan-again"
+                    disabled={busy || again.missing > 0}
+                    aria-busy={busy || undefined}
+                    onClick={() =>
+                      scan(again.count, again.pay, revealed?.banner)
+                    }
+                  >
+                    <Icon name="radar" />
+                    <span>
+                      {busy
+                        ? copy.scanner.scanning
+                        : copy.scanner.again(again.count)}
+                    </span>
+                    {busy ? null : (
+                      <small>
+                        {again.currency === "signal"
+                          ? copy.scanner.costSignals(again.cost)
+                          : copy.scanner.costCoins(again.cost)}
+                      </small>
+                    )}
+                  </button>
+                ) : revealed ? (
+                  // Its scanner has closed: the button stays, off, with the reason over it.
+                  <button
+                    type="button"
+                    className="lip pill pill-solar scan-again"
+                    disabled
+                  >
+                    <Icon name="radar" />
+                    <span>{copy.scanner.again(revealed.count)}</span>
+                  </button>
+                ) : null}
+                <Link to="/coleccion" className="lip pill pill-uv">
+                  <Icon name="cards" />
+                  <span>{copy.scanner.toCollection}</span>
+                </Link>
+              </>
+            )
           }
         />
       ) : null}

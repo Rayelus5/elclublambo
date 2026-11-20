@@ -33,6 +33,8 @@ export interface CoopPlayer {
   relics: RelicInput[];
   bonuses: StatBonus[];
   variant: string | null;
+  /** The skin its probe wears (plan «skins»; absent in runs from before it: the base drawing). */
+  skin?: string | null;
 }
 
 /** Everything a player needs to simulate the run, and its own place in it. */
@@ -79,6 +81,8 @@ export const COOP_SUM_EVERY = 300;
 export const coopClientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('in'), mx: int(-127, 127), my: int(-127, 127), aim: int(-1, 4095) }).strict(),
   z.object({ t: z.literal('pick'), i: int(0, 15), seq: int(0, 255) }).strict(),
+  // The player's dash (SIM 1.12.0), with the pointer's angle at the press (−1: none) for a probe standing still.
+  z.object({ t: z.literal('dash'), a: int(-1, 4095) }).strict(),
   z.object({ t: z.literal('leave') }).strict(),
   z.object({ t: z.literal('ping'), at: z.number().finite() }).strict(),
   z.object({ t: z.literal('mark'), kind: z.enum(COOP_MARKS), x: int(-1_000_000, 1_000_000), y: int(-1_000_000, 1_000_000) }).strict(),
@@ -89,10 +93,22 @@ export type CoopClientMessage = z.infer<typeof coopClientMessageSchema>;
 /** How the run ended for the group. */
 export type CoopOutcome = 'extracted' | 'died' | 'interrupted';
 
+/**
+ * The start of a group run (2026-11-17, the owner: the loading screen must really hide the start): who of the players
+ * has the run open (by slot), and how long until the first tick on the server's clock, in ms when it was sent (null:
+ * it still waits for players; negative: it already started). The loading screen shows both and counts down to it.
+ */
+export interface CoopGate {
+  connected: boolean[];
+  startsIn: number | null;
+}
+
 /** What the server sends on the play socket. */
 export type CoopServerMessage =
   /** On connecting (and reconnecting): the run, its sealed log so far (base64, log v2) and the tick it closes up to. */
-  | { t: 'hello'; start: CoopRunStart; log: string; to: number }
+  | { t: 'hello'; start: CoopRunStart; log: string; to: number; gate?: CoopGate }
+  /** Before the start: who is in, and when it starts once everyone is (or the wait is over). */
+  | ({ t: 'gate' } & CoopGate)
   /** More sealed events (flat [tick, probe, kind, a, b, c]…), all ticks up to `to` closed. */
   | { t: 'f'; to: number; ev: number[] }
   /** The run is over: how, and what this player was paid (null: nothing, e.g. already paid). */

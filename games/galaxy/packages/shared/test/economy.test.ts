@@ -25,3 +25,13 @@ test('el día reparte las partidas por el rendimiento diario y un multiplicador 
   expect(dust - short.perRun.dust * 2).toBeGreaterThanOrEqual(0);
   expect(dust - short.perRun.dust * 2).toBeLessThanOrEqual(1);
 });
+
+// The review of 2026-11-16: the simulator pays the chosen sector's factor, as the server does (loot, material, caps).
+test('el sector elegido paga su factor, como el servidor', () => {
+  const at = new Date('2026-11-15T12:00:00Z');
+  const forge = simulateEconomy([sample], runs, none, { minutesPerDay: 60, at, sector: 1.5 });
+  const pay = runPayout({ ...sample, hash: '0000000000000000' }, runs, 1, false, { coins: 0, dust: 0 }, { coins: 1, dust: 1 }, 1.5);
+  expect(forge.perRun.coins).toBe(pay.coins);
+  expect(forge.perRun.coins).toBeGreaterThan(simulateEconomy([sample], runs, none, { minutesPerDay: 60, at }).perRun.coins);
+});
+

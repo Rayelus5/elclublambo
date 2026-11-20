@@ -1,0 +1,924 @@
+{
+  "products": [
+    {
+      "id": "welcome",
+      "kind": "welcome",
+      "name": "Pack de bienvenida",
+      "art": "welcome",
+      "grants": {
+        "coins": 1500,
+        "dust": 800,
+        "components": 200
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 199,
+      "stripePriceId": "price_1UafvdEruIxZQ4kLEpOZu36c",
+      "offer": null,
+      "badge": "new",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": null,
+      "maxPerAccount": 1
+    },
+    {
+      "id": "coins-1",
+      "kind": "pack",
+      "name": "Puñado de monedas",
+      "art": "coins-1",
+      "grants": {
+        "coins": 500,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 399,
+      "stripePriceId": "price_1UafveEruIxZQ4kLT3WOwnqh",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "coins-2",
+      "kind": "pack",
+      "name": "Bolsa de monedas",
+      "art": "coins-2",
+      "grants": {
+        "coins": 1000,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 200,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 699,
+      "stripePriceId": "price_1UafveEruIxZQ4kLpifh2xnZ",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "coins-3",
+      "kind": "pack",
+      "name": "Saco de monedas",
+      "art": "coins-3",
+      "grants": {
+        "coins": 2000,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 500,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 1299,
+      "stripePriceId": "price_1UafveEruIxZQ4kLRX28Ysr7",
+      "offer": null,
+      "badge": "popular",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "coins-4",
+      "kind": "pack",
+      "name": "Cofre de monedas",
+      "art": "coins-4",
+      "grants": {
+        "coins": 4000,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 1300,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 2499,
+      "stripePriceId": "price_1UafvfEruIxZQ4kLtP9Pmq4i",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "coins-5",
+      "kind": "pack",
+      "name": "Arca de monedas",
+      "art": "coins-5",
+      "grants": {
+        "coins": 8000,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 3000,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 4999,
+      "stripePriceId": "price_1UafvfEruIxZQ4kLEuldseYX",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "coins-6",
+      "kind": "pack",
+      "name": "Bóveda estelar",
+      "art": "coins-6",
+      "grants": {
+        "coins": 15000,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 8000,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 9999,
+      "stripePriceId": "price_1UafvfEruIxZQ4kL9AFFPTCl",
+      "offer": null,
+      "badge": "best",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-1",
+      "kind": "pack",
+      "name": "Pizca de polvo",
+      "art": "dust-1",
+      "grants": {
+        "coins": 0,
+        "dust": 250,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 399,
+      "stripePriceId": "price_1UafvfEruIxZQ4kLjyWJL11z",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-2",
+      "kind": "pack",
+      "name": "Frasco de polvo",
+      "art": "dust-2",
+      "grants": {
+        "coins": 0,
+        "dust": 500,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 100,
+        "components": 0
+      },
+      "priceCents": 699,
+      "stripePriceId": "price_1UafvgEruIxZQ4kL5J75R8R6",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-3",
+      "kind": "pack",
+      "name": "Tarro de polvo",
+      "art": "dust-3",
+      "grants": {
+        "coins": 0,
+        "dust": 1000,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 250,
+        "components": 0
+      },
+      "priceCents": 1299,
+      "stripePriceId": "price_1UafvgEruIxZQ4kLqCxOOYkL",
+      "offer": null,
+      "badge": "popular",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-4",
+      "kind": "pack",
+      "name": "Ánfora de polvo",
+      "art": "dust-4",
+      "grants": {
+        "coins": 0,
+        "dust": 2000,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 650,
+        "components": 0
+      },
+      "priceCents": 2499,
+      "stripePriceId": "price_1UafvgEruIxZQ4kLNySPIrOv",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-5",
+      "kind": "pack",
+      "name": "Nebulosa embotellada",
+      "art": "dust-5",
+      "grants": {
+        "coins": 0,
+        "dust": 4000,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 1500,
+        "components": 0
+      },
+      "priceCents": 4999,
+      "stripePriceId": "price_1UafvhEruIxZQ4kLcdMv8O1k",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "dust-6",
+      "kind": "pack",
+      "name": "Galaxia de polvo",
+      "art": "dust-6",
+      "grants": {
+        "coins": 0,
+        "dust": 7500,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 4000,
+        "components": 0
+      },
+      "priceCents": 9999,
+      "stripePriceId": "price_1UafvhEruIxZQ4kLXZY7Y12I",
+      "offer": null,
+      "badge": "best",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-1",
+      "kind": "pack",
+      "name": "Caja de piezas",
+      "art": "components-1",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 100
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 399,
+      "stripePriceId": "price_1UafvhEruIxZQ4kLdnKGh6uA",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-2",
+      "kind": "pack",
+      "name": "Kit de componentes",
+      "art": "components-2",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 200
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 40
+      },
+      "priceCents": 699,
+      "stripePriceId": "price_1UafvhEruIxZQ4kLCvnGIchp",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-3",
+      "kind": "pack",
+      "name": "Cajón técnico",
+      "art": "components-3",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 400
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 100
+      },
+      "priceCents": 1299,
+      "stripePriceId": "price_1UafviEruIxZQ4kLsoYgcQMq",
+      "offer": null,
+      "badge": "popular",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-4",
+      "kind": "pack",
+      "name": "Palé de componentes",
+      "art": "components-4",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 800
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 260
+      },
+      "priceCents": 2499,
+      "stripePriceId": "price_1UafviEruIxZQ4kLduxrKKig",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-5",
+      "kind": "pack",
+      "name": "Contenedor de carga",
+      "art": "components-5",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 1600
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 600
+      },
+      "priceCents": 4999,
+      "stripePriceId": "price_1UafviEruIxZQ4kLEPgXlC4Y",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "components-6",
+      "kind": "pack",
+      "name": "Fábrica en una caja",
+      "art": "components-6",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 3000
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 1600
+      },
+      "priceCents": 9999,
+      "stripePriceId": "price_1UafvjEruIxZQ4kLa0HjtZ67",
+      "offer": null,
+      "badge": "best",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": true,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "kit-arranque",
+      "kind": "bundle",
+      "name": "Kit de arranque",
+      "art": "kit-arranque",
+      "grants": {
+        "coins": 1200,
+        "dust": 600,
+        "components": 150
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 999,
+      "stripePriceId": "price_1UafvjEruIxZQ4kLB8Vor7Nv",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "kit-explorador",
+      "kind": "bundle",
+      "name": "Kit del explorador",
+      "art": "kit-explorador",
+      "grants": {
+        "coins": 4500,
+        "dust": 2250,
+        "components": 600
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 1999,
+      "stripePriceId": "price_1UafvjEruIxZQ4kLv3I8vmSJ",
+      "offer": null,
+      "badge": "popular",
+      "featured": true,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "kit-comandante",
+      "kind": "bundle",
+      "name": "Kit del comandante",
+      "art": "kit-comandante",
+      "grants": {
+        "coins": 12000,
+        "dust": 6000,
+        "components": 1600
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 4999,
+      "stripePriceId": "price_1UafvkEruIxZQ4kLFmURzlwN",
+      "offer": null,
+      "badge": "best",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": null,
+      "maxPerAccount": null
+    },
+    {
+      "id": "style-nebula-queen",
+      "kind": "cosmetic",
+      "name": "Reina de la nebulosa",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 299,
+      "stripePriceId": "price_1Uas5cEruIxZQ4kLiiJLuMXR",
+      "offer": null,
+      "badge": "new",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "avatar",
+        "id": "shop-nebula-queen"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-void-knight",
+      "kind": "cosmetic",
+      "name": "Caballero del vacío",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 299,
+      "stripePriceId": "price_1Uas5dEruIxZQ4kLBf76pI5G",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "avatar",
+        "id": "shop-void-knight"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-star-fox",
+      "kind": "cosmetic",
+      "name": "Zorro estelar",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 199,
+      "stripePriceId": "price_1Uas5dEruIxZQ4kL3sXJ00W5",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "avatar",
+        "id": "shop-star-fox"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-comet-rider",
+      "kind": "cosmetic",
+      "name": "Jinete del cometa",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 199,
+      "stripePriceId": "price_1Uas5dEruIxZQ4kL1RzvrpnG",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "avatar",
+        "id": "shop-comet-rider"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-prism",
+      "kind": "cosmetic",
+      "name": "Marco Prisma",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 299,
+      "stripePriceId": "price_1Uas5dEruIxZQ4kLeRrqddaa",
+      "offer": null,
+      "badge": "popular",
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "frame",
+        "id": "prism"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-solar",
+      "kind": "cosmetic",
+      "name": "Marco Corona solar",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 249,
+      "stripePriceId": "price_1Uas5eEruIxZQ4kLNd5ptlfi",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "frame",
+        "id": "solar"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-eclipse",
+      "kind": "cosmetic",
+      "name": "Marco Eclipse",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 149,
+      "stripePriceId": "price_1Uas5eEruIxZQ4kLjzmktsT0",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "frame",
+        "id": "eclipse"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-starlight",
+      "kind": "cosmetic",
+      "name": "Marco Luz de estrellas",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 99,
+      "stripePriceId": "price_1Uas5eEruIxZQ4kL65Apc9g2",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "frame",
+        "id": "starlight"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-patron",
+      "kind": "cosmetic",
+      "name": "Título «Mecenas estelar»",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 199,
+      "stripePriceId": "price_1Uas5fEruIxZQ4kL37Ku8iab",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "title",
+        "id": "Mecenas estelar"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-pioneer",
+      "kind": "cosmetic",
+      "name": "Título «Pionero del ECN»",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 149,
+      "stripePriceId": "price_1Uas5fEruIxZQ4kLg3O7AAkg",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "title",
+        "id": "Pionero del ECN"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-guardian",
+      "kind": "cosmetic",
+      "name": "Título «Guardián de la nebulosa»",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 99,
+      "stripePriceId": "price_1Uas5fEruIxZQ4kLbE771zCB",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "title",
+        "id": "Guardián de la nebulosa"
+      },
+      "maxPerAccount": 1
+    },
+    {
+      "id": "style-voyager",
+      "kind": "cosmetic",
+      "name": "Título «Viajero del vacío»",
+      "art": "",
+      "grants": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "bonus": {
+        "coins": 0,
+        "dust": 0,
+        "components": 0
+      },
+      "priceCents": 99,
+      "stripePriceId": "price_1Uas5fEruIxZQ4kLT2xFS9vb",
+      "offer": null,
+      "badge": null,
+      "featured": false,
+      "enabled": true,
+      "staffOnly": false,
+      "firstBonus": false,
+      "cosmetic": {
+        "kind": "title",
+        "id": "Viajero del vacío"
+      },
+      "maxPerAccount": 1
+    }
+  ]
+}

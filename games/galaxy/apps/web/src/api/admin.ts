@@ -1,4 +1,4 @@
-import type { AdminPlayer, AdminPlayerList, AdminProgress, AdminSection, AdminSectionName, AuditPage, AuditQuery } from '@galaxy/shared';
+import type { AdminPlayer, AdminPlayerList, AdminPlayerQuery, AdminProgress, AdminSection, AdminSectionName, AuditPage, AuditQuery } from '@galaxy/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -7,11 +7,12 @@ import { api } from './client';
 
 export const ADMIN_KEY = ['admin'] as const;
 
-export function usePlayerSearch(q: string) {
+/** The players list (plan «escáner pro», part F): every filter is always sent, in a fixed order. */
+export function usePlayerList(q: AdminPlayerQuery) {
+  const search = new URLSearchParams({ q: q.q, state: q.state, sort: q.sort, dir: q.dir, page: String(q.page) }).toString();
   return useQuery({
-    queryKey: [...ADMIN_KEY, 'search', q],
-    queryFn: () => api<AdminPlayerList>(`/admin/players?q=${encodeURIComponent(q)}`),
-    enabled: q.length > 0,
+    queryKey: [...ADMIN_KEY, 'list', search],
+    queryFn: () => api<AdminPlayerList>(`/admin/players?${search}`),
     placeholderData: keepPreviousData,
   });
 }
@@ -34,11 +35,14 @@ export function usePlayerSection(username: string, section: AdminSectionName | n
   });
 }
 
-/** A change from the panel (to a player, a message, a mute or a clan): `url` follows `/galaxy/api`. */
+/**
+ * A change from the panel (to a player, a message, a mute, a clan or a referral code): `url` follows `/galaxy/api`. A
+ * POST unless it says PUT (a code's limits, an owner's rewards).
+ */
 export function useAdminPost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { url: string; body: unknown }) => api<Record<string, unknown>>(v.url, { method: 'POST', body: v.body }),
+    mutationFn: (v: { url: string; body: unknown; method?: 'POST' | 'PUT' }) => api<Record<string, unknown>>(v.url, { method: v.method ?? 'POST', body: v.body }),
     onSettled: () => void qc.invalidateQueries({ queryKey: ADMIN_KEY }),
   });
 }

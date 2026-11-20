@@ -12,20 +12,15 @@ import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { Link } from 'react-router';
 import { playGalaxyLevel } from './sfx';
+import { RelicSheet } from '../hangar/RelicSheet';
+import { tierSparks } from '../a11y/color-vision';
+import { usePrefs } from '../settings/prefs';
 
 // A galaxy up close (GDD §8.1, §8.5): the card big on the left (it turns over to show its back) with the 3D
 // inspector under it; on the right, in the order a player looks for them, the favourite star, its level (levelling
 // up is celebrated: sparks in its tier's colours, the card glows, the new level and a sound), where it came from and
 // what it is worth, its lineage if it was fused, and then selling or disintegrating — always behind a confirmation
 // that says what it pays.
-/** The sparks of a level up, in the tier's colours (bright, then deep). */
-const TIER_SPARKS: Record<string, [string, string]> = {
-  common: ['#ffffff', '#c9d0ea'],
-  uncommon: ['#d8fff0', '#45e3a6'],
-  rare: ['#e6f3ff', '#6fb7ff'],
-  epic: ['#f1ebff', '#b39dff'],
-  legendary: ['#fff8e0', '#ffc94a'],
-};
 const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
 
 function Info({ g }: { g: GalaxyDetail }) {
@@ -103,15 +98,17 @@ function RelicLevel({ g, onLeveled }: { g: GalaxyDetail; onLeveled: (level: numb
   );
 }
 
-export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (name: string, dust: number) => void }) {
+export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (galaxy: GalaxyDetail, dust: number) => void }) {
   const detail = useGalaxyDetail(id);
   const disintegrate = useDisintegrate();
   const lock = useLock();
   const [confirming, setConfirming] = useState(false);
   const [inspecting, setInspecting] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const [back, setBack] = useState(false);
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
   useEffect(() => {
     if (!celebrate) return;
     const t = setTimeout(() => setCelebrate(null), 2600);
@@ -151,12 +148,15 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
           <div className="detail-stage">
             <div className={`detail-flip${back ? ' back' : ''}${celebrate ? ' leveled' : ''}`} data-tier={g.tier}>
               <div className="detail-face front">
-                <GalaxyCard galaxy={g} size={280} interactive />
+                <GalaxyCard galaxy={g} size={280} interactive>
+                  {/* The card opens what it does as a relic (plan «escáner pro», part D). */}
+                  <button type="button" className="gcard-hit" aria-label={copy.hangar.sheet.open(g.name)} title={copy.hangar.sheet.open(g.name)} aria-haspopup="dialog" onClick={() => setSheet(true)} />
+                </GalaxyCard>
               </div>
               <div className="detail-face rear">
                 <CardBack galaxy={g} size={280} />
               </div>
-              {celebrate ? <Celebration key={celebrate.key} title={copy.collection.levelBanner(celebrate.level)} subtitle={copy.collection.levelDone} reduced={reduced} hot={TIER_SPARKS[g.tier] ?? TIER_SPARKS.common!} cold="#bfe3ff" /> : null}
+              {celebrate ? <Celebration key={celebrate.key} title={copy.collection.levelBanner(celebrate.level)} subtitle={copy.collection.levelDone} reduced={reduced} hot={tierSparks(g.tier, colorVision)} cold="#bfe3ff" /> : null}
             </div>
             <div className="detail-stage-actions">
               <button type="button" className="lip pill" aria-pressed={back} onClick={() => setBack((b) => !b)}>
@@ -234,6 +234,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
         </div>
       </Dialog>
       {inspecting ? <Inspector galaxy={g} onClose={() => setInspecting(false)} /> : null}
+      {sheet ? <RelicSheet mode="view" galaxy={g} onClose={() => setSheet(false)} /> : null}
       {confirming ? (
         <Dialog role="alertdialog" title={copy.collection.disintegrateTitle(g.name)} onClose={() => setConfirming(false)} className="confirm">
           <p>{copy.collection.disintegrateBody(g.dust)}</p>
@@ -256,7 +257,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 disintegrate.mutate(g.id, {
                   onSuccess: (res) => {
                     setConfirming(false);
-                    onDisintegrated(g.name, res.dust);
+                    onDisintegrated(g, res.dust);
                   },
                 })
               }

@@ -1,3 +1,4 @@
+import type { WorldState } from './systems/world-events';
 import type { StatBonus } from './systems/stats';
 import type { AnomalyDef, Content, ElementId, ProbeDef, SectorDef } from './content/types';
 import type { SimEvent } from './events';
@@ -19,6 +20,23 @@ export interface ProbeInput {
   offer?: number;
   /** Co-op: the player's presence (sticky): 0 here, 1 away (disconnected), 2 left the run for good. */
   presence?: number;
+  /**
+   * A dash asked for on this tick (SHIFT, Space or the pad's A; SIM 1.12.0), with the pointer's angle step at the press
+   * (−1: none) for a probe standing still. Absent: no dash.
+   */
+  dash?: number;
+}
+
+/**
+ * The player's dash (systems/dash.ts): charges ready, ticks until the next one comes back (0 while full), ticks before
+ * another is allowed, and the dash in course (ticks left, 0 when none, and its direction as an angle step).
+ */
+export interface DashState {
+  charges: number;
+  recharge: number;
+  pause: number;
+  t: number;
+  dir: number;
 }
 
 /**
@@ -67,7 +85,7 @@ export const IDLE: ProbeInput = Object.freeze({ mx: 0, my: 0, aim: -1, pick: -1 
 export interface RelicInput {
   id: string;
   seed: string;
-  /** 0 common … 4 legendary. */
+  /** 0 common … 4 legendary, 5 mythic. */
   tier: number;
   level: number;
   traits: Record<string, string>;
@@ -130,6 +148,16 @@ export interface Stats {
   barrier: number;
   /** More enemies and more loot (fraction). */
   curse: number;
+  /** Chance to phase through a hit (Fase cuántica, Nov plan B2). */
+  evasion: number;
+  /** Extra damage to Núcleos and elites (Cazanúcleos). */
+  bossDamage: number;
+  /** Ordinary enemies at or under this fraction of their life are finished off (Protocolo de purga). */
+  execute: number;
+  /** How hard every hit pushes an enemy away (Repulsor). */
+  knockback: number;
+  /** Extra damage while moving (Inercia). */
+  movingDamage: number;
 }
 
 /** A level-up card. `evolve`: the evolution `id` replaces its base weapon (GDD §5.3). */
@@ -182,9 +210,15 @@ export interface ProbeState {
   stats: Stats;
   /** Damage absorbed before life (elliptical relics). */
   shield: number;
+  /** The player's dash (SIM 1.12.0). */
+  dash: DashState;
   kills: number;
   /** Per-probe state of later systems (relic cooldowns, buffs…). */
   fx: Record<string, number>;
+  /** «La Estática te alcanza» (2026-11-16): where it has been standing and for how many ticks. */
+  still: { x: number; y: number; t: number };
+  /** Life it may still steal now (2026-11-16): refills by the healing budget each tick. */
+  healBank: number;
 }
 
 /** Who dealt a hit (for statuses, lifesteal and kill credit). */
@@ -206,10 +240,13 @@ export interface BossState {
   index: number;
   def: string;
   phase: number;
-  /** Ticks until the next pattern, the pattern cursor and the running pattern (spiral, charge). */
+  /**
+   * Ticks until the next pattern, the pattern cursor and the running pattern (spiral, charge…). Nov plan B4: a laser
+   * keeps the signed turn of its beam in `arc`; a closing ring, its centre in `x`, `y`.
+   */
   t: number;
   cursor: number;
-  active: { kind: string; t: number; a: number } | null;
+  active: { kind: string; t: number; a: number; arc?: number; x?: number; y?: number } | null;
 }
 
 /** A warned blast waiting to go off (systems/blasts.ts). */
@@ -265,8 +302,10 @@ export interface Sim {
   beacon: BeaconState | null;
   /** Warned blasts in the order they were laid. */
   blasts: Blast[];
-  /** Coins, star dust and components picked up in each layer (index = layer − 1). */
+  /** Coins, star dust, components and satellite signals picked up in each layer (index = layer − 1). */
   loot: LayerLoot[];
+  /** World events from the seed (SIM 1.10.0): the schedule and the abandoned satellites drifting now. */
+  world: WorldState;
   kills: number;
   bossKills: number;
   events: SimEvent[];
@@ -276,6 +315,8 @@ export interface Sim {
   /** Co-op rules (absent in solo) and the players the current layer is scaled for. */
   coop: CoopRules | null;
   players: number;
+  /** Admin debug mode (2026-11-15), solo test runs only: set by the client between steps, never recorded or hashed. */
+  debug?: { god: boolean };
 }
 
 export interface RunSummary {
@@ -295,6 +336,8 @@ export interface LayerLoot {
   coins: number;
   dust: number;
   components: number;
+  /** Signals from abandoned satellites (SIM 1.10.0; world events). */
+  signals: number;
 }
 
 /** The chunks whose props are live (sorted keys) and, per chunk, a bit for each prop already broken. */

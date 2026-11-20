@@ -1,0 +1,74 @@
+import { describe, expect, test } from 'vitest';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, cosmeticsConfigSchema, DEFAULT_COSMETICS, FRAMES, profileCosmeticsSchema, portraitFor, skinParts } from '../src/index';
+
+// Profile cosmetics (Nov plan C2): the live catalog of avatars, frames and titles, and what a player may wear.
+describe('el catálogo de cosméticos', () => {
+  test('por defecto trae el lote de estreno: 28 avatares, 16 marcos y 4 títulos de tienda', () => {
+    const c = cosmeticsConfigSchema.parse({});
+    expect(c.avatars).toHaveLength(28);
+    expect(c.frames).toHaveLength(16);
+    expect(c.titles.filter((t) => t.source === 'shop')).toHaveLength(4);
+    expect(c.avatars.filter((a) => a.source === 'default')).toHaveLength(12);
+    expect(c).toEqual(DEFAULT_COSMETICS);
+  });
+
+  test('cada pieza tiene arte: un id sin dibujo no se puede publicar', () => {
+    expect(cosmeticsConfigSchema.safeParse({ avatars: [{ id: 'no-existe', name: 'X', rarity: 'common', source: 'default', hint: 'x' }] }).success).toBe(false);
+    for (const a of DEFAULT_COSMETICS.avatars) expect(ART_AVATARS).toContain(a.id);
+    for (const f of DEFAULT_COSMETICS.frames) expect(ART_FRAMES).toContain(f.id);
+  });
+
+  test('no hay dos piezas con el mismo id ni dos títulos iguales', () => {
+    const twice = [...DEFAULT_COSMETICS.avatars.slice(0, 1), ...DEFAULT_COSMETICS.avatars.slice(0, 1)];
+    expect(cosmeticsConfigSchema.safeParse({ avatars: twice }).success).toBe(false);
+  });
+
+  test('los marcos de hoy siguen valiendo y los ids de marco son solo letras', () => {
+    for (const f of ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown']) expect(FRAMES).toContain(f);
+    for (const f of FRAMES) expect(f).toMatch(/^[a-z]{1,16}$/);
+  });
+});
+
+describe('lo que se pide al personalizar', () => {
+  test('cada campo es opcional y null lo quita', () => {
+    expect(profileCosmeticsSchema.parse({ avatar: 'crew-pilot' })).toEqual({ avatar: 'crew-pilot' });
+    expect(profileCosmeticsSchema.parse({ frame: null, title: null, banner: null })).toEqual({ frame: null, title: null, banner: null });
+    expect(profileCosmeticsSchema.safeParse({ avatar: 'NO VALE' }).success).toBe(false);
+    expect(profileCosmeticsSchema.safeParse({ banner: 'no-uuid' }).success).toBe(false);
+  });
+});
+
+test('el retrato de cada Núcleo', () => {
+  expect(portraitFor('hive')).toBe('portrait-hive');
+  expect(portraitFor('echo-core')).toBe('portrait-echo-core');
+  expect(portraitFor('nadie')).toBeNull();
+});
+
+describe('skins de sondas (plan «skins», parte C)', () => {
+  test('diez por sonda: Chatarra, Coral, Aurora, Leyenda y los seis packs de la tienda, cada una con su arte y su sonda', () => {
+    expect(ART_SKINS).toHaveLength(80);
+    // The animated ones: Aurora rides the route; Leyenda and the six packs (2026-11-17) are the shop's, legendary.
+    const PACKS = ['navidad', 'fuego', 'agua', 'galaxia', 'carbono', 'rubi'];
+    expect(DEFAULT_COSMETICS.skins.filter((k) => k.animated).map((k) => skinParts(k.id)!.line).sort()).toEqual(['aurora', 'leyenda', ...PACKS].sort().flatMap((l) => Array(8).fill(l)));
+    for (const line of ['leyenda', ...PACKS]) {
+      const skins = DEFAULT_COSMETICS.skins.filter((k) => skinParts(k.id)!.line === line);
+      expect(skins, line).toHaveLength(8);
+      expect(skins.every((k) => k.source === 'shop' && k.rarity === 'legendary'), line).toBe(true);
+    }
+    expect(DEFAULT_COSMETICS.skins.find((k) => k.id === 'skin-spark-fuego')).toMatchObject({ name: 'Chispa de fuego', hint: 'Exclusiva del Pack Fuego' });
+    expect(DEFAULT_COSMETICS.skins.map((k) => k.id).sort()).toEqual([...ART_SKINS].sort());
+    expect(skinParts('skin-sentinel-coral')).toEqual({ probe: 'sentinel', line: 'coral' });
+    expect(skinParts('skin-lumen-oro')).toBeNull();
+    expect(skinParts('probe-lumen')).toBeNull();
+    // galaxy.cosmetics.value holds 30 characters at most.
+    for (const id of ART_SKINS) expect(id.length, id).toBeLessThanOrEqual(30);
+  });
+
+  test('una skin sin arte o repetida no vale en la configuración', () => {
+    const one = DEFAULT_COSMETICS.skins[0]!;
+    expect(cosmeticsConfigSchema.safeParse({ skins: [{ ...one, id: 'skin-lumen-oro' }] }).success).toBe(false);
+    expect(cosmeticsConfigSchema.safeParse({ skins: [one, one] }).success).toBe(false);
+    // A config from before the skins gets the default ones.
+    expect(cosmeticsConfigSchema.parse({ avatars: DEFAULT_COSMETICS.avatars }).skins).toEqual(DEFAULT_COSMETICS.skins);
+  });
+});

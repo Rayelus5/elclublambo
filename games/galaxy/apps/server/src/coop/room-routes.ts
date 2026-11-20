@@ -1,14 +1,17 @@
 import {
   type LiveEvent,
+  parseConfig,
   roomCodeSchema,
   roomCreateSchema,
   roomKindSchema,
   roomReadySchema,
   roomSectorSchema,
+  roomStartBlock,
   type RoomsView,
   roomTargetSchema,
   type RoomView,
   sectorStatus,
+  TEST_FLAG,
 } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type Kysely, sql } from 'kysely';
@@ -20,7 +23,8 @@ import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
 import type { LiveHub } from '../realtime/live-hub';
 import { Buckets } from '../realtime/bucket';
-import { ensureHangar, sectorStats } from '../runs/hangar';
+import { ensureHangar, sectorAccess } from '../runs/hangar';
+import { wornSkin } from '../runs/levels';
 import { clientIp } from '../security/client-ip';
 import { areFriends, blockedBetween, prefsOf } from '../social/friends';
 import { accountLevel } from '../social/progress';
@@ -35,18 +39,30 @@ import type { CoopService } from './service';
 
 export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; rooms: Rooms; coop: CoopService; trustCfIp: boolean };
 
-/** The rooms and how their limits follow the live config (read again on every sweep, every 30 s). */
-export type Rooms = { manager: RoomManager; refresh: () => Promise<void> };
+/**
+ * The rooms and how their limits follow the live config (read again on every sweep, every 30 s). `memberChanged` is
+ * for the rest of the API: a member's probe changed in the hangar, so the room (if any) shows it to everyone in it.
+ */
+export type Rooms = {
+  manager: RoomManager;
+  refresh: () => Promise<void>;
+  memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'skin' | 'level'>>) => Promise<void>;
+  /** How many rooms fit at once and how long an idle lobby lives, as the last refresh read them. */
+  limits: () => { maxRooms: number; idleMs: number };
+};
 
 export function createRooms(config: ConfigReader): Rooms {
-  const cfg = { maxRooms: 500, idleMs: 30 * 60_000 };
+  // Until the first read lands, the config's defaults (never a looser hard-coded number).
+  const defaults = parseConfig('coop', {});
+  const cfg = { maxRooms: defaults.maxRooms, idleMs: defaults.lobbyIdleMinutes * 60_000 };
   const refresh = async () => {
     const c = await config.get('coop');
     cfg.maxRooms = c.maxRooms;
     cfg.idleMs = c.lobbyIdleMinutes * 60_000;
   };
   void refresh().catch(() => {});
-  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh };
+  // Nobody to tell until the routes are registered (registerRoomRoutes sets it).
+  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh, memberChanged: async () => {}, limits: () => ({ ...cfg }) };
 }
 
 export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
@@ -79,7 +95,17 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     const [features, coop, account] = await Promise.all([deps.config.get('features'), deps.config.get('coop'), deps.config.get('account')]);
     if (!features.coop) return { allowed: false, reason: 'disabled', minLevel: coop.minLevel, waitUntil: null };
     const t = await db.selectFrom('galaxy.tutorial').select(['done_at', 'skipped_at']).where('account_id', '=', accountId).executeTakeFirst();
-    const played = t ? null : await db.selectFrom('galaxy.runs').select('id').where('account_id', '=', accountId).where('finished_at', 'is not', null).limit(1).executeTakeFirst();
+    // An admin's test run (debug mode) is not play.
+    const played = t
+      ? null
+      : await db
+          .selectFrom('galaxy.runs')
+          .select('id')
+          .where('account_id', '=', accountId)
+          .where('finished_at', 'is not', null)
+          .where(sql<boolean>`not (${TEST_FLAG} = any(flags))`)
+          .limit(1)
+          .executeTakeFirst();
     const tutorialDone = t ? t.done_at !== null || t.skipped_at !== null : played !== undefined;
     if (!tutorialDone) return { allowed: false, reason: 'tutorial', minLevel: coop.minLevel, waitUntil: null };
     if ((await accountLevel(db, accountId, account)) < coop.minLevel) return { allowed: false, reason: 'level', minLevel: coop.minLevel, waitUntil: null };
@@ -96,15 +122,20 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
   }
 
   async function memberOf(s: { accountId: string; username: string }): Promise<MemberInit> {
-    const [level, hangar] = await Promise.all([accountLevel(db, s.accountId, await deps.config.get('account')), ensureHangar(db, s.accountId)]);
-    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe };
+    const [level, hangar, look] = await Promise.all([
+      accountLevel(db, s.accountId, await deps.config.get('account')),
+      ensureHangar(db, s.accountId),
+      db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
+    ]);
+    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, skin: await wornSkin(db, s.accountId, hangar.probe), avatar: look?.avatar ?? null, frame: look?.frame ?? null };
   }
 
   async function sectorOpenTo(accountId: string, sector: string): Promise<boolean> {
-    const [content, sectors] = await Promise.all([deps.config.get('content'), deps.config.get('sectors')]);
+    const [content, sectors, probes] = await Promise.all([deps.config.get('content'), deps.config.get('sectors'), deps.config.get('probes')]);
     const def = content.sectors.find((x) => x.id === sector);
     if (!def) return false;
-    return sectorStatus(def, await sectorStats(db, accountId), sectors).unlocked;
+    const { stats, totals } = await sectorAccess(db, accountId, probes.minRunSeconds);
+    return sectorStatus(def, stats, sectors, totals).unlocked;
   }
 
   async function blockedWithRoom(accountId: string, room: Room): Promise<boolean> {
@@ -126,6 +157,12 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     for (const x of extra) live.send(x.accountId, { type: 'room', room: null, ...(x.why ? { why: x.why } : {}) } satisfies LiveEvent);
     await Promise.all([...room.members.map((m) => live.announce(m.accountId)), ...extra.map((x) => live.announce(x.accountId))]);
   }
+
+  // A member chose another probe in the hangar: the room's waiting players see it now, not at the next Listo.
+  deps.rooms.memberChanged = async (accountId, patch) => {
+    const room = rooms.refresh(accountId, patch);
+    if (room && room.state === 'lobby') await tell(room);
+  };
 
   // A run ended: its room waits again (if it is still open) and its members learn it.
   deps.coop.onRunEnded = async (roomId, runId) => {
@@ -168,7 +205,8 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
       if (await blockedWithRoom(s.accountId, room)) continue;
       open.push(rooms.publicView(room));
     }
-    return { mine: me, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel, waitUntil: a.waitUntil };
+    // How full the server is (2026-11-17): the group panel shows «Salas 7/10» and offers solo when it is full.
+    return { mine: me, rooms: { count: rooms.all().length, max: deps.rooms.limits().maxRooms }, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel, waitUntil: a.waitUntil };
   });
 
   api.post('/galaxy/api/rooms', async (req): Promise<RoomView> => {
@@ -233,7 +271,8 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     pace(req, s.accountId);
     const { ready } = roomReadySchema.parse(req.body);
     // The probe may have changed in the hangar since joining.
-    rooms.refresh(s.accountId, { probe: (await ensureHangar(db, s.accountId)).probe });
+    const probe = (await ensureHangar(db, s.accountId)).probe;
+    rooms.refresh(s.accountId, { probe, skin: await wornSkin(db, s.accountId, probe) });
     const room = rooms.setReady(s.accountId, ready);
     await tell(room);
     return (await mine(s.accountId))!;
@@ -316,7 +355,9 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     if (!room) throw new HttpError(404, 'room_not_found');
     if (room.leader !== s.accountId) throw new HttpError(403, 'room_not_leader');
     if (room.state !== 'lobby') throw new HttpError(409, 'room_started');
-    if (!rooms.view(room, online, true).canStart) throw new HttpError(409, 'room_not_ready');
+    const view = rooms.view(room, online, true);
+    // Alone in the room (2026-11-17, the owner): a group run needs company; the web offers solo mode instead.
+    if (!view.canStart) throw new HttpError(409, roomStartBlock(view.members) === 'alone' ? 'room_alone' : 'room_not_ready');
     // Marked before anything waits: a second press (or tab) meanwhile is refused, never launched twice.
     room.state = 'starting';
     try {

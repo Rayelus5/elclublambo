@@ -31,13 +31,15 @@ export async function isListed(trx: Kysely<DB>, ids: string[]): Promise<boolean>
 
 /** Offered by its owner in an open trade that has not expired (M5c-2); `except` leaves one trade out. */
 export async function isTraded(trx: Kysely<DB>, ids: string[], except: string | null = null): Promise<boolean> {
+  // Held items belong to open trades only (closing a trade frees them); an open one past its date holds nothing.
   let q = trx
-    .selectFrom('galaxy.trades')
-    .select('id')
-    .where('status', '=', 'open')
-    .where('expires_at', '>', sql<Date>`now()`)
-    .where((eb) => eb.or([eb.and([eb('a_galaxy', 'in', ids), eb('a_offered', '=', true)]), eb.and([eb('b_galaxy', 'in', ids), eb('b_offered', '=', true)])]));
-  if (except) q = q.where('id', '!=', except);
+    .selectFrom('galaxy.trade_items as i')
+    .innerJoin('galaxy.trades as t', 't.id', 'i.trade_id')
+    .select('t.id')
+    .where('i.galaxy_id', 'in', ids)
+    .where('i.held', '=', true)
+    .where('t.expires_at', '>', sql<Date>`now()`);
+  if (except) q = q.where('t.id', '!=', except);
   return (await q.limit(1).executeTakeFirst()) !== undefined;
 }
 
@@ -57,14 +59,14 @@ export async function releaseHolds(trx: Kysely<DB>, galaxyId: string): Promise<H
     .updateTable('galaxy.trades')
     .set({ status: 'cancelled', closed_at: sql<Date>`now()` })
     .where('status', '=', 'open')
-    .where((eb) => eb.or([eb('a_galaxy', '=', galaxyId), eb('b_galaxy', '=', galaxyId)]))
+    .where('id', 'in', (eb) => eb.selectFrom('galaxy.trade_items').select('trade_id').where('galaxy_id', '=', galaxyId))
     .executeTakeFirst();
   if (Number(traded.numUpdatedRows) > 0) held.push('traded');
   return held;
 }
 
 /** `traded`, as a selectable column of galaxy.galaxies. */
-export const tradedColumn = sql<boolean>`exists (select 1 from galaxy.trades t where t.status = 'open' and t.expires_at > now() and ((t.a_galaxy = galaxy.galaxies.id and t.a_offered) or (t.b_galaxy = galaxy.galaxies.id and t.b_offered)))`.as(
+export const tradedColumn = sql<boolean>`exists (select 1 from galaxy.trade_items i join galaxy.trades t on t.id = i.trade_id where i.galaxy_id = galaxy.galaxies.id and i.held and t.expires_at > now())`.as(
   'traded',
 );
 

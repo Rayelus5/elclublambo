@@ -188,13 +188,14 @@ describe('rejilla espacial', () => {
 });
 
 describe('kits de reparación', () => {
-  test('curan el 25 % de la vida máxima sin pasarse', () => {
+  // The share is the sector's `repairHeal` (the Nebula's is 20 % since the owner's panel edit, synced in Nov plan B1).
+  test('curan la parte de la vida máxima que dice el sector, sin pasarse', () => {
     const sim = quietSim();
     const p = sim.probes[0]!;
     p.hp = 40;
     dropPickup(sim, PICKUP.repair, 1, 10, 0);
     run(sim, 30);
-    expect(p.hp).toBe(65);
+    expect(p.hp).toBeCloseTo(40 + 100 * sim.sector.drops.repairHeal, 6);
     p.hp = 90;
     dropPickup(sim, PICKUP.repair, 1, 10, 0);
     run(sim, 30);

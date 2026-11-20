@@ -8,6 +8,8 @@ import {
   probeStatus,
   type RunStats,
   type SectorCard,
+  type AccountTotals,
+  sectorPay,
   type SectorsConfig,
   type SectorStats,
   sectorStatus,
@@ -17,6 +19,10 @@ import {
   probeVariantCards,
   startingWeapon,
   nextSlot,
+  type CosmeticsConfig,
+  SCRAP_SKIN_RUNS,
+  skinParts,
+  TIERS,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -28,12 +34,14 @@ import { inTransaction } from '../db/tx';
 import { madridDay, nextMadridMidnight } from '../economy/day';
 import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { WithLive } from '../realtime/notices';
 import { isListed, isTraded } from '../market/escrow';
 
 // The hangar (GDD §5.1, §8.4): the probe and sector for the next run, and the galaxies equipped as relics in the open
 // slots. A loadout only ever shows live galaxies the player still owns.
 
-export type RunsDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
+/** `live`: the live hub, for an achievement's notice (real-time notices plan). */
+export type RunsDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date } & WithLive;
 
 const LIVE = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'] as const;
 
@@ -64,7 +72,7 @@ export async function relicSnapshot(db: Kysely<DB>, accountId: string, slots: nu
   const live = await loadoutOf(db, accountId, slots);
   return live
     .filter((g): g is GalaxySummary => g !== null)
-    .map((g) => ({ id: g.id, seed: g.seed, tier: ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(g.tier), level: g.level, traits: g.traits }));
+    .map((g) => ({ id: g.id, seed: g.seed, tier: TIERS.indexOf(g.tier), level: g.level, traits: g.traits }));
 }
 
 /** The account's stats in each sector from finished, non-suspicious runs (what opens the next sectors). */
@@ -87,7 +95,37 @@ export async function sectorStats(db: Kysely<DB>, accountId: string): Promise<Re
   return out;
 }
 
-function sectorCards(content: Content, stats: Record<string, SectorStats>, cfg: SectorsConfig): SectorCard[] {
+/**
+ * What decides whether a sector is open to the account: its stats in each sector and its runs in all of them (the season
+ * sector asks for `sectors.seasonUnlock` runs, 2026-11-16), counted like the probes' (`minSeconds` or more).
+ */
+export async function sectorAccess(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<{ stats: Record<string, SectorStats>; totals: AccountTotals }> {
+  const [stats, runs, kept] = await Promise.all([sectorStats(db, accountId), runStats(db, accountId, minSeconds), keptSectors(db, accountId)]);
+  return { stats, totals: { runs: runs.runs, kept } };
+}
+
+/** When the season sector's gate (`sectors.seasonUnlock`) went live on PRE: group runs from before it still keep it. */
+export const SEASON_GATE_SINCE = new Date('2026-11-16T09:30:00Z');
+
+/**
+ * The sectors the account keeps whatever the gate (2026-11-16 review): a finished, fair solo run there (it had access to
+ * start it), or a group run from before the gate. A group run since does not count: quick join can put a newcomer in a
+ * season-sector room, and only the leader's access is checked.
+ */
+async function keptSectors(db: Kysely<DB>, accountId: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom('galaxy.runs')
+    .select('sector')
+    .distinct()
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where('suspicious', '=', false)
+    .where((eb) => eb.or([eb('coop_run_id', 'is', null), eb('started_at', '<', SEASON_GATE_SINCE)]))
+    .execute();
+  return rows.map((r) => r.sector);
+}
+
+function sectorCards(content: Content, access: { stats: Record<string, SectorStats>; totals: AccountTotals }, cfg: SectorsConfig): SectorCard[] {
   return content.sectors.map((s) => {
     const boss = content.bosses.find((b) => b.id === s.boss);
     const fauna: SectorCard['fauna'] = [];
@@ -103,7 +141,8 @@ function sectorCards(content: Content, stats: Record<string, SectorStats>, cfg: 
       fauna,
       layerSeconds: s.layerSeconds,
       biome: s.biome,
-      ...sectorStatus(s, stats, cfg),
+      pay: sectorPay(cfg, s.id),
+      ...sectorStatus(s, access.stats, cfg, access.totals),
     };
   });
 }
@@ -127,6 +166,41 @@ export async function runStats(db: Kysely<DB>, accountId: string, minSeconds: nu
   return { runs: Number(row.runs), bossKills: Number(row.bossKills), maxDepth: Number(row.maxDepth), extractions: Number(row.extractions), kills: Number(row.kills) };
 }
 
+/** Each probe's counted runs (the same runs as `runStats`): what its Chatarra skin asks for (plan «skins»). */
+export async function probeRuns(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<Record<string, number>> {
+  const rows = await db
+    .selectFrom('galaxy.runs')
+    .select((eb) => ['probe', eb.fn.countAll<string>().as('runs')])
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where('suspicious', '=', false)
+    .where('seconds', '>=', minSeconds)
+    .groupBy('probe')
+    .execute();
+  return Object.fromEntries(rows.map((r) => [r.probe, Number(r.runs)]));
+}
+
+/**
+ * The player's skins, after giving the Chatarra skin of every probe flown SCRAP_SKIN_RUNS times (idempotent; it comes
+ * the next time the Hangar is read, whatever run reached it). A skin the catalog retired is not given.
+ */
+async function ownedSkins(db: Kysely<DB>, accountId: string, runs: Record<string, number>, cosmetics: CosmeticsConfig): Promise<string[]> {
+  const read = async () => (await db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', 'skin').orderBy('created_at').execute()).map((r) => r.value);
+  const owned = await read();
+  const due = Object.entries(runs)
+    .filter(([, n]) => n >= SCRAP_SKIN_RUNS)
+    .map(([probe]) => `skin-${probe}-chatarra`)
+    .filter((id) => !owned.includes(id) && cosmetics.skins.some((k) => k.id === id && k.enabled));
+  if (due.length === 0) return owned;
+  // All at once, in id order (two actions reading the Hangar together never lock them crosswise).
+  await db
+    .insertInto('galaxy.cosmetics')
+    .values(due.sort().map((value) => ({ account_id: accountId, kind: 'skin' as const, value })))
+    .onConflict((oc) => oc.doNothing())
+    .execute();
+  return read();
+}
+
 /** The probes an admin unlocked for the account (M6d-4), on top of what its runs unlock. */
 export async function probeGrants(db: Kysely<DB>, accountId: string): Promise<Set<string>> {
   const rows = await db.selectFrom('galaxy.probe_grants').select('probe').where('account_id', '=', accountId).execute();
@@ -145,8 +219,9 @@ export function probeCards(
   assigned: string | null,
   stats: RunStats,
   cfg: ProbesConfig,
-  levels: Record<string, { level: number; variant: string | null }> = {},
+  levels: Record<string, { level: number; variant: string | null; skin?: string | null }> = {},
   grants: ReadonlySet<string> = new Set(),
+  skins: { owned: readonly string[]; runs: Record<string, number> } = { owned: [], runs: {} },
 ): ProbeCard[] {
   return content.probes.map((p) => {
     const w = content.weapons.find((x) => x.id === p.weapon);
@@ -168,6 +243,9 @@ export function probeCards(
       bonuses: probeLevelBonuses(level, cfg),
       variant: startingWeapon(p, level, levels[p.id]?.variant ?? null, content),
       variants: probeVariantCards(p, level, content),
+      skin: levels[p.id]?.skin && skins.owned.includes(levels[p.id]!.skin!) ? levels[p.id]!.skin! : null,
+      skins: skins.owned.filter((s) => skinParts(s)?.probe === p.id),
+      runs: skins.runs[p.id] ?? 0,
     };
   });
 }
@@ -180,25 +258,28 @@ export async function playedToday(db: Kysely<DB>, accountId: string, now: Date):
 
 /** The Hangar; `db` is the transaction when an action returns it (so it sees its own change). */
 export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<DB> = deps.db): Promise<HangarView> {
-  const [content, runs, features, probes, sectorsCfg, relics] = await Promise.all([
+  const [content, runs, features, probes, sectorsCfg, relics, cosmetics] = await Promise.all([
     deps.config.get('content'),
     deps.config.get('runs'),
     deps.config.get('features'),
     deps.config.get('probes'),
     deps.config.get('sectors'),
     deps.config.get('relics'),
+    deps.config.get('cosmetics'),
   ]);
   const h = await ensureHangar(db, accountId);
   const now = deps.now();
   const assigned = await testedProbe(db, accountId);
-  const sectors = sectorCards(content, await sectorStats(db, accountId), sectorsCfg);
+  const sectors = sectorCards(content, await sectorAccess(db, accountId, probes.minRunSeconds), sectorsCfg);
   // A chosen sector that closed (the season ended, a condition was raised) falls back to the first open one.
   const chosen = sectors.find((s) => s.id === h.sector && s.unlocked) ?? sectors.find((s) => s.unlocked);
   const stats = await runStats(db, accountId, probes.minRunSeconds);
+  const flown = await probeRuns(db, accountId, probes.minRunSeconds);
+  const skins = { owned: await ownedSkins(db, accountId, flown, cosmetics), runs: flown };
   return {
     sectors,
     sector: chosen?.id ?? h.sector,
-    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId), await probeGrants(db, accountId)),
+    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId), await probeGrants(db, accountId), skins),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,

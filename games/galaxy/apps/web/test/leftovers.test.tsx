@@ -14,7 +14,7 @@ const t = copy.leftovers;
 const me: MeResponse = { id: 'p1', username: 'vega', roles: [], mfa: false, level: 6 };
 const view = (over: Partial<GachaView> = {}): GachaView => ({
   banners: [{ id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', currency: 'signal', nextRates: [0.5, 0.28, 0.13, 0.06, 0.03], sinceLegendary: 0, untilGuarantee: 10, welcome: false }],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 10, dust: 200, signal: 1 },
   leftovers: [],
@@ -50,6 +50,7 @@ test('sin escáner de evento abierto el ticket morado no sale, aunque queden se�
   const wallet = { coins: 10, dust: 200, signal: 1, 'signal:viejo': 3 };
   mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet })) });
   renderAt('/', { '/': bar(wallet) });
-  await screen.findByRole('img', { name: copy.hub.resource.signal(1) });
-  await waitFor(() => expect(screen.queryByRole('img', { name: copy.hub.resource.eventSignal(3) })).toBeNull());
+  await screen.findByRole('link', { name: new RegExp(copy.hub.resource.signal(1)) });
+  await waitFor(() => expect(screen.queryByRole('link', { name: new RegExp(copy.hub.resource.eventSignal(3)) })).toBeNull());
+  expect(document.querySelector('.res.event-signal')).toBeNull();
 });

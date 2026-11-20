@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { emitTour } from '../src/tour/bus';
-import { COUNTED } from '../src/tour/steps';
+import { chapterSteps, COUNTED } from '../src/tour/steps';
 import { TourProvider } from '../src/tour/TourProvider';
 import { jsonResponse, mockApi, renderAt } from './render';
 
@@ -127,3 +127,13 @@ test('el tour no aparece si se saltó ni en el panel de administración', async 
   await new Promise((r) => setTimeout(r, 50));
   expect(screen.queryByText(t.hub.hello)).toBeNull();
 });
+
+// The welcome pulls are made by the very step that waits for the reveal to close: when the onboarding says they are
+// done, that step must not vanish under the player (the chapter used to end, or restart on a reload).
+test('el paso en el que estás no se salta aunque su condición se cumpla mientras', () => {
+  const done = { ...fresh, welcomePulls: true };
+  expect(chapterSteps('scanner', null, done).map((s) => s.id)).toEqual(['scan-odds', 'scan-pity', 'scan-relics']);
+  expect(chapterSteps('scanner', 'scan-reveal', done).map((s) => s.id)).toEqual(['scan-odds', 'scan-pity', 'scan-reveal', 'scan-relics']);
+  expect(chapterSteps('scanner', 'scan-reveal', fresh).map((s) => s.id)).toEqual(['scan-odds', 'scan-pity', 'scan-pull', 'scan-reveal', 'scan-relics']);
+});
+

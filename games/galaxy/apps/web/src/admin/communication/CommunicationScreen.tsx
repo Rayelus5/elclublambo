@@ -1,0 +1,29 @@
+import { useState } from 'react';
+import { copy } from '../../copy/es';
+import { Compose, type ComposeSeed } from './Compose';
+import { NoticeForm, NoticeList } from './Notices';
+import { SentList } from './SentList';
+
+/**
+ * Comunicación (GDD §16.5; DESIGN_SYSTEM §8 vicies; mail v2), admins only: writing a message of a kind, with gifts of
+ * every kind and packs of the library, to everyone, a list of accounts or a segment (with how many it reaches, the
+ * letter as the player will see it, and the password when it gives anything); the sent list; the title notices.
+ */
+export function CommunicationScreen() {
+  // «Duplicar» starts a fresh form from a sent message (mail v2, P5).
+  const [seed, setSeed] = useState<{ n: number; seed: ComposeSeed } | null>(null);
+  return (
+    <section className="admin-page comms">
+      <h1>{copy.admin.sections.communication}</h1>
+      <Compose key={seed?.n ?? 0} seed={seed?.seed} />
+      <SentList
+        onDuplicate={(s) => {
+          setSeed((x) => ({ n: (x?.n ?? 0) + 1, seed: s }));
+          window.scrollTo?.({ top: 0, behavior: 'smooth' });
+        }}
+      />
+      <NoticeForm />
+      <NoticeList />
+    </section>
+  );
+}

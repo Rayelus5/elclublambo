@@ -16,7 +16,10 @@ function token(name: string, fallback: string): string {
   const v = typeof getComputedStyle === 'function' ? getComputedStyle(document.documentElement).getPropertyValue(name).trim() : '';
   return v || fallback;
 }
-const FALLBACK_TIERS = ['#c9d0ea', '#45e3a6', '#6fb7ff', '#b39dff', '#ffc94a'];
+const FALLBACK_TIERS = ['#c9d0ea', '#45e3a6', '#6fb7ff', '#b39dff', '#ffc94a', '#ff4fd8'];
+/** The mythic's «Vacío iridiscente»: a near black card in a frame of four turning tones (app.css, .gcard). */
+const MYTHIC_VOID = '#0b0a14';
+const IRIS = ['#ff4fd8', '#6fe3ff', '#ffc94a', '#b39dff'];
 /** The tier colour as a hex from the design tokens (the fixed palette if the token is missing or not hex). */
 function tierColor(t: Tier): string {
   const v = token(`--color-tier-${t}`, '');
@@ -44,8 +47,27 @@ function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
   ctx.roundRect(x, y, w, h, r);
 }
 
+/** The mythic's frame: the iridescent ring (conic where the canvas has it) around a near black card. */
+function mythicFrame(ctx: CanvasRenderingContext2D): void {
+  let ring: CanvasGradient;
+  if (typeof ctx.createConicGradient === 'function') {
+    ring = ctx.createConicGradient(-Math.PI / 2, W / 2, H / 2);
+    [...IRIS, IRIS[0]!].forEach((c, i) => ring.addColorStop(i / IRIS.length, c));
+  } else {
+    ring = ctx.createLinearGradient(0, 0, W, H);
+    IRIS.forEach((c, i) => ring.addColorStop(i / (IRIS.length - 1), c));
+  }
+  rounded(ctx, 0, 0, W, H, 70);
+  ctx.fillStyle = ring;
+  ctx.fill();
+  rounded(ctx, 22, 22, W - 44, H - 44, 52);
+  ctx.fillStyle = MYTHIC_VOID;
+  ctx.fill();
+}
+
 /** The tier frame with its relief: light top-left, the tier colour, dark bottom-right. */
-function frame(ctx: CanvasRenderingContext2D, tc: string): void {
+function frame(ctx: CanvasRenderingContext2D, tc: string, tier?: Tier): void {
+  if (tier === 'mythic') return mythicFrame(ctx);
   const g = ctx.createLinearGradient(0, 0, W * 0.6, H);
   g.addColorStop(0, mix(tc, WHITE, 0.3));
   g.addColorStop(0.38, tc);
@@ -97,7 +119,7 @@ function chip(ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
 export function drawFront(g: PulledGalaxy & { level?: number }): HTMLCanvasElement {
   const [c, ctx] = canvas();
   const tc = tierColor(g.tier);
-  frame(ctx, tc);
+  frame(ctx, tc, g.tier);
   if (g.finish === 'braille') brailleDots(ctx, 0, 0, W, H, 1);
   if (g.finish === 'corrupt') {
     ctx.save();
@@ -163,7 +185,7 @@ export function drawMask(): HTMLCanvasElement {
 export function drawBack(g: PulledGalaxy, braille: string): HTMLCanvasElement {
   const [c, ctx] = canvas();
   const tc = tierColor(g.tier);
-  frame(ctx, tc);
+  frame(ctx, tc, g.tier);
   const box = { x: 160, y: 60, size: 680 };
   const bg = ctx.createRadialGradient(W / 2, box.y + box.size * 0.4, 40, W / 2, box.y + box.size / 2, box.size * 0.7);
   bg.addColorStop(0, token('--color-panel-2', '#20234f'));

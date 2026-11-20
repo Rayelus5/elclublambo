@@ -47,6 +47,12 @@ services:
       context: ../../games/galaxy
       dockerfile: Dockerfile
     env_file: ${GALAXY_ENV_FILE:-/opt/elclub/pre/galaxy.env}
+    # The game's own domain (public values, never secrets; DEPLOY_PRE.md «Dominio propio»). GALAXY_CANONICAL_ORIGIN joins
+    # GALAXY_PUBLIC_ORIGINS and redirects its www; GALAXY_LEGACY_REDIRECT_FROM is the cutover switch (empty: off). On since
+    # the move (2026-11-17): pre.elclub.party's pages show «Galaxy Survivor se ha mudado» and send to galaxysurvivor.es.
+    environment:
+      GALAXY_CANONICAL_ORIGIN: https://galaxysurvivor.es
+      GALAXY_LEGACY_REDIRECT_FROM: pre.elclub.party
     ports:
       - "127.0.0.1:8080:8080"
     networks:

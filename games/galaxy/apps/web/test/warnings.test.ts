@@ -31,3 +31,12 @@ test('tras volver atrás en una repetición, un aviso que aún no había salido 
   expect(warningProgress(mine, 99.5)).toBeNull();
   expect(warningProgress(mine, 0)).toBeNull();
 });
+
+test('Nov plan B4: el láser guarda hacia dónde girará y el anillo que se cierra, el ancho de su hueco', () => {
+  const laser = warningFrom({ t: 'telegraph', kind: 'laser', x: 0, y: 0, angle: 512, ticks: 54, radius: 340, arc: -910 }, 10);
+  expect(laser).toMatchObject({ kind: 'laser', angle: 512, radius: 340, arc: -910, start: 10, total: 54 });
+  const ring = warningFrom({ t: 'telegraph', kind: 'closing', x: 5, y: 6, angle: 100, ticks: 60, radius: 120, arc: 683 }, 0);
+  expect(ring).toMatchObject({ kind: 'closing', x: 5, y: 6, arc: 683 });
+  // The others have no arc.
+  expect(mine.arc).toBe(0);
+});

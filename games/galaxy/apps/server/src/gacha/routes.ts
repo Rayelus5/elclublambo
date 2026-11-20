@@ -1,13 +1,16 @@
 import { createHash } from 'node:crypto';
-import { leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
+import { atLeast, type FindsView, leftoversSeenSchema, pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
+import { withNotices } from '../realtime/notices';
 import { countStats, missionConfigs } from '../missions/service';
+import { forgetFinds, gachaFinds } from './finds';
 import { markLeftoversSeen } from './leftovers';
 import { enabledGacha, pull, visit, type GachaDeps } from './service';
+import type { SessionInfo } from '../auth/sessions';
 
 /** The client's `Idempotency-Key` header (a UUID): required on every economy action (GDD §11.3). */
 export function idempotencyKey(req: FastifyRequest): string {
@@ -21,10 +24,21 @@ export function requestHash(body: unknown): string {
   return createHash('sha256').update(JSON.stringify(body)).digest('hex');
 }
 
-export function registerGachaRoutes(api: FastifyInstance, deps: GachaDeps): void {
+export function registerGachaRoutes(
+  api: FastifyInstance,
+  deps: GachaDeps & { shopFlag?: (s: SessionInfo) => Promise<NonNullable<GachaView['shop']>> },
+): void {
   api.get('/galaxy/api/gacha', async (req): Promise<GachaView> => {
     const s = requireSession(req);
-    return visit(deps, s.accountId);
+    const view = await visit(deps, s.accountId);
+    // The shop's links and its «Oferta» sign come with the wallet every screen reads (shop and lab plan, F5).
+    return deps.shopFlag ? { ...view, shop: await deps.shopFlag(s) } : view;
+  });
+
+  // What is found (2026-11-17): the scanner's «Últimos hallazgos», my best scans and the showcase (gacha/finds.ts).
+  api.get('/galaxy/api/gacha/finds', async (req): Promise<FindsView> => {
+    const s = requireSession(req);
+    return gachaFinds(deps.db, await deps.config.get('gacha'), s.accountId, deps.now());
   });
 
   // The player has seen the window telling them their leftover event signals became star dust.
@@ -44,10 +58,15 @@ export function registerGachaRoutes(api: FastifyInstance, deps: GachaDeps): void
     const seasonCfg = await deps.config.get('season');
     const season = seasonOpen(seasonCfg, deps.now()) ? seasonCfg : null;
     const mcfg = await missionConfigs(deps.config);
-    return runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
-      const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
-      await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now());
-      return r;
-    });
+    return withNotices(deps.live, (out) =>
+      runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
+        const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
+        const legendaries = r.pulls.filter((p) => atLeast(p.tier, 'legendary')).length;
+        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries }, deps.now(), out);
+        // A new find for everyone's «Últimos hallazgos».
+        if (legendaries > 0) forgetFinds();
+        return r;
+      }),
+    );
   });
 }

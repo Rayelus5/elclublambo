@@ -6,6 +6,7 @@ import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { EventsList } from '../../missions/MissionsScreen';
 import { Icon } from '../../ui/Icon';
+import { Select } from '../../ui/Select';
 import { ConfigForm } from '../forms/ConfigForm';
 import { humanDiff } from '../forms/humanDiff';
 import { issuesByPath } from '../forms/issues';
@@ -236,23 +237,23 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
                   </div>
                   <div className="cf-field">
                     <label htmlFor="ev-sc-trait">{t.scannerTrait}</label>
-                    <select id="ev-sc-trait" value={scanner.trait} onChange={(e) => setScanner({ ...scanner, trait: e.target.value, value: traitValues(e.target.value)[0]?.[0] ?? '' })}>
-                      {TRAIT_KEYS.map((k) => (
-                        <option key={k} value={k}>
-                          {copy.traitNames[k] ?? k}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      id="ev-sc-trait"
+                      block
+                      value={scanner.trait}
+                      options={TRAIT_KEYS.map((k) => ({ value: k, label: copy.traitNames[k] ?? k }))}
+                      onChange={(trait) => setScanner({ ...scanner, trait, value: traitValues(trait)[0]?.[0] ?? '' })}
+                    />
                   </div>
                   <div className="cf-field">
                     <label htmlFor="ev-sc-value">{t.scannerValue}</label>
-                    <select id="ev-sc-value" value={scanner.value} onChange={(e) => setScanner({ ...scanner, value: e.target.value })}>
-                      {traitValues(scanner.trait).map(([v, label]) => (
-                        <option key={v} value={v}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      id="ev-sc-value"
+                      block
+                      value={scanner.value}
+                      options={traitValues(scanner.trait).map(([value, label]) => ({ value, label }))}
+                      onChange={(value) => setScanner({ ...scanner, value })}
+                    />
                   </div>
                 </div>
               ) : null}

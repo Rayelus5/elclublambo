@@ -1,5 +1,7 @@
+import { HScroll } from '../../ui/HScroll';
 import { TIERS, type GalaxySummary, type HangarView } from '@galaxy/shared';
-import { activeSets, DEFAULT_CONTENT, describeRelic, type RelicInput } from '@galaxy/sim';
+import { activeSets, describeRelic, type RelicInput } from '@galaxy/sim';
+import { useLiveContent } from '../../api/content';
 import { type CSSProperties, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useGacha } from '../../api/economy';
 import { useSetLoadout, useUnlockSlot } from '../../api/runs';
@@ -10,16 +12,18 @@ import { emitTour } from '../../tour/bus';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { RelicPicker } from '../RelicPicker';
+import { RelicSheet } from '../RelicSheet';
 import { SetsPanel } from '../SetsPanel';
 import { SkillsChip, skillTags } from '../SkillTags';
 import { StepHead } from './WherePanel';
+import { tierHex } from '../../a11y/color-vision';
+import { usePrefs } from '../../settings/prefs';
 
 // Step 3, with what (GDD §8.4): the relic slots along the lobby's foot. A relic is a card with its galaxy as the
 // backdrop coming in from the side, edged in its tier's colour: its name, tier and power, and one chip with its powers
 // that opens what each does (pressing the card changes the relic); an empty slot asks for one; the next slot shows what opens it (and «Abrir
 // ranura» once it is earned); the rest are small locks. The sets the relics make open in their own window.
 
-const TIER_COLOR: Record<string, string> = { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' };
 
 export function relicInput(g: GalaxySummary): RelicInput {
   return { id: g.id, seed: g.seed, tier: TIERS.indexOf(g.tier), level: g.level, traits: g.traits };
@@ -99,15 +103,20 @@ function NextSlot({ next }: { next: NonNullable<HangarView['nextSlot']> }) {
 }
 
 export function RelicStrip({ view }: { view: HangarView }) {
+  const colorVision = usePrefs((p) => p.colorVision);
+  // The content published on PRE (plan «escáner pro», part D): a retuned relic reads right here too.
+  const content = useLiveContent();
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
+  // The galaxy picked for that slot, shown in its sheet before it is equipped (plan «escáner pro», part D).
+  const [preview, setPreview] = useState<GalaxySummary | null>(null);
   const [sets, setSets] = useState(false);
   const ids = view.loadout.map((g) => g?.id ?? null);
   const all = view.loadout.filter((g): g is GalaxySummary => g !== null).map(relicInput);
   // The same family stacked (GDD §8.6): said when some family has as many relics as the rule starts at.
-  const families = all.map((r) => describeRelic(r, all, DEFAULT_CONTENT).family);
-  const stacked = families.some((f) => families.filter((x) => x === f).length >= DEFAULT_CONTENT.relics.stacking.from);
-  const active = activeSets(all, DEFAULT_CONTENT).length;
+  const families = all.map((r) => describeRelic(r, all, content).family);
+  const stacked = families.some((f) => families.filter((x) => x === f).length >= content.relics.stacking.from);
+  const active = activeSets(all, content).length;
   const save = (next: (string | null)[]) => setLoadout.mutate(next, { onSuccess: () => (next.some((x) => x !== null) ? emitTour('hangar:relicEquipped') : undefined) });
   const firstEmpty = view.loadout.findIndex((x, i) => i < view.slots && !x);
   const locked = Math.max(0, view.maxSlots - view.slots - (view.nextSlot ? 1 : 0));
@@ -126,25 +135,25 @@ export function RelicStrip({ view }: { view: HangarView }) {
           {active ? <span className="lobby-sets-count">{copy.lobby.setsCount(active)}</span> : null}
         </button>
       </header>
-      <ol className="lobby-slots">
+      <HScroll as="ol" className="lobby-slots" label={copy.hangar.relics}>
         {Array.from({ length: view.slots }, (_, i) => {
           const g = view.loadout[i];
           if (!g) {
             return (
               <li key={i} className="lobby-slot empty" data-tour={i === firstEmpty ? 'relic-slot' : undefined}>
                 <button type="button" className="lobby-slot-add" onClick={() => setPicking(i)}>
-                  <Icon name="plus" />
+                  <Icon name="plus" outline />
                   <span>{copy.hangar.chooseRelic}</span>
                 </button>
               </li>
             );
           }
-          const skill = describeRelic(relicInput(g), all, DEFAULT_CONTENT);
-          const names = skillTags(skill)
+          const skill = describeRelic(relicInput(g), all, content);
+          const names = skillTags(skill, content)
             .filter((x) => x.kind !== 'power')
             .map((x) => x.name);
           return (
-            <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': TIER_COLOR[g.tier] ?? '#c9d0ea' } as CSSProperties}>
+            <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': tierHex(g.tier, colorVision) } as CSSProperties}>
               <RelicArt seed={g.seed} />
               <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} aria-label={copy.lobby.swapRelic(g.name)} title={copy.lobby.swapRelic(g.name)} />
               <span className="lobby-slot-body">
@@ -154,7 +163,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
                   {copy.tiers[g.tier]}
                   <span className="lobby-slot-power">{copy.hangar.power(skill.magnitude)}</span>
                 </span>
-                <SkillsChip skill={skill} galaxy={g.name} />
+                <SkillsChip skill={skill} galaxy={g.name} content={content} />
                 <span className="sr-only">{names.join(', ')}</span>
               </span>
               <button
@@ -179,7 +188,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
             <span className="sr-only">{copy.hangar.lockedSlot}</span>
           </li>
         ))}
-      </ol>
+      </HScroll>
       {stacked ? <p className="lobby-relics-note">{copy.hangar.stacking}</p> : null}
       {setLoadout.error ? (
         <p className="field-error" role="alert">
@@ -188,17 +197,29 @@ export function RelicStrip({ view }: { view: HangarView }) {
       ) : null}
       {sets ? (
         <Dialog title={copy.hangar.sets} hideTitle onClose={() => setSets(false)} className="lobby-sets-dialog">
-          <SetsPanel relics={all} />
+          <SetsPanel relics={all} content={content} />
         </Dialog>
       ) : null}
-      {picking !== null ? (
-        <RelicPicker
-          taken={new Set(ids.filter((x): x is string => x !== null && x !== ids[picking]))}
-          onClose={() => setPicking(null)}
-          onPick={(g) => {
-            const next = ids.map((x) => (x === g.id ? null : x));
-            next[picking] = g.id;
+      {picking !== null && !preview ? (
+        <RelicPicker taken={new Set(ids.filter((x): x is string => x !== null && x !== ids[picking]))} onClose={() => setPicking(null)} onPick={setPreview} />
+      ) : null}
+      {picking !== null && preview ? (
+        <RelicSheet
+          mode="equip"
+          galaxy={preview}
+          loadout={view.loadout.slice(0, view.slots)}
+          slot={picking}
+          busy={setLoadout.isPending}
+          onBack={() => setPreview(null)}
+          onClose={() => {
+            setPreview(null);
+            setPicking(null);
+          }}
+          onEquip={() => {
+            const next = ids.map((x) => (x === preview.id ? null : x));
+            next[picking] = preview.id;
             save(next);
+            setPreview(null);
             setPicking(null);
           }}
         />

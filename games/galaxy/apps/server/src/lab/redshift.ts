@@ -1,4 +1,4 @@
-import { type AccountConfig, levelOf, type RedshiftConfig, type RedshiftView } from '@galaxy/shared';
+import { type AccountConfig, type LabConfig, levelOf, type RedshiftConfig, type RedshiftView } from '@galaxy/shared';
 import type { Kysely } from 'kysely';
 import type { DB } from '../db/schema';
 import { HttpError } from '../errors';
@@ -8,9 +8,9 @@ import { lockStation, settleStation } from '../station/service';
 import { labLevels } from './levels';
 
 // The prestige «Corrimiento al rojo» on the server (GDD §12.5; M7e-2). Taking a rank, under the station's lock: the
-// refinery is settled first (the Laboratorio's station nodes change its rate), then the Laboratorio's nodes are deleted
-// and its room goes back to level 0 (to be repaired again); the rank goes up and its title is earned. The bonus is read
-// at every run's start (runs/service.ts).
+// refinery is settled first (the Laboratorio's station nodes change its rate), then the Laboratorio's permanent nodes
+// are deleted (the seasonal core is kept: it renews with each season) and its room goes back to level 0 (to be repaired
+// again); the rank goes up and its title is earned. The bonus is read at every run's start (runs/service.ts).
 
 type Db = Kysely<DB>;
 
@@ -19,10 +19,15 @@ export async function redshiftRank(db: Db, accountId: string): Promise<number> {
   return (await db.selectFrom('galaxy.redshift').select('rank').where('account_id', '=', accountId).executeTakeFirst())?.rank ?? 0;
 }
 
-export async function redshiftView(db: Db, cfg: RedshiftConfig, account: AccountConfig, accountId: string): Promise<RedshiftView> {
+/** The permanent tree's levels that count for a rank: only nodes still in the tree, each up to its max (shop and lab plan, F2a). */
+export function permanentLabLevels(levels: Record<string, number>, lab: Pick<LabConfig, 'nodes'>): number {
+  return lab.nodes.reduce((sum, n) => sum + Math.max(0, Math.min(n.max, levels[n.id] ?? 0)), 0);
+}
+
+export async function redshiftView(db: Db, cfg: RedshiftConfig, account: AccountConfig, labCfg: Pick<LabConfig, 'nodes'>, accountId: string): Promise<RedshiftView> {
   const [rank, xp, levels] = await Promise.all([redshiftRank(db, accountId), accountXp(db, accountId), labLevels(db, accountId)]);
   const level = levelOf(xp, account).level;
-  const lab = Object.values(levels).reduce((a, b) => a + b, 0);
+  const lab = permanentLabLevels(levels, labCfg);
   const top = rank >= cfg.maxRank;
   const needed = top ? null : cfg.labLevels[rank]!;
   return {
@@ -39,9 +44,9 @@ export async function redshiftView(db: Db, cfg: RedshiftConfig, account: Account
 }
 
 /** Takes the next rank when everything is met; the view is read again under the lock, so a stale button cannot. */
-export async function takeRedshift(deps: RunsDeps, trx: Db, cfg: RedshiftConfig, account: AccountConfig, accountId: string): Promise<RedshiftView> {
+export async function takeRedshift(deps: RunsDeps, trx: Db, cfg: RedshiftConfig, account: AccountConfig, labCfg: Pick<LabConfig, 'nodes'>, accountId: string): Promise<RedshiftView> {
   await lockStation(trx, accountId);
-  const v = await redshiftView(trx, cfg, account, accountId);
+  const v = await redshiftView(trx, cfg, account, labCfg, accountId);
   if (!v.eligible) throw new HttpError(409, 'redshift_not_ready');
   await settleStation(deps, trx, accountId);
   const now = deps.now();
@@ -53,5 +58,5 @@ export async function takeRedshift(deps: RunsDeps, trx: Db, cfg: RedshiftConfig,
     .onConflict((oc) => oc.column('account_id').doUpdateSet({ rank: v.rank + 1, updated_at: now }))
     .execute();
   if (v.next?.title) await trx.insertInto('galaxy.cosmetics').values({ account_id: accountId, kind: 'title', value: v.next.title }).onConflict((oc) => oc.doNothing()).execute();
-  return redshiftView(trx, cfg, account, accountId);
+  return redshiftView(trx, cfg, account, labCfg, accountId);
 }

@@ -76,7 +76,7 @@ async function sale(seller: P, buyer: P) {
 }
 async function trade(a: P, b: P) {
   const [ga, gb] = [await own(a.id), await own(b.id)];
-  const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: ga, want: gb }, { cookie: a.cookie, headers: key() })).json() as TradeView;
+  const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: { galaxies: [ga], coins: 0 }, want: { galaxies: [gb], coins: 0 } }, { cookie: a.cookie, headers: key() })).json() as TradeView;
   expect((await post(ctx.app, `/galaxy/api/trades/${t.id}/confirm`, { version: t.version }, { cookie: b.cookie })).statusCode).toBe(200);
   return { id: t.id, ga, gb };
 }
@@ -117,7 +117,7 @@ describe('historial', () => {
     expect(listings.rows[1]).toMatchObject({ seller: s.username, buyer: b.username, price: PRICE, commission: COMMISSION, galaxy: { id: sold.galaxy }, reversal: null });
     expect((await read<AdminDealsPage>(`/deals?kind=listings&user=${b.username}&status=sold`)).rows.map((r) => r.id)).toEqual([sold.listing]);
     const trades = await read<AdminDealsPage>(`/deals?kind=trades&user=${b.username}`);
-    expect(trades.rows[0]).toMatchObject({ id: t.id, a: s.username, b: b.username, status: 'done', aGalaxy: { id: t.ga }, bGalaxy: { id: t.gb }, reversal: null });
+    expect(trades.rows[0]).toMatchObject({ id: t.id, a: s.username, b: b.username, status: 'done', aGalaxies: [{ id: t.ga }], bGalaxies: [{ id: t.gb }], aCoins: 0, bCoins: 0, reversal: null });
   });
 });
 
@@ -132,7 +132,7 @@ describe('cancelar', () => {
 
   test('un trueque abierto se cancela, y uno cerrado responde que ya no está', async () => {
     const [a, b] = await Promise.all([player(), player()]);
-    const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: await own(a.id) }, { cookie: a.cookie, headers: key() })).json() as TradeView;
+    const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: { galaxies: [await own(a.id)], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie: a.cookie, headers: key() })).json() as TradeView;
     expect((await act(`/trades/${t.id}/cancel`, { reason: 'Acoso con propuestas' })).json()).toEqual({ cancelled: true });
     expect((await act(`/trades/${t.id}/cancel`, { reason: 'Otra vez' })).json()).toEqual({ error: 'trade_gone' });
     const done = await trade(a, b);
@@ -220,7 +220,7 @@ describe('revertir un trueque', () => {
 
   test('un trueque que no se cerró no se revierte', async () => {
     const [a, b] = await Promise.all([player(), player()]);
-    const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: await own(a.id) }, { cookie: a.cookie, headers: key() })).json() as TradeView;
+    const t = (await post(ctx.app, '/galaxy/api/trades', { username: b.username, give: { galaxies: [await own(a.id)], coins: 0 }, want: { galaxies: [], coins: 0 } }, { cookie: a.cookie, headers: key() })).json() as TradeView;
     expect((await revert('trades', t.id)).json()).toEqual({ error: 'trade_gone' });
   });
 });

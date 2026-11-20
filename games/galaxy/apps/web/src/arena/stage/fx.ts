@@ -22,6 +22,11 @@ export interface FxParticle {
   age: number;
   life: number;
   size: number;
+  /**
+   * A mote spiralling into a singularity (plan «rareza Mítica» M2): it turns around (cx, cy) at `spin` radians per
+   * second while its distance `rad` shrinks by `sink` per second; its velocity is unused.
+   */
+  orbit?: { key: number; cx: number; cy: number; ang: number; rad: number; spin: number; sink: number };
 }
 
 export interface FxLabel {
@@ -40,6 +45,12 @@ export interface FxRing {
   age: number;
   radius: number;
   alpha: number;
+  /** How far it grows and for how long, and whether it is a filled flash (a blast) instead of a line. */
+  max: number;
+  life: number;
+  fill: boolean;
+  /** A blast's wave rushes out and slows down; an evolution's ring grows evenly. */
+  ease: boolean;
 }
 
 export interface Fx {
@@ -49,18 +60,36 @@ export interface Fx {
   rings: FxRing[];
   /** A reaction's name over the enemy (world units). */
   label(x: number, y: number, text: string, color: number): void;
-  /** An expanding ring (an evolution, around the probe). */
-  ring(x: number, y: number, color: number): void;
+  /**
+   * An expanding ring (an evolution, around the probe). A blast's (2026-11-14) grows to its own reach, in its own time,
+   * and may be a filled flash.
+   */
+  ring(x: number, y: number, color: number, opts?: { radius?: number; life?: number; fill?: boolean }): void;
   shake(amount: number): void;
   number(x: number, y: number, value: number, crit: boolean): void;
   burst(x: number, y: number, color: number, count: number, speed?: number): void;
   /**
    * A probe's thruster while it moves (open beta): hot puffs out of the nozzle behind it (`angle` is where it heads),
-   * flying back against its course and fading fast, at a steady rate over `dt` seconds. `key` keeps each probe's own.
+   * flying back against its course and fading fast, at a steady rate over `dt` seconds. `key` keeps each probe's own;
+   * `rear` is how far behind the centre its drawing's nozzle is (sprites' probeNozzle), `colors` a skin's own flame
+   * and embers (sprites' probeFlame).
    */
-  thrust(key: number, x: number, y: number, angle: number, dt: number): void;
+  thrust(key: number, x: number, y: number, angle: number, dt: number, rear?: number, colors?: { flame: readonly number[]; embers: readonly number[] }): void;
+  /**
+   * A shot's wake (Nov plan B3: a mortar shell's smoke, a thrown body's pull): slow motes left where it passes, at a
+   * steady rate over `dt` seconds, fading fast. `key` keeps each shot's own rate.
+   */
+  trail(key: number, x: number, y: number, color: number, dt: number): void;
+  /**
+   * A mythic's singularity (plan «rareza Mítica» M2): motes in `colors` born within `radius` of (x, y) that spiral into
+   * it, at a steady rate over `dt` seconds, reaching the centre as they fade. `key` keeps each singularity's own rate
+   * and its motes under SWIRL_MAX. None with reduced motion.
+   */
+  swirl(key: number, x: number, y: number, radius: number, dt: number, colors: readonly number[]): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
   update(dt: number): { x: number; y: number };
+  /** Ajustes → Movimiento changed mid-run (plan «escáner pro», part A): applies from the next frame. */
+  setReduced(on: boolean): void;
 }
 
 const NUMBER_LIFE = 0.6;
@@ -73,13 +102,21 @@ const LABEL_RISE = 14;
 const MAX_LABELS = 6;
 const RING_LIFE = 0.6;
 const RING_RADIUS = 36;
-/** Thruster puffs per second (a third with reduced motion), how far behind the centre the nozzle is, how fast. */
+/** Thruster puffs per second (a third with reduced motion), how far behind the centre the nozzle is by default, how fast. */
 const THRUST_RATE = 80;
 const THRUST_REAR = 8;
 const THRUST_SPEED = 34;
 /** The flame at the nozzle (white-hot, slow, brief) and the embers it sheds behind (orange to red, longer). */
 const FLAME_COLORS = [0xffffff, 0xfff3c4, 0xffd36e];
 const EMBER_COLORS = [0xffd36e, 0xff9d2e, 0xff9d2e, 0xff6b3d, 0xe8453c];
+/** A shot's wake: motes per second (a third with reduced motion). */
+const TRAIL_RATE = 40;
+/** A singularity's motes: per second, how fast they turn (radians per second) and how long they take to fall in. */
+const SWIRL_RATE = 140;
+const SWIRL_SPIN = 4;
+const SWIRL_LIFE = 0.55;
+/** The most motes one singularity keeps alive (four in co-op stay well inside MAX_PARTICLES). */
+export const SWIRL_MAX = 40;
 
 /** Reaction colours by what they do (the name is always shown too: never colour alone). */
 const REACTION_COLOR: Record<string, number> = {
@@ -97,7 +134,8 @@ export function reactionLabel(content: Content, id: string): { text: string; col
   return r ? { text: r.name, color: REACTION_COLOR[r.effect.kind] ?? 0xffffff } : { text: '', color: 0xffffff };
 }
 
-export function createFx(reduced: boolean): Fx {
+export function createFx(startReduced: boolean): Fx {
+  let reduced = startReduced;
   let trauma = 0;
   let phase = 0;
   const numbers: FxNumber[] = [];
@@ -105,6 +143,8 @@ export function createFx(reduced: boolean): Fx {
   const labels: FxLabel[] = [];
   const rings: FxRing[] = [];
   const thrusters = new Map<number, number>();
+  const trails = new Map<number, number>();
+  const swirls = new Map<number, number>();
   // A small deterministic wobble (no Math.random: frames stay comparable in screenshots and tests).
   let seed = 1;
   const rand = () => {
@@ -120,8 +160,8 @@ export function createFx(reduced: boolean): Fx {
       if (labels.length >= MAX_LABELS) labels.shift();
       labels.push({ x, y, text, color, age: 0, alpha: 1 });
     },
-    ring(x, y, color) {
-      rings.push({ x, y, color, age: 0, radius: 0, alpha: 1 });
+    ring(x, y, color, opts) {
+      rings.push({ x, y, color, age: 0, radius: 0, alpha: 1, max: opts?.radius ?? RING_RADIUS, life: opts?.life ?? RING_LIFE, fill: opts?.fill ?? false, ease: opts?.radius !== undefined });
     },
     shake(amount) {
       if (!reduced) trauma = Math.max(trauma, amount);
@@ -141,7 +181,7 @@ export function createFx(reduced: boolean): Fx {
         particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, color, age: 0, life: 0.35 + rand() * 0.35, size: rand() < 0.3 ? 2 : 1 });
       }
     },
-    thrust(key, x, y, angle, dt) {
+    thrust(key, x, y, angle, dt, rear = THRUST_REAR, own) {
       // Whole puffs due by now, the fraction carried to the next frame.
       let due = (thrusters.get(key) ?? 0) + dt * (reduced ? THRUST_RATE / 3 : THRUST_RATE);
       const back = angle + Math.PI;
@@ -153,10 +193,10 @@ export function createFx(reduced: boolean): Fx {
         const side = (rand() - 0.5) * (flame ? 1.6 : 2.6);
         const spread = reduced ? 0 : (rand() - 0.5) * (flame ? 0.3 : 0.7);
         const v = THRUST_SPEED * (flame ? 0.35 + rand() * 0.3 : 0.8 + rand() * 0.8);
-        const colors = flame ? FLAME_COLORS : EMBER_COLORS;
+        const colors = flame ? (own?.flame ?? FLAME_COLORS) : (own?.embers ?? EMBER_COLORS);
         particles.push({
-          x: x + cos * THRUST_REAR - sin * side,
-          y: y + sin * THRUST_REAR + cos * side,
+          x: x + cos * rear - sin * side,
+          y: y + sin * rear + cos * side,
           vx: Math.cos(back + spread) * v,
           vy: Math.sin(back + spread) * v,
           color: colors[Math.floor(rand() * colors.length)]!,
@@ -166,6 +206,52 @@ export function createFx(reduced: boolean): Fx {
         });
       }
       thrusters.set(key, Math.min(due, 1));
+    },
+    trail(key, x, y, color, dt) {
+      let due = (trails.get(key) ?? 0) + dt * (reduced ? TRAIL_RATE / 3 : TRAIL_RATE);
+      while (due >= 1 && particles.length < MAX_PARTICLES) {
+        due -= 1;
+        particles.push({
+          x: x + (rand() - 0.5) * 2,
+          y: y + (rand() - 0.5) * 2,
+          vx: (rand() - 0.5) * 6,
+          vy: (rand() - 0.5) * 6,
+          color,
+          age: 0,
+          life: 0.25 + rand() * 0.2,
+          size: rand() < 0.3 ? 2 : 1,
+        });
+      }
+      trails.set(key, Math.min(due, 1));
+    },
+    swirl(key, x, y, radius, dt, colors) {
+      if (reduced || colors.length === 0) return;
+      let due = (swirls.get(key) ?? 0) + dt * SWIRL_RATE;
+      let alive = 0;
+      for (const p of particles) if (p.orbit?.key === key) alive++;
+      while (due >= 1 && particles.length < MAX_PARTICLES && alive < SWIRL_MAX) {
+        alive++;
+        due -= 1;
+        const ang = rand() * Math.PI * 2;
+        const rad = radius * (0.55 + rand() * 0.45);
+        const life = SWIRL_LIFE * (0.8 + rand() * 0.4);
+        particles.push({
+          x: x + Math.cos(ang) * rad,
+          y: y + Math.sin(ang) * rad,
+          vx: 0,
+          vy: 0,
+          color: colors[Math.floor(rand() * colors.length)]!,
+          age: 0,
+          life,
+          size: rand() < 0.5 ? 2 : 1,
+          orbit: { key, cx: x, cy: y, ang, rad, spin: SWIRL_SPIN * (0.8 + rand() * 0.5), sink: rad / life },
+        });
+      }
+      swirls.set(key, Math.min(due, 1));
+    },
+    setReduced(on) {
+      reduced = on;
+      if (on) trauma = 0;
     },
     update(dt) {
       for (let i = numbers.length - 1; i >= 0; i--) {
@@ -191,18 +277,28 @@ export function createFx(reduced: boolean): Fx {
       for (let i = rings.length - 1; i >= 0; i--) {
         const r = rings[i]!;
         r.age += dt;
-        if (r.age >= RING_LIFE) {
+        if (r.age >= r.life) {
           rings.splice(i, 1);
           continue;
         }
-        r.radius = RING_RADIUS * (r.age / RING_LIFE);
-        r.alpha = 1 - r.age / RING_LIFE;
+        const k = r.age / r.life;
+        r.radius = r.max * (r.ease ? 1 - (1 - k) ** 3 : k);
+        r.alpha = 1 - k;
       }
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]!;
         p.age += dt;
         if (p.age >= p.life) {
           particles.splice(i, 1);
+          continue;
+        }
+        if (p.orbit) {
+          // A singularity's mote: around its centre and in, faster the closer it gets (it spirals, never overshoots).
+          const o = p.orbit;
+          o.rad = Math.max(0, o.rad - o.sink * dt);
+          o.ang += o.spin * dt * (1 + 40 / Math.max(o.rad, 8));
+          p.x = o.cx + Math.cos(o.ang) * o.rad;
+          p.y = o.cy + Math.sin(o.ang) * o.rad;
           continue;
         }
         p.x += p.vx * dt;

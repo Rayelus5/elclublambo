@@ -5,6 +5,7 @@ import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { ranking } from '../social/leaderboard';
 import type { SeasonConfigs } from './service';
+import { grantCosmetics } from '../cosmetics/service';
 
 // Closing a season (GDD §13.1; M7d-2). Once its end has passed, the first read that notices archives it: the final
 // General ranking becomes one result per player (place, score, tier and the rewards of that close, kept so a later
@@ -104,9 +105,7 @@ export async function claimResult(trx: Kysely<DB>, accountId: string, season: st
     for (const cur of ['coins', 'dust', 'signal'] as const) {
       if (reward[cur] > 0) await credit(trx, accountId, cur, reward[cur], 'season_close', { season }, key);
     }
-    for (const [kind, value] of [['title', reward.title], ['frame', reward.frame]] as const) {
-      if (value) await trx.insertInto('galaxy.cosmetics').values({ account_id: accountId, kind, value }).onConflict((oc) => oc.doNothing()).execute();
-    }
+    await grantCosmetics(trx, accountId, reward);
   }
 }
 

@@ -7,6 +7,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
+import { refreshPieces } from '../api/cosmetics';
 
 // The ECN Catalogue (GDD §12.3; M7b, DESIGN_SYSTEM §8 sexvicies): the album of types, palettes, phenomena and finishes,
 // what has been found (the rest shows as «?»), and the reward of each share, collected once.
@@ -26,6 +27,8 @@ export function CatalogScreen() {
       qc.setQueryData(KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
       void qc.invalidateQueries({ queryKey: CATALOG_SUMMARY_KEY });
+      // A milestone can give a title, a frame, an avatar or a probe skin (plan «skins»): shown at once.
+      refreshPieces(qc);
     },
   });
   const v = catalog.data;

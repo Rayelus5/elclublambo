@@ -79,4 +79,4 @@ export function soundOf(el: Element): UiSound {
 }
 
 /** What counts as interactive for these sounds. */
-export const INTERACTIVE = 'button, a[href], [role="tab"], [role="switch"], [role="option"], [role="menuitem"], input[type="checkbox"], input[type="radio"], input[type="range"], select, summary';
+export const INTERACTIVE = 'button, a[href], [role="tab"], [role="switch"], [role="combobox"], [role="option"], [role="menuitem"], input[type="checkbox"], input[type="radio"], input[type="range"], select, summary';

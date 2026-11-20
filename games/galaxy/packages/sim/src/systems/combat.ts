@@ -10,11 +10,14 @@ import { react } from './reactions';
 import { dropPickup } from './pickups';
 import { onKill } from './quirks';
 import { enemiesNear } from './weapons';
+import { healProbe } from './healing';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
 
 export const FLASH_TICKS = 6;
+/** Repulsor: units a hit pushes an ordinary enemy at knockback 1 (a geometric glide, like an area's push). */
+const KNOCK_PER_HIT = 4;
 
 /** After a hit has landed (systems/arsenal.ts: `chain` evolutions). */
 export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: number, y: number, src: HitSource) => void } = { afterHit: () => {} };
@@ -34,6 +37,23 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
   }
   dmg *= damageFactor(sim, e, element);
+  if (p) {
+    // Cazanúcleos and Inercia (Nov plan B2).
+    if (p.stats.bossDamage > 0 && (en.boss[e] || en.elite[e]! > 0)) dmg *= 1 + p.stats.bossDamage;
+    if (p.stats.movingDamage > 0 && p.moving) dmg *= 1 + p.stats.movingDamage;
+    // Repulsor: a push away from where the hit came, once per hit flash (beams that tick fast push no harder);
+    // half on elites, never on a Núcleo.
+    if (p.stats.knockback > 0 && !en.boss[e] && en.flashT[e] === 0) {
+      const ox = src.x ?? p.x;
+      const oy = src.y ?? p.y;
+      const dx = en.x[e]! - ox;
+      const dy = en.y[e]! - oy;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const push = KNOCK_PER_HIT * p.stats.knockback * (en.elite[e]! > 0 ? 0.5 : 1);
+      en.kx[e] = en.kx[e]! + (dx / d) * push * 0.15;
+      en.ky[e] = en.ky[e]! + (dy / d) * push * 0.15;
+    }
+  }
   let crit = false;
   if (p) {
     // Pure damage adds to the critical stats, still within their caps (GDD §8.6).
@@ -45,22 +65,37 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     }
   }
   const absorbed = Math.min(en.shield[e]!, dmg);
+  const before = en.hp[e]!;
   en.shield[e] = en.shield[e]! - absorbed;
-  en.hp[e] = en.hp[e]! - (dmg - absorbed);
+  en.hp[e] = before - (dmg - absorbed);
+  // What the hit really took (2026-11-16): the shield it broke and the life it had left, never the overkill.
+  const real = absorbed + Math.min(Math.max(0, before), dmg - absorbed);
+  // Protocolo de purga (Nov plan B2): an ordinary enemy left this weak is finished off.
+  if (p && p.stats.execute > 0 && en.hp[e]! > 0 && !en.boss[e] && !(en.elite[e]! > 0) && en.hp[e]! <= en.maxHp[e]! * p.stats.execute) en.hp[e] = 0;
   en.flashT[e] = FLASH_TICKS;
   const x = en.x[e]!;
   const y = en.y[e]!;
   sim.events.push({ t: 'hit', x, y, amount: dmg, crit, element });
-  if (p && p.alive && p.stats.lifesteal > 0) p.hp = Math.min(p.stats.maxHp, p.hp + dmg * p.stats.lifesteal);
+  if (p && p.alive && p.stats.lifesteal > 0) healProbe(sim, p, real * p.stats.lifesteal, 'steal');
   if (en.hp[e]! <= 0) killEnemy(sim, e, src);
   if (element) {
-    applyElement(sim, e, element, dmg, x, y, src, (o, amt) => {
-      dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
-    });
+    applyElement(
+      sim,
+      e,
+      element,
+      dmg,
+      x,
+      y,
+      src,
+      (o, amt) => {
+        dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
+      },
+      real,
+    );
     react(sim, e, element, dmg, x, y, src);
   }
   combatHooks.afterHit(sim, e, dmg, x, y, src);
-  return dmg;
+  return real;
 }
 
 /** Death: credit, data fragments and loot; the slot is freed. */

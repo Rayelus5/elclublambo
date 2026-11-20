@@ -58,21 +58,6 @@ describe('peculiaridades', () => {
     expect(100 - sim.enemies.hp[e]!).toBeCloseTo(6, 9);
   });
 
-  test('esquiva: el golpe no hace daño, salta 60 u y queda medio segundo invulnerable; luego espera su enfriamiento', () => {
-    const sim = withQuirk({ kind: 'dash', every: 8, distance: 60, invuln: 0.5 });
-    const p = sim.probes[0]!;
-    hurtProbe(sim, p, 20);
-    expect(p.hp).toBe(100);
-    expect(Math.hypot(p.x, p.y)).toBeCloseTo(60, 6);
-    expect(p.invulnT).toBe(30);
-    run(sim, 40);
-    hurtProbe(sim, p, 20);
-    expect(p.hp).toBe(80);
-    run(sim, 8 * 60);
-    hurtProbe(sim, p, 20);
-    expect(p.hp).toBe(80);
-  });
-
   test('vigilancia: un dron más con un arma de drones', () => {
     const sim = withQuirk({ kind: 'overwatch', drones: 1 });
     sim.probes[0]!.weapons = [{ id: 'drone', level: 1, t: 0 }];

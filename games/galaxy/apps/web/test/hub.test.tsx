@@ -6,7 +6,7 @@ import { copy } from '../src/copy/es';
 import { TitleScreen } from '../src/hub/TitleScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
-// The title screen (GDD §4): resources, the deep scan with its free-pull notice, the collection, and every section
+// The title screen (GDD §4): resources, the scanner button with its free-pull notice, the collection, and every section
 // that does not exist yet visible but locked («En desarrollo»).
 afterEach(() => vi.unstubAllGlobals());
 
@@ -24,7 +24,7 @@ const view = (free: boolean): GachaView => ({
       welcome: true,
     },
   ],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: free,
   wallet: { coins: 1250, dust: 40, signal: 10 },
 });
@@ -42,7 +42,7 @@ const galaxy = (id: string, tier: 'legendary' | 'rare') => ({
 });
 const page: CollectionPage = {
   items: [galaxy('g1', 'legendary'), galaxy('g2', 'rare')],
-  counts: { common: 3, uncommon: 1, rare: 1, epic: 0, legendary: 1 },
+  counts: { common: 3, uncommon: 1, rare: 1, epic: 0, legendary: 1, mythic: 0 },
   fusion: { count: 5, dust: [20, 50, 120, 300] },
 };
 
@@ -64,6 +64,7 @@ function api(free = true, season: Leaderboard = board, catalogReady = 0) {
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(free)),
     'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: catalogReady, percent: 30 }),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, season),
     'POST /galaxy/api/auth/logout': () => jsonResponse(204),
   });
@@ -74,15 +75,19 @@ test('la barra superior muestra polvo, monedas y señales con su número accesib
   renderAt('/', { '/': <TitleScreen me={me} /> });
   expect(await screen.findByLabelText(copy.hub.resource.coins(1250))).toBeInTheDocument();
   expect(screen.getByLabelText(copy.hub.resource.dust(40))).toBeInTheDocument();
-  expect(screen.getByLabelText(copy.hub.resource.signal(10))).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: new RegExp(copy.hub.resource.signal(10)) })).toHaveAttribute('href', '/escaner');
   expect(screen.getByText('sonda_rayo')).toBeInTheDocument();
 });
 
-test('el escáner avisa de la tirada gratis solo cuando toca', async () => {
+test('el Escáner del menú lleva al escáner y avisa de la tirada gratis solo cuando toca; la barra de arriba ya no lo repite', async () => {
   api(true);
   const { unmount } = renderAt('/', { '/': <TitleScreen me={me} /> });
-  const scanner = await screen.findByRole('link', { name: new RegExp(copy.hub.scanner) });
+  const scanner = await screen.findByRole('link', { name: new RegExp(`^${copy.hub.scan}`) });
+  expect(scanner).toHaveAttribute('href', '/escaner');
+  expect(scanner).toHaveAttribute('data-tour', 'scanner');
+  expect(scanner).toHaveTextContent(copy.hub.scanHint);
   expect(await within(scanner).findByText(copy.hub.freePull)).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: new RegExp(copy.hub.scanner) })).not.toBeInTheDocument();
   unmount();
   vi.unstubAllGlobals();
   api(false);
@@ -143,7 +148,7 @@ test('Salir cierra la sesión y vuelve a Entrar', async () => {
   expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/auth/logout' && init?.method === 'POST')).toBe(true);
 });
 
-test('el Hogar lleva a la estación (M4a)', async () => {
+test('el botón Estación lleva a la estación (M4a)', async () => {
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
@@ -152,15 +157,30 @@ test('el Hogar lleva a la estación (M4a)', async () => {
   expect(link).not.toHaveTextContent(copy.hub.soon);
 });
 
-test('Jugar y Supervivencia llevan al hangar de las incursiones', async () => {
+test('Jugar lleva al hangar de las incursiones', async () => {
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.play, copy.hub.survival]) {
-    const link = screen.getByRole('link', { name: new RegExp(name) });
-    expect(link).toHaveAttribute('href', '/incursion');
-    expect(link).not.toHaveTextContent(copy.hub.soon);
-  }
+  const link = screen.getByRole('link', { name: new RegExp(copy.hub.play) });
+  expect(link).toHaveAttribute('href', '/incursion');
+  expect(link).not.toHaveTextContent(copy.hub.soon);
+});
+
+test('la Tienda del pie se ve como Ajustes y Guía, con su aviso de oferta', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, { ...view(false), shop: { open: true, offer: true } }),
+    'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: 0, percent: 30 }),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board),
+  });
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const shop = await screen.findByRole('link', { name: copy.hub.shopOffer });
+  const settings = screen.getByRole('link', { name: copy.hub.settings });
+  expect(shop).toHaveAttribute('href', '/tienda');
+  expect(shop).not.toHaveClass('pill-solar');
+  expect(shop.className.split(' ').filter((c) => c !== 'hub-shop')).toEqual(settings.className.split(' '));
+  expect(within(shop).getByText(copy.hub.offer)).toBeInTheDocument();
 });
 
 test('la columna derecha es la temporada: los tres primeros, tu puesto, tu tramo y la clasificación completa (M5a)', async () => {
@@ -202,6 +222,7 @@ test('si la temporada no llega, la columna lo dice en vez de quedarse cargando (
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(true)),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(500, { error: 'internal' }),
   });
   renderAt('/', { '/': <TitleScreen me={me} /> });

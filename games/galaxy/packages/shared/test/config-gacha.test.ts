@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
+import { DISINTEGRATE_MAX, disintegrateManySchema, DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
 
 // GDD §9, §8.5 and §16.3: every starting number of the gacha and the galaxies is live configuration.
 describe('configuración del gachapón', () => {
@@ -17,17 +17,20 @@ describe('configuración del gachapón', () => {
     expect(g.standard).toEqual({ base: 0.03, softStart: 8, softStep: 0.06, hard: 20 });
     expect(g.welcome).toEqual({ base: 0.06, softStart: 5, softStep: 0.15, hard: 10, signals: 10 });
     expect(g.featured).toEqual({ base: 0.005, softStart: 30, softStep: 0.04, hard: 45 });
-    expect(g.costs).toEqual({ coins: 100, coinsTen: 900, signals: 1 });
+    // The 5-pull (2026-11-17, the owner): 475 coins, 5 % off; a published config without it gets that.
+    expect(g.costs).toEqual({ coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 });
+    expect(parseConfig('gacha', { costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 } }).costs.coinsFive).toBe(475);
     expect(g.dailyFree).toBe(true);
     expect(g.finishes).toEqual([0.85, 0.1, 0.035, 0.013, 0.002]);
     expect(g.banners).toEqual([
       { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
     ]);
     const galaxies = parseConfig('galaxies', {});
-    expect(galaxies.disintegrate).toEqual({ tier: [5, 12, 30, 75, 200], finish: [1, 1.5, 2, 2.5, 5] });
+    expect(galaxies.disintegrate).toEqual({ tier: [5, 12, 30, 75, 200, 500], finish: [1, 1.5, 2, 2.5, 5] });
     expect(galaxies.fusion).toEqual({ count: 5, dust: [20, 50, 120, 300] });
     expect(parseConfig('features', {}).gacha).toBe(true);
-    expect(TIERS).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary']);
+    expect(TIERS).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic']);
+    expect(g.mythic).toBe(0);
     expect(FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt', 'rift']);
     // The odds draw five; Fisura is season 1's exclusive finish (M8c).
     expect(DRAWN_FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt']);
@@ -61,13 +64,14 @@ describe('configuración del gachapón', () => {
 });
 
 describe('peticiones', () => {
-  test('una tirada es x1 o x10 y se paga con monedas, señales o la gratis', () => {
+  test('una tirada es x1, x5 o x10 y se paga con monedas, señales o la gratis', () => {
     expect(pullRequestSchema.parse({ banner: 'deep-scan', count: 10, pay: 'coins' })).toEqual({
       banner: 'deep-scan',
       count: 10,
       pay: 'coins',
     });
-    expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 5, pay: 'coins' })).toThrow();
+    expect(pullRequestSchema.parse({ banner: 'deep-scan', count: 5, pay: 'signal' }).count).toBe(5);
+    expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 3, pay: 'coins' })).toThrow();
     expect(() => pullRequestSchema.parse({ banner: 'deep-scan', count: 1, pay: 'gems' })).toThrow();
   });
 
@@ -76,5 +80,17 @@ describe('peticiones', () => {
     expect(fuseRequestSchema.parse({ ids: [1, 2, 3, 4, 5].map(id) }).ids).toHaveLength(5);
     expect(() => fuseRequestSchema.parse({ ids: [1, 1, 3, 4, 5].map(id) })).toThrow();
     expect(() => fuseRequestSchema.parse({ ids: ['x'] })).toThrow();
+  });
+
+  test('desintegrar varias: de 1 a 50 galaxias distintas, con aviso previo opcional', () => {
+    const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    expect(DISINTEGRATE_MAX).toBe(50);
+    expect(disintegrateManySchema.parse({ ids: [id(1)] }).ids).toHaveLength(1);
+    expect(disintegrateManySchema.parse({ ids: [id(1), id(2)], preview: true }).preview).toBe(true);
+    expect(disintegrateManySchema.parse({ ids: Array.from({ length: 50 }, (_, i) => id(i)) }).ids).toHaveLength(50);
+    expect(() => disintegrateManySchema.parse({ ids: [] })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: Array.from({ length: 51 }, (_, i) => id(i)) })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: [id(1), id(1)] })).toThrow();
+    expect(() => disintegrateManySchema.parse({ ids: [id(1)], extra: 1 })).toThrow();
   });
 });

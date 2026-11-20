@@ -1,20 +1,22 @@
-import type { CollectionPage, FinishRunRequest, RunResult } from '@galaxy/shared';
+import type { CollectionPage, FinishRunRequest, RunResult, RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
-import type { RunEnd } from '../src/arena/ArenaScreen';
+import type { ArenaDebug, RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
+import userEvent from '@testing-library/user-event';
+import { pickOption } from './pick';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe, relic slots and the daily yield before launching; and a run
 // whose result never reached the server is sent again with the same key (Review Focus 2).
 
 // The arena is replaced by a stub that keeps its props (to end a run by hand) and can fail like a chunk that did not load.
-const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }, fail: false }));
+const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug; run?: RunStart }, fail: false }));
 vi.mock('../src/arena/ArenaScreen', () => {
-  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }) => {
+  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void; debug?: ArenaDebug; run?: RunStart }) => {
     if (arena.fail) throw new Error('Failed to fetch dynamically imported module');
     arena.props = p;
     return <div data-testid="arena" />;
@@ -59,8 +61,8 @@ test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente co
   expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled();
 });
 
-test('elegir una reliquia la equipa y dice qué hará; también se puede quitar', async () => {
-  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+test('elegir una reliquia abre su ficha con lo que hace; «Equipar» la equipa y también se puede quitar', async () => {
+  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   const fetch = mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
@@ -72,7 +74,14 @@ test('elegir una reliquia la equipa y dice qué hará; también se puede quitar'
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
   const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
-  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.equip('Kathra') }));
+  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  // Nothing is saved yet: the sheet says what it does first.
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') });
+  expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/hangar/loadout' && init?.method === 'PUT')).toBe(false);
+  expect(within(sheet).getByText(copy.hangar.families.blades)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.phenomena.pulsar)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.sheet.intoSlot(1))).toBeInTheDocument();
+  fireEvent.click(within(sheet).getByRole('button', { name: copy.hangar.sheet.equip }));
   const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
   expect(slot).toHaveTextContent('Kathra');
   expect(slot).toHaveTextContent(copy.hangar.families.blades);
@@ -133,6 +142,25 @@ describe('el selector de sectores', () => {
     fireEvent.click(within(picker).getByRole('button', { name: 'Fisura de la Señal' }));
     expect(await screen.findByText(copy.errors.sector_locked)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeInTheDocument();
+  });
+
+  // 2026-11-16: the season sector also asks for runs in any sector, and every sector says what it pays.
+  test('la Fisura cerrada por incursiones dice cuántas hacen falta, con su progreso', async () => {
+    const sectors = SECTORS.map((x) => (x.id === 'signal-rift' ? { ...x, unlocked: false, condition: { sector: null, stat: 'runs' as const, value: 15 }, progress: 4 / 15 } : x));
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ sectors })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).queryByRole('button', { name: 'Fisura de la Señal' })).toBeNull();
+    expect(within(picker).getByText('Juega 15 incursiones')).toBeInTheDocument();
+  });
+
+  test('el sector elegido y cada sector abierto dicen lo que pagan', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const title = await screen.findByTitle(copy.hangar.sectorPayTitle(0.8));
+    expect(title).toHaveTextContent('×0,8');
+    const picker = screen.getByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).getByRole('button', { name: 'Nebulosa Exterior' })).toHaveTextContent('×0,8');
   });
 
   test('con la temporada cerrada, la Fisura dice «Fuera de temporada» y no se elige', async () => {
@@ -198,7 +226,7 @@ test('con las incursiones cerradas no se puede lanzar y se dice por qué', async
 const started = { id: 'r1', seed: '1', sector: 'outer-nebula', probe: 'lumen', relics: [], content: DEFAULT_CONTENT, contentVersion: 0, startedAt: '2026-11-07T10:00:00Z' };
 const end: RunEnd = {
   outcome: 'died',
-  summary: { ticks: 21600, outcome: 'dead', depth: 1, kills: 640, bossKills: 0, level: 15, loot: [{ coins: 40.6, dust: 12.2, components: 0 }], hash: '0123456789abcdef' },
+  summary: { ticks: 21600, outcome: 'dead', depth: 1, kills: 640, bossKills: 0, level: 15, loot: [{ coins: 40.6, dust: 12.2, components: 0, signals: 0 }], hash: '0123456789abcdef' },
   inputs: 'AQEA',
 };
 
@@ -218,6 +246,133 @@ test('el resultado se guarda en cuanto acaba la partida y luego se envía con es
   expect(await screen.findByRole('heading', { name: copy.results.died })).toBeInTheDocument();
   const keys = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/runs/r1/finish').map(([, init]) => (init!.headers as Record<string, string>)['idempotency-key']);
   expect(keys).toEqual([kept!.key]);
+});
+
+// The admin debug mode (2026-11-15): only an admin with TOTP gets it, never in the tutorial's run; a test run's finish
+// says so, also when it is kept to resend after a reload.
+describe('modo depuración', () => {
+  const me = (roles: string[], mfa: boolean) => () => jsonResponse(200, { id: 'a1', username: 'admin', roles, mfa });
+
+  test('solo un admin con doble factor lo recibe', async () => {
+    for (const [roles, mfa, gets] of [
+      [['admin'], true, true],
+      [['admin'], false, false],
+      [['moderator'], true, false],
+      [[], false, false],
+    ] as const) {
+      arena.props = null;
+      mockApi({ 'GET /galaxy/api/auth/me': me([...roles], mfa), 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+      const { unmount } = renderAt('/incursion', { '/incursion': <HangarScreen /> });
+      await waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+      await screen.findByTestId('arena');
+      expect(Boolean(arena.props!.debug)).toBe(gets);
+      unmount();
+    }
+  });
+
+  test('marcar la incursión de prueba llama al servidor', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/auth/me': me(['admin'], true),
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+      'POST /galaxy/api/runs/r1/test': () => jsonResponse(200, { id: 'r1', test: true }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    await waitFor(() => expect(arena.props!.debug).toBeTruthy());
+    await act(() => arena.props!.debug!.markTest());
+    expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/runs/r1/test' && init?.method === 'POST')).toBe(true);
+  });
+
+  test('keep guarda test', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+      'POST /galaxy/api/runs/r1/finish': () => jsonResponse(200, { ...result, outcome: 'died', test: true }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    fireEvent.click(await screen.findByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    act(() => arena.props!.onSave!({ ...end, test: true }));
+    expect(loadPending()?.body.test).toBe(true);
+    act(() => arena.props!.onEnd({ ...end, test: true }));
+    await screen.findByText(copy.results.test);
+    const sent = fetch.mock.calls.find(([url]) => url === '/galaxy/api/runs/r1/finish')!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true });
+  });
+});
+
+// «Probar en incursión» (the content editor, 2026-11-16, P2): an admin plays a server-side config draft in a test run,
+// unpublished. The hangar is opened with ?borrador=<id>; the draft's sectors and probes (new ones too) are picked in its
+// notice, and the server plays the draft over what is live.
+describe('borrador de contenido', () => {
+  const adminMe = () => jsonResponse(200, { id: 'a1', username: 'admin', roles: ['admin'], mfa: true });
+  const playerMe = () => jsonResponse(200, { id: 'p1', username: 'jugador', roles: [], mfa: false });
+  const draftSector = { ...DEFAULT_CONTENT.sectors[0]!, id: 'draft-sector', name: 'Sector del borrador' };
+  const draftView = () =>
+    jsonResponse(200, {
+      id: 'd1',
+      title: 'Sector nuevo',
+      status: 'open',
+      revision: 3,
+      fields: [{ key: 'content', field: 'sectors' }],
+      createdBy: 'admin',
+      updatedBy: 'admin',
+      createdAt: '2026-11-16T10:00:00.000Z',
+      updatedAt: '2026-11-16T10:00:00.000Z',
+      stale: false,
+      data: { content: { sectors: [...DEFAULT_CONTENT.sectors, draftSector] } },
+      baseVersions: { content: 12 },
+      publishedVersions: null,
+    });
+  const ready = async () => waitFor(() => expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled());
+
+  test('un admin con un borrador ve su aviso con el título, y «Dejar de probar» lo quita', async () => {
+    mockApi({ 'GET /galaxy/api/auth/me': adminMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/admin/config-drafts/d1': draftView });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
+    const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    // Inside the launch dock, over the button: never a column of its own in the lobby's foot (review, 2026-11-15).
+    expect(notice.closest('.lobby-dock')).not.toBeNull();
+    expect(await within(notice).findByText('Sector nuevo')).toBeInTheDocument();
+    fireEvent.click(within(notice).getByRole('button', { name: copy.hangar.draft.stop }));
+    await waitFor(() => expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull());
+  });
+
+  test('se elige un sector del borrador y el lanzamiento envía la prueba con el borrador', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/auth/me': adminMe,
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'GET /galaxy/api/admin/config-drafts/d1': draftView,
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+    });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
+    const notice = await screen.findByRole('status', { name: copy.hangar.draft.notice });
+    await pickOption(userEvent.setup(), await within(notice).findByRole('combobox', { name: copy.hangar.draft.sector }), 'Sector del borrador');
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ test: true, draft: 'd1', sector: 'draft-sector' });
+    expect(arena.props!.debug).toMatchObject({ test: true, draft: true });
+  });
+
+  test('un jugador con ?borrador juega normal: no hay aviso ni prueba', async () => {
+    const fetch = mockApi({ 'GET /galaxy/api/auth/me': playerMe, 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'POST /galaxy/api/runs': () => jsonResponse(200, started) });
+    renderAt('/incursion?borrador=d1', { '/incursion': <HangarScreen /> });
+    await ready();
+    expect(screen.queryByRole('status', { name: copy.hangar.draft.notice })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    const sent = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/runs' && init?.method === 'POST')!;
+    expect(JSON.parse(String(sent[1]!.body))).not.toHaveProperty('draft');
+    expect(fetch.mock.calls.some(([url]) => String(url).includes('config-drafts'))).toBe(false);
+  });
 });
 
 test.each([
@@ -293,8 +448,39 @@ describe('conjuntos de reliquias', () => {
   });
 });
 
+test('desde la ficha, «Volver a la lista» vuelve al selector sin equipar nada', async () => {
+  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const fetch = mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
+  fireEvent.click(await within(await screen.findByRole('dialog', { name: copy.hangar.pickerTitle })).findByRole('button', { name: copy.hangar.sheet.open('Orvel') }));
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Orvel') });
+  fireEvent.click(within(sheet).getByRole('button', { name: copy.hangar.sheet.back }));
+  expect(await screen.findByRole('dialog', { name: copy.hangar.pickerTitle })).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: copy.hangar.sheet.title('Orvel') })).toBeNull();
+  expect(fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
+});
+
+test('el selector de reliquias filtra por fenómeno', async () => {
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const fetch = mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+    'GET /galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30': () => jsonResponse(200, page),
+  });
+  const user = userEvent.setup();
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  await user.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
+  const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
+  await pickOption(user, within(picker).getByRole('combobox', { name: copy.traitNames['phenomenon']! }), copy.collection.phenomenonAny);
+  await waitFor(() => expect(fetch.mock.calls.map(([url]) => url)).toContain('/galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30'));
+});
+
 test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
-  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1, mythic: 0 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
     'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
@@ -303,7 +489,8 @@ test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
   const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
-  fireEvent.click((await within(picker).findAllByRole('button', { name: /^Equipar / }))[0]!);
+  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') })).getByRole('button', { name: copy.hangar.sheet.equip }));
   const relics = screen.getByRole('region', { name: copy.hangar.relics });
   expect(await within(relics).findByText(copy.errors.invalid_loadout)).toBeInTheDocument();
 });
@@ -316,7 +503,7 @@ test('sin el test de la sonda, el Hangar lleva al test', async () => {
 
 
 describe('la siguiente ranura de reliquia (M4c-1)', () => {
-  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
+  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
 
   test('sin el hito, la ranura 3 enseña lo que la abre con su barra; las demás siguen cerradas', async () => {
     mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)) });
@@ -386,7 +573,8 @@ describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
 test('la peculiaridad y el rendimiento diario dicen los números de la configuración viva', () => {
   // An admin can change a quirk's numbers in the content and the daily hours in the economy: the texts follow.
   const q = copy.probeTest.quirks;
-  expect(q.dash({ kind: 'dash', every: 20, distance: 50, invuln: 0.3 })).toBe('Esquiva un golpe con un salto, cada 20 s');
+  expect(q.dash({ kind: 'dash', invuln: 0.3, charges: 1, recharge: 4, pause: 0.3 })).toBe('Dash ágil: una carga más, que vuelven cada 4 s');
+  expect(q.dash({ kind: 'dash', invuln: 0.3, charges: 2, recharge: 3.5, pause: 0.3 })).toBe('Dash ágil: 2 cargas más, que vuelven cada 3,5 s');
   expect(q.salvage({ kind: 'salvage', kills: 40 })).toBe('Cada 40 bajas encuentra un kit de reparación');
   expect(q.magnet({ kind: 'magnet', every: 45, radius: 160 })).toBe('Cada 45 s atrae los fragmentos cercanos');
   expect(q.thorns({ kind: 'thorns', share: 0.3 })).toBe('Devuelve el 30 % del daño a quien la toca');
@@ -452,4 +640,42 @@ test('cada reliquia lleva un chip con sus poderes, que abre lo que hace cada uno
   expect(rows[1]).toHaveTextContent(i.element.burn);
   expect(rows[2]).toHaveTextContent(i.phenomenon.pulsar);
   expect(rows[3]).toHaveTextContent(i.power);
+});
+
+// Plan «rareza Mítica» M2: a mythic's own power, «Singularidad», is one more row of the same chip, with its time from
+// the live content.
+test('una mítica suma su Singularidad al chip de poderes, con el tiempo de la configuración', async () => {
+  const i = copy.hangar.skillInfo;
+  mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy({ tier: 'mythic', finish: 'prismatic' }), null] })) });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
+  const chip = within(slot).getByRole('button', { name: i.open('Kathra') });
+  expect(chip).toHaveTextContent('+3');
+  fireEvent.click(chip);
+  const info = await screen.findByRole('dialog', { name: i.title('Kathra') });
+  const rows = within(within(info).getByRole('list', { name: i.tags('Kathra') })).getAllByRole('listitem');
+  expect(rows).toHaveLength(5);
+  const mythic = rows.find((r) => r.textContent?.includes(i.mythicName))!;
+  expect(mythic).toHaveTextContent(i.kinds.mythic);
+  expect(mythic).toHaveTextContent(i.singularity(DEFAULT_CONTENT.relics.singularity.cooldown));
+  expect(mythic).toHaveTextContent(i.from.mythic);
+});
+
+// Review of PR #180: a browser that cached the content before the deploy keeps a body without
+// `relics.singularity`. With a mythic equipped, the Hangar must still show (its time takes the built-in default),
+// not unmount the whole app.
+test('con un contenido guardado de antes de la Singularidad, una mítica equipada se sigue viendo con su poder', async () => {
+  const i = copy.hangar.skillInfo;
+  const { singularity: _gone, ...relics } = DEFAULT_CONTENT.relics;
+  const old = { ...DEFAULT_CONTENT, relics };
+  mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy({ tier: 'mythic', finish: 'prismatic' }), null] })),
+    'GET /galaxy/api/content': () => jsonResponse(200, { version: 7, content: old }),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
+  await waitFor(() => expect(within(slot).getByRole('button', { name: i.open('Kathra') })).toBeInTheDocument());
+  fireEvent.click(within(slot).getByRole('button', { name: i.open('Kathra') }));
+  const info = await screen.findByRole('dialog', { name: i.title('Kathra') });
+  expect(info).toHaveTextContent(i.singularity(DEFAULT_CONTENT.relics.singularity.cooldown));
 });

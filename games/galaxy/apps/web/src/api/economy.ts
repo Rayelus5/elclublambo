@@ -1,9 +1,11 @@
 import type {
+  CollectionSort,
   AutoFusionCriteria,
   AutoFusionPreview,
-  AutoFusionResult, CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
+  AutoFusionResult, CollectionPage, DisintegrateManyPreview, FindsView, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
+import { syncWallet } from './wallet';
 
 // The economy as the client sees it (GDD §9, §8.5). The server decides everything; the client only shows what it
 // answers. Every action carries an Idempotency-Key made once per player INTENT (this scan of 10 with signals, this
@@ -23,10 +25,12 @@ export interface CollectionQuery {
   tier?: Tier;
   type?: string;
   palette?: string;
+  /** A phenomenon, `any` or `none` (plan «escáner pro», part D). */
+  phenomenon?: string;
   finish?: Finish;
   /** Only locked galaxies (plan phase 2). */
   locked?: true;
-  sort?: 'new' | 'rarity';
+  sort?: CollectionSort;
   cursor?: string;
   limit?: number;
 }
@@ -34,7 +38,7 @@ export interface CollectionQuery {
 /** `/galaxies?…` with the parameters in a fixed order, so equal queries are equal URLs. */
 export function collectionPath(q: CollectionQuery): string {
   const params = new URLSearchParams();
-  for (const key of ['tier', 'type', 'palette', 'finish', 'locked', 'sort', 'limit', 'cursor'] as const) {
+  for (const key of ['tier', 'type', 'palette', 'phenomenon', 'finish', 'locked', 'sort', 'limit', 'cursor'] as const) {
     const value = q[key];
     if (value !== undefined) params.set(key, String(value));
   }
@@ -83,7 +87,7 @@ export function endIntent(intent: string, error: unknown): void {
 
 /** After an action: the new wallet everywhere, and every list of galaxies read again. */
 function settle(qc: QueryClient, wallet: Wallet): void {
-  qc.setQueryData<GachaView>(GACHA_KEY, (old) => (old ? { ...old, wallet } : old));
+  syncWallet(qc, wallet);
   void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
 }
 
@@ -104,6 +108,31 @@ export function useDisintegrate() {
     },
     onError: () => refresh(qc),
     onSettled: (_res, error, id) => endIntent(`disintegrate:${id}`, error),
+  });
+}
+
+const dissolveIntent = (ids: readonly string[]) => `disintegrate-many:${[...ids].sort().join(',')}`;
+
+/** What disintegrating these galaxies would give, asked before confirming (nothing changes on the server). */
+export function previewDisintegrate(ids: readonly string[]): Promise<DisintegrateManyPreview> {
+  return api<DisintegrateManyPreview>('/galaxies/disintegrate', { method: 'POST', body: { ids: [...ids].sort(), preview: true } });
+}
+
+/**
+ * Desintegrar varias (the owner): all of them or none, in one operation (its key travels with the chosen galaxies, so a
+ * retry reuses it). The wallet follows the answer and the collection reads again; a refusal reads everything again.
+ */
+export function useDisintegrateMany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: readonly string[]) =>
+      api<DisintegrateManyPreview & { wallet: Wallet }>('/galaxies/disintegrate', { method: 'POST', body: { ids: [...ids].sort() }, headers: keyFor(dissolveIntent(ids)) }),
+    onSuccess: (res, ids) => {
+      settle(qc, res.wallet);
+      for (const id of ids) qc.removeQueries({ queryKey: [GALAXY_KEY, id] });
+    },
+    onError: () => refresh(qc),
+    onSettled: (_res, error, ids) => endIntent(dissolveIntent(ids), error),
   });
 }
 
@@ -144,6 +173,12 @@ export function useLeftoversSeen() {
   });
 }
 
+/** What the scanner shows of what is found (2026-11-17): on opening, every minute while it shows, and after my scans. */
+export const FINDS_KEY = ['gacha-finds'] as const;
+export function useFinds() {
+  return useQuery({ queryKey: FINDS_KEY, queryFn: () => api<FindsView>('/gacha/finds'), staleTime: 30_000, refetchInterval: 60_000 });
+}
+
 export function usePull() {
   const qc = useQueryClient();
   return useMutation({
@@ -151,6 +186,7 @@ export function usePull() {
     onSuccess: (res) => {
       qc.setQueryData<GachaView>(GACHA_KEY, { ...res.view, wallet: res.wallet });
       void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
+      void qc.invalidateQueries({ queryKey: FINDS_KEY });
     },
     onError: () => refresh(qc),
     onSettled: (_res, error, req) => endIntent(pullIntent(req), error),

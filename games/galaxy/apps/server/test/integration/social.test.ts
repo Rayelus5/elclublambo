@@ -1,10 +1,10 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { type FinishRunRequest, generateGalaxy, type Leaderboard, type MeResponse, PROBE_TEST, type Profile, type PublicCollectionPage, type RunResult, type RunStart } from '@galaxy/shared';
+import { type FinishRunRequest, generateGalaxy, parseConfig, type Leaderboard, type MeResponse, PROBE_TEST, type Profile, type PublicCollectionPage, type RunResult, type RunStart } from '@galaxy/shared';
 import { encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { invalidateLeaderboard } from '../../src/social/leaderboard';
-import { fixedConfig, get, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, NEUTRAL_SECTORS, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // The social side on the server (GDD §12.1, §14.1, §14.2; M5a): a finished run that is not suspicious gives account
 // experience and, in an open season, points; the season leaderboard ranks players by score, depth and Cores; profiles
@@ -80,7 +80,7 @@ describe('la experiencia de una incursión', () => {
   let clock = at(s, 24);
   let ctx: Ctx;
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
   });
   afterAll(() => ctx.close());
 
@@ -161,7 +161,7 @@ describe('la clasificación de la temporada', () => {
   let cheat: typeof a;
   let early: typeof a;
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
     [a, b, c, d, cheat, early] = [await player(ctx, 'lba'), await player(ctx, 'lbb'), await player(ctx, 'lbc'), await player(ctx, 'lbd'), await player(ctx, 'lbx'), await player(ctx, 'lbe')];
     // A and C tie on 175 points and depth 5 with two Cores; C got there first. B leads with 180; D has 10.
     await scored(ctx, a.id, { depth: 5, bossKills: 2, outcome: 'extracted', when: at(s, 30) });
@@ -180,16 +180,16 @@ describe('la clasificación de la temporada', () => {
     expect(v.season).toEqual({ id: s.id, name: s.name, startsAt: s.startsAt, endsAt: s.endsAt, tiers: [500, 2000, 6000, 15000, 30000] });
     expect(v.tab).toBe('general');
     expect(v.rows).toEqual([
-      { rank: 1, username: b.username, level: 1, value: 180 },
-      { rank: 2, username: c.username, level: 1, value: 175 },
-      { rank: 2, username: a.username, level: 5, value: 175 },
+      { rank: 1, username: b.username, level: 1, value: 180, avatar: null, frame: null },
+      { rank: 2, username: c.username, level: 1, value: 175, avatar: null, frame: null },
+      { rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null },
     ]);
-    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175 });
+    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null });
     expect(v.total).toBe(4);
   });
 
   test('tu fila sale aunque estés fuera del top, y sin puntos no hay fila', async () => {
-    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10 });
+    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10, avatar: null, frame: null });
     expect((await board(ctx, early.cookie)).me).toBeNull();
     expect((await board(ctx, cheat.cookie)).me).toBeNull();
   });
@@ -228,14 +228,15 @@ describe('la clasificación de la temporada', () => {
     const res = await get(ctx.app, `/galaxy/api/profiles/${a.username.toUpperCase()}`, { cookie: b.cookie });
     expect(res.statusCode).toBe(200);
     const p = res.json() as Profile;
-    expect(Object.keys(p).sort()).toEqual(['clan', 'collection', 'frame', 'level', 'planetarium', 'records', 'season', 'since', 'title', 'username']);
+    expect(Object.keys(p).sort()).toEqual(['avatar', 'banner', 'clan', 'collection', 'frame', 'level', 'planetarium', 'probes', 'records', 'season', 'since', 'title', 'username', 'xp']);
     expect(p.clan).toBeNull();
     expect(p.username).toBe(a.username);
     expect(p.level).toBe(5);
+    expect(p.xp).toEqual({ into: expect.any(Number), next: expect.any(Number) });
     expect(Date.parse(p.since)).not.toBeNaN();
     expect(p.season).toEqual({ score: 175, rank: 2, tier: null, maxDepth: 5, purges: 2, extractions: 1 });
     expect(p.records).toEqual({ maxDepth: 5, purges: 2, runs: 1 });
-    expect(p.collection).toEqual({ total: 2, counts: { common: 0, uncommon: 0, rare: 1, epic: 0, legendary: 1 } });
+    expect(p.collection).toEqual({ total: 2, counts: { common: 0, uncommon: 0, rare: 1, epic: 0, legendary: 1, mythic: 0 } });
     expect(p.planetarium).toMatchObject({ prestige: 13, exhibits: 1, cover: { id: legend, tier: 'legendary', finish: 'holo' } });
     expect(Object.keys(p.planetarium.cover!).sort()).toEqual(['designation', 'featured', 'finish', 'id', 'level', 'name', 'seed', 'tier', 'traits']);
 
@@ -261,7 +262,7 @@ describe('la clasificación de la temporada', () => {
     const all = (await get(ctx.app, `/galaxy/api/profiles/${owner.username}/galaxies`, { cookie: b.cookie })).json() as PublicCollectionPage;
     expect(all.items.map((g) => g.tier)).toEqual(['legendary', 'rare', 'rare']);
     expect(Object.keys(all.items[0]!).sort()).toEqual(['designation', 'featured', 'finish', 'id', 'level', 'name', 'seed', 'tier', 'traits']);
-    expect(all.counts).toEqual({ common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1 });
+    expect(all.counts).toEqual({ common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1, mythic: 0 });
     expect(all.next).toBeUndefined();
 
     const rare = (await get(ctx.app, `/galaxy/api/profiles/${owner.username}/galaxies?tier=rare`, { cookie: b.cookie })).json() as PublicCollectionPage;
@@ -302,7 +303,7 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
   let ctx: Ctx;
   let [a, b, c, d, x, solo]: Awaited<ReturnType<typeof player>>[] = [];
   beforeAll(async () => {
-    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
     [a, b, c, d, x, solo] = [await player(ctx, 'gra'), await player(ctx, 'grb'), await player(ctx, 'grc'), await player(ctx, 'grd'), await player(ctx, 'grx'), await player(ctx, 'grs')];
     // A+B reach layer 6 with 3 Cores twice (the faster counts) and layer 4 once; C+D reach the same, faster still.
     await grouped(ctx, [a!, b!], { depth: 6, cores: 3, ticks: 54_000, when: at(s, 10) });
@@ -324,9 +325,9 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
     expect(v.tab).toBe('groups');
     expect(v.rows).toEqual([]);
     expect(v.groups).toEqual([
-      { rank: 1, players: [{ username: c!.username, probe: 'lumen' }, { username: d!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
-      { rank: 1, players: [{ username: a!.username, probe: 'lumen' }, { username: b!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
-      { rank: 3, players: [{ username: a!.username, probe: 'lumen' }, { username: c!.username, probe: 'lumen' }], depth: 2, cores: 0, seconds: 150, outcome: 'died' },
+      { rank: 1, players: [{ username: c!.username, probe: 'lumen', skin: null }, { username: d!.username, probe: 'lumen', skin: null }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
+      { rank: 1, players: [{ username: a!.username, probe: 'lumen', skin: null }, { username: b!.username, probe: 'lumen', skin: null }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
+      { rank: 3, players: [{ username: a!.username, probe: 'lumen', skin: null }, { username: c!.username, probe: 'lumen', skin: null }], depth: 2, cores: 0, seconds: 150, outcome: 'died' },
     ]);
     expect(v.total).toBe(3);
     expect(v.myGroup).toMatchObject({ rank: 1, depth: 6, seconds: 833 });
@@ -344,7 +345,7 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
 
 test('sin temporada abierta, la clasificación lo dice y no tiene filas', async () => {
   const s = season();
-  const ctx = await testApp({ now: () => at(s, -24), config: fixedConfig({ season: s }) });
+  const ctx = await testApp({ now: () => at(s, -24), config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS }) });
   try {
     const p = await player(ctx);
     const v = await board(ctx, p.cookie);
@@ -353,3 +354,91 @@ test('sin temporada abierta, la clasificación lo dice y no tiene filas', async 
     await ctx.close();
   }
 });
+
+// Pay by sector (2026-11-16): with the real defaults a Nebulosa run pays ×0,8 (loot, material and season points), its
+// experience stays as it was (never below ×1), and the ranking adds up exactly the points its results said.
+describe('la paga por sector', () => {
+  const s = season();
+  let clock = at(s, 24);
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+  });
+  afterAll(() => ctx.close());
+
+  const INPUTS = toBase64(encodeLog({ probes: 1, events: [1, 0, 0, 127, 0, -1, 300, 0, 0, 0, 0, -1] }));
+  const body: FinishRunRequest = { outcome: 'extracted', ticks: 6 * 3600, depth: 1, kills: 600, bossKills: 1, level: 14, loot: [{ coins: 40, dust: 12 }], hash: '0123456789abcdef', inputs: INPUTS };
+
+  test('la Nebulosa paga ×0,8 botín, material y puntos, la experiencia no baja y la clasificación suma lo mismo', async () => {
+    const p = await player(ctx);
+    const start = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    expect(start.statusCode).toBe(200);
+    const id = (start.json() as RunStart).id;
+    expect(Number((await ctx.db.selectFrom('galaxy.runs').select('sector_factor').where('id', '=', id).executeTakeFirstOrThrow()).sector_factor)).toBe(0.8);
+    clock = new Date(clock.getTime() + 10 * 60_000);
+    const res = await post(ctx.app, `/galaxy/api/runs/${id}/finish`, body, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    expect(res.statusCode).toBe(200);
+    const r = res.json() as RunResult;
+    // ×1 it would be 40 coins, 12 dust, 28 material and 85 points (the test above); experience 145 either way.
+    expect(r.payout).toMatchObject({ coins: 32, dust: 9, material: 22 });
+    expect(r.breakdown.sector).toEqual({ id: 'outer-nebula', factor: 0.8 });
+    expect(r.progress).toMatchObject({ xp: 145, points: 68 });
+    expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: 68 });
+  });
+});
+
+// The review of 2026-11-16: `runs.points_factor` is a `real`; the ranking must add a group run's points as its results
+// said (10 points × 0,7 = 7, not 6).
+describe('los puntos de una incursión en grupo', () => {
+  const s = season();
+  const clock = at(s, 24);
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+  });
+  afterAll(() => ctx.close());
+
+  test('de cuatro (×0,7) suma en la clasificación lo mismo que en sus resultados', async () => {
+    const p = await player(ctx);
+    const coop = await ctx.db
+      .insertInto('galaxy.coop_runs')
+      .values({ room_code: 'PTS234', kind: 'public', leader_id: null, sector: 'frost-rings', seed: '1', anomaly: null, rules: '{}', players: '[]', content_version: 0, sim_version: SIM_VERSION })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await ctx.db
+      .insertInto('galaxy.runs')
+      .values({
+        account_id: p.id,
+        seed: '1',
+        sector: 'frost-rings',
+        probe: 'lumen',
+        relics: '[]',
+        content_version: 0,
+        sim_version: SIM_VERSION,
+        start_key: randomUUID(),
+        started_at: clock,
+        finished_at: clock,
+        outcome: 'died',
+        ticks: 18_000,
+        depth: 1,
+        kills: 50,
+        boss_kills: 0,
+        level: 5,
+        seconds: 300,
+        hash: '0123456789abcdef',
+        payout: '{}',
+        runs_version: 0,
+        flags: [],
+        suspicious: false,
+        coop_run_id: coop.id,
+        slot: 0,
+        party_size: 4,
+        points_factor: 0.7,
+        sector_factor: 1,
+      })
+      .execute();
+    const base = parseConfig('season', s).points.layer;
+    expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: Math.floor(base * 0.7) });
+  });
+});
+

@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { ENGINE_VERSION } from '@galaxy/engine';
 import {
   type AutoFusionCandidate,
   type AutoFusionCriteria,
@@ -16,6 +15,9 @@ import {
   TIERS,
   validateFusion,
   type CollectionPage,
+  COLLECTION_SORTS,
+  type CollectionSort,
+  perTier,
   type Finish,
   type GachaConfig,
   type GalaxiesConfig,
@@ -28,29 +30,34 @@ import {
   relicRefund,
   type RelicsConfig,
 } from '@galaxy/shared';
-import { type Kysely, type Selectable, sql } from 'kysely';
+import { type Kysely, type RawBuilder, type Selectable, sql } from 'kysely';
 import { z } from 'zod';
 import type { ConfigReader } from '../config/reader';
 import type { DB, GalaxiesTable } from '../db/schema';
+import { galaxyValues } from '../galaxies/insert';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { WithLive } from '../realtime/notices';
 import { accountLabEffects } from '../lab/levels';
 import { isEquipped, isExhibited, isListed, isTraded, listedColumn, tradedColumn } from '../market/escrow';
 
 // The collection (GDD §8.5): owned galaxies, paged with a keyset cursor; disintegration into dust and fusion of
 // `fusion.count` same-tier galaxies into one of the next tier. Both are idempotent operations (routes.ts) and lock
 // the galaxies they consume, so a galaxy is never spent twice.
-export type CollectionDeps = { db: Kysely<DB>; config: ConfigReader };
+/** `live`: the live hub, for an achievement's notice (real-time notices plan). */
+export type CollectionDeps = { db: Kysely<DB>; config: ConfigReader } & WithLive;
 
 export const listQuerySchema = z
   .object({
     tier: z.enum(TIERS).optional(),
     type: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     palette: z.string().regex(/^[a-z_]{1,24}$/).optional(),
+    /** A phenomenon, `any` (with one) or `none` (plan «escáner pro», part D: it decides relics most). */
+    phenomenon: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     finish: z.enum(FINISHES).optional(),
     /** Only locked galaxies (plan phase 2). */
     locked: z.enum(['true']).optional(),
-    sort: z.enum(['new', 'rarity']).default('new'),
+    sort: z.enum(COLLECTION_SORTS).default('new'),
     cursor: z.string().max(200).optional(),
     limit: z.coerce.number().int().min(1).max(60).default(30),
   })
@@ -99,8 +106,44 @@ function decode(raw: string): Cursor {
   }
 }
 
+/**
+ * The keys a sort orders by (all in one direction), as SQL over a table reference `t` (the list's own table, or the
+ * cursor's row). The star dust is what disintegrating would pay: the tier × finish yield of `galaxies.disintegrate`
+ * plus the levels' refund (the lab's bonus multiplies every one alike, so it does not change the order).
+ */
+function sortKeys(sort: CollectionSort, t: string, galaxies: GalaxiesConfig, relics: RelicsConfig): { keys: RawBuilder<unknown>[]; desc: boolean } {
+  const c = (col: string) => sql.ref(`${t}.${col}`);
+  const tierYield = perTier(galaxies.disintegrate.tier);
+  const fin = galaxies.disintegrate.finish;
+  const dust = sql`(round((case ${c('tier')} ${sql.join(
+    tierYield.map((v, i) => sql`when ${sql.lit(i)} then ${sql.lit(v)}::float8`),
+    sql` `,
+  )} else 0 end) * (case ${c('finish')} ${sql.join(
+    FINISHES.map((f, i) => sql`when ${sql.lit(f)} then ${sql.lit(fin[i] ?? fin[fin.length - 1]!)}::float8`),
+    sql` `,
+  )} else ${sql.lit(fin[fin.length - 1]!)}::float8 end)) + floor(${c('level_dust')} * ${sql.lit(relics.refund)}::float8 + 1e-9))`;
+  switch (sort) {
+    case 'rarity':
+      return { keys: [c('tier'), c('score'), c('id')], desc: true };
+    case 'old':
+      return { keys: [c('created_at'), c('id')], desc: false };
+    case 'dust-desc':
+      return { keys: [dust, c('id')], desc: true };
+    case 'dust-asc':
+      return { keys: [dust, c('id')], desc: false };
+    case 'name-asc':
+      return { keys: [c('name'), c('id')], desc: false };
+    case 'name-desc':
+      return { keys: [c('name'), c('id')], desc: true };
+    default:
+      return { keys: [c('created_at'), c('id')], desc: true };
+  }
+}
+
 export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: ListQuery): Promise<CollectionPage> {
   const { db } = deps;
+  const [galaxiesCfg, relicsCfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('relics')]);
+  const order = sortKeys(q.sort, 'galaxy.galaxies', galaxiesCfg, relicsCfg);
   let query = db
     .selectFrom('galaxy.galaxies')
     .select([...SUMMARY, equippedColumn, exhibitedColumn, listedColumn, tradedColumn])
@@ -110,21 +153,19 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   if (q.finish) query = query.where('finish', '=', q.finish);
   if (q.type) query = query.where(sql<string>`traits->>'galaxy_type'`, '=', q.type);
   if (q.palette) query = query.where(sql<string>`traits->>'palette'`, '=', q.palette);
+  if (q.phenomenon === 'any') query = query.where(sql<string>`coalesce(traits->>'phenomenon', 'none')`, '<>', 'none');
+  else if (q.phenomenon) query = query.where(sql<string>`coalesce(traits->>'phenomenon', 'none')`, '=', q.phenomenon);
   if (q.locked) query = query.where('locked', '=', true);
   if (q.cursor) {
     // The cursor is the last row's id: the boundary is that row's own stored values, compared in SQL. Exact for
     // REAL scores and microsecond timestamps, which do not survive a round trip through JSON text.
     const { id } = decode(q.cursor);
-    const at = sql`(select g.tier, g.score, g.created_at, g.id from galaxy.galaxies g where g.id = ${id}::uuid and g.owner_id = ${ownerId}::uuid)`;
-    query =
-      q.sort === 'rarity'
-        ? query.where(sql<boolean>`(tier, score, id) < (select b.tier, b.score, b.id from ${at} as b)`)
-        : query.where(sql<boolean>`(created_at, id) < (select b.created_at, b.id from ${at} as b)`);
+    const at = sortKeys(q.sort, 'g', galaxiesCfg, relicsCfg);
+    query = query.where(
+      sql<boolean>`(${sql.join(order.keys)}) ${order.desc ? sql`<` : sql`>`} (select ${sql.join(at.keys)} from galaxy.galaxies g where g.id = ${id}::uuid and g.owner_id = ${ownerId}::uuid)`,
+    );
   }
-  query =
-    q.sort === 'rarity'
-      ? query.orderBy('tier', 'desc').orderBy('score', 'desc').orderBy('id', 'desc')
-      : query.orderBy('created_at', 'desc').orderBy('id', 'desc');
+  for (const k of order.keys) query = query.orderBy(k as never, order.desc ? 'desc' : 'asc');
   const rows = await query.limit(q.limit + 1).execute();
   const page = rows.slice(0, q.limit);
   const last = page[page.length - 1];
@@ -138,7 +179,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
     .execute();
   const counts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
   for (const c of counted) counts[TIERS[c.tier]!] = c.n;
-  const { fusion } = await deps.config.get('galaxies');
+  const { fusion } = galaxiesCfg;
   const lab = await accountLabEffects(db, ownerId, await deps.config.get('lab'));
   return { items: page.map(summary), ...(next ? { next } : {}), counts, fusion: { count: fusion.count, dust: fusion.dust.map((d) => fusionDust(d, lab.fusion)) } };
 }
@@ -260,6 +301,43 @@ export async function disintegrate(
   return { dust: dust + refund, wallet: await getWallet(trx, ownerId) };
 }
 
+/**
+ * Desintegrar varias (the owner): every galaxy or none. Paid as if one by one (each rounded on its own), with the
+ * relics' refunds; the rows are taken in id order (as the auto-fusion does) so two requests never deadlock. Without an
+ * operation key it is the preview: the same checks and sum, nothing changed.
+ */
+export async function disintegrateMany(
+  { cfg, lab, relics }: { cfg: GalaxiesConfig; lab: LabConfig; relics: RelicsConfig },
+  trx: Kysely<DB>,
+  ownerId: string,
+  ids: readonly string[],
+  opKey: string | null,
+): Promise<{ count: number; dust: number; wallet?: Wallet }> {
+  const rows = await trx
+    .selectFrom('galaxy.galaxies')
+    .select(['id', 'tier', 'finish', 'level_dust', 'locked'])
+    .where('id', 'in', [...ids])
+    .where('owner_id', '=', ownerId)
+    .where('disintegrated_at', 'is', null)
+    .orderBy('id')
+    .$if(opKey !== null, (q) => q.forUpdate())
+    .execute();
+  if (rows.length !== ids.length) throw new HttpError(404, 'galaxy_not_found');
+  if (rows.some((r) => r.locked)) throw new HttpError(409, 'galaxy_locked');
+  if (await isEquipped(trx, [...ids])) throw new HttpError(409, 'galaxy_equipped');
+  if (await isExhibited(trx, [...ids])) throw new HttpError(409, 'galaxy_exhibited');
+  if (await isListed(trx, [...ids])) throw new HttpError(409, 'galaxy_listed');
+  if (await isTraded(trx, [...ids])) throw new HttpError(409, 'galaxy_in_trade');
+  const push = (await accountLabEffects(trx, ownerId, lab)).disintegrate;
+  const dust = rows.reduce((n, r) => n + disintegrationDust(disintegrateYield(r.tier, r.finish as Finish, cfg), push), 0);
+  const refund = rows.reduce((n, r) => n + relicRefund(r.level_dust, relics), 0);
+  if (opKey === null) return { count: rows.length, dust: dust + refund };
+  await trx.updateTable('galaxy.galaxies').set({ disintegrated_at: new Date() }).where('id', 'in', [...ids]).execute();
+  if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxies: [...ids] }, opKey);
+  if (refund > 0) await credit(trx, ownerId, 'dust', refund, 'relic_refund', { galaxies: [...ids] }, opKey);
+  return { count: rows.length, dust: dust + refund, wallet: await getWallet(trx, ownerId) };
+}
+
 export async function fuse(
   { cfg, gacha, lab, relics }: { cfg: GalaxiesConfig; gacha: GachaConfig; lab: LabConfig; relics: RelicsConfig },
   trx: Kysely<DB>,
@@ -315,20 +393,7 @@ async function fuseLocked(
   const finish = drawFinish(fusionSeed, gacha);
   const row = await trx
     .insertInto('galaxy.galaxies')
-    .values({
-      owner_id: ownerId,
-      seed: g.seed.toString(),
-      engine_version: ENGINE_VERSION,
-      traits: JSON.stringify(g.traits),
-      dna: g.dna,
-      name: g.name,
-      designation: g.designation,
-      tier: recipe.tier,
-      score: g.score,
-      finish,
-      origin: 'fusion',
-      lineage: ids,
-    })
+    .values(galaxyValues(g, { owner: ownerId, tier: recipe.tier, finish, origin: 'fusion', lineage: ids }))
     .returning([...SUMMARY])
     .executeTakeFirstOrThrow();
   return { galaxy: summary(row), score: row.score };

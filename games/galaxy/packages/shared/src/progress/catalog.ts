@@ -2,6 +2,7 @@ import { TRAITS } from '@galaxy/engine';
 import { z } from 'zod';
 import { DRAWN_FINISHES } from '../gacha/types';
 import { FRAMES } from './missions';
+import { ART_AVATARS, ART_SKINS, type SkinId } from '../cosmetics/catalog';
 
 // The ECN Catalogue (GDD §12.3, §3; M7b): the album of galaxy types, palettes, phenomena and finishes an account has
 // found, and the rewards for completing a share of it.
@@ -26,15 +27,15 @@ const amount = z.number().int().min(0).max(10_000_000).default(0);
 export const catalogRewardSchema = z
   .object({
     percent: z.number().int().min(1).max(100),
-    reward: z.object({ coins: amount, dust: amount, signal: z.number().int().min(0).max(100).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null) }).strict(),
+    reward: z.object({ coins: amount, dust: amount, signal: z.number().int().min(0).max(100).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null), skin: z.enum(ART_SKINS as [SkinId, ...SkinId[]]).nullable().default(null) }).strict(),
   })
   .strict();
 
 export const DEFAULT_CATALOG_REWARDS = [
   { percent: 10, reward: { dust: 300 } },
   { percent: 25, reward: { signal: 2 } },
-  { percent: 50, reward: { signal: 5, title: 'Cartógrafo' } },
-  { percent: 75, reward: { dust: 1500, title: 'Archivista' } },
+  { percent: 50, reward: { signal: 5, title: 'Cartógrafo', avatar: 'cartographer' as const } },
+  { percent: 75, reward: { dust: 1500, title: 'Archivista', frame: 'aurora' as const } },
   { percent: 100, reward: { signal: 10, title: 'Guardián del cielo', frame: 'gold' as const } },
 ];
 
@@ -57,8 +58,11 @@ export const catalogClaimParamsSchema = z.object({ percent: z.coerce.number().in
 
 /** The Códice's progress (GDD §15; M7b-2): what opens its entries, from runs that are not suspicious. */
 export interface CodexProgress {
-  /** Per sector played: the longest run (seconds) and the Cores purged there. */
-  sectors: Record<string, { maxSeconds: number; bossKills: number }>;
+  /**
+   * Per sector played: the longest run (seconds), the Cores purged there and (Nov plan B4) the most purged in one run,
+   * which says how deep a form of its Core has been beaten (absent from an older server: none).
+   */
+  sectors: Record<string, { maxSeconds: number; bossKills: number; maxBossKills?: number }>;
   bossKills: number;
   maxDepth: number;
   level: number;

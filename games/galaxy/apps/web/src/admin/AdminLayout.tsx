@@ -39,10 +39,31 @@ export function AdminLayout() {
                   <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/tablon">{t.sections.news}</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/referidos">{t.sections.referrals}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/estadisticas">{t.sections.stats}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/almacenamiento">{t.sections.storage}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/partidas">{t.sections.runs}</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/tienda">{t.sections.shop}</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/escaner-ensayo">{t.sections.rehearsal}</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/musica">{t.sections.music}</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/notas-de-version">{t.sections.notes}</NavLink>
                 </li>
               </>
             ) : null}

@@ -1,17 +1,29 @@
 import 'pixi.js/unsafe-eval';
-import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
-import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent, ticks } from '@galaxy/sim';
+import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { singularityOf } from '../../api/content-read';
+import { copy } from '../../copy/es';
+import { drawableId, probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
-import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
-import { type Camera, cameraFor } from './camera';
+import { BAYER, buildAtlas, ditherTexture, fbm, maskTexture } from './atlas';
+import { createEnvironment, hashSeed, OVERLAY_MAX } from './environment';
+import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
+import { stagePalette, type StagePalette } from './palette';
+import type { ColorVisionMode } from '../../a11y/color-vision';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
+import { mateMarkers } from './mates';
+import { type Insets, NO_INSETS } from './edge';
 import { type Warning, warningFrom, warningProgress } from './warnings';
+import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
+import { type HitTone, hitboxShapes } from './hitboxes';
+import { type AnomalyMark, drawAnomaly, GLITCH_CYAN, GLITCH_LILAC, GLITCH_MAGENTA, GLITCH_RED, landingAlpha, splitOffset, SPLIT_S, TEAR_GAP } from './anomaly';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
-// particles, shake, the Static's glitch on elites and the boss, warnings before every strike and the beacon.
+// particles, shake, the Static's glitch on elites and the boss, warnings before every strike and the beacon. Under the
+// world, the environment (environment.ts) turns the sky stormy while a Núcleo is up.
 
 export interface StageOptions {
   reduced: boolean;
@@ -19,6 +31,8 @@ export interface StageOptions {
   vision: number;
   /** The probe the camera follows. */
   probe: number;
+  /** My own probe (co-op; default `probe`): only its hits flash and shake the screen, even while watching another. */
+  me?: number;
   /** The run seed (decoration). */
   seed: string;
   /** Keep the drawing buffer (screenshots in tests). */
@@ -27,6 +41,14 @@ export interface StageOptions {
   biome?: BiomeId;
   /** Co-op (multiplayer plan): every player's name by probe, shown over the teammates. */
   names?: string[];
+  /** Whole steps closer than the base view the run starts at (the player's wheel, kept between runs). */
+  zoom?: number;
+  /** The colour-blind palette (plan «escáner pro», part C). */
+  colorVision?: ColorVisionMode;
+  /** The skin each probe wears, by probe (plan «skins», part C; null or absent: its own drawing). Only drawing. */
+  skins?: readonly (string | null | undefined)[];
+  /** Accesibilidad › «Brillo detrás de tu sonda» (the owner): a soft white glow behind my own probe. */
+  probeGlow?: boolean;
 }
 
 export interface Stage {
@@ -36,39 +58,104 @@ export interface Stage {
   feed(events: readonly SimEvent[], tick?: number): void;
   resize(w: number, h: number): void;
   camera(): Camera | null;
+  /** The mouse wheel: `steps` whole steps closer (negative: farther), within the camera's limits; it glides there. */
+  zoom(steps: number): void;
+  /** How many steps closer than the base view it is set to now. */
+  zoomLevel(): number;
   /** Follows another probe from now on (the admin's replay of a group run switches between players). */
   follow(probe: number): void;
+  /** Co-op: the screen bands the HUD covers; the teammates' arrows keep out of them (Nov plan A2 review). */
+  setInsets(insets: Insets): void;
+  /** Ajustes → Movimiento changed while playing (plan «escáner pro», part A): applies from the next frame. */
+  setReduced(on: boolean): void;
+  /** Ajustes → Visión del color changed while playing (part C): applies from the next frame. */
+  setColorVision(mode: ColorVisionMode): void;
+  /** Ajustes → Accesibilidad → «Brillo detrás de tu sonda» changed while playing: applies from the next frame. */
+  setProbeGlow(on: boolean): void;
+  /** The admin debug mode (2026-11-15): outlines every body with the radius the sim tests it with. */
+  setDebug(flags: { hitboxes: boolean }): void;
   destroy(): void;
 }
 
-/** Sprite per shot kind (systems/weapons.ts SHOT; the beam is drawn as a line, not a sprite). */
-const SHOT_SPRITE = ['bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'blade', 'bolt', 'missile', 'shard', 'mine', 'disc', 'turret', 'split-shard'];
-const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar, SHOT.missile, SHOT.shard, SHOT.split, SHOT.turret]);
+/**
+ * Sprite per shot kind (systems/weapons.ts SHOT). Drawn otherwise: the beam and the lighthouse's beam (lines), a body
+ * the sling threw (the enemy itself, in a grip of gravity) and a hologram (its probe's own drawing).
+ */
+const SHOT_SPRITE = [
+  'bolt',
+  'lance',
+  'arc',
+  'drone-bolt',
+  'orb',
+  'drone',
+  'relic-ray',
+  'jet',
+  'quasar',
+  'chaos',
+  'reflected',
+  'blade',
+  'bolt',
+  'missile',
+  'shard',
+  'mine',
+  'disc',
+  'turret',
+  'split-shard',
+  'harpoon',
+  'bolt',
+  'bolt',
+  'bolt',
+  'mortar-shell',
+];
+const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar, SHOT.missile, SHOT.shard, SHOT.split, SHOT.turret, SHOT.harpoon]);
+/** The November arsenal's light (Nov plan B3): the lighthouse's warm beam, the hologram's cyan, the sling's lilac. */
+const PHOTON = 0xffc94a;
+const HOLO = 0x6fe3ff;
+const GRAVITY = 0xb39dff;
+/**
+ * A mythic's singularity (plan «rareza Mítica» M2): the four tones of the mythic's iridescent frame (styles/app.css
+ * --color-iris-1…4) for its ring, its motes and its burst, around a core darker than the field.
+ */
+const IRIS = [0xff4fd8, 0x6fe3ff, 0xffc94a, 0xb39dff] as const;
+const VOID = 0x05030d;
+/** Its core at full size (world units) and how long its collapse's burst lasts (systems/relics.ts COLLAPSE_SHOW_TICKS). */
+const HOLE_CORE = 11;
+const COLLAPSE_TICKS = 24;
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
-const ELEMENT_COLOR: Record<string, number> = {
-  burn: 0xff9a3c,
-  slow: 0x6fb7ff,
-  corrosion: 0x45e3a6,
-  shock: 0xb39dff,
-  hack: 0xffc94a,
-  leech: 0xff4d6d,
-  breach: 0x17b07e,
-  chain: 0x6fe3ff,
-  pure: 0xf3f5ff,
-  prism: 0xffc94a,
-  invert: 0x7259ee,
-};
 const STEP_RAD = (Math.PI * 2) / 4096;
 /** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
-const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component' };
+const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component', 6: 'signal-ticket' };
 /** A quirk's jump glides over this long; afterimages fade over GHOST_LIFE. */
 const GLIDE_S = 0.12;
 const GHOST_LIFE = 0.28;
 const DASH_TINT = 0x6fe3ff;
+/** Half a probe drawing (24 × 24 since part B of the plan «banda sonora, skins, perfil y entorno»): where its marks go. */
+const PROBE_HALF = 12;
+// The glow behind my own probe (Accesibilidad): about two and a half probes wide, at most 0.35 of white (the storm's
+// cap for overlays), never a hard disc.
+const GLOW_SIZE = 60;
+const GLOW_ALPHA = 0.32;
+
+/** A soft white disc, fading from the centre to nothing at its edge, drawn once for the glow. */
+function glowTexture(): Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  return Texture.from(canvas);
+}
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
-/** Each co-op player's colour, by probe (solar, terminal, ice, nova). */
+/** Each co-op player's colour, by probe (solar, terminal, ice, nova); the colour-blind modes swap it (palette.ts). */
 export const TEAM_TINT = [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a];
 
 /** Sprites kept per slot of a pool, made on demand and hidden when the slot is free. */
@@ -102,11 +189,43 @@ export function arcFrom<G extends Pick<Graphics, 'moveTo' | 'arc'>>(g: G, x: num
   return g;
 }
 
+/** An arc drawn in dashes (a downed teammate's countdown: shape, not only colour, tells it from the revive). */
+function dashedArc(g: Graphics, x: number, y: number, r: number, from: number, to: number, style: { width: number; color: number; alpha: number }): void {
+  const dash = 0.42;
+  const gap = 0.26;
+  for (let a = from; a < to; a += dash + gap) arcFrom(g, x, y, r, a, Math.min(to, a + dash)).stroke(style);
+}
+
+/**
+ * The backdrop steps back so what is played reads first: the starfield and the nebula are softly blurred, and a dark
+ * veil over them lowers their light. Probes, enemies, loot, rocks and the ground's dust stay sharp above it.
+ */
+const BACKDROP_BLUR = 0.6;
+const VEIL = { color: 0x03040e, alpha: 0.28 };
+
+/** The debug mode's collision outlines by kind: the probe and its pickup reach, foes, shots and ground. */
+const HITBOX_COLOR: Record<HitTone, number> = {
+  probe: 0x6dff8e,
+  pickup: 0x3f8f55,
+  enemy: 0xff5a5a,
+  boss: 0xff2fb1,
+  shot: 0x6fe3ff,
+  foe: 0xffa13d,
+  area: 0xffe066,
+  prop: 0xb0a48a,
+  beacon: 0xffffff,
+  blast: 0xff7a1a,
+};
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export async function createStage(canvas: HTMLCanvasElement, content: Content, opts: StageOptions): Promise<Stage> {
+export async function createStage(canvas: HTMLCanvasElement, content: Content, given: StageOptions): Promise<Stage> {
+  // Its own copy: some options change while playing (setReduced), and the caller's object stays as it was.
+  const opts: StageOptions = { ...given };
+  // The meaningful colours (danger, good, the players, the elements), swapped live by Ajustes → Visión del color.
+  let pal: StagePalette = stagePalette(opts.colorVision ?? 'none');
   const app = new Application();
   await app.init({
     canvas,
@@ -142,7 +261,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     resolution: 1,
   });
 
-  const atlas = buildAtlas();
+  // The atlas carries the skins this run draws, and no others.
+  const atlas = buildAtlas(skinSprites(opts.skins ?? []));
+  const inAtlas = (id: string) => Object.hasOwn(atlas.frames, id);
+  /** What probe `i` is drawn as: its skin, or its own drawing (a skin with no art falls back to it). */
+  const drawingOf = (i: number, def: { sprite: string }): string => {
+    const skin = opts.skins?.[i];
+    return skin && atlas.frames[skin] ? skin : drawableId(def.sprite, 'probe-lumen', inAtlas);
+  };
   const look = BIOME_LOOK[opts.biome ?? 'nebula'];
   let w = app.renderer.width;
   let h = app.renderer.height;
@@ -156,59 +282,129 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     if (r < 46) return look.stars[2];
     return null;
   });
+  // The nebula's bright and mid tones, kept as a grey mask: the Núcleo's storm tints its own cloud in that shape.
+  const cloudGrey = new Uint8Array(512 * 512);
   const nebulaTex = ditherTexture(512, 512, (x, y) => {
     // Domain-warped noise: no visible lattice when it tiles.
     const wx = x + (fbm(x, y, 512, 91) - 0.5) * 140;
     const wy = y + (fbm(x + 37, y + 11, 512, 92) - 0.5) * 140;
     const n = fbm(wx, wy, 512, 7);
     const t = BAYER[(y % 4) * 4 + (x % 4)]! / 16;
-    if (n > 0.66 && t < (n - 0.66) * 4) return look.nebula[0];
-    if (n > 0.56 && t < (n - 0.56) * 3) return look.nebula[1];
+    if (n > 0.66 && t < (n - 0.66) * 4) {
+      cloudGrey[y * 512 + x] = 255;
+      return look.nebula[0];
+    }
+    if (n > 0.56 && t < (n - 0.56) * 3) {
+      cloudGrey[y * 512 + x] = 150;
+      return look.nebula[1];
+    }
     if (n < 0.3 && t < (0.3 - n) * 2) return look.nebula[2];
     return null;
   });
+  const cloudTex = maskTexture(512, 512, cloudGrey);
   const ground = new TilingSprite({ texture: starTex, width: w, height: h });
   const nebula = new TilingSprite({ texture: nebulaTex, width: w, height: h });
-  const world = new Container();
+  // The storm (environment.ts): its cloud over the nebula, and two faint copies of the stars pulled towards the Core.
+  const cloud = new TilingSprite({ texture: cloudTex, width: w, height: h, visible: false });
+  const starEchoes = [0, 1].map(() => new TilingSprite({ texture: starTex, width: w, height: h, visible: false }));
+  const backdrop = new Container({ label: 'backdrop' });
+  backdrop.addChild(nebula, cloud, ground, ...starEchoes);
+  backdrop.filters = [new BlurFilter({ strength: BACKDROP_BLUR, quality: 2 })];
+  const veil = new Graphics({ label: 'veil' });
+  // Painted opaque, its opacity on the Graphics: the storm darkens it without repainting.
+  const paintVeil = () => veil.clear().rect(0, 0, w, h).fill({ color: VEIL.color, alpha: 1 });
+  paintVeil();
+  veil.alpha = VEIL.alpha;
+  // The environment's own drawing (waves, vignette, a biome's touch), in art pixels, over the veil and under the world.
+  const sky = new Graphics({ label: 'storm' });
+  // Light that adds up, like the beams: a warm ember over the blue void glows instead of going olive.
+  sky.blendMode = 'add';
+  const env = createEnvironment(hashSeed(opts.seed));
+  /** Where the Core was last seen (world units): the storm's waves leave from there while it fades. */
+  let lastBoss: { x: number; y: number } | null = null;
+  const world = new Container({ label: 'world' });
   const decor = new Container();
   // Breakable props (SIM 1.7.0) over the ground, with their life bars and glints.
   const propLayer = new Container();
   const propMarks = new Graphics();
+  // In-run events (2026-11-16): their areas on the ground, and the bounty hunter's mark over the enemies.
+  const eventFloor = new Graphics({ label: 'events' });
+  const eventMarks = new Container({ label: 'eventMarks' });
   const pickups = new Container();
-  const areas = new Graphics();
+  const areas = new Graphics({ label: 'areas' });
   // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
-  const beams = new Graphics();
+  const beams = new Graphics({ label: 'beams' });
   beams.blendMode = 'add';
   const warnings = new Graphics();
   const marks = new Graphics();
   const enemies = new Container({ label: 'enemies' });
-  const probes = new Container();
+  const probes = new Container({ label: 'probes' });
   // A dash's afterimages, under the probes.
   const ghostLayer = new Container();
-  const shots = new Container();
-  const particles = new Container();
-  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, probes, beams, shots, particles);
+  // The probes' own shots, the foes' bullets apart (over the probes: you see what hits you).
+  const shots = new Container({ label: 'shots' });
+  const foeShots = new Container({ label: 'foeShots' });
+  const particles = new Container({ label: 'particles' });
+  // A relic's anomaly (a negative glitch): its static, tear and bolts, over the shots and under the probes.
+  const glitchFx = new Graphics({ label: 'anomaly' });
+  // A soft white glow behind my own probe (Accesibilidad, off by default), right under the probes.
+  const glowLayer = new Container({ label: 'probeGlow' });
+  const glow = new Sprite(glowTexture());
+  glow.anchor.set(0.5);
+  glow.width = glow.height = GLOW_SIZE;
+  glow.alpha = GLOW_ALPHA;
+  glow.visible = false;
+  glowLayer.addChild(glow);
+  // Your probe goes over its own abilities (the owner: shots, beams, blasts and sparks never cover it); only the foes'
+  // bullets go over it.
+  // «La Estática te alcanza» (2026-11-16): the ring of the area where my probe stands still, under the probes.
+  const stillRing = new Graphics({ label: 'still' });
+  // The admin debug mode's collisions (2026-11-15), over everything in the world.
+  const hitboxes = new Graphics({ label: 'hitboxes' });
+  let showHitboxes = false;
+  world.addChild(decor, eventFloor, propLayer, propMarks, pickups, areas, warnings, marks, stillRing, enemies, eventMarks, ghostLayer, beams, shots, particles, glitchFx, glowLayer, probes, foeShots, hitboxes);
   const numbers = new Container();
+  // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
+  const mateArrows = new Graphics();
+  numbers.addChild(mateArrows);
   const bars = new Graphics();
   const hurtFlash = new Graphics();
-  app.stage.addChild(nebula, ground, world, numbers, bars, hurtFlash);
+  app.stage.addChild(backdrop, veil, sky, world, numbers, bars, hurtFlash);
 
   const enemyPool = new SpritePool(enemies);
   const glitchA = new SpritePool(enemies);
   const glitchB = new SpritePool(enemies);
   const pickupPool = new SpritePool(pickups);
   const propPool = new SpritePool(propLayer);
+  // Abandoned satellites (SIM 1.10.0), drifting over the props.
+  const satPool = new SpritePool(propLayer);
+  // In-run events (2026-11-16): the abandoned ship and the supply capsule over the props, the bounty mark on its layer.
+  const eventPool = new SpritePool(propLayer);
+  const bountyPool = new SpritePool(eventMarks);
+  // The hazards' meteors falling onto their circles (over the enemies), in their sector's look.
+  const meteorPool = new SpritePool(eventMarks);
+  let sectorId = 'outer-nebula';
   const ghostSprites: Sprite[] = [];
   /** Dashes being drawn: a quirk's jump glides from where it took off; every dash leaves afterimages. */
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
-  const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number }[] = [];
+  /** `shake`: how far (px) the afterimage jumps from side to side (an anomaly's split copies; 0 for a dash's). */
+  const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number; shake: number }[] = [];
+  /** Anomalies being drawn (anomaly.ts), when the last one tore the field, and a counter for their jitter. */
+  const anomalyMarks: AnomalyMark[] = [];
+  let lastTearAt = -Infinity;
+  let anomalyCount = 0;
+  // A thrown probe's red and cyan copies, under it (one of each per probe).
+  const splitA = new SpritePool(ghostLayer);
+  const splitB = new SpritePool(ghostLayer);
   const shotPool = new SpritePool(shots);
-  const foePool = new SpritePool(shots);
+  const foePool = new SpritePool(foeShots);
   const probePool = new SpritePool(probes);
   const particleSprites: Sprite[] = [];
   const numberTexts: BitmapText[] = [];
   const labelTexts: BitmapText[] = [];
   const tagTexts: BitmapText[] = [];
+  const mateTexts: BitmapText[] = [];
+  let markerInsets: Insets = NO_INSETS;
   /** Where the teammates were drawn this frame (their names go over them). */
   const tagAt: { i: number; x: number; y: number }[] = [];
   const pipPool = new SpritePool(enemies);
@@ -231,13 +427,21 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   let tickAt = 0;
   let frameDt = 0;
   let hurtAlpha = 0;
+  /** A teammate just hit: its sprite turns red until this clock time (my own hits flash the screen instead). */
+  const hurtBlink = new Map<number, number>();
   let last = performance.now();
   let clock = 0;
   let cam: Camera | null = null;
+  // The player's zoom: the steps asked for, and the value drawn now (it glides there in a few frames).
+  let closer = Math.max(0, Math.round(opts.zoom ?? 0));
+  let shownCloser = closer;
+  const clampCloser = () => {
+    closer = Math.min(Math.max(0, closer), zoomSteps(baseZoom(h, opts.vision)));
+  };
 
   function enemySprite(sim: Sim, i: number): string {
     const t = sim.enemies.type[i]!;
-    return sim.enemies.boss[i] ? (content.bosses[t]?.sprite ?? 'hive') : (content.enemies[t]?.sprite ?? 'mite');
+    return sim.enemies.boss[i] ? drawableId(content.bosses[t]?.sprite ?? 'hive', 'hive', inAtlas) : drawableId(content.enemies[t]?.sprite ?? 'mite', 'mite', inAtlas);
   }
 
   function frameOf(id: string, offset = 0): number {
@@ -282,6 +486,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   function drawAreas(sim: Sim): void {
     const a = sim.areas;
+    // While the run advances (not paused on a card or a menu): the singularities' motes only fall then.
+    const live = sim.status === 'running' && clock - tickAt < 0.1;
     areas.clear();
     beams.clear();
     for (let i = 0; i < a.top; i++) {
@@ -343,6 +549,17 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       } else if (kind === AREA.blast) {
         const k = Math.max(0, Math.min(1, t / 12));
         beams.circle(x, y, r * (1.1 - 0.4 * k)).fill({ color: 0xffc94a, alpha: 0.18 * k }).stroke({ width: 2, color: 0xff9a3c, alpha: k });
+      } else if (kind === AREA.bomblet) {
+        // A cluster bomblet (Nov plan B3): a small charge whose ring closes in, blinking faster just before it blows.
+        const k = Math.max(0, Math.min(1, t / 30));
+        const blink = opts.reduced ? 0.8 : t < 12 ? (Math.sin(clock * 40) > 0 ? 1 : 0.3) : 0.6 + 0.3 * Math.sin(clock * 14);
+        areas.circle(x, y, r).stroke({ width: 1, color: 0xff9a3c, alpha: 0.5 });
+        areas.circle(x, y, Math.max(1, r * k)).stroke({ width: 1, color: 0xffc94a, alpha: 0.85 });
+        areas.rect(x - 1, y - 1, 2, 2).fill({ color: 0xffc94a, alpha: blink });
+      } else if (kind === AREA.singularity) {
+        drawSingularity(x, y, r, t, i * 65536 + a.gen[i]!, live);
+      } else if (kind === AREA.collapse) {
+        drawCollapse(x, y, r, t);
       } else if (kind === AREA.slowField) {
         areas.circle(x, y, r).fill({ color: 0x6fb7ff, alpha: 0.12 }).stroke({ width: 1, color: 0x6fb7ff, alpha: 0.5 });
       } else if (kind === AREA.aura) {
@@ -350,20 +567,23 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         if (arc > 0) {
           const mid = a.angle[i]! * STEP_RAD;
           const half = (arc * STEP_RAD) / 2;
-          areas.moveTo(x, y).arc(x, y, r, mid - half, mid + half).closePath().fill({ color: 0x45e3a6, alpha: 0.12 }).stroke({ width: 1, color: 0x45e3a6, alpha: 0.4 });
+          areas.moveTo(x, y).arc(x, y, r, mid - half, mid + half).closePath().fill({ color: pal.good, alpha: 0.12 }).stroke({ width: 1, color: pal.good, alpha: 0.4 });
         } else {
-          areas.circle(x, y, r).fill({ color: 0x45e3a6, alpha: 0.08 }).stroke({ width: 1, color: 0x45e3a6, alpha: 0.35 });
+          areas.circle(x, y, r).fill({ color: pal.good, alpha: 0.08 }).stroke({ width: 1, color: pal.good, alpha: 0.35 });
         }
       }
     }
     // Evolution rings around the probe.
-    for (const ring of fx.rings) areas.circle(ring.x, ring.y, ring.radius).stroke({ width: 3, color: ring.color, alpha: ring.alpha });
+    for (const ring of fx.rings) {
+      if (ring.fill) areas.circle(ring.x, ring.y, ring.radius).fill({ color: ring.color, alpha: ring.alpha * 0.8 });
+      else areas.circle(ring.x, ring.y, ring.radius).stroke({ width: 3, color: ring.color, alpha: ring.alpha });
+    }
     // The beacon: a Terminal ring with turning braille dots, its hold arc and a beam of light.
     const b = sim.beacon;
     if (b) {
-      areas.rect(b.x - 5, b.y - 150, 10, 150).fill({ color: 0x45e3a6, alpha: 0.12 });
+      areas.rect(b.x - 5, b.y - 150, 10, 150).fill({ color: pal.good, alpha: 0.12 });
       areas.rect(b.x - 1, b.y - 150, 2, 150).fill({ color: 0xbfe3ff, alpha: 0.35 });
-      areas.circle(b.x, b.y, b.radius).fill({ color: 0x45e3a6, alpha: 0.07 }).stroke({ width: 2, color: 0x45e3a6, alpha: 0.85 });
+      areas.circle(b.x, b.y, b.radius).fill({ color: pal.good, alpha: 0.07 }).stroke({ width: 2, color: pal.good, alpha: 0.85 });
       const progress = b.hold / b.holdNeeded;
       if (progress > 0) arcFrom(areas, b.x, b.y, b.radius + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2).stroke({ width: 3, color: 0xbfe3ff, alpha: 0.95 });
       for (let k = 0; k < 12; k++) {
@@ -373,9 +593,68 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
+  /**
+   * A mythic's singularity while it pulls (plan «rareza Mítica» M2): over its reach a faint violet well with arcs in its
+   * four tones winding in towards it; a core darker than the field (under the fauna it swallows) in a dark halo, that
+   * opens fast and shrinks just before it collapses; its rings of light turning round it over the fauna, and motes
+   * spiralling in while the run advances. With reduced motion: no motes, the rings and arcs still and soft, the core at
+   * its size.
+   */
+  function drawSingularity(x: number, y: number, reach: number, ttl: number, key: number, live: boolean): void {
+    const total = Math.max(1, ticks(singularityOf(content).seconds));
+    const k = Math.max(0, Math.min(1, 1 - (ttl - 2) / total));
+    const calm = opts.reduced;
+    const grow = calm ? 1 : Math.min(1, k / 0.1);
+    const shrink = calm || k < 0.85 ? 1 : 1 - ((k - 0.85) / 0.15) * 0.5;
+    const core = HOLE_CORE * grow * shrink;
+    areas.circle(x, y, reach).fill({ color: 0x1a0d3a, alpha: 0.16 }).stroke({ width: 1, color: IRIS[3], alpha: 0.2 });
+    for (let q = 0; q < 4; q++) {
+      // Each arc slides from the edge of its reach into the core, brightening, and starts again.
+      const f = calm ? (q + 0.5) / 4 : (clock * 0.9 + q / 4) % 1;
+      const rr = core + (reach - core) * (1 - f);
+      const a0 = (calm ? 0 : -clock * 2.4) + (q * Math.PI) / 2 + f * 2.5;
+      arcFrom(areas, x, y, rr, a0, a0 + 0.9 + f * 0.6).stroke({ width: 1.5, color: IRIS[q]!, alpha: 0.2 + 0.4 * f });
+    }
+    areas.circle(x, y, core * 1.9).fill({ color: VOID, alpha: 0.35 });
+    areas.circle(x, y, core).fill({ color: VOID, alpha: 0.97 });
+    // Light that adds up over the fauna it pulls in: a violet and a magenta glow, and two rings in its tones turning
+    // opposite ways round the core.
+    beams.circle(x, y, core * 2.4).fill({ color: IRIS[3], alpha: calm ? 0.05 : 0.08 });
+    beams.circle(x, y, core * 1.5).fill({ color: IRIS[0], alpha: calm ? 0.06 : 0.1 });
+    const spin = calm ? 0 : clock * 5;
+    for (let q = 0; q < 4; q++) {
+      const a0 = spin + (q * Math.PI) / 2;
+      arcFrom(beams, x, y, core + 2, a0, a0 + Math.PI / 2 - 0.1).stroke({ width: 3, color: IRIS[q]!, alpha: calm ? 0.6 : 1 });
+      const b0 = -spin * 0.6 + (q * Math.PI) / 2 + Math.PI / 4;
+      arcFrom(beams, x, y, core * 1.6 + 2, b0, b0 + Math.PI / 2 - 0.5).stroke({ width: 1.5, color: IRIS[(q + 1) % 4]!, alpha: calm ? 0.35 : 0.65 });
+    }
+    if (!calm && live) fx.swirl(key, x, y, reach, frameDt, IRIS);
+  }
+
+  /**
+   * Its collapse: an iridescent ring bursting out to its blast with a brief light at its heart (plus the sparks fed by
+   * its event). With reduced motion it does not grow: a soft ring where it hit, fading.
+   */
+  function drawCollapse(x: number, y: number, blast: number, ttl: number): void {
+    const k = Math.max(0, Math.min(1, ttl / COLLAPSE_TICKS));
+    if (opts.reduced) {
+      for (let q = 0; q < 4; q++) arcFrom(beams, x, y, blast * 0.7, (q * Math.PI) / 2, ((q + 1) * Math.PI) / 2 - 0.12).stroke({ width: 2, color: IRIS[q]!, alpha: 0.5 * k });
+      return;
+    }
+    const rad = blast * (0.2 + 0.85 * Math.sqrt(1 - k));
+    beams.circle(x, y, rad).fill({ color: 0xffffff, alpha: 0.12 * k * k });
+    const spin = clock * 3;
+    for (let q = 0; q < 4; q++) {
+      const a0 = spin + (q * Math.PI) / 2;
+      arcFrom(beams, x, y, rad, a0, a0 + Math.PI / 2 - 0.12).stroke({ width: 3, color: IRIS[q]!, alpha: k });
+      arcFrom(beams, x, y, rad * 0.6, -a0, -a0 + Math.PI / 2 - 0.2).stroke({ width: 1, color: IRIS[(q + 2) % 4]!, alpha: 0.6 * k });
+    }
+  }
+
   /** `now`: simulation time in ticks, with the frame's fraction (warnings wait while the simulation stops). */
   function drawWarnings(now: number): void {
     warnings.clear();
+    let meteors = 0;
     for (let i = warns.length - 1; i >= 0; i--) {
       const wv = warns[i]!;
       const k = warningProgress(wv, now);
@@ -384,20 +663,43 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         continue;
       }
       const pulse = opts.reduced ? 0.4 : 0.3 + 0.2 * Math.sin(clock * 18);
-      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands.
-      if (wv.kind === 'charge' || wv.kind === 'lance') {
+      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands. A Core's laser
+      // and closing ring (Nov plan B4) draw their own.
+      if (isCoreWarning(wv)) {
+        drawCoreWarning(warnings, wv, k, pulse);
+      } else if (wv.kind === 'charge' || wv.kind === 'lance') {
         const a = wv.angle * STEP_RAD;
         const ex = wv.x + Math.cos(a) * wv.radius;
         const ey = wv.y + Math.sin(a) * wv.radius;
-        warnings.moveTo(wv.x, wv.y).lineTo(ex, ey).stroke({ width: 10, color: 0xff4d6d, alpha: pulse });
-        warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: 0xff6b7a, alpha: 0.9 });
+        warnings.moveTo(wv.x, wv.y).lineTo(ex, ey).stroke({ width: 10, color: pal.danger, alpha: pulse });
+        warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: pal.bad, alpha: 0.9 });
       } else if (wv.kind === 'burst') {
-        warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: 0xff4d6d, alpha: 0.7 });
+        warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: pal.danger, alpha: 0.7 });
+      } else if (wv.kind === 'meteor') {
+        // A meteor of the hazards (2026-11-16): its circle fills as it comes down from the sky onto it.
+        const blink = opts.reduced ? 0.85 : 0.55 + 0.4 * Math.abs(Math.sin(clock * (6 + 20 * k)));
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 2, color: pal.danger, alpha: blink });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.12 + 0.2 * k });
+        const own = `event-meteor-${sectorId}`;
+        const id = atlas.frames[own] ? own : 'event-meteor-outer-nebula';
+        const s = meteorPool.at(meteors++);
+        s.texture = atlas.frames[id]![frameOf(id)]!;
+        s.anchor.set(0.5, 0.75);
+        const fall = (1 - k) * 160;
+        s.position.set(Math.round(wv.x + fall * 0.35), Math.round(wv.y - fall));
+        s.alpha = 0.6 + 0.4 * k;
+      } else if (wv.kind === 'explode') {
+        // A blast on its way (a volatile elite's corpse, a Core's mine; 2026-11-14): its whole reach drawn bold, blinking
+        // faster as the fuse burns, and filling up until it goes off.
+        const blink = opts.reduced ? 0.85 : 0.5 + 0.45 * Math.abs(Math.sin(clock * (5 + 26 * k)));
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 2.5, color: pal.danger, alpha: blink });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.16 + 0.22 * k });
       } else {
-        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 1, color: 0xff4d6d, alpha: 0.8 });
-        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: 0xff4d6d, alpha: 0.25 });
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 1, color: pal.danger, alpha: 0.8 });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.25 });
       }
     }
+    meteorPool.hideFrom(new Uint8Array(Math.max(1, meteors)).fill(1), meteors);
   }
 
   function drawEnemies(sim: Sim, alpha: number): void {
@@ -424,14 +726,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       s.alpha = away ? 0.2 : en.fuseT[i]! > 0 ? 0.5 + 0.5 * Math.sin(clock * 30) : en.hackT[i]! > 0 ? 0.75 : 1;
       s.tint = en.hackT[i]! > 0 ? 0xffc94a : opts.reduced && (en.elite[i] || en.boss[i]) ? 0xffd0dc : 0xffffff;
       const special = en.elite[i]! > 0 || en.boss[i] === 1;
-      if (special) marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: 0xff4d6d, alpha: 0.55 });
+      if (special) marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: pal.danger, alpha: 0.55 });
       // Any shield shows: elites' own and the one a corruptor lends.
       if (en.shield[i]! > 0) marks.circle(x, y, en.radius[i]! + 4).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.8 });
       drawStates(sim, i, x, y);
       if (def && !en.boss[i] && def.behavior.kind === 'armored') {
         const mid = en.facing[i]! * STEP_RAD;
         const half = ((def.behavior.arc / 360) * Math.PI * 2) / 2;
-        arcFrom(marks, x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? 0x45e3a6 : 0xb9bfe6, alpha: 0.9 });
+        arcFrom(marks, x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? (pal.element['corrosion'] ?? 0x45e3a6) : 0xb9bfe6, alpha: 0.9 });
       }
       for (const [pool, tint, dx] of [
         [glitchA, 0xff4d6d, -1],
@@ -464,10 +766,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     const top = y - en.radius[i]! - 5;
     if (en.markT[i]! > 0 && en.mark[i]! > 0) {
       const pip = pipPool.at(i);
-      pip.texture = atlas.frames['mark-pip']![0]!;
+      const element = ELEMENT_IDS[en.mark[i]! - 1] ?? '';
+      pip.texture = (atlas.frames[`mark-${element}`] ?? atlas.frames['mark-pip']!)[0]!;
       pip.anchor.set(0.5);
       pip.position.set(x, top);
-      pip.tint = ELEMENT_COLOR[ELEMENT_IDS[en.mark[i]! - 1] ?? ''] ?? 0xffffff;
+      pip.tint = pal.element[element] ?? 0xffffff;
       pip.alpha = Math.min(1, en.markT[i]! / 30);
     } else if (pipPool.list[i]) pipPool.list[i]!.visible = false;
     for (const [pool, phase] of [
@@ -493,7 +796,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
-  function drawProps(sim: Sim): void {
+  function drawProps(sim: Sim, alpha: number): void {
     const pr = sim.props;
     const rocks = BIOME_LOOK[opts.biome ?? 'nebula'].props;
     propMarks.clear();
@@ -515,7 +818,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         const bx = x - Math.round(bw / 2);
         const by = y - half - 4;
         propMarks.rect(bx - 1, by - 1, bw + 2, 4).fill({ color: 0x0b0c24, alpha: 0.85 });
-        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k)), 2).fill({ color: 0xff4d6d });
+        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k)), 2).fill({ color: pal.danger });
         if (k < 0.66) propMarks.moveTo(x - 3, y - 3).lineTo(x, y).lineTo(x - 1, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
         if (k < 0.33) propMarks.moveTo(x + 3, y - 2).lineTo(x + 1, y + 1).lineTo(x + 4, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
       } else if (!opts.reduced) {
@@ -525,6 +828,131 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
     }
     propPool.hideFrom(pr.alive, pr.top);
+    drawSatellites(sim, alpha);
+    drawEvents(sim, alpha);
+  }
+
+  /**
+   * The in-run events (2026-11-16): the abandoned ship in its sector's look, with its area dashed on the ground and the
+   * looting going round it in gold; the supply capsule falling onto its green target, then waiting; the gold mark on the
+   * bounty hunter.
+   */
+  function drawEvents(sim: Sim, alpha: number): void {
+    eventFloor.clear();
+    sectorId = sim.sector.id;
+    const T = sim.content.events;
+    const en = sim.enemies;
+    let n = 0;
+    let m = 0;
+    for (const ev of sim.world.active) {
+      if (ev.kind === 'bounty') {
+        const e = ev.enemy;
+        if (e < 0 || !en.alive[e] || en.gen[e] !== ev.enemyGen) continue;
+        const s = bountyPool.at(m++);
+        s.texture = atlas.frames['event-bounty']![frameOf('event-bounty')]!;
+        s.anchor.set(0.5);
+        // Its frame round the hunter, whatever its size.
+        s.scale.set(Math.max(1, (en.radius[e]! * 2 + 8) / 13));
+        s.position.set(Math.round(lerp(en.px[e]!, en.x[e]!, alpha)), Math.round(lerp(en.py[e]!, en.y[e]!, alpha)));
+        continue;
+      }
+      const x = Math.round(ev.x);
+      const y = Math.round(ev.y);
+      // The hazards are drawn on the ground, no sprite of their own (the meteors fall with their warnings).
+      if (ev.kind === 'meteors') continue;
+      if (ev.kind === 'storm') {
+        drawStorm(x, y, T.storm.radius);
+        continue;
+      }
+      if (ev.kind === 'well') {
+        drawWell(x, y, T.well.radius, T.well.core);
+        continue;
+      }
+      if (ev.kind === 'ambush') {
+        // The ring that is about to close: dashed red round the probe, tightening as the warning runs out.
+        const k = 1 - ev.progress / Math.max(1, T.ambush.warn * 60);
+        const spin = opts.reduced ? 0 : clock * 1.2;
+        const pulse = opts.reduced ? 0.85 : 0.55 + 0.4 * Math.abs(Math.sin(clock * 10));
+        dashedArc(eventFloor, x, y, T.ambush.distance * (1.25 - 0.25 * k), spin, spin + Math.PI * 2, { width: 3, color: pal.danger, alpha: pulse });
+        continue;
+      }
+      const s = eventPool.at(n++);
+      s.anchor.set(0.5);
+      s.alpha = 1;
+      if (ev.kind === 'wreck') {
+        const own = `event-wreck-${sim.sector.id}`;
+        const id = atlas.frames[own] ? own : 'event-wreck-outer-nebula';
+        s.texture = atlas.frames[id]![frameOf(id)]!;
+        s.position.set(x, y);
+        const r = T.wreck.radius;
+        const spin = opts.reduced ? 0 : clock * 0.4;
+        dashedArc(eventFloor, x, y, r, spin, spin + Math.PI * 2, { width: 1.5, color: 0xffc94a, alpha: 0.55 });
+        const k = Math.min(1, ev.progress / Math.max(1, T.wreck.hold * 60));
+        if (k > 0) arcFrom(eventFloor, x, y, r, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2).stroke({ width: 3, color: 0xffc94a, alpha: 0.95 });
+      } else {
+        // Landing: it comes down from above onto a target that closes in; landed, a soft ring says «touch it».
+        const k = ev.progress > 0 ? ev.progress / Math.max(1, T.capsule.warn * 60) : 0;
+        s.texture = atlas.frames['event-capsule']![frameOf('event-capsule')]!;
+        s.position.set(x, Math.round(y - k * 90));
+        s.alpha = k > 0 ? 0.55 + 0.45 * (1 - k) : 1;
+        const r = T.capsule.radius + (k > 0 ? 18 * k : 2);
+        const pulse = opts.reduced ? 0.8 : 0.55 + 0.35 * Math.abs(Math.sin(clock * (k > 0 ? 8 : 3)));
+        eventFloor.circle(x, y, r).stroke({ width: k > 0 ? 2 : 1.5, color: 0x45e3a6, alpha: pulse });
+      }
+    }
+    eventPool.hideFrom(new Uint8Array(Math.max(1, n)).fill(1), n);
+    bountyPool.hideFrom(new Uint8Array(Math.max(1, m)).fill(1), m);
+  }
+
+  /** A Static storm: a violet cloud with its edge crackling, sparks jumping inside. */
+  function drawStorm(x: number, y: number, r: number): void {
+    const spin = opts.reduced ? 0 : clock * 0.8;
+    eventFloor.circle(x, y, r).fill({ color: 0x8e2bb3, alpha: 0.16 });
+    dashedArc(eventFloor, x, y, r, spin, spin + Math.PI * 2, { width: 2, color: 0xe05cff, alpha: 0.8 });
+    // As many sparks as it is big (a spark every 10 units of radius), each a little longer in a bigger cloud.
+    const sparks = Math.max(7, Math.round(r / 10));
+    for (let k = 0; k < sparks; k++) {
+      const a = spin * 3 + (k * Math.PI * 2) / sparks;
+      const r0 = r * (0.15 + 0.7 * Math.abs(Math.sin((opts.reduced ? 1 : clock * 3) + k * 1.7)));
+      const r1 = r0 + Math.max(10, r * 0.09);
+      eventFloor.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0).lineTo(x + Math.cos(a + 0.2) * r1, y + Math.sin(a + 0.2) * r1).stroke({ width: 1.5, color: 0xf3f5ff, alpha: 0.7 });
+    }
+  }
+
+  /** A gravity well: rings that close in towards a dark heart with a bright rim (its harmful core). */
+  function drawWell(x: number, y: number, r: number, core: number): void {
+    const t = opts.reduced ? 0.5 : (clock * 0.6) % 1;
+    for (let k = 0; k < 3; k++) {
+      const f = (t + k / 3) % 1;
+      eventFloor.circle(x, y, core + (r - core) * (1 - f)).stroke({ width: 1.5, color: 0x6fe3ff, alpha: 0.15 + 0.45 * f });
+    }
+    eventFloor.circle(x, y, core).fill({ color: 0x03040e, alpha: 0.85 });
+    eventFloor.circle(x, y, core).stroke({ width: 2, color: 0xb39dff, alpha: 0.95 });
+  }
+
+  /** The abandoned satellites (SIM 1.10.0): drifting, a white flash when hit, and their life bar once damaged. */
+  function drawSatellites(sim: Sim, alpha: number): void {
+    const list = sim.world.satellites;
+    const shown = new Uint8Array(Math.max(1, list.length));
+    list.forEach((sat, k) => {
+      shown[k] = 1;
+      const s = satPool.at(k);
+      const fr = frameOf('satellite');
+      s.texture = (sat.flashT > 0 ? atlas.white['satellite'] : atlas.frames['satellite'])![fr]!;
+      s.anchor.set(0.5);
+      const x = Math.round(lerp(sat.px, sat.x, alpha));
+      const y = Math.round(lerp(sat.py, sat.y, alpha));
+      s.position.set(x, y);
+      const k01 = sat.maxHp > 0 ? Math.max(0, sat.hp / sat.maxHp) : 1;
+      if (k01 < 1) {
+        const bw = 20;
+        const bx = x - bw / 2;
+        const by = y - 10;
+        propMarks.rect(bx - 1, by - 1, bw + 2, 4).fill({ color: 0x0b0c24, alpha: 0.85 });
+        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k01)), 2).fill({ color: 0x6fe3ff });
+      }
+    });
+    satPool.hideFrom(shown, list.length);
   }
 
   function drawGhosts(): void {
@@ -547,7 +975,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       s.visible = true;
       s.texture = atlas.white[gh.id]?.[0] ?? atlas.pixel;
       s.tint = gh.tint;
-      s.position.set(Math.round(gh.x), Math.round(gh.y));
+      // An anomaly's copies jump from side to side, in steps (still with reduced motion).
+      const jump = gh.shake > 0 && !opts.reduced ? (Math.floor(age * 20) % 2 ? gh.shake : -gh.shake) : 0;
+      s.position.set(Math.round(gh.x + jump), Math.round(gh.y));
       s.scale.set(gh.flip, 1);
       s.alpha = 0.5 * (1 - age / gh.life);
       k++;
@@ -559,15 +989,18 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   function dashTrail(sim: Sim | null, probe: number, fx0: number, fy0: number, tx: number, ty: number, seconds: number): void {
     const p = sim?.probes[probe];
     // The afterimages show the probe as it faced when it dashed.
-    const { id, flip } = p ? probeView(p.def.sprite, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+    const drawing = p ? drawingOf(probe, p.def) : 'probe-lumen';
+    const { id, flip } = p ? probeView(drawing, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+    // A skin with its own flame dashes in its colour (plan «skins», C2).
+    const tint = probeFlame(drawing)?.dash ?? DASH_TINT;
     if (!opts.reduced) {
       const n = 5;
       for (let k = 0; k < n; k++) {
         const f = k / (n - 1);
-        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint: DASH_TINT });
+        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint, shake: 0 });
       }
     }
-    fx.burst(fx0, fy0, DASH_TINT, 6, 40);
+    fx.burst(fx0, fy0, tint, 6, 40);
     fx.burst(tx, ty, 0xf3f5ff, 8, 55);
   }
 
@@ -589,9 +1022,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   function drawShots(sim: Sim, alpha: number): void {
     const s = sim.shots;
+    // Wakes only while the run advances (not under a level-up card).
+    const live = sim.status === 'running' && clock - tickAt < 0.1;
     for (let i = 0; i < s.top; i++) {
       if (!s.alive[i]) continue;
       const kind = s.kind[i]!;
+      if (drawNovember(sim, i, kind, alpha, live)) continue;
       if (kind === SHOT.beam) {
         // A beam: a white core inside a halo of its element's colour, from the probe along its aim.
         if (shotPool.list[i]) shotPool.list[i]!.visible = false;
@@ -600,7 +1036,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         const y0 = lerp(s.py[i]!, s.y[i]!, alpha);
         const x1 = x0 + Math.cos(a) * s.reach[i]!;
         const y1 = y0 + Math.sin(a) * s.reach[i]!;
-        const color = ELEMENT_COLOR[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? 0xb39dff;
+        const color = pal.element[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? 0xb39dff;
         const flick = opts.reduced ? 0.35 : 0.28 + 0.12 * Math.sin(clock * 50 + i);
         beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: s.radius[i]! * 2 + 2, color, alpha: flick });
         beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
@@ -610,6 +1046,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const sp = shotPool.at(i);
       sp.texture = atlas.frames[id]![frameOf(id, i)]!;
       sp.anchor.set(0.5);
+      // A slot a hologram used keeps nothing of it.
+      sp.tint = 0xffffff;
+      sp.alpha = 1;
+      sp.scale.set(1);
       sp.position.set(Math.round(lerp(s.px[i]!, s.x[i]!, alpha)), Math.round(lerp(s.py[i]!, s.y[i]!, alpha)));
       sp.rotation = ROTATES.has(kind)
         ? s.angle[i]! * STEP_RAD
@@ -631,10 +1071,112 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     foePool.hideFrom(f.alive, f.top);
   }
 
+  /**
+   * The November arsenal's shots (Nov plan B3); true when drawn whole. The harpoon adds its line and goes on to its
+   * sprite; the lighthouse's beam, the thrown body, the hologram and the lobbed shell are drawn here.
+   */
+  function drawNovember(sim: Sim, i: number, kind: number, alpha: number, live: boolean): boolean {
+    const s = sim.shots;
+    const x = lerp(s.px[i]!, s.x[i]!, alpha);
+    const y = lerp(s.py[i]!, s.y[i]!, alpha);
+    const hide = () => {
+      if (shotPool.list[i]) shotPool.list[i]!.visible = false;
+    };
+    if (kind === SHOT.harpoon) {
+      // Its magnetic line back to the probe, with beads of light running along it.
+      const owner = sim.probes[s.owner[i]!];
+      if (owner) {
+        const ox = lerp(owner.px, owner.x, alpha);
+        const oy = lerp(owner.py, owner.y, alpha);
+        beams.moveTo(ox, oy).lineTo(x, y).stroke({ width: 1, color: HOLO, alpha: 0.6 });
+        for (let k = 0; k < 3; k++) {
+          const f = ((opts.reduced ? 0 : clock * 1.8) + k / 3) % 1;
+          beams.rect(Math.round(ox + (x - ox) * f) - 1, Math.round(oy + (y - oy) * f) - 1, 2, 2).fill({ color: 0xf3f5ff, alpha: 0.75 });
+        }
+      }
+      return false;
+    }
+    if (kind === SHOT.photon) {
+      // The lighthouse's beam: a long thin ray of warm light out of the probe (which stays in sight), a faint wake
+      // behind its turn and a spark at its tip. Its turning angle (fractional) keeps it smooth between ticks.
+      hide();
+      const len = Math.hypot(s.tx[i]! - s.x[i]!, s.ty[i]! - s.y[i]!);
+      const a = s.reach[i]! * STEP_RAD;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const x0 = x + cos * 8;
+      const y0 = y + sin * 8;
+      const x1 = x + cos * len;
+      const y1 = y + sin * len;
+      const color = pal.element[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? PHOTON;
+      const flick = opts.reduced ? 0.32 : 0.26 + 0.08 * Math.sin(clock * 37 + i);
+      const back = a - 0.06;
+      beams.moveTo(x0, y0).lineTo(x1, y1).lineTo(x + Math.cos(back) * len, y + Math.sin(back) * len).lineTo(x + Math.cos(back) * 8, y + Math.sin(back) * 8).closePath().fill({ color, alpha: 0.04 });
+      beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: s.radius[i]! + 2, color, alpha: flick });
+      beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 1, color: 0xfff3c4, alpha: 0.95 });
+      beams.circle(x1, y1, 2).fill({ color: 0xfff3c4, alpha: 0.9 });
+      return true;
+    }
+    if (kind === SHOT.sling) {
+      // A thrown body: the enemy flies by itself; two arcs of gravity turn around it and it leaves a lilac wake.
+      hide();
+      const r = s.radius[i]! + 3;
+      const spin = opts.reduced ? 0 : clock * 9;
+      arcFrom(beams, x, y, r, spin, spin + 2).stroke({ width: 2, color: GRAVITY, alpha: 0.85 });
+      arcFrom(beams, x, y, r, spin + Math.PI, spin + Math.PI + 2).stroke({ width: 2, color: GRAVITY, alpha: 0.85 });
+      if (live) fx.trail(i, x, y, GRAVITY, frameDt);
+      return true;
+    }
+    if (kind === SHOT.decoy) {
+      // A hologram: its probe's own drawing, see-through and cyan, scanlines running down it and the reach of its lure
+      // faint on the ground; it flickers red when it is about to blow.
+      const owner = sim.probes[s.owner[i]!];
+      const view = probeView(owner ? drawingOf(s.owner[i]!, owner.def) : 'probe-lumen', s.angle[i]! * STEP_RAD);
+      const sp = shotPool.at(i);
+      sp.texture = atlas.frames[view.id]![frameOf(view.id)]!;
+      sp.anchor.set(0.5);
+      sp.position.set(Math.round(x), Math.round(y));
+      sp.rotation = 0;
+      sp.scale.set(view.flip, 1);
+      const ending = s.ttl[i]! < 30 && (opts.reduced || Math.sin(clock * 30) > 0);
+      sp.tint = ending ? 0xff6b7a : HOLO;
+      sp.alpha = opts.reduced ? 0.55 : 0.42 + 0.14 * Math.sin(clock * 11 + i);
+      const half = Math.ceil((atlas.defs[view.id]?.h ?? 16) / 2);
+      for (let k = 0; k < 3; k++) {
+        const ly = Math.round(y - half + ((opts.reduced ? k * 5 : clock * 18 + k * 6) % (half * 2)));
+        beams.moveTo(x - half + 2, ly).lineTo(x + half - 2, ly).stroke({ width: 1, color: HOLO, alpha: 0.22 });
+      }
+      areas.circle(x, y, s.reach[i]!).stroke({ width: 1, color: HOLO, alpha: 0.07 });
+      return true;
+    }
+    if (kind === SHOT.shell) {
+      // A lobbed shell: its shadow runs along the ground while the shell rises and falls on its arc (its flight's
+      // progress), towards a ring that closes on where it will land.
+      const life = Math.max(1, s.life[i]!);
+      const t = Math.max(0, Math.min(1, (life - s.ttl[i]! - 1 + alpha) / life));
+      const span = life * Math.hypot(s.vx[i]!, s.vy[i]!);
+      const lift = Math.min(70, span * 0.35) * 4 * t * (1 - t);
+      marks.ellipse(x, y, 4, 2).fill({ color: 0x03040e, alpha: 0.45 });
+      marks.circle(s.tx[i]!, s.ty[i]!, s.reach[i]! * (1.15 - 0.15 * t)).stroke({ width: 1, color: 0xff9a3c, alpha: 0.25 + 0.5 * t });
+      const sp = shotPool.at(i);
+      sp.texture = atlas.frames['mortar-shell']![frameOf('mortar-shell', i)]!;
+      sp.anchor.set(0.5);
+      sp.position.set(Math.round(x), Math.round(y - lift));
+      sp.rotation = 0;
+      sp.tint = 0xffffff;
+      sp.alpha = 1;
+      sp.scale.set(1);
+      if (live) fx.trail(i, x, y - lift, 0xb9bfe6, frameDt);
+      return true;
+    }
+    return false;
+  }
+
   function drawProbes(sim: Sim, alpha: number): void {
     const flags = new Uint8Array(sim.probes.length);
     const coop = sim.coop;
     tagAt.length = 0;
+    glow.visible = false;
     sim.probes.forEach((p, i) => {
       // Co-op: a fallen probe stays on the ground (to be revived) and an away one shows as a ghost.
       const shown = p.alive || (coop !== null && (p.life === 'down' || p.life === 'away'));
@@ -643,33 +1185,47 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const s = probePool.at(i);
       // Eight ways (open beta): where it moves, also with manual aim (the mouse only steers the shots), as one of the
       // drawings turned for up, down and the diagonals, or mirrored for the left side.
-      const view = probeView(p.def.sprite, probeHeading(p));
+      const drawing = drawingOf(i, p.def);
+      const view = probeView(drawing, probeHeading(p));
       s.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       s.anchor.set(0.5);
-      let x = Math.round(lerp(p.px, p.x, alpha));
-      let y = Math.round(lerp(p.py, p.y, alpha));
-      // A quirk's jump lands at once in the sim: the sprite glides there, eased out.
-      const gl = glides.get(i);
-      if (gl) {
-        const k = (clock - gl.t0) / gl.dur;
-        if (k >= 1 || opts.reduced) glides.delete(i);
-        else {
-          const e = 1 - (1 - k) * (1 - k);
-          x = Math.round(gl.fx + (gl.tx - gl.fx) * e + (x - gl.tx));
-          y = Math.round(gl.fy + (gl.ty - gl.fy) * e + (y - gl.ty));
-        }
-      }
+      const at = glided(i, lerp(p.px, p.x, alpha), lerp(p.py, p.y, alpha));
+      const x = Math.round(at.x);
+      const y = Math.round(at.y);
       s.position.set(x, y);
+      // Thrown by an anomaly: it tunes in, in steps, with its red and cyan copies coming together under it.
+      const thrown = anomalyMarks.findLast((m) => m.e.probe === i && m.e.what === 'blink');
+      const thrownAge = thrown ? clock - thrown.at : Infinity;
+      const split = thrown ? splitOffset(thrown, thrownAge, opts.reduced) : 0;
+      for (const [pool, tint, side] of [
+        [splitA, GLITCH_RED, -1],
+        [splitB, GLITCH_CYAN, 1],
+      ] as const) {
+        if (split > 0 && p.alive) {
+          const c = pool.at(i);
+          c.texture = atlas.white[view.id]?.[frameOf(view.id)] ?? atlas.pixel;
+          c.anchor.set(0.5);
+          c.position.set(x + side * split, y);
+          c.scale.set(view.flip, 1);
+          c.tint = tint;
+          c.alpha = 0.7 * (1 - thrownAge / SPLIT_S);
+        } else if (pool.list[i]) pool.list[i]!.visible = false;
+      }
+      // My own probe's glow, under it, where it is drawn (Accesibilidad; off by default).
+      if (i === (opts.me ?? opts.probe)) {
+        glow.position.set(x, y);
+        glow.visible = !!opts.probeGlow;
+      }
       s.scale.set(view.flip, 1);
-      s.tint = 0xffffff;
+      s.tint = (hurtBlink.get(i) ?? 0) > clock ? pal.hurt : 0xffffff;
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
-        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt);
+        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt, probeNozzle(drawing), probeFlame(drawing) ?? undefined);
       }
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).
-        marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: TEAM_TINT[i % TEAM_TINT.length]!, alpha: 0.8 });
+        marks.ellipse(x, y + PROBE_HALF, PROBE_HALF + 1, 3).stroke({ width: 2, color: pal.team[i % pal.team.length]!, alpha: 0.8 });
         tagAt.push({ i, x, y });
       }
       if (coop && p.life === 'down') {
@@ -678,9 +1234,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         s.alpha = 0.6;
         const left = Math.max(0, p.downT / Math.max(1, coop.downSeconds * 60));
         const revive = Math.min(1, p.reviveT / Math.max(1, coop.reviveSeconds * 60));
-        marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: 0x45e3a6, alpha: 0.22 });
-        if (left > 0) arcFrom(marks, x, y, 14, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2).stroke({ width: 2, color: 0xff4d6d, alpha: 0.9 });
-        if (revive > 0) arcFrom(marks, x, y, 18, -Math.PI / 2, -Math.PI / 2 + revive * Math.PI * 2).stroke({ width: 3, color: 0x45e3a6, alpha: 0.95 });
+        marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: pal.good, alpha: 0.22 });
+        // The countdown is dashed and the revive solid with a «+» at its head: told apart by shape, not only colour.
+        if (left > 0) dashedArc(marks, x, y, PROBE_HALF + 4, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2, { width: 2, color: pal.danger, alpha: 0.9 });
+        if (revive > 0) {
+          const end = -Math.PI / 2 + revive * Math.PI * 2;
+          arcFrom(marks, x, y, PROBE_HALF + 8, -Math.PI / 2, end).stroke({ width: 3, color: pal.good, alpha: 0.95 });
+          const hx = x + Math.cos(end) * (PROBE_HALF + 8);
+          const hy = y + Math.sin(end) * (PROBE_HALF + 8);
+          marks.moveTo(hx - 3, hy).lineTo(hx + 3, hy).moveTo(hx, hy - 3).lineTo(hx, hy + 3).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
+        }
         return;
       }
       if (coop && p.life === 'away') {
@@ -689,11 +1252,75 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       // Invulnerable: a soft shimmer, not a hard blink.
       s.alpha = p.invulnT > 0 ? (opts.reduced ? 0.75 : 0.72 + 0.28 * Math.sin(clock * 14)) : 1;
-      if (p.invulnT > 0) marks.circle(x, y, 10).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
-      if (p.shield > 0) marks.circle(x, y, 11).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
+      if (thrown) s.alpha *= landingAlpha(thrownAge, opts.reduced);
+      if (p.invulnT > 0) marks.circle(x, y, PROBE_HALF + 2).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
+      if (p.shield > 0) marks.circle(x, y, PROBE_HALF + 3).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
       if (i === opts.probe) lastProbe = { x, y };
     });
     probePool.hideFrom(flags, flags.length);
+    splitA.hideFrom(flags, flags.length);
+    splitB.hideFrom(flags, flags.length);
+  }
+
+  /**
+   * Where probe `i` is drawn: at (x, y), or on its way there while a jump that lands at once in the sim (a quirk's
+   * dash, an anomaly's throw) glides, eased out. The camera follows the same point, so it never jumps either.
+   */
+  function glided(i: number, x: number, y: number): { x: number; y: number } {
+    const gl = glides.get(i);
+    if (!gl) return { x, y };
+    const k = (clock - gl.t0) / gl.dur;
+    if (k >= 1 || opts.reduced) {
+      glides.delete(i);
+      return { x, y };
+    }
+    const e = 1 - (1 - k) * (1 - k);
+    return { x: gl.fx + (gl.tx - gl.fx) * e + (x - gl.tx), y: gl.fy + (gl.ty - gl.fy) * e + (y - gl.ty) };
+  }
+
+  /** The anomalies going off (anomaly.ts), dropped once over. */
+  function drawAnomalies(): void {
+    glitchFx.clear();
+    for (let i = anomalyMarks.length - 1; i >= 0; i--) {
+      if (!drawAnomaly(glitchFx, anomalyMarks[i]!, clock - anomalyMarks[i]!.at, opts.reduced)) anomalyMarks.splice(i, 1);
+    }
+  }
+
+  /** A relic's anomaly went off: its glitch, sparks and (mine) a word over the probe and a small jolt. */
+  function anomalyFx(e: Extract<SimEvent, { t: 'anomaly' }>): void {
+    const mine = e.probe === (opts.me ?? opts.probe);
+    const tear = mine && !opts.reduced && clock - lastTearAt >= TEAR_GAP;
+    if (tear) lastTearAt = clock;
+    anomalyCount = (anomalyCount + 1) | 0;
+    anomalyMarks.push({ e, at: clock, mine, tear, seed: Math.imul(anomalyCount, 2654435761) });
+    const n = mine ? 1 : 0.5;
+    if (e.what === 'blink') {
+      glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });
+      // Where it was: its red and cyan copies, left behind, jumping; where it lands: static.
+      const p = lastSim?.probes[e.probe];
+      const drawing = p ? drawingOf(e.probe, p.def) : 'probe-lumen';
+      const { id, flip } = p ? probeView(drawing, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+      if (!opts.reduced) {
+        ghosts.push({ x: e.fx - 2, y: e.fy, at: clock, life: 0.3, id, flip, tint: GLITCH_RED, shake: 2 });
+        ghosts.push({ x: e.fx + 2, y: e.fy, at: clock, life: 0.3, id, flip, tint: GLITCH_CYAN, shake: 2 });
+      }
+      fx.burst(e.fx, e.fy, GLITCH_LILAC, Math.round(8 * n), 50);
+      fx.burst(e.tx, e.ty, GLITCH_MAGENTA, Math.round(10 * n), 70);
+      fx.burst(e.tx, e.ty, GLITCH_RED, Math.round(4 * n), 40);
+      fx.burst(e.tx, e.ty, GLITCH_CYAN, Math.round(4 * n), 40);
+    } else if (e.what === 'freeze') {
+      fx.burst(e.fx, e.fy, GLITCH_LILAC, Math.round(12 * n), 90);
+      fx.burst(e.fx, e.fy, GLITCH_CYAN, Math.round(6 * n), 60);
+    } else {
+      for (let t = 0; t + 1 < e.targets.length; t += 2) {
+        fx.burst(e.targets[t]!, e.targets[t + 1]!, GLITCH_MAGENTA, Math.round(6 * n), 60);
+        fx.burst(e.targets[t]!, e.targets[t + 1]!, GLITCH_CYAN, Math.round(3 * n), 40);
+      }
+    }
+    if (mine) {
+      fx.label(e.tx, e.ty - PROBE_HALF - 4, copy.arena.anomaly, GLITCH_MAGENTA);
+      fx.shake(2);
+    }
   }
 
   function drawParticles(): void {
@@ -765,12 +1392,100 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       t.visible = true;
       t.text = name;
-      t.tint = TEAM_TINT[at.i % TEAM_TINT.length]!;
+      t.tint = pal.team[at.i % pal.team.length]!;
       t.scale.set(1);
-      t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - 14 - c.y) * c.zoom));
+      t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - PROBE_HALF - 6 - c.y) * c.zoom));
       g++;
     }
     for (; g < tagTexts.length; g++) tagTexts[g]!.visible = false;
+  }
+
+  /** Co-op: an arrow in each off-screen teammate's colour, their name inward and a life bar under it. */
+  function drawMates(sim: Sim, c: Camera): void {
+    mateArrows.clear();
+    let g = 0;
+    if (sim.coop) {
+      for (const m of mateMarkers(sim.probes, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe, markerInsets)) {
+        const team = pal.team[m.index % pal.team.length]!;
+        const tint = m.state === 'down' ? pal.danger : team;
+        const alpha = m.state === 'away' ? 0.4 : m.state === 'down' && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 10) : 1;
+        const ux = Math.cos(m.angle);
+        const uy = Math.sin(m.angle);
+        const bx0 = m.x - ux * 6;
+        const by0 = m.y - uy * 6;
+        mateArrows
+          .poly([m.x + ux * 12, m.y + uy * 12, bx0 - uy * 9, by0 + ux * 9, bx0 + uy * 9, by0 - ux * 9])
+          .fill({ color: tint, alpha })
+          .stroke({ width: 2, color: 0x0b0c24, alpha: alpha * 0.9 });
+        let t = mateTexts[g];
+        if (!t) {
+          t = new BitmapText({ text: ' ', style: { fontFamily: LABEL_FONT, fontSize: 15 } });
+          mateTexts.push(t);
+          numbers.addChild(t);
+        }
+        t.visible = true;
+        t.text = opts.names?.[m.index] ?? '';
+        t.tint = team;
+        t.alpha = m.state === 'away' ? 0.5 : 1;
+        // The name sits inward from the arrow, never past the screen's edge.
+        t.anchor.set(0.5 + 0.5 * ux, 0.5 + 0.5 * uy);
+        t.position.set(Math.round(m.x - ux * 20), Math.round(m.y - uy * 20));
+        const left = t.position.x - t.anchor.x * t.width;
+        const top = t.position.y - t.anchor.y * t.height;
+        const bx = Math.round(left + (t.width - 34) / 2);
+        const by = Math.round(top + t.height + 3);
+        mateArrows.rect(bx, by, 34, 4).fill({ color: 0x0b0c24, alpha: 0.85 * (m.state === 'away' ? 0.5 : 1) });
+        const low = m.hp <= 0.3;
+        const pulse = low && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 9) : 1;
+        if (m.hp > 0) mateArrows.rect(bx, by, Math.max(1, Math.round(34 * m.hp)), 4).fill({ color: low ? pal.bad : pal.good, alpha: (m.state === 'away' ? 0.5 : 1) * pulse });
+        // The 30 % line: a low life reads by where the bar ends, not only by its colour.
+        mateArrows.rect(bx + 10, by - 1, 1, 6).fill({ color: 0xf3f5ff, alpha: 0.75 });
+        g++;
+      }
+    }
+    for (; g < mateTexts.length; g++) mateTexts[g]!.visible = false;
+  }
+
+  /**
+   * «La Estática te alcanza» (2026-11-16): around where my probe stopped, a dashed amber ring once it is warned, and a
+   * crackling red one while the Static hurts it (steady with reduced motion).
+   */
+  function drawStill(sim: Sim): void {
+    stillRing.clear();
+    const p = sim.probes[opts.probe];
+    const s = sim.content.stillness;
+    if (!p || !p.alive || s.hurt <= 0) return;
+    const t = p.still.t;
+    const hurt = t >= s.hurt * 60;
+    if (!hurt && !(s.warn > 0 && t >= s.warn * 60)) return;
+    const { x, y } = p.still;
+    const r = s.radius;
+    const spin = opts.reduced ? 0 : clock * (hurt ? 1.6 : 0.6);
+    const color = hurt ? 0xff4d6d : 0xffc94a;
+    const pulse = opts.reduced ? 0.85 : 0.65 + 0.3 * Math.abs(Math.sin(clock * (hurt ? 9 : 3)));
+    dashedArc(stillRing, x, y, r, spin, spin + Math.PI * 2, { width: 2, color, alpha: pulse });
+    if (!hurt) return;
+    // The crackle: short sparks jumping across the ring.
+    for (let k = 0; k < 10; k++) {
+      const a = spin * 2 + (k * Math.PI * 2) / 10 + (opts.reduced ? 0 : Math.sin(clock * 23 + k) * 0.2);
+      const r0 = r - 4 - (opts.reduced ? 2 : 4 * Math.abs(Math.sin(clock * 31 + k * 1.3)));
+      stillRing.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0).lineTo(x + Math.cos(a + 0.05) * (r + 4), y + Math.sin(a + 0.05) * (r + 4)).stroke({ width: 1.5, color: 0xffd1db, alpha: pulse });
+    }
+  }
+
+  function drawHitboxes(sim: Sim, alpha: number): void {
+    if (!showHitboxes) return;
+    hitboxes.clear();
+    for (const h of hitboxShapes(sim, alpha)) {
+      const color = HITBOX_COLOR[h.tone];
+      if (h.kind === 'circle') {
+        hitboxes.circle(h.x, h.y, h.r).stroke({ width: 1, color, alpha: 0.9 });
+      } else {
+        // A pie slice from its centre (an open arc would need arcFrom).
+        const { x, y } = h;
+        hitboxes.moveTo(x, y).arc(x, y, h.r, h.angle - h.arc / 2, h.angle + h.arc / 2).closePath().stroke({ width: 1, color, alpha: 0.9 });
+      }
+    }
   }
 
   function drawBars(c: Camera): void {
@@ -797,6 +1512,67 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
+  /** The Core in the enemy pool (its boss flag), between ticks; null when there is none. */
+  function bossAt(sim: Sim, alpha: number): { x: number; y: number } | null {
+    const en = sim.enemies;
+    for (let i = 0; i < en.top; i++) {
+      if (en.alive[i] && en.boss[i]) return { x: lerp(en.px[i]!, en.x[i]!, alpha), y: lerp(en.py[i]!, en.y[i]!, alpha) };
+    }
+    return null;
+  }
+
+  /**
+   * The environment's frame (environment.ts): its own drawing in art pixels on the sky layer, and its touch on the
+   * backdrop (the storm cloud over the nebula, the light of the nebula and the stars, the veil, the stars' pull).
+   */
+  function drawEnvironment(sim: Sim, alpha: number, c: Camera, originX: number, originY: number, dt: number): void {
+    const boss = bossAt(sim, alpha);
+    if (boss) lastBoss = boss;
+    else if (sim.phase === 'waves') lastBoss = null;
+    const anchor = boss ?? (sim.phase === 'beacon' ? lastBoss : null);
+    // Art pixels: screen pixels ÷ zoom (the shake stays with the world; the sky holds still).
+    const ox = (originX - Math.round(c.x * c.zoom)) / c.zoom;
+    const oy = (originY - Math.round(c.y * c.zoom)) / c.zoom;
+    sky.clear();
+    sky.scale.set(c.zoom);
+    const touch = env.frame(
+      sim,
+      dt,
+      {
+        left: c.bars / c.zoom,
+        width: c.worldW,
+        height: c.worldH,
+        boss: anchor ? { x: ox + anchor.x, y: oy + anchor.y } : null,
+        danger: pal.danger,
+        biome: opts.biome ?? 'nebula',
+        reduced: opts.reduced,
+      },
+      sky,
+    );
+    nebula.alpha = touch.light;
+    ground.alpha = touch.light;
+    cloud.visible = touch.cloud > 0;
+    cloud.alpha = touch.cloud;
+    cloud.tint = touch.color;
+    veil.alpha = VEIL.alpha + (OVERLAY_MAX - VEIL.alpha) * touch.veil;
+    // The stars pulled towards the Core: each copy scaled about its point, so the farthest stars move the most.
+    const pull = touch.pull;
+    starEchoes.forEach((echo, k) => {
+      echo.visible = pull !== null && pull.px > 0.05;
+      if (!pull || !echo.visible) return;
+      const bx = pull.x * c.zoom;
+      const by = pull.y * c.zoom;
+      const far = Math.max(1, ...[c.bars, w - c.bars].flatMap((x) => [Math.hypot(x - bx, by), Math.hypot(x - bx, h - by)]));
+      const s = 1 - (pull.px * c.zoom * (k + 1)) / 2 / far;
+      echo.position.copyFrom(ground.position);
+      echo.width = ground.width;
+      echo.height = ground.height;
+      echo.tileScale.set(c.zoom * s);
+      echo.tilePosition.set(bx + (c.bars + ground.tilePosition.x - bx) * s - c.bars, by + (ground.tilePosition.y - by) * s);
+      echo.alpha = touch.light * (0.45 / (k + 1)) * Math.min(1, pull.px / 2);
+    });
+  }
+
   return {
     app,
     feed(events, tick = lastTick) {
@@ -804,14 +1580,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         switch (e.t) {
           case 'hit':
             fx.number(e.x, e.y - 8, e.amount, e.crit);
-            if (e.element) fx.burst(e.x, e.y, ELEMENT_COLOR[e.element] ?? 0xffffff, 3, 40);
+            if (e.element) fx.burst(e.x, e.y, pal.element[e.element] ?? 0xffffff, 3, 40);
             break;
           case 'kill':
             fx.burst(e.x, e.y, KILL_COLOR[e.enemy] ?? 0xff4d6d, e.elite ? 16 : 8, e.elite ? 90 : 60);
             break;
           case 'hurt':
-            fx.shake(Math.min(6, 3 + e.amount / 6));
-            hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            if (e.probe === (opts.me ?? opts.probe)) {
+              fx.shake(Math.min(6, 3 + e.amount / 6));
+              hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            } else hurtBlink.set(e.probe, clock + 0.18);
             break;
           case 'telegraph':
             warns.push(warningFrom(e, tick));
@@ -825,8 +1603,15 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.tx, e.ty, 0xe05cff, 12, 80);
             break;
           case 'blast':
-            fx.burst(e.x, e.y, 0xff4d6d, 16, 100);
-            fx.shake(3);
+            // A blast going off (a Core's mine, a volatile elite: the owner, 2026-11-14, «no hay ninguna animación»): a
+            // hot flash, a shockwave out to its reach, and sparks and embers flying.
+            fx.ring(e.x, e.y, 0xffb347, { radius: e.radius * 0.85, life: 0.26, fill: true });
+            fx.ring(e.x, e.y, 0xffffff, { radius: e.radius * 0.4, life: 0.12, fill: true });
+            fx.ring(e.x, e.y, 0xffa23a, { radius: e.radius, life: 0.42 });
+            fx.burst(e.x, e.y, 0xffa23a, 24, 140);
+            fx.burst(e.x, e.y, 0xff4d6d, 14, 180);
+            fx.burst(e.x, e.y, 0xfff1b8, 10, 70);
+            fx.shake(5);
             break;
           case 'bossDown':
             fx.burst(e.x, e.y, 0xffc94a, 40, 140);
@@ -834,7 +1619,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.shake(6);
             break;
           case 'element':
-            fx.burst(e.x, e.y, ELEMENT_COLOR[e.element] ?? 0xffffff, 2, 30);
+            fx.burst(e.x, e.y, pal.element[e.element] ?? 0xffffff, 2, 30);
             break;
           case 'reaction': {
             const l = reactionLabel(content, e.id);
@@ -842,10 +1627,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.x, e.y, l.color, 12, 80);
             break;
           }
-          case 'evolve':
-            fx.ring(lastProbe.x, lastProbe.y, 0xffc94a);
-            fx.burst(lastProbe.x, lastProbe.y, 0xffc94a, 24, 90);
+          case 'evolve': {
+            // The gold ring on whoever evolved (a teammate's too), not always on the camera's probe.
+            const at = lastSim?.probes[e.probe] ?? lastProbe;
+            fx.ring(at.x, at.y, 0xffc94a);
+            fx.burst(at.x, at.y, 0xffc94a, 24, 90);
             break;
+          }
           case 'pickup':
             if (e.kind === 'magnet') {
               const at = lastSim?.probes[e.probe] ?? lastProbe;
@@ -853,9 +1641,34 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
               fx.burst(at.x, at.y, 0x45e3a6, 18, 90);
             }
             break;
+          case 'evade': {
+            // Fase cuántica (Nov plan B2): the hit went through; a cyan word over the probe says so.
+            const at = lastSim?.probes[e.probe] ?? lastProbe;
+            fx.label(at.x, at.y - PROBE_HALF - 4, copy.arena.evaded, 0x6fe3ff);
+            break;
+          }
+          case 'satellite':
+            // A satellite breaking: a burst of cyan and white and a ring, where its signal falls.
+            if (e.what === 'break') {
+              fx.burst(e.x, e.y, 0x6fe3ff, 18, 80);
+              fx.burst(e.x, e.y, 0xf3f5ff, 8, 50);
+              fx.ring(e.x, e.y, 0x6fe3ff);
+            }
+            break;
           case 'propBreak':
             fx.burst(e.x, e.y, parseInt(look.dust.slice(1), 16), 12, 70);
             fx.burst(e.x, e.y, 0xf3f5ff, 4, 40);
+            break;
+          case 'singularity':
+            // A mythic's singularity collapsing (plan «rareza Mítica» M2): sparks in its four tones (none with reduced
+            // motion, where the burst only fades), and a small shake when it is mine.
+            if (e.what === 'collapse') {
+              if (!opts.reduced) for (const c of IRIS) fx.burst(e.x, e.y, c, 8, 110);
+              if (e.probe === (opts.me ?? opts.probe)) fx.shake(3);
+            }
+            break;
+          case 'anomaly':
+            anomalyFx(e);
             break;
           case 'dash':
             if (e.ticks === 0) glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });
@@ -877,8 +1690,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         tickAt = clock;
       }
       const p = sim.probes[opts.probe] ?? sim.probes[0]!;
-      const focus = { x: lerp(p.px, p.x, alpha), y: lerp(p.py, p.y, alpha) };
-      const c = cameraFor(w, h, focus, opts.vision);
+      const focus = glided(opts.probe, lerp(p.px, p.x, alpha), lerp(p.py, p.y, alpha));
+      clampCloser();
+      shownCloser = opts.reduced || Math.abs(closer - shownCloser) < 0.02 ? closer : shownCloser + (closer - shownCloser) * (1 - Math.exp(-dt * 16));
+      const c = cameraFor(w, h, focus, opts.vision, shownCloser);
       cam = c;
       const shake = fx.update(dt);
       hurtAlpha *= 0.88;
@@ -889,6 +1704,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       for (const [layer, speed] of [
         [ground, 0.5],
         [nebula, 0.25],
+        [cloud, 0.25],
       ] as const) {
         layer.position.set(c.bars, 0);
         layer.width = Math.round(c.worldW * c.zoom);
@@ -896,19 +1712,25 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         layer.tileScale.set(c.zoom);
         layer.tilePosition.set(-Math.round(c.x * speed * c.zoom), -Math.round(c.y * speed * c.zoom));
       }
+      drawEnvironment(sim, alpha, c, originX, originY, dt);
       syncChunks(c);
       lastSim = sim;
-      drawProps(sim);
+      drawProps(sim, alpha);
       drawAreas(sim);
       lastTick = sim.tick;
       drawWarnings(sim.tick + alpha);
+      drawCoreBeam(beams, sim, opts.reduced, clock);
       drawEnemies(sim, alpha);
       drawPickups(sim, alpha);
       drawShots(sim, alpha);
       drawGhosts();
       drawProbes(sim, alpha);
       drawParticles();
+      drawAnomalies();
+      drawStill(sim);
+      drawHitboxes(sim, alpha);
       drawNumbers(c, originX + shake.x, originY + shake.y);
+      drawMates(sim, c);
       drawBars(c);
       app.render();
     },
@@ -916,10 +1738,34 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       w = Math.max(1, Math.floor(nw));
       h = Math.max(1, Math.floor(nh));
       app.renderer.resize(w, h);
+      paintVeil();
     },
     camera: () => cam,
+    zoom(steps) {
+      closer += Math.round(steps);
+      clampCloser();
+    },
+    zoomLevel: () => closer,
     follow: (probe: number) => {
       opts.probe = probe;
+    },
+    setInsets(insets) {
+      markerInsets = insets;
+    },
+    setReduced(on) {
+      opts.reduced = on;
+      fx.setReduced(on);
+    },
+    setColorVision(mode) {
+      opts.colorVision = mode;
+      pal = stagePalette(mode);
+    },
+    setProbeGlow(on) {
+      opts.probeGlow = on;
+    },
+    setDebug(flags) {
+      showHitboxes = flags.hitboxes;
+      if (!showHitboxes) hitboxes.clear();
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });
@@ -930,6 +1776,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       BitmapFont.uninstall(LABEL_FONT);
       starTex.destroy(true);
       nebulaTex.destroy(true);
+      cloudTex.destroy(true);
       for (const t of dustDots) t.destroy(true);
       app.destroy({ removeView: false }, { children: true });
     },

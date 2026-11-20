@@ -1,7 +1,9 @@
+import { HScroll } from '../ui/HScroll';
 import { useId, useState } from 'react';
 import { auditSearch, useAudit } from '../api/admin';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { DateField } from '../ui/DateField';
 import { useSettled } from '../ui/useSettled';
 import { cellText, Pager } from './DataTable';
 
@@ -30,10 +32,10 @@ export function AuditScreen() {
           </label>
         ))}
         {(['from', 'to'] as const).map((k) => (
-          <label key={k} htmlFor={`${ids}-${k}`}>
-            <span>{t.audit[k]}</span>
-            <input id={`${ids}-${k}`} type="date" value={f[k]} onChange={(e) => set(k, e.target.value)} />
-          </label>
+          <div key={k} className="admin-filter">
+            <label htmlFor={`${ids}-${k}`}>{t.audit[k]}</label>
+            <DateField id={`${ids}-${k}`} value={f[k]} onChange={(v) => set(k, v)} />
+          </div>
         ))}
         <a className="lip pill small" href={`/galaxy/api/admin/audit?${auditSearch(filters, { format: 'csv' })}`} download>
           {t.audit.export}
@@ -46,7 +48,7 @@ export function AuditScreen() {
       ) : null}
       {audit.data && audit.data.rows.length === 0 ? <p className="panel-note">{t.audit.empty}</p> : null}
       {audit.data && audit.data.rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
@@ -84,7 +86,7 @@ export function AuditScreen() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {audit.data ? <Pager page={audit.data.page} pages={audit.data.pages} onPage={setPage} /> : null}
     </section>

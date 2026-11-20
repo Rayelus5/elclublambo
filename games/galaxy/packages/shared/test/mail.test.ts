@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { API_ERROR_CODES, adminMailPreviewSchema, adminMailSendSchema, adminNoticeSchema, inAudience, mailGiftsSchema } from '../src/index';
+import { API_ERROR_CODES, adminMailPreviewSchema, adminMailSendSchema, adminNoticeSchema, expiringSoon, inAudience, MAIL_TYPES, mailGiftsSchema, parseConfig } from '../src/index';
 
 // Communication (GDD §16.5; M6d-1): what an admin sends (news for everyone or for a segment, with gifts) and the
 // notices of the title screen; who a message reaches: accounts that existed when it was sent and match its segment.
@@ -21,7 +21,8 @@ describe('regalos', () => {
 describe('enviar', () => {
   test('título, texto, regalos, audiencia y caducidad de 1 a 365 días (30 por defecto), con motivo', () => {
     const m = adminMailSendSchema.parse({ title: 'Bienvenida a la beta', body: 'Gracias por probar el juego', gifts: { coins: 100 }, audience: { kind: 'all' }, reason: 'Inicio de la beta', password: 'x' });
-    expect(m).toMatchObject({ expiresInDays: 30, audience: { kind: 'all' }, gifts: { coins: 100 } });
+    // Mail v2 (2026-11-16): the old gifts arrive as the new kind, and a message is an announcement unless it says.
+    expect(m).toMatchObject({ expiresInDays: 30, audience: { kind: 'all' }, type: 'announcement', gifts: { items: [{ kind: 'currency', currency: 'coins', amount: 100 }], packs: [] } });
     expect(() => adminMailSendSchema.parse({ ...m, title: '' })).toThrow();
     expect(() => adminMailSendSchema.parse({ ...m, body: 'x'.repeat(2001) })).toThrow();
     expect(() => adminMailSendSchema.parse({ ...m, expiresInDays: 366 })).toThrow();
@@ -62,4 +63,47 @@ test('un aviso tiene texto de hasta 200 caracteres, tono y fechas en orden', () 
 
 test('los errores nuevos del buzón existen', () => {
   for (const code of ['mail_claimed', 'mail_gone'] as const) expect(API_ERROR_CODES).toContain(code);
+});
+
+describe('correo v2: tipos y regalos de todo tipo', () => {
+  const base = { title: 'Un regalo', body: 'Para ti', audience: { kind: 'all' as const }, reason: 'Una prueba', password: 'x' };
+
+  test('un mensaje tiene su tipo, y los automáticos del juego no los envía un admin', () => {
+    expect(MAIL_TYPES).toEqual(['announcement', 'gift', 'compensation', 'event', 'reward', 'personal']);
+    expect(adminMailSendSchema.parse({ ...base, type: 'compensation' }).type).toBe('compensation');
+    expect(() => adminMailSendSchema.parse({ ...base, type: 'referral' })).toThrow();
+  });
+
+  test('lleva regalos sueltos de cualquier tipo y packs de la biblioteca', () => {
+    const m = adminMailSendSchema.parse({
+      ...base,
+      type: 'gift',
+      gifts: { items: [{ kind: 'cosmetic', piece: 'frame', id: 'gold' }, { kind: 'currency', currency: 'components', amount: 20 }], packs: ['bienvenida'] },
+    });
+    expect(m.gifts.items).toHaveLength(2);
+    expect(m.gifts.packs).toEqual(['bienvenida']);
+  });
+
+  test('un aviso de caducidad sale los últimos días', () => {
+    const now = new Date('2026-11-16T12:00:00.000Z');
+    expect(expiringSoon('2026-11-18T12:00:00.000Z', now, 3)).toBe(true);
+    expect(expiringSoon('2026-11-25T12:00:00.000Z', now, 3)).toBe(false);
+  });
+
+  test('el buzón y la biblioteca de packs tienen su configuración, y sus límites también', () => {
+    const mail = parseConfig('mail', {});
+    expect(mail.packs).toEqual([]);
+    expect(mail.warnDays).toBeGreaterThan(0);
+    expect(() => parseConfig('mail', { packs: [{ id: 'x', name: 'X', art: 'parcel', items: [], enabled: true }, { id: 'x', name: 'Y', art: 'chest', items: [], enabled: true }] })).toThrow();
+    expect(parseConfig('mailLimits', {}).galaxyTier).toBe('legendary');
+  });
+});
+
+describe('envío programado (P5)', () => {
+  const base = { title: 'Luego', body: 'Llega luego', audience: { kind: 'all' as const }, reason: 'Una prueba' };
+  test('un mensaje puede llevar su hora de envío', () => {
+    expect(adminMailSendSchema.parse({ ...base, scheduledAt: '2026-11-20T10:00:00.000Z' }).scheduledAt).toBe('2026-11-20T10:00:00.000Z');
+    expect(adminMailSendSchema.parse(base).scheduledAt).toBeUndefined();
+    expect(() => adminMailSendSchema.parse({ ...base, scheduledAt: 'mañana' })).toThrow();
+  });
 });

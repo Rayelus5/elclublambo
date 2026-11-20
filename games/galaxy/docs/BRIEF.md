@@ -12,7 +12,7 @@
 
 Como las galaxias se generan en vivo (RNG puro), **el juego no usa ni expone las 1.000 piezas de la colección NFT**: no afecta a su revelado diferido ni a su provenance.
 
-Se sirve en **`pre.elclub.party/galaxy`** (solo preproducción de momento), con la base de datos del Supabase autoalojado de PRE.
+Se sirve en **`galaxysurvivor.es/galaxy`** desde el 2026-11-17 (antes en `pre.elclub.party/galaxy`, que ahora enseña el aviso de la mudanza), con la base de datos del Supabase autoalojado de PRE.
 
 ## 2. Decisiones del usuario (cerradas)
 
@@ -34,7 +34,7 @@ Se sirve en **`pre.elclub.party/galaxy`** (solo preproducción de momento), con 
 | Cuentas | **Usuario + contraseña** (sin email) |
 | Pagos | **Ninguno con dinero real**: solo monedas del juego |
 | Admin | Panel con poder total: ver estadísticas y datos de todos, ver y editar inventarios, añadir o quitar galaxias, monedas y tiradas, banear. **Primer admin: usuario `rayelus`** |
-| Entorno | Solo **PRE** de momento (`pre.elclub.party/galaxy`), con la base de datos de PRE |
+| Entorno | Solo **PRE** de momento (`galaxysurvivor.es/galaxy`), con la base de datos de PRE |
 
 ## 3. Semilla de concepto (propuestas para el brainstorming, no decididas)
 

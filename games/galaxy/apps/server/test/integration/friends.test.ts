@@ -150,9 +150,29 @@ describe('socket vivo y presencia', () => {
     await settle();
     expect((await view(a)).friends[0]!.presence).toEqual({ status: 'offline' });
     expect(sa.events.filter((e) => e.type === 'presence' && e.username === b.username).every((e) => e.type === 'presence' && e.presence.status === 'offline')).toBe(true);
-    expect((await view(b)).prefs).toEqual({ invites: 'nobody', showStatus: false });
+    expect((await view(b)).prefs).toEqual({ invites: 'nobody', showStatus: false, notices: 'sound' });
     sa.ws.terminate();
     sb.ws.terminate();
+  });
+
+  test('el modo de avisos: con sonido por defecto, se guarda, y una petición sin él no lo cambia', async () => {
+    const a = await player();
+    expect((await view(a)).prefs.notices).toBe('sound');
+    expect((await put(ctx.app, '/galaxy/api/friends/prefs', { invites: 'friends', showStatus: true, notices: 'off' }, { cookie: a.cookie })).statusCode).toBe(200);
+    expect((await view(a)).prefs).toEqual({ invites: 'friends', showStatus: true, notices: 'off' });
+    expect((await put(ctx.app, '/galaxy/api/friends/prefs', { invites: 'everyone', showStatus: true }, { cookie: a.cookie })).statusCode).toBe(200);
+    expect((await view(a)).prefs).toEqual({ invites: 'everyone', showStatus: true, notices: 'off' });
+    expect((await put(ctx.app, '/galaxy/api/friends/prefs', { invites: 'friends', showStatus: true, notices: 'loud' }, { cookie: a.cookie })).statusCode).toBe(400);
+  });
+
+  test('quien envió la solicitud se entera al momento de que se la aceptan', async () => {
+    const [a, b] = [await player(), await player()];
+    const sa = await live(a);
+    await ask(a, b.username);
+    await act(b, a.username, 'accept');
+    await settle();
+    expect(sa.events).toContainEqual({ type: 'friends', reason: 'accepted', username: b.username });
+    sa.ws.terminate();
   });
 
   test('sin sesión 4401, desde otro origen 4403, y cerrar sesión cierra sus sockets', async () => {

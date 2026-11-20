@@ -8,6 +8,8 @@ import { HANGAR_KEY } from '../src/api/runs';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { readFilters, writeFilters } from '../src/collection/Filters';
+import { pickOption } from './pick';
 
 // The collection (GDD §8.5): a paged grid with filters and order, the detail with front, back and lineage, and the two
 // ways to spend galaxies — disintegrate into dust (confirmed) and fuse five of a tier into the next (cost shown first).
@@ -30,10 +32,10 @@ const g = (id: string, tier: Tier = 'common', name = `Gal ${id}`): GalaxySummary
 const page = (items: GalaxySummary[], next?: string): CollectionPage => ({
   items,
   ...(next ? { next } : {}),
-  counts: { common: 6, uncommon: 0, rare: 1, epic: 0, legendary: 1 },
+  counts: { common: 6, uncommon: 0, rare: 1, epic: 0, legendary: 1, mythic: 0 },
   fusion: { count: 5, dust: [20, 50, 120, 300] },
 });
-const gacha: GachaView = { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 40, signal: 0 } };
+const gacha: GachaView = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust: 40, signal: 0 } };
 const detail = (over: Partial<GalaxyDetail> = {}): GalaxyDetail => ({
   ...g('g9', 'epic', 'Kathra'),
   origin: 'fusion',
@@ -54,8 +56,8 @@ const calls = (fetch: ReturnType<typeof mockApi>) => fetch.mock.calls.map(([url,
 test('la rejilla muestra tus galaxias y carga la página siguiente con el cursor', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('a'), g('b')], 'c1')),
-    'GET /galaxy/api/galaxies?sort=new&limit=30&cursor=c1': () => jsonResponse(200, page([g('c')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('a'), g('b')], 'c1')),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30&cursor=c1': () => jsonResponse(200, page([g('c')])),
   });
   renderAt('/coleccion', screens);
   expect(await screen.findByRole('article', { name: 'Gal a' })).toBeInTheDocument();
@@ -65,29 +67,66 @@ test('la rejilla muestra tus galaxias y carga la página siguiente con el cursor
   expect(screen.queryByRole('button', { name: copy.collection.loadMore })).not.toBeInTheDocument();
 });
 
+// The owner (2026-11-14): «Más raras» by default; the order in the game's dropdown, with dust and names too; the trait
+// filters behind «Filtros», which says how many are on.
 test('los filtros y el orden cambian la consulta', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
-    'GET /galaxy/api/galaxies?tier=rare&sort=new&limit=30': () => jsonResponse(200, page([g('r', 'rare')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('a')])),
     'GET /galaxy/api/galaxies?tier=rare&sort=rarity&limit=30': () => jsonResponse(200, page([g('r', 'rare')])),
-    'GET /galaxy/api/galaxies?tier=rare&type=ring&sort=rarity&limit=30': () => jsonResponse(200, page([])),
+    'GET /galaxy/api/galaxies?tier=rare&sort=dust-desc&limit=30': () => jsonResponse(200, page([g('r', 'rare')])),
+    'GET /galaxy/api/galaxies?tier=rare&type=ring&sort=dust-desc&limit=30': () => jsonResponse(200, page([])),
   });
   const user = userEvent.setup();
   renderAt('/coleccion', screens);
   await screen.findByRole('article', { name: 'Gal a' });
+  expect(screen.getByRole('combobox', { name: copy.collection.order })).toHaveTextContent(copy.collection.sorts.rarity);
   await user.click(screen.getByRole('button', { name: new RegExp(copy.tiers.rare) }));
   expect(await screen.findByRole('article', { name: 'Gal r' })).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: copy.collection.sortRarity }));
-  await user.selectOptions(screen.getByLabelText(copy.traitNames['galaxy_type']!), copy.traitValues.galaxy_type.ring);
+  await pickOption(user, screen.getByRole('combobox', { name: copy.collection.order }), copy.collection.sorts['dust-desc']);
+  await waitFor(() => expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?tier=rare&sort=dust-desc&limit=30'));
+  expect(screen.queryByRole('combobox', { name: copy.traitNames['galaxy_type']! })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: copy.collection.filtersButton(0) }));
+  await pickOption(user, screen.getByRole('combobox', { name: copy.traitNames['galaxy_type']! }), copy.traitValues.galaxy_type.ring);
   expect(await screen.findByText(copy.collection.emptyFiltered)).toBeInTheDocument();
-  expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?tier=rare&type=ring&sort=rarity&limit=30');
+  expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?tier=rare&type=ring&sort=dust-desc&limit=30');
+  expect(screen.getByRole('button', { name: copy.collection.filtersButton(1) })).toBeInTheDocument();
+});
+
+test('filtrar por fenómeno: uno concreto, con cualquiera o sin ninguno, en la dirección y en la consulta', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('a')])),
+    'GET /galaxy/api/galaxies?phenomenon=pulsar&sort=rarity&limit=30': () => jsonResponse(200, page([g('p')])),
+    'GET /galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30': () => jsonResponse(200, page([g('p')])),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion', screens);
+  await screen.findByRole('article', { name: 'Gal a' });
+  await user.click(screen.getByRole('button', { name: copy.collection.filtersButton(0) }));
+  const phenomenon = screen.getByRole('combobox', { name: copy.traitNames['phenomenon']! });
+  await pickOption(user, phenomenon, copy.traitValues.phenomenon.pulsar);
+  expect(await screen.findByRole('article', { name: 'Gal p' })).toBeInTheDocument();
+  await pickOption(user, phenomenon, copy.collection.phenomenonAny);
+  await waitFor(() => expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30'));
+});
+
+test('el filtro de fenómeno se lee de la dirección (y uno que no existe se ignora)', () => {
+  expect(readFilters(new URLSearchParams('phenomenon=comet'))).toMatchObject({ phenomenon: 'comet' });
+  expect(readFilters(new URLSearchParams('phenomenon=none'))).toMatchObject({ phenomenon: 'none' });
+  expect(readFilters(new URLSearchParams('phenomenon=any'))).toMatchObject({ phenomenon: 'any' });
+  expect(readFilters(new URLSearchParams('phenomenon=dragon')).phenomenon).toBeUndefined();
+  expect(writeFilters({ sort: 'rarity', phenomenon: 'any' }).toString()).toBe('phenomenon=any');
+  // «Más raras» is the order by default: it is not written; any other is.
+  expect(readFilters(new URLSearchParams('')).sort).toBe('rarity');
+  expect(writeFilters({ sort: 'name-asc' }).toString()).toBe('sort=name-asc');
+  expect(readFilters(new URLSearchParams('sort=nope')).sort).toBe('rarity');
 });
 
 test('el detalle muestra anverso, reverso, el polvo que daría y el linaje', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
   });
   renderAt('/coleccion/g9', screens);
@@ -100,10 +139,29 @@ test('el detalle muestra anverso, reverso, el polvo que daría y el linaje', asy
   expect(dialog).toHaveTextContent(copy.collection.origin.fusion);
 });
 
+test('pulsar la carta del detalle abre su ficha de reliquia (lo que hace y la carta en 3D) sin botón de equipar', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion/g9', screens);
+  const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+  await user.click(within(dialog).getByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') });
+  expect(within(sheet).getByText(copy.hangar.families.blades)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.sheet.alone)).toBeInTheDocument();
+  expect(within(sheet).queryByRole('button', { name: copy.hangar.sheet.equip })).toBeNull();
+  await user.click(within(sheet).getByRole('button', { name: copy.collection.close }));
+  expect(screen.queryByRole('dialog', { name: copy.hangar.sheet.title('Kathra') })).toBeNull();
+  expect(screen.getByRole('dialog', { name: 'Kathra' })).toBeInTheDocument();
+});
+
 test('desintegrar pide confirmación con el polvo que da y actualiza el saldo', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
     'POST /galaxy/api/galaxies/g9/disintegrate': () => jsonResponse(200, { dust: 113, wallet: { coins: 0, dust: 153, signal: 0 } }),
   });
@@ -129,7 +187,7 @@ const fusePage = () => page([...['c1', 'c2', 'c3', 'c4', 'c5', 'c6'].map((id) =>
 test('fusionar exige cinco del mismo nivel, enseña el coste y revela la nueva', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, fusePage()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, fusePage()),
     'POST /galaxy/api/galaxies/fuse': () => jsonResponse(200, { galaxy: g('n1', 'uncommon', 'Zenveae'), wallet: { coins: 0, dust: 20, signal: 0 } }),
   });
   const user = userEvent.setup();
@@ -163,7 +221,7 @@ test('fusionar exige cinco del mismo nivel, enseña el coste y revela la nueva',
 test('sin polvo suficiente la fusión se ve bloqueada antes de pedirla', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, { ...gacha, wallet: { coins: 0, dust: 5, signal: 0 } }),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, fusePage()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, fusePage()),
   });
   const user = userEvent.setup();
   renderAt('/coleccion', screens);
@@ -178,7 +236,7 @@ test('sin polvo suficiente la fusión se ve bloqueada antes de pedirla', async (
 test('los errores del servidor se muestran con su texto', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, fusePage()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, fusePage()),
     'POST /galaxy/api/galaxies/fuse': () => jsonResponse(409, { error: 'invalid_fusion' }),
   });
   const user = userEvent.setup();
@@ -193,7 +251,7 @@ test('los errores del servidor se muestran con su texto', async () => {
 test('una galaxia equipada como reliquia no se puede desintegrar ni elegir para fusionar, y dice por qué', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([{ ...g('c1'), equipped: true }, g('c2'), g('c3')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([{ ...g('c1'), equipped: true }, g('c2'), g('c3')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ equipped: true })),
   });
   const user = userEvent.setup();
@@ -212,7 +270,7 @@ test('una galaxia equipada como reliquia no se puede desintegrar ni elegir para 
 test('una galaxia expuesta en el planetario no se puede desintegrar ni elegir para fusionar, y dice por qué (M4c-2)', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([{ ...g('c1'), exhibited: true }, g('c2'), g('c3')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([{ ...g('c1'), exhibited: true }, g('c2'), g('c3')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ exhibited: true })),
   });
   const user = userEvent.setup();
@@ -236,7 +294,7 @@ describe('el nivel de una galaxia (M4c-1)', () => {
   test('el detalle dice su nivel y sube al siguiente con su polvo, enviando el nivel con su clave', async () => {
     const fetch = mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, rich),
-      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+      'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
       'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ level: 3, levelUp: { dust: 80 }, refund: 27 })),
       'POST /galaxy/api/galaxies/g9/level-up': () => jsonResponse(200, { galaxy: detail({ level: 4, levelUp: { dust: 110 }, refund: 67 }), wallet: { ...rich.wallet, dust: 120 } }),
     });
@@ -259,7 +317,7 @@ describe('el nivel de una galaxia (M4c-1)', () => {
   test('sin polvo, la subida está desactivada y dice cuánto falta', async () => {
     mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+      'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
       'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ level: 3, levelUp: { dust: 80 } })),
     });
     renderAt('/coleccion/g9', screens);
@@ -273,7 +331,7 @@ describe('el nivel de una galaxia (M4c-1)', () => {
   test('en el 10, Nivel máximo y ningún botón para subir', async () => {
     mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g8', 'epic', 'Vega')])),
+      'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g8', 'epic', 'Vega')])),
       'GET /galaxy/api/galaxies/g8': () => jsonResponse(200, detail({ id: 'g8', name: 'Vega', level: 10, levelUp: null, refund: 590 })),
     });
     renderAt('/coleccion/g8', screens);
@@ -297,7 +355,7 @@ describe('el nivel de una galaxia (M4c-1)', () => {
 test('llegando desde el Colisionador del Hogar, Fusionar ya está activado', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('a')])),
   });
   renderAt('/coleccion', screens, { fuse: true });
   await screen.findByRole('article', { name: 'Gal a' });
@@ -308,7 +366,7 @@ test('llegando desde el Colisionador del Hogar, Fusionar ya está activado', asy
 test('la carta del detalle se gira para ver el dorso, y vuelve', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
     'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
   });
   renderAt('/coleccion/g9', screens);
@@ -323,11 +381,43 @@ test('el filtro de favoritas va en la dirección, y la de antes (?candado=1) sig
   for (const path of ['/coleccion?favoritas=1', '/coleccion?candado=1']) {
     const fetch = mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'GET /galaxy/api/galaxies?locked=true&sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
+      'GET /galaxy/api/galaxies?locked=true&sort=rarity&limit=30': () => jsonResponse(200, page([g('a')])),
     });
     const view = renderAt(path, screens);
     expect(await screen.findByRole('button', { name: copy.collection.lockedFilter })).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/galaxies?locked=true&sort=new&limit=30')).toBe(true));
+    await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/galaxies?locked=true&sort=rarity&limit=30')).toBe(true));
     view.unmount();
   }
 });
+
+// Desintegrar varias (the owner: by selection, as when fusing): pick up to 50 that can go, see the dust and which
+// epic-or-better ones you are about to lose, confirm once and they go together.
+test('desintegrar varias: eliges, ves el polvo y las épicas o mejores, y se van juntas', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([g('c1'), g('c2'), g('e1', 'epic', 'Kathra'), { ...g('k1'), locked: true }])),
+    'POST /galaxy/api/galaxies/disintegrate': (body) =>
+      (body as { preview?: boolean }).preview ? jsonResponse(200, { count: 3, dust: 85 }) : jsonResponse(200, { count: 3, dust: 85, wallet: { coins: 0, dust: 125, signal: 0 } }),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion', screens);
+  await user.click(await screen.findByRole('button', { name: copy.collection.dissolveMany }));
+  for (const name of ['Gal c1', 'Gal c2', 'Kathra']) await user.click(screen.getByRole('button', { name: copy.collection.select(name) }));
+  // A favourite (locked) one cannot be picked.
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal k1') })).toBeDisabled();
+  const bar = screen.getByRole('region', { name: copy.collection.dissolveMany });
+  expect(bar).toHaveTextContent(copy.collection.fuseProgress(3, 50));
+  expect(calls(fetch)).not.toContain('POST /galaxy/api/galaxies/disintegrate');
+  await user.click(within(bar).getByRole('button', { name: copy.collection.disintegrate }));
+  const confirm = await screen.findByRole('alertdialog', { name: copy.collection.dissolveTitle(3) });
+  expect(confirm).toHaveTextContent(copy.collection.disintegrateManyBody(85));
+  expect(confirm).toHaveTextContent(copy.collection.dissolveBest(['Kathra']));
+  await user.click(within(confirm).getByRole('button', { name: copy.collection.disintegrate }));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(copy.collection.dissolved(3, 85)));
+  expect(await screen.findByLabelText(copy.hub.resource.dust(125))).toBeInTheDocument();
+  const posts = fetch.mock.calls.filter(([url, init]) => url === '/galaxy/api/galaxies/disintegrate' && !JSON.parse(String(init?.body)).preview);
+  expect(posts).toHaveLength(1);
+  expect(JSON.parse(String(posts[0]![1]!.body))).toEqual({ ids: ['c1', 'c2', 'e1'] });
+  expect((posts[0]![1]?.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+});
+

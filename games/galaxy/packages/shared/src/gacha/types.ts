@@ -1,8 +1,31 @@
 import { z } from 'zod';
 
 // Galaxy rarity tiers and card finishes (GDD §7), in order: index = tier/finish code stored in the database.
-export const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
+// The «Mítica» (plan «rareza Mítica» M1) is the sixth: only the deep scan's own mythic draw gives one (never the
+// guarantee, never a fusion), so anything that treats the legendary as the top asks for «legendary or better».
+export const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'] as const;
 export type Tier = (typeof TIERS)[number];
+/** Tier index of the legendary: what the guarantee gives and what resets it. */
+export const LEGENDARY = 4;
+/** Tier index of the mythic. */
+export const MYTHIC = 5;
+/** The highest tier a fusion makes: galaxies of this tier or better are never fused. */
+export const FUSION_TOP = LEGENDARY;
+
+/** Whether `tier` (a name or its index) is `min` or better: «legendary or better» counts the mythic too. */
+export function atLeast(tier: Tier | number, min: Tier): boolean {
+  return (typeof tier === 'number' ? tier : TIERS.indexOf(tier)) >= TIERS.indexOf(min);
+}
+
+/**
+ * A per-tier list of a live config (dust, prestige, relic power…) for every tier: one published before the mythic
+ * stops at the legendary, and the missing tiers repeat its last value.
+ */
+export function perTier<T>(values: readonly T[]): T[] {
+  const out = values.slice(0, TIERS.length);
+  while (out.length > 0 && out.length < TIERS.length) out.push(out[out.length - 1]!);
+  return out;
+}
 
 export const FINISHES = ['normal', 'holo', 'prismatic', 'braille', 'corrupt', 'rift'] as const;
 /**

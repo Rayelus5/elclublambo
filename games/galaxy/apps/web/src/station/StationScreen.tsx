@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useMyClan } from '../api/clans';
 import { useMailbox } from '../api/mail';
+import { useGacha } from '../api/economy';
 import { useCollectAntenna, useCollectRefinery, useLoadRefinery, useStation, useUpgradeRoom } from '../api/station';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
@@ -12,6 +13,7 @@ import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 import { roomSheet, roomSheetUrl } from './art';
 import { HomeLink } from '../ui/BackLink';
+import { WalletBar } from '../hub/WalletBar';
 import { emitTour } from '../tour/bus';
 
 // The station (GDD §10, DESIGN_SYSTEM §8 septies): the base is the menu. Two decks of five rooms in a side cut; a
@@ -21,17 +23,8 @@ import { emitTour } from '../tour/bus';
 
 const t = copy.station;
 
-/** Where each working tool leads (Comunicaciones opens its panel instead). */
-const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/planetario', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio', archive: '/codice', trophies: '/trofeos' };
-
-function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName; amount: number; label: string }) {
-  return (
-    <span className={`res ${kind}`} role="img" aria-label={label} title={label}>
-      <Icon name={icon} />
-      <b aria-hidden="true">{fmt(amount)}</b>
-    </span>
-  );
-}
+/** Where each working tool leads (Comunicaciones opens its panel instead). The hangar room is the probes' Taller. */
+const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/planetario', hangar: '/taller', collider: '/coleccion', lab: '/laboratorio', archive: '/codice', trophies: '/trofeos' };
 
 /** The room's Aseprite strip, played by CSS (still on its first frame with reduced motion). */
 function Art({ room, className = 'room-art' }: { room: StationRoomView; className?: string }) {
@@ -368,6 +361,8 @@ function CommsPanel({ view, onClose }: { view: StationView; onClose: () => void 
 
 export function StationScreen() {
   const station = useStation();
+  // The hub's wallet is the one every action updates (api/wallet.ts); the station's own copy fills in until it loads.
+  const hubWallet = useGacha().data?.wallet;
   const [open, setOpen] = useState<RoomId | null>(null);
   const view = station.data;
   const ready = (id: RoomId) => (id === 'refinery' ? (view?.refinery.ready ?? 0) > 0 : id === 'antenna' ? (view?.antenna.accrued ?? 0) > 0 : false);
@@ -380,19 +375,8 @@ export function StationScreen() {
             <span>{t.back}</span>
           </HomeLink>
           <h1>{t.title}</h1>
-          <div className="lip panel hud">
-            {view ? (
-              <>
-                <Resource kind="material" icon="cube" amount={view.wallet['material'] ?? 0} label={t.resource.material(view.wallet['material'] ?? 0)} />
-                <Resource kind="components" icon="wrench" amount={view.wallet['components'] ?? 0} label={t.resource.components(view.wallet['components'] ?? 0)} />
-                <Resource kind="coins" icon="coin" amount={view.wallet.coins} label={copy.hub.resource.coins(view.wallet.coins)} />
-                <Resource kind="signal" icon="ticket" amount={view.wallet.signal} label={copy.hub.resource.signal(view.wallet.signal)} />
-              </>
-            ) : (
-              <span className="res pending" role="img" aria-label={copy.loading}>
-                ⠋⠙⠹
-              </span>
-            )}
+          <div className="lip panel hud station-wallet">
+            <WalletBar wallet={hubWallet ?? view?.wallet} components material={{ onOpen: () => setOpen('refinery') }} />
           </div>
         </header>
         {station.error ? (

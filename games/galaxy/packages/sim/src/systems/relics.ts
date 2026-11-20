@@ -7,11 +7,12 @@ import { dealDamage } from './combat';
 import { elementCode, invertNearby } from './elements';
 import { activeSets } from './sets';
 import { refreshStats, relicHooks, type StatBonus } from './stats';
-import { AREA, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
+import { AREA, enemiesNear, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
 
 // Galaxies as relics (GDD §8.2–8.4 bis, §8.6). The galaxy type picks the family; arms give the count; rarity, size,
 // core and level give the magnitude; density the frequency; inclination the shape; palette the element; background a
-// bonus; phenomenon a unique ability. Everything a relic does in the run lives here.
+// bonus; phenomenon a unique ability. A mythic (plan «rareza Mítica» M2) adds its own power, the singularity. Everything
+// a relic does in the run lives here.
 
 export interface RelicSkill {
   family: FamilyId;
@@ -27,7 +28,12 @@ export interface RelicSkill {
   quasar: boolean;
   double: boolean;
   background: { stat: StatKey | 'vision'; value: number } | null;
+  /** A mythic (the sixth tier): it has the singularity on top of everything else (plan «rareza Mítica» M2). */
+  mythic: boolean;
 }
+
+/** The mythic tier's index (RelicInput.tier). */
+const MYTHIC_TIER = 5;
 
 const TYPE_FAMILY: Record<string, FamilyId> = {
   spiral: 'blades',
@@ -64,7 +70,8 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
   const rank = all.slice(0, at + 1).filter((r) => baseFamily(r.traits) === family).length;
   let stacking = 1;
   for (let k = R.stacking.from; k <= rank; k++) stacking *= R.stacking.decay;
-  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude * stacking;
+  // A tier past the end of the list (a mythic with content published before it) counts as the last one.
+  const magnitude = (R.tier[Math.min(relic.tier, R.tier.length - 1)] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude * stacking;
   let copies: FamilyId | null = null;
   if (family === 'echo') {
     const me = Math.max(0, at);
@@ -91,6 +98,7 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
     quasar: t['core'] === 'quasar',
     double: t['core'] === 'double_nucleus',
     background: background(R.backgrounds[t['background'] ?? ''] ?? null, setBackground),
+    mythic: relic.tier >= MYTHIC_TIER,
   };
 }
 
@@ -117,7 +125,6 @@ interface Runtime {
 }
 
 const runtimes = new WeakMap<ProbeState, Runtime[]>();
-const dashHits = new WeakMap<ProbeState, Set<number>>();
 
 function skillsOf(sim: Sim, p: ProbeState): Runtime[] {
   let list = runtimes.get(p);
@@ -287,22 +294,31 @@ function runFamily(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
   }
 }
 
-function dashStep(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {
-  const C = sim.content.relics.phenomena.comet;
-  const steps = Math.max(1, ticks(C.seconds));
-  const per = C.distance / steps;
-  p.x += cosA(p.facing) * per;
-  p.y += sinA(p.facing) * per;
-  const hit = dashHits.get(p) ?? new Set<number>();
-  dashHits.set(p, hit);
-  const en = sim.enemies;
-  for (const e of nearestEnemies(sim, p.x, p.y, 12, 64)) {
-    const key = e * 65536 + en.gen[e]!;
-    if (hit.has(key)) continue;
-    hit.add(key);
-    dealDamage(sim, e, C.damage * m * p.stats.damage, source(p, ri, r));
-  }
-  p.fx['dashT'] = (p.fx['dashT'] ?? 0) - 1;
+/**
+ * The comet relics a probe carries (owner's plan 2026-11-13): they no longer charge on their own, they improve the
+ * player's dash (systems/dash.ts). How many, and the strongest one (slot and magnitude), whose hit the dash deals.
+ */
+export function cometRelics(sim: Sim, p: ProbeState): { count: number; best: number; m: number } {
+  let count = 0;
+  let best = -1;
+  let top = 0;
+  skillsOf(sim, p).forEach((r, ri) => {
+    if (r.skill.phenomenon !== 'comet') return;
+    count++;
+    const { m } = effective(r);
+    if (m > top) {
+      top = m;
+      best = ri;
+    }
+  });
+  return { count, best, m: top };
+}
+
+/** A dash with comet relics went through enemy `e`: the strongest comet's hit, with its element. */
+export function cometHit(sim: Sim, p: ProbeState, e: number): void {
+  const { best, m } = cometRelics(sim, p);
+  if (best < 0) return;
+  dealDamage(sim, e, sim.content.relics.phenomena.comet.damage * m * p.stats.damage, source(p, best, skillsOf(sim, p)[best]!));
 }
 
 function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
@@ -320,13 +336,9 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
       keepShots(sim, p, ri, SHOT.orb, P.globular_cluster.count);
       return;
     case 'einstein_ring':
-      return;
     case 'comet':
-      if ((p.fx['dashT'] ?? 0) > 0 && p.fx['dashRelic'] === ri) {
-        dashStep(sim, p, ri, r, m);
-        return;
-      }
-      break;
+      // The comet improves the player's dash (systems/dash.ts): nothing of its own on a clock.
+      return;
     default:
       break;
   }
@@ -338,25 +350,6 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
       hitArea(sim, p.x, p.y, P.supernova.radius * rs, P.supernova.damage * m * p.stats.damage, src);
       spawnArea(sim, p, AREA.supernova, p.x, p.y, P.supernova.radius * rs, { ttl: 24, follow: true, srcKind: 1, srcIdx: ri, element });
       r.phenT = cooldown(p, r, P.supernova.cooldown);
-      break;
-    case 'comet':
-      if (!p.moving) return;
-      p.fx['dashT'] = Math.max(1, ticks(P.comet.seconds));
-      p.fx['dashRelic'] = ri;
-      p.invulnT = Math.max(p.invulnT, p.fx['dashT']! + 1);
-      sim.events.push({
-        t: 'dash',
-        probe: p.index,
-        kind: 'comet',
-        fx: p.x,
-        fy: p.y,
-        tx: p.x + cosA(p.facing) * P.comet.distance,
-        ty: p.y + sinA(p.facing) * P.comet.distance,
-        ticks: p.fx['dashT']!,
-      });
-      dashHits.set(p, new Set());
-      dashStep(sim, p, ri, r, m);
-      r.phenT = cooldown(p, r, P.comet.cooldown);
       break;
     case 'relativistic_jets': {
       const J = P.relativistic_jets;
@@ -385,23 +378,33 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
 function anomaly(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {
   const A = sim.content.relics.phenomena.anomaly;
   const en = sim.enemies;
+  const fx = p.x;
+  const fy = p.y;
+  // What it did, for the arena's glitch and its sound (render only: nothing in the sim reads it).
+  const tell = (what: 'blink' | 'freeze' | 'strike', radius = 0, targets: number[] = []) =>
+    sim.events.push({ t: 'anomaly', probe: p.index, what, fx, fy, tx: p.x, ty: p.y, radius, targets });
   switch (sim.rng.relic.int(3)) {
     case 0: {
       const [e] = nearestEnemies(sim, p.x, p.y, 600, 1);
       const away = e === undefined ? sim.rng.relic.int(ANGLE_STEPS) : angleTo(p.x - en.x[e]!, p.y - en.y[e]!);
       p.x += cosA(away) * A.blink;
       p.y += sinA(away) * A.blink;
+      tell('blink');
       return;
     }
     case 1:
       for (const e of nearestEnemies(sim, p.x, p.y, A.freezeRadius, 400)) if (!en.boss[e]) en.freezeT[e] = ticks(A.freezeSeconds);
+      tell('freeze', A.freezeRadius);
       return;
     default: {
       const pool = nearestEnemies(sim, p.x, p.y, sim.content.arena.viewH / 2, 400);
+      const struck: number[] = [];
       for (let k = 0; k < A.strikeCount && pool.length > 0; k++) {
         const e = pool.splice(sim.rng.relic.int(pool.length), 1)[0]!;
+        struck.push(en.x[e]!, en.y[e]!);
         dealDamage(sim, e, A.strikeDamage * m * p.stats.damage, source(p, ri, r));
       }
+      tell('strike', 0, struck);
     }
   }
 }
@@ -422,9 +425,144 @@ function runQuasar(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
   sim.events.push({ t: 'fire', weapon: 'relic:quasar', x: p.x, y: p.y });
 }
 
+/**
+ * A probe's singularity (plan «rareza Mítica» M2): one power per probe, however many mythics it carries (GDD §8.6: the
+ * same effect never stacks into a permanent one). `mythic` is the relic that powers it, the strongest (ties: the first
+ * in slot order); `cd` the ticks until the next may open; `hole` the open one: its area (with the generation it was
+ * spawned with) and the ticks until it collapses.
+ */
+interface Singularity {
+  mythic: number;
+  cd: number;
+  hole: { area: number; gen: number; left: number } | null;
+}
+
+const singularities = new WeakMap<ProbeState, Singularity>();
+
+function singularityOf(sim: Sim, p: ProbeState): Singularity {
+  let s = singularities.get(p);
+  if (!s) {
+    let mythic = -1;
+    let best = -1;
+    skillsOf(sim, p).forEach((r, ri) => {
+      if (!r.skill.mythic) return;
+      const { m } = effective(r);
+      if (m > best) {
+        best = m;
+        mythic = ri;
+      }
+    });
+    s = { mythic, cd: 0, hole: null };
+    singularities.set(p, s);
+  }
+  return s;
+}
+
+/**
+ * Where the densest group of fauna within `seek` of the probe is: the centre of the fauna within `reach` of the enemy
+ * with the most of it around (ties: the one nearest the probe). Núcleos neither count nor anchor it, and a centre
+ * within `clear` of a standing probe (any of the team's) does not count: it would pull the fauna onto that probe.
+ * Null: no group anywhere else.
+ */
+function densest(sim: Sim, p: ProbeState, seek: number, reach: number, clear: number): { x: number; y: number } | null {
+  const en = sim.enemies;
+  const fauna = (e: number) => !!en.alive[e] && !en.boss[e] && !(en.fuseT[e]! > 0);
+  const onProbe = (x: number, y: number) => sim.probes.some((q) => q.alive && (q.x - x) * (q.x - x) + (q.y - y) * (q.y - y) < clear * clear);
+  let best = 0;
+  let at: { x: number; y: number } | null = null;
+  for (const e of nearestEnemies(sim, p.x, p.y, seek, 48, (o) => !!en.boss[o])) {
+    let n = 0;
+    let sx = 0;
+    let sy = 0;
+    for (const o of enemiesNear(sim, en.x[e]!, en.y[e]!, reach)) {
+      if (!fauna(o)) continue;
+      const dx = en.x[o]! - en.x[e]!;
+      const dy = en.y[o]! - en.y[e]!;
+      if (dx * dx + dy * dy > reach * reach) continue;
+      n++;
+      sx += en.x[o]!;
+      sy += en.y[o]!;
+    }
+    if (n > best && !onProbe(sx / n, sy / n)) {
+      best = n;
+      at = { x: sx / n, y: sy / n };
+    }
+  }
+  return at;
+}
+
+/** How long the collapse's burst stays on screen. */
+const COLLAPSE_SHOW_TICKS = 24;
+/** With the areas' pool full, the next try waits this long instead of searching every tick. */
+const RETRY_TICKS = 30;
+
+/**
+ * The open singularity counts down and, at zero (or at once with `now`: its probe went down or away), collapses:
+ * damage in its blast (× its mythic's magnitude) throwing the survivors back out, the burst drawn, the area gone. An
+ * area that is no longer there just closes.
+ */
+function tickHole(sim: Sim, p: ProbeState, s: Singularity, r: Runtime, now = false): void {
+  const h = s.hole!;
+  const a = sim.areas;
+  if (!a.alive[h.area] || a.gen[h.area] !== h.gen || a.kind[h.area] !== AREA.singularity) {
+    s.hole = null;
+    return;
+  }
+  h.left--;
+  if (h.left > 0 && !now) return;
+  s.hole = null;
+  const x = a.x[h.area]!;
+  const y = a.y[h.area]!;
+  a.kill(h.area);
+  const S = sim.content.relics.singularity;
+  const { m } = effective(r);
+  const blast = S.blast * p.stats.area;
+  hitArea(sim, x, y, blast, S.damage * m * p.stats.damage, { ...source(p, s.mythic, r), x, y }, { knockback: S.push });
+  spawnArea(sim, p, AREA.collapse, x, y, blast, { ttl: COLLAPSE_SHOW_TICKS, srcKind: 1, srcIdx: s.mythic, element: elementCode(r.skill.element) });
+  sim.events.push({ t: 'singularity', probe: p.index, what: 'collapse', x, y, radius: blast });
+}
+
+/**
+ * A mythic's singularity: on its cooldown (its relic's density and the probe's cooldown apply), with fauna near and
+ * none open, a black hole opens on the densest group; for its seconds it pulls the fauna in (the areas' pull: never a
+ * Núcleo, never the loot), then collapses.
+ */
+function runSingularity(sim: Sim, p: ProbeState): void {
+  const s = singularityOf(sim, p);
+  const r = skillsOf(sim, p)[s.mythic];
+  if (!r) return;
+  if (s.hole) tickHole(sim, p, s, r);
+  if (s.cd > 0) s.cd--;
+  if (s.cd > 0 || s.hole) return;
+  const S = sim.content.relics.singularity;
+  const reach = S.radius * p.stats.area;
+  const at = densest(sim, p, S.seek, reach, S.clear);
+  if (!at) return;
+  const seconds = Math.max(1, ticks(S.seconds));
+  // The area outlives its countdown: tickHole collapses it before the pool would take it.
+  const area = spawnArea(sim, p, AREA.singularity, at.x, at.y, reach, { ttl: seconds + 2, pull: S.pull, srcKind: 1, srcIdx: s.mythic, element: elementCode(r.skill.element) });
+  if (area < 0) {
+    s.cd = RETRY_TICKS;
+    return;
+  }
+  s.hole = { area, gen: sim.areas.gen[area]!, left: seconds };
+  s.cd = cooldown(p, r, S.cooldown);
+  sim.events.push({ t: 'singularity', probe: p.index, what: 'open', x: at.x, y: at.y, radius: reach });
+}
+
+/** A probe that went down or away with a singularity open: it collapses now, never left pulling on its own. */
+function closeHole(sim: Sim, p: ProbeState): void {
+  const s = singularities.get(p);
+  const r = s?.hole ? skillsOf(sim, p)[s.mythic] : undefined;
+  if (s && r) tickHole(sim, p, s, r, true);
+}
+
 /** One tick of a probe's relics. */
 export function updateRelics(sim: Sim, p: ProbeState): void {
-  if (!p.alive) return;
+  if (!p.alive) {
+    closeHole(sim, p);
+    return;
+  }
   if ((p.fx['hasteT'] ?? 0) > 0) {
     p.fx['hasteT'] = p.fx['hasteT']! - 1;
     if (p.fx['hasteT'] === 0) refreshStats(sim, p);
@@ -436,6 +574,7 @@ export function updateRelics(sim: Sim, p: ProbeState): void {
     if (r.skill.quasar) runQuasar(sim, p, ri, r);
     if (r.skill.element === 'invert') invert = true;
   });
+  runSingularity(sim, p);
   if (invert) invertNearby(sim, p);
 }
 

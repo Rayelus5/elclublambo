@@ -1,4 +1,6 @@
-import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { coopRulesOf, parseConfig } from '@galaxy/shared';
+import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, startEvent, step } from '@galaxy/sim';
+import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -60,6 +62,31 @@ test('dibuja una partida jugada: fauna, disparos, botín y suelo', async () => {
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-1280.png', element: canvas });
 }, 90_000);
 
+test('el fondo queda tras un velo oscuro y desenfocado; lo que se juega, encima y nítido', async () => {
+  const { sim, feed } = played(30 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107', preserve: true });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  const root = stage.app.stage;
+  const backdrop = root.getChildByLabel('backdrop')!;
+  const veil = root.getChildByLabel('veil')!;
+  const world = root.getChildByLabel('world')!;
+  // The starfield and the nebula are blurred; nothing that is played is.
+  expect(backdrop.filters).toEqual([expect.any(BlurFilter)]);
+  expect(world.filters ?? []).toHaveLength(0);
+  // The veil lies between them and covers the whole view, also after a resize.
+  expect(root.getChildIndex(backdrop)).toBeLessThan(root.getChildIndex(veil));
+  expect(root.getChildIndex(veil)).toBeLessThan(root.getChildIndex(world));
+  expect(veil.getBounds()).toMatchObject({ x: 0, y: 0, width: 1280, height: 720 });
+  stage.resize(1600, 900);
+  stage.render(sim, 1);
+  expect(veil.getBounds()).toMatchObject({ width: 1600, height: 900 });
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-veil.png', element: canvas });
+}, 90_000);
+
 test('en una ultrapanorámica pone bandas y no amplía la vista', async () => {
   const { sim, feed } = played(4 * 60 * 60);
   const canvas = await mount(2560, 1080);
@@ -88,7 +115,7 @@ test.skipIf(!import.meta.env['VITE_ARENA_SHOTS'])('hoja de sprites a 4× para re
   await page.screenshot({ path: '__shots__/sprites.png', element: sheet });
 });
 
-test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una reacción, sin avisos', async () => {
+test('dibuja el arsenal: las armas de M3b-1 y las de noviembre, marcas, aturdimiento, rotura y una reacción, sin avisos', async () => {
   const warn = vi.spyOn(console, 'warn');
   const content = structuredClone(DEFAULT_CONTENT);
   const sim = createSim({ seed: '7', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
@@ -112,13 +139,21 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
       k++;
     }
   };
-  for (let t = 0; t < 40 * 60 && sim.status !== 'dead'; t++) {
+  for (let t = 0; t < 45 * 60 && sim.status !== 'dead'; t++) {
     if (t === 20 * 60) {
       states();
       stage.render(sim, 1);
       expect(distinctColours(canvas)).toBeGreaterThan(12);
       if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-a.png', element: canvas });
       p.weapons = ['field', 'strike', 'turret', 'ion-ray', 'solar-breath', 'pulse-storm'].map((id) => ({ id, level: 1, t: 0 }));
+    }
+    if (t === 32 * 60) {
+      stage.render(sim, 1);
+      expect(distinctColours(canvas)).toBeGreaterThan(12);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-b.png', element: canvas });
+      // Nov plan B3: the five November weapons and an evolution of theirs.
+      p.weapons = [...['harpoon', 'sling', 'decoy', 'lighthouse', 'mortar'].map((id) => ({ id, level: 5, t: 0 })), { id: 'singularity-catapult', level: 1, t: 0 }];
+      p.hp = 1e9;
     }
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
     else step(sim, [botInput(sim, 0, 99)]);
@@ -129,7 +164,7 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
   stage.feed([{ t: 'evolve', probe: 0, from: 'beam', to: 'ion-ray' }]);
   stage.render(sim, 1);
   expect(distinctColours(canvas)).toBeGreaterThan(12);
-  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-b.png', element: canvas });
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-c.png', element: canvas });
   // Destroy and create again: the fonts are uninstalled, so PixiJS has nothing to warn about.
   stage.destroy();
   stage = null;
@@ -139,6 +174,60 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
   stage.render(sim, 1);
   expect(warn.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => m.includes('gs-dmg') || m.includes('gs-react'))).toEqual([]);
   warn.mockRestore();
+}, 120_000);
+
+// Nov plan B3: a harpoon reeling its catch in, a body in the sling's flight, holograms, the lighthouse's beams, a shell
+// on its arc and its bomblets, all on screen at once.
+test('dibuja las armas de noviembre en plena acción', async () => {
+  // Quick reloads, so a throw, a shell in the air and the last one's bomblets meet on screen.
+  const content = structuredClone(DEFAULT_CONTENT);
+  for (const w of content.weapons) if (w.id === 'sling' || w.id === 'siege-mortar') for (const l of w.levels) l.cooldown = 0.4;
+  const sim = createSim({ seed: '11', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const p = sim.probes[0]!;
+  p.hp = 1e9;
+  p.weapons = [
+    { id: 'tow-harpoon', level: 1, t: 0 },
+    { id: 'sling', level: 5, t: 0 },
+    { id: 'mirage-legion', level: 1, t: 0 },
+    { id: 'binary-lighthouse', level: 1, t: 0 },
+    { id: 'siege-mortar', level: 1, t: 0 },
+    { id: 'harpoon', level: 5, t: 0 },
+  ];
+  const mite = content.enemies.find((e) => e.id === 'mite')!;
+  for (let k = 0; k < 36; k++) {
+    const a = (k / 36) * Math.PI * 2;
+    const r = 70 + (k % 4) * 40;
+    const e = spawnEnemy(sim, mite, Math.cos(a) * r, Math.sin(a) * r);
+    sim.enemies.hp[e] = 400;
+    sim.enemies.maxHp[e] = 400;
+  }
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, content, { reduced: false, vision: 0, probe: 0, seed: '11', preserve: true });
+  stage.resize(1280, 720);
+  const kinds = () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i]) seen.add(sim.shots.kind[i]!);
+    return seen;
+  };
+  const bomblets = () => {
+    for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.bomblet) return true;
+    return false;
+  };
+  const wanted = [SHOT.harpoon, SHOT.sling, SHOT.decoy, SHOT.photon, SHOT.shell];
+  let all = false;
+  for (let t = 0; t < 900 && !all; t++) {
+    if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
+    else step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
+    stage.feed(sim.events, sim.tick);
+    // Some frames between keep the effects (wakes, blasts) going as in a real run.
+    if (t % 6 === 0) stage.render(sim, 1);
+    const k = kinds();
+    all = wanted.every((w) => k.has(w)) && bomblets();
+  }
+  expect(all).toBe(true);
+  stage.render(sim, 0.5);
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-noviembre.png', element: canvas });
 }, 120_000);
 
 test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas', async () => {
@@ -219,6 +308,90 @@ for (const sector of DEFAULT_CONTENT.sectors) {
   }, 90_000);
 }
 
+/** The canvas's pixels (RGBA), copied through a 2D canvas. */
+function pixels(canvas: HTMLCanvasElement): Uint8ClampedArray {
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d')!;
+  ctx.drawImage(canvas, 0, 0);
+  return ctx.getImageData(0, 0, copy.width, copy.height).data;
+}
+
+/** The share of pixels (one in 7) that changed visibly between two frames, in the first `bytes` (default: all). */
+function changed(a: Uint8ClampedArray, b: Uint8ClampedArray, bytes = a.length): number {
+  let n = 0;
+  let seen = 0;
+  for (let i = 0; i < bytes; i += 4 * 7) {
+    seen++;
+    if (Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!) > 12) n++;
+  }
+  return n / seen;
+}
+
+// Plan «banda sonora, skins, perfil y entorno», part E: the Núcleo's storm at full strength in every biome, against
+// the same scene calm, with its fauna around so the review sees it still reads; and its still version (reduced motion).
+for (const sector of DEFAULT_CONTENT.sectors) {
+  test(`la tormenta del Núcleo en ${sector.name}: el fondo cambia bajo la fauna, y con movimiento reducido queda quieta`, async () => {
+    // The stage's clock under control: each frame is 1/60 s, so the waves and the first flash land the same every time.
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: sector.id, probes: [{ probe: 'lumen', relics: [] }] });
+      const p = sim.probes[0]!;
+      p.hp = 1e9;
+      const species = [...new Set(sector.spawns.map((sp) => sp.enemy))];
+      species.forEach((id, k) => {
+        const def = DEFAULT_CONTENT.enemies.find((e) => e.id === id)!;
+        for (let j = 0; j < 2; j++) {
+          const a = ((k * 2 + j) / (species.length * 2)) * Math.PI * 2 + 0.3;
+          spawnEnemy(sim, def, p.x + Math.cos(a) * 120, p.y + Math.sin(a) * 90);
+        }
+      });
+      spawnBoss(sim);
+      // The Core on screen, up and to the right of the probe.
+      const b = sim.boss!.index;
+      sim.enemies.x[b] = sim.enemies.px[b] = p.x + 170;
+      sim.enemies.y[b] = sim.enemies.py[b] = p.y - 70;
+      const canvas = await mount(1280, 720);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '5', preserve: true, biome: sector.biome });
+      stage.resize(1280, 720);
+      const frames = (n: number) => {
+        for (let k = 0; k < n; k++) {
+          now += 1000 / 60;
+          stage!.render(sim, 1);
+        }
+      };
+      // Calm: the same scene with the storm off.
+      sim.phase = 'waves';
+      frames(1);
+      const calm = pixels(canvas);
+      // The storm lives under the world: what is played draws over it.
+      const root = stage.app.stage;
+      expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeLessThan(root.getChildIndex(root.getChildByLabel('world')!));
+      expect(root.getChildIndex(root.getChildByLabel('storm')!)).toBeGreaterThan(root.getChildIndex(root.getChildByLabel('veil')!));
+      // Full storm (2 s into the Core), a third of a second on: CI draws without a GPU, so every frame counts.
+      sim.phase = 'boss';
+      sim.phaseTick = 120;
+      frames(20);
+      expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.05);
+      expect(distinctColours(canvas)).toBeGreaterThan(20);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}.png`, element: canvas });
+      // Reduced motion: the tint and the vignette only, the same frame after frame (the sky's top band, where no
+      // sprite moves).
+      stage.setReduced(true);
+      frames(2);
+      const still = pixels(canvas);
+      expect(changed(calm, still)).toBeGreaterThan(0.02);
+      frames(10);
+      expect(changed(still, pixels(canvas), 1280 * 60 * 4)).toBe(0);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/storm-${sector.biome}-reduced.png`, element: canvas });
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}
+
 test('el lienzo deja el cursor al juego: al pasar el ratón, PixiJS no le escribe un cursor propio (la mira de Ajustes se ve en la partida)', async () => {
   const canvas = await mount(640, 360);
   stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107' });
@@ -226,3 +399,582 @@ test('el lienzo deja el cursor al juego: al pasar el ratón, PixiJS no le escrib
   canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 110, pointerType: 'mouse' }));
   expect(canvas.style.cursor).toBe('');
 });
+
+test('la rueda acerca la vista a pasos enteros hasta el doble de cerca y vuelve; nunca ve más que la vista de siempre', async () => {
+  const { sim, feed } = played(10 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '20261107', preserve: true, zoom: 1 });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  expect(stage.camera()).toMatchObject({ zoom: 3, worldH: 240 });
+  stage.zoom(5);
+  stage.render(sim, 1);
+  expect(stage.zoomLevel()).toBe(2);
+  expect(stage.camera()!.zoom).toBe(4);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-zoom-4.png', element: canvas });
+  stage.zoom(-9);
+  stage.render(sim, 1);
+  expect(stage.zoomLevel()).toBe(0);
+  expect(stage.camera()!.zoom).toBe(2);
+}, 90_000);
+
+test('con movimiento, el zoom se desliza unos fotogramas hasta su paso entero', async () => {
+  const { sim, feed } = played(10 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107', preserve: true });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  stage.zoom(1);
+  await new Promise((r) => setTimeout(r, 30));
+  stage.render(sim, 1);
+  const mid = stage.camera()!.zoom;
+  expect(mid).toBeGreaterThan(2);
+  expect(mid).toBeLessThan(3);
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 16));
+    stage.render(sim, 1);
+  }
+  expect(stage.camera()!.zoom).toBe(3);
+}, 90_000);
+
+// Arrows towards teammates off screen (Nov plan A2): one far to the right in its team colour, one down far to the left.
+test('en grupo, los compañeros fuera de pantalla tienen su flecha en el borde', async () => {
+  const sim = createSim({
+    seed: '20261112',
+    content: DEFAULT_CONTENT,
+    sector: 'outer-nebula',
+    probes: [
+      { probe: 'lumen', relics: [] },
+      { probe: 'lumen', relics: [] },
+      { probe: 'lumen', relics: [] },
+    ],
+    coop: coopRulesOf(parseConfig('coop', {})),
+  });
+  step(sim, [IDLE, IDLE, IDLE]);
+  const [me, right, left] = sim.probes;
+  right!.x = right!.px = me!.x + 1500;
+  right!.y = right!.py = me!.y;
+  left!.x = left!.px = me!.x - 1500;
+  left!.y = left!.py = me!.y;
+  left!.life = 'down';
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega', 'orion'] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const near = (x0: number, x1: number, rgb: [number, number, number]) => {
+    const data = ctx.getImageData(x0, 300, x1 - x0, 120).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - rgb[0]) < 40 && Math.abs(data[i + 1]! - rgb[1]) < 40 && Math.abs(data[i + 2]! - rgb[2]) < 40) return true;
+    return false;
+  };
+  // Team tint of slot 1 (Terminal green) at the right edge; a fallen teammate's arrow in red at the left edge.
+  expect(near(1180, 1280, [0x45, 0xe3, 0xa6])).toBe(true);
+  expect(near(0, 100, [0xff, 0x4d, 0x6d])).toBe(true);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/coop-mates-1280.png', element: canvas });
+}, 90_000);
+
+// The arrows keep out of the HUD's bands (Nov plan A review): a teammate straight above sits below the top bar.
+test('la flecha de un compañero justo encima queda debajo de la barra de arriba', async () => {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }, { probe: 'lumen', relics: [] }], coop: coopRulesOf(parseConfig('coop', {})) });
+  step(sim, [IDLE, IDLE]);
+  const [me, up] = sim.probes;
+  up!.x = up!.px = me!.x;
+  up!.y = up!.py = me!.y - 1500;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261113', preserve: true, names: ['yo', 'vega'] });
+  stage.resize(1280, 720);
+  stage.setInsets({ top: 100, right: 0, bottom: 0, left: 0 });
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const green = (y0: number, y1: number) => {
+    const data = ctx.getImageData(600, y0, 80, y1 - y0).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - 0x45) < 40 && Math.abs(data[i + 1]! - 0xe3) < 40 && Math.abs(data[i + 2]! - 0xa6) < 40) return true;
+    return false;
+  };
+  expect(green(0, 100)).toBe(false);
+  expect(green(100, 200)).toBe(true);
+}, 90_000);
+
+// Plan «skins, perfil y entorno», part E (SIM 1.10.0): an abandoned satellite drifting by and a signal on the ground.
+test('un satélite abandonado a la deriva y una señal en el suelo', async () => {
+  const sim = createSim({ seed: '20261112', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  step(sim, [IDLE]);
+  const p = sim.probes[0]!;
+  sim.world.satellites.push({ x: p.x + 60, y: p.y - 30, px: p.x + 60, py: p.y - 30, vx: 0, vy: 0, hp: 30, maxHp: 60, radius: 10, until: 99_999, flashT: 0, shot: 0, shotGen: 0, touchT: 0 });
+  dropPickup(sim, PICKUP.signal, 1, p.x - 40, p.y + 20);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '20261112', preserve: true, zoom: 2 });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(8);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-satellite.png', element: canvas });
+}, 90_000);
+
+// Plan «skins», part C: each probe drawn with its skin (only drawing), the rest with their own drawing.
+test('cada sonda se dibuja con su skin: Lumen de coral, Bastión de chatarra y Prisma de serie', async () => {
+  const sim = createSim({
+    seed: '20261112',
+    content: DEFAULT_CONTENT,
+    sector: 'outer-nebula',
+    probes: [
+      { probe: 'lumen', relics: [] },
+      { probe: 'bastion', relics: [] },
+      { probe: 'prism', relics: [] },
+    ],
+    coop: coopRulesOf(parseConfig('coop', {})),
+  });
+  step(sim, [IDLE, IDLE, IDLE]);
+  const [me, a, b] = sim.probes;
+  a!.x = a!.px = me!.x + 40;
+  a!.y = a!.py = me!.y;
+  b!.x = b!.px = me!.x - 40;
+  b!.y = b!.py = me!.y;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega', 'orion'], zoom: 2, skins: ['skin-lumen-coral', 'skin-bastion-chatarra', null] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const has = (x0: number, x1: number, rgb: [number, number, number]) => {
+    const data = ctx.getImageData(x0, 260, x1 - x0, 200).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - rgb[0]) < 24 && Math.abs(data[i + 1]! - rgb[1]) < 24 && Math.abs(data[i + 2]! - rgb[2]) < 24) return true;
+    return false;
+  };
+  // The coral skin's deep-sea hull at the centre (my Lumen), the scrap one's rust to its right (the Bastión).
+  expect(has(560, 720, [0x13, 0x86, 0x7f])).toBe(true);
+  expect(has(720, 900, [0xa0, 0x4a, 0x22])).toBe(true);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins.png', element: canvas });
+}, 90_000);
+
+// Plan «skins», C2: the animated ones in the arena (Aurora and Leyenda), with their own thruster colours.
+test('Aurora y Leyenda en la arena, con su llama propia', async () => {
+  const sim = createSim({ seed: '20261112', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }, { probe: 'prism', relics: [] }], coop: coopRulesOf(parseConfig('coop', {})) });
+  step(sim, [IDLE, IDLE]);
+  const [me, mate] = sim.probes;
+  mate!.x = mate!.px = me!.x + 40;
+  mate!.y = mate!.py = me!.y;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega'], zoom: 2, skins: ['skin-lumen-aurora', 'skin-prism-leyenda'] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(8);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins-animadas.png', element: canvas });
+}, 90_000);
+
+// The owner: your probe is drawn over its own abilities (shots, beams, blasts, sparks), never under them; the foes'
+// bullets stay over it, so you see what hits you. The glow behind it sits right under the probes.
+test('tu sonda va encima de tus habilidades; las balas enemigas, encima de tu sonda', async () => {
+  const canvas = await mount(640, 360);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5' });
+  const world = stage.app.stage.getChildByLabel('world')!;
+  const at = (label: string) => world.getChildIndex(world.getChildByLabel(label)!);
+  for (const own of ['shots', 'beams', 'particles', 'areas']) expect(at('probes')).toBeGreaterThan(at(own));
+  expect(at('probeGlow')).toBe(at('probes') - 1);
+  expect(at('foeShots')).toBeGreaterThan(at('probes'));
+});
+
+// Accesibilidad › «Brillo detrás de tu sonda» (the owner): a soft white glow behind your own probe, off by default.
+test('el brillo detrás de tu sonda solo se ve si lo activas, y es suave', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    stage.render(sim, 1);
+    const off = pixels(canvas);
+    stage.setProbeGlow(true);
+    stage.render(sim, 1);
+    const on = pixels(canvas);
+    // Something around the probe lights up, and only a little of the screen (a glow, not a wash).
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/probe-glow.png', element: canvas });
+    const lit = changed(off, on);
+    expect(lit).toBeGreaterThan(0.002);
+    expect(lit).toBeLessThan(0.05);
+    stage.setProbeGlow(false);
+    stage.render(sim, 1);
+    expect(changed(off, pixels(canvas))).toBe(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
+
+// «La Estática te alcanza» (2026-11-16): a ring around the area where the probe stopped, amber when warned and red
+// while it hurts; nothing before.
+test('el anillo de la Estática sale al avisar y cambia al hacer daño', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    const p = sim.probes[0]!;
+    p.still = { x: p.x, y: p.y, t: 0 };
+    stage.render(sim, 1);
+    const calm = pixels(canvas);
+    p.still.t = 60 * DEFAULT_CONTENT.stillness.warn;
+    stage.render(sim, 1);
+    const warned = pixels(canvas);
+    expect(changed(calm, warned)).toBeGreaterThan(0);
+    p.still.t = 60 * DEFAULT_CONTENT.stillness.hurt;
+    stage.render(sim, 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/static-ring.png', element: canvas });
+    expect(changed(warned, pixels(canvas))).toBeGreaterThan(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
+// In-run events (2026-11-16): the abandoned ship in its sector's look with its area and the looting in gold, the supply
+// capsule on its target, and the gold mark on the bounty hunter, drawn by the Aseprite art (art/events).
+for (const sector of ['outer-nebula', 'broken-forge']) {
+  test(`los eventos se dibujan en el campo (${sector})`, async () => {
+    const now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector, probes: [{ probe: 'lumen', relics: [] }] });
+      step(sim, [IDLE]);
+      const canvas = await mount(640, 360);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+      stage.resize(640, 360);
+      for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+      stage.render(sim, 1);
+      const calm = pixels(canvas);
+      const p = sim.probes[0]!;
+      const wreck = startEvent(sim, 'wreck', 0);
+      wreck.x = p.x - 80;
+      wreck.y = p.y - 10;
+      wreck.progress = 150;
+      const capsule = startEvent(sim, 'capsule', 1);
+      capsule.x = p.x + 80;
+      capsule.y = p.y + 30;
+      capsule.progress = 0;
+      const bounty = startEvent(sim, 'bounty', 2);
+      sim.enemies.x[bounty.enemy] = sim.enemies.px[bounty.enemy] = p.x + 40;
+      sim.enemies.y[bounty.enemy] = sim.enemies.py[bounty.enemy] = p.y - 50;
+      stage.render(sim, 1);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/events-${sector}.png`, element: canvas });
+      expect(changed(calm, pixels(canvas))).toBeGreaterThan(0.002);
+      // The hazards (2026-11-16): a storm, a well, a falling meteor and an ambush's ring.
+      sim.world.active.length = 0;
+      for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+      stage.render(sim, 1);
+      const clear = pixels(canvas);
+      const storm = startEvent(sim, 'storm', 3);
+      storm.x = p.x - 170;
+      storm.y = p.y + 20;
+      const well = startEvent(sim, 'well', 4);
+      well.x = p.x + 190;
+      well.y = p.y - 10;
+      startEvent(sim, 'ambush', 5);
+      const meteors = startEvent(sim, 'meteors', 6);
+      meteors.progress = 0;
+      step(sim, [IDLE]);
+      stage.feed(sim.events, sim.tick);
+      stage.render(sim, 0.5);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hazards-${sector}.png`, element: canvas });
+      expect(changed(clear, pixels(canvas))).toBeGreaterThan(0.002);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+}
+
+// The admin debug mode (2026-11-15): the collisions are thin outlines over the world, only while they are on.
+test('las colisiones de depuración se dibujan solo encendidas, sobre el mundo', async () => {
+  const now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  try {
+    const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+    const canvas = await mount(640, 360);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '5', preserve: true });
+    stage.resize(640, 360);
+    stage.render(sim, 1);
+    const off = pixels(canvas);
+    stage.setDebug({ hitboxes: true });
+    stage.render(sim, 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/debug-hitboxes.png', element: canvas });
+    expect(changed(off, pixels(canvas))).toBeGreaterThan(0);
+    const world = stage.app.stage.getChildByLabel('world')!;
+    expect(world.getChildIndex(world.getChildByLabel('hitboxes')!)).toBe(world.children.length - 1);
+    stage.setDebug({ hitboxes: false });
+    stage.render(sim, 1);
+    expect(changed(off, pixels(canvas))).toBe(0);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
+// Plan «rareza Mítica» M2: a mythic's own power in the arena. The singularity is a dark core with an iridescent ring
+// (the mythic's four tones) and motes spiralling in, drawn under the probes; it collapses in a burst. With reduced
+// motion: no motes, a soft ring that stays still, and the burst only fades.
+const IRIS_RGB: [number, number, number][] = [
+  [0xff, 0x4f, 0xd8],
+  [0x6f, 0xe3, 0xff],
+  [0xff, 0xc9, 0x4a],
+  [0xb3, 0x9d, 0xff],
+];
+const MYTHIC = {
+  id: 'm',
+  seed: '1',
+  tier: 5,
+  level: 1,
+  traits: { galaxy_type: 'elliptical', size: 'medium', core: 'bright', star_density: 'normal', palette: 'monochrome', background: 'deep_void', phenomenon: 'none', inclination: 'face_on' },
+};
+
+/** A probe with a mythic and a group of fauna to its right: one step opens the singularity on it. */
+function withSingularity(): { sim: Sim; hole: number } {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [MYTHIC] }] });
+  step(sim, [IDLE]);
+  const p = sim.probes[0]!;
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  for (const [dx, dy] of [
+    [110, -30],
+    [130, 10],
+    [95, 35],
+    [150, -15],
+    [120, 45],
+  ] as const)
+    spawnEnemy(sim, mite, p.x + dx, p.y + dy);
+  step(sim, [IDLE]);
+  let hole = -1;
+  for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.singularity) hole = i;
+  expect(hole).toBeGreaterThanOrEqual(0);
+  // The fauna gone (its sprites animate), so only the singularity moves on screen; then most of a second on, open wide.
+  for (let i = 0; i < sim.enemies.top; i++) if (sim.enemies.alive[i]) sim.enemies.kill(i);
+  for (let t = 0; t < 50; t++) step(sim, [IDLE]);
+  expect(sim.areas.alive[hole]).toBe(1);
+  return { sim, hole };
+}
+
+function visibleParticles(s: Stage): number {
+  const layer = s.app.stage.getChildByLabel('world')!.getChildByLabel('particles')!;
+  return layer.children.filter((c) => c.visible).length;
+}
+
+/**
+ * Whether a pixel in one of the mythic's tones (at any brightness from 45 %: a soft ring is one) lies within `half`
+ * screen pixels of (cx, cy).
+ */
+function hasIris(canvas: HTMLCanvasElement, cx: number, cy: number, half: number): boolean {
+  const data = pixels(canvas);
+  for (let y = Math.max(0, cy - half); y < Math.min(canvas.height, cy + half); y++) {
+    for (let x = Math.max(0, cx - half); x < Math.min(canvas.width, cx + half); x++) {
+      const i = (y * canvas.width + x) * 4;
+      const px = [data[i]!, data[i + 1]!, data[i + 2]!];
+      for (const tone of IRIS_RGB) {
+        const k = (px[0]! * tone[0] + px[1]! * tone[1] + px[2]! * tone[2]) / (tone[0] ** 2 + tone[1] ** 2 + tone[2] ** 2);
+        if (k < 0.45 || k > 1.1) continue;
+        if (px.every((v, c) => Math.abs(v - tone[c]! * k) < 28)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+for (const reduced of [false, true]) {
+  test(`la singularidad de una mítica: núcleo oscuro con anillo iridiscente bajo tu sonda${reduced ? ', y con movimiento reducido sin motas y quieta' : ' y motas que caen en espiral'}`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const { sim, hole } = withSingularity();
+      const p = sim.probes[0]!;
+      const canvas = await mount(1280, 720);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '20261113', preserve: true });
+      stage.resize(1280, 720);
+      /** `n` frames of 1/60 s; with `play`, the run advances a tick in each (the motes only fall while it does). */
+      const frames = (n: number, play = false) => {
+        for (let k = 0; k < n; k++) {
+          if (play) step(sim, [IDLE]);
+          now += 1000 / 60;
+          stage!.render(sim, 1);
+        }
+      };
+      frames(30, !reduced);
+      const world = stage.app.stage.getChildByLabel('world')!;
+      // Drawn on the abilities' layers, which lie under the probes (only the foes' bullets go over them).
+      const areas = world.getChildByLabel('areas')!.getLocalBounds();
+      const hx = sim.areas.x[hole]!;
+      const hy = sim.areas.y[hole]!;
+      expect(areas.x).toBeLessThanOrEqual(hx);
+      expect(areas.x + areas.width).toBeGreaterThanOrEqual(hx);
+      expect(areas.y).toBeLessThanOrEqual(hy);
+      expect(areas.y + areas.height).toBeGreaterThanOrEqual(hy);
+      expect(world.getChildIndex(world.getChildByLabel('probes')!)).toBeGreaterThan(world.getChildIndex(world.getChildByLabel('areas')!));
+      // On screen (the camera on the probe, ×2): its ring in the mythic's tones.
+      const sx = Math.round(640 + (hx - p.x) * 2);
+      const sy = Math.round(360 + (hy - p.y) * 2);
+      expect(hasIris(canvas, sx, sy, 40)).toBe(true);
+      if (reduced) {
+        expect(visibleParticles(stage)).toBe(0);
+        // The singularity stays still: the same pixels round it, frame after frame.
+        const around = (data: Uint8ClampedArray) => {
+          const out: number[] = [];
+          for (let y = sy - 60; y < sy + 60; y++) for (let x = sx - 60; x < sx + 60; x++) out.push(data[(y * 1280 + x) * 4]!, data[(y * 1280 + x) * 4 + 1]!, data[(y * 1280 + x) * 4 + 2]!);
+          return out;
+        };
+        const still = around(pixels(canvas));
+        frames(10);
+        expect(around(pixels(canvas))).toEqual(still);
+      } else {
+        expect(visibleParticles(stage)).toBeGreaterThan(10);
+      }
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad${reduced ? '-reducida' : ''}.png`, element: canvas });
+      // Paused (a card to choose): no new motes, and the ones falling are gone within a second (review of PR #180).
+      sim.status = 'choosing';
+      frames(60);
+      expect(visibleParticles(stage)).toBe(0);
+      sim.status = 'running';
+      // The collapse: a burst in its tones (with reduced motion, only a short fade where it was).
+      const before = visibleParticles(stage);
+      for (let t = 0; t < 200 && !sim.events.some((e) => e.t === 'singularity' && e.what === 'collapse'); t++) step(sim, [IDLE]);
+      stage.feed(sim.events, sim.tick);
+      frames(3);
+      expect(hasIris(canvas, sx, sy, 160)).toBe(true);
+      if (reduced) expect(visibleParticles(stage)).toBe(0);
+      else expect(visibleParticles(stage)).toBeGreaterThan(before / 4);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad-colapso${reduced ? '-reducida' : ''}.png`, element: canvas });
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}
+
+// The review's captures (plan «rareza Mítica» M2): a run with two mythics and a swarm coming in, mid-pull, at 1280 and
+// 1920. Only the last seconds before the capture are drawn (the software WebGL of CI is slow at 1920).
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`una partida con míticas a ${w}: la singularidad tirando de la fauna`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const spiral = { ...MYTHIC, id: 'n', traits: { ...MYTHIC.traits, galaxy_type: 'spiral', arms: '3', palette: 'solar_gold' } };
+      const sim = createSim({ seed: '2026111302', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [MYTHIC, spiral] }] });
+      const p = sim.probes[0]!;
+      p.hp = 1e9;
+      const canvas = await mount(w, h);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '2026111302', preserve: true });
+      stage.resize(w, h);
+      const play = () => {
+        if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
+        else step(sim, [botInput(sim, 0, 99)]);
+        stage!.feed(sim.events, sim.tick);
+      };
+      while (sim.tick < 30 * 60) play();
+      // A swarm off to the right, sturdy enough to be pulled in before it dies.
+      const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+      for (let k = 0; k < 28; k++) {
+        const e = spawnEnemy(sim, mite, p.x + 110 + (k % 7) * 16, p.y - 50 + Math.floor(k / 7) * 26);
+        sim.enemies.hp[e] = sim.enemies.maxHp[e] = 600;
+      }
+      let opened = -1;
+      let shot = false;
+      for (let t = 0; t < 30 * 60 && !shot; t++) {
+        play();
+        const open = sim.events.find((e) => e.t === 'singularity' && e.what === 'open');
+        if (open && open.t === 'singularity' && Math.abs(open.x - p.x) < 260 && Math.abs(open.y - p.y) < 140) opened = sim.tick;
+        if (opened > 0 && sim.tick >= opened + 30) {
+          now += 1000 / 60;
+          stage.render(sim, 1);
+        }
+        if (opened > 0 && sim.tick === opened + 75) {
+          expect(visibleParticles(stage)).toBeGreaterThan(10);
+          expect(distinctColours(canvas)).toBeGreaterThan(12);
+          if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-singularidad-partida-${w}.png`, element: canvas });
+          shot = true;
+        }
+      }
+      expect(shot).toBe(true);
+    } finally {
+      clock.mockRestore();
+    }
+  }, 180_000);
+}
+
+// A relic's anomaly (the owner: «parece más un bug del juego que algo intencionado»): it now glitches on purpose. Thrown
+// aside, the probe leaves red and cyan copies, a broken line of static and a tear behind, glides (the camera with it,
+// never a jump) and tunes in; a freeze closes a ring of static; a strike throws broken bolts. With reduced motion: still
+// outlines, no glide.
+const ANOMALY = { ...MYTHIC, id: 'a', tier: 2, traits: { ...MYTHIC.traits, phenomenon: 'anomaly' } };
+const OUTCOME = { blink: 0, freeze: 1, strike: 2 } as const;
+
+function withAnomaly(what: keyof typeof OUTCOME): { sim: Sim; event: Extract<Sim['events'][number], { t: 'anomaly' }> } {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [ANOMALY] }] });
+  const p = sim.probes[0]!;
+  const mite = DEFAULT_CONTENT.enemies.find((e) => e.id === 'mite')!;
+  for (const [dx, dy] of [
+    [40, 10],
+    [90, -60],
+    [-70, 80],
+    [120, 70],
+  ] as const) {
+    const e = spawnEnemy(sim, mite, p.x + dx, p.y + dy);
+    sim.enemies.hp[e] = sim.enemies.maxHp[e] = 5000;
+  }
+  let k = 0;
+  sim.rng.relic.int = (n: number) => (k++ === 0 ? OUTCOME[what] : n - 1);
+  step(sim, [IDLE]);
+  const event = sim.events.find((e) => e.t === 'anomaly');
+  expect(event?.t).toBe('anomaly');
+  return { sim, event: event as Extract<Sim['events'][number], { t: 'anomaly' }> };
+}
+
+for (const reduced of [false, true]) {
+  test(`la anomalía se ve como un fallo a propósito: salto, congelación y descarga${reduced ? ', quietos con movimiento reducido' : ''}`, async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      for (const what of ['blink', 'freeze', 'strike'] as const) {
+        const { sim, event } = withAnomaly(what);
+        document.body.innerHTML = '';
+        const canvas = await mount(1280, 720);
+        stage?.destroy();
+        stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '20261113', preserve: true });
+        stage.resize(1280, 720);
+        const world = stage.app.stage.getChildByLabel('world')!;
+        const layer = world.getChildByLabel('anomaly')!;
+        expect(world.getChildIndex(world.getChildByLabel('probes')!)).toBeGreaterThan(world.getChildIndex(layer));
+        const frames = (n: number) => {
+          for (let f = 0; f < n; f++) {
+            now += 1000 / 60;
+            stage!.render(sim, 1);
+          }
+        };
+        stage.feed(sim.events, sim.tick);
+        frames(1);
+        if (what === 'blink') {
+          // The camera glides with the probe: on the first frame it is still on its way (at once with reduced motion).
+          const cam = stage.camera()!;
+          if (reduced) expect(cam.x).toBeCloseTo(event.tx, 0);
+          else expect(Math.abs(cam.x - event.tx)).toBeGreaterThan(5);
+        }
+        frames(4);
+        const box = layer.getLocalBounds();
+        expect(box.width).toBeGreaterThan(4);
+        if (what === 'strike') expect(box.width).toBeGreaterThan(30);
+        if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/arena-anomalia-${what}${reduced ? '-reducida' : ''}.png`, element: canvas });
+        // Over within half a second: nothing left of it.
+        frames(30);
+        expect(layer.getLocalBounds().width).toBe(0);
+        expect(stage.camera()!.x).toBeCloseTo(sim.probes[0]!.x, 0);
+      }
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}

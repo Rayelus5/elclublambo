@@ -3,23 +3,33 @@ import { DEFAULT_CONTENT, offerFor, type Sim } from '@galaxy/sim';
 import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type RunEnd } from '../src/arena/ArenaScreen';
-import { markRadioSeen } from '../src/arena/settings';
+import { arenaZoom, markRadioSeen, setArenaZoom } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
+import { keyLabels } from '../src/settings/keybinds';
 import { useUi } from '../src/state/ui';
 
 // The run in the browser (GDD §5.1–5.2, §15): the level-up choice, pause (also when the tab hides), abandoning with
 // a confirmation, PERKINS on the radio once, an accessible HUD, and the end of the run. The PixiJS stage is replaced:
 // jsdom has no WebGL, and the stage has its own browser test.
 
+// The stage's zoom, as the fake stage keeps it: whole steps closer, from 0 to 2 (a 1280×720 screen).
+const zoomed = { level: 0 };
 vi.mock('../src/arena/stage/stage', () => ({
-  createStage: vi.fn(async () => ({
-    app: {},
-    render: vi.fn(),
-    feed: vi.fn(),
-    resize: vi.fn(),
-    camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
-    destroy: vi.fn(),
-  })),
+  createStage: vi.fn(async (_canvas: unknown, _content: unknown, opts: { zoom?: number }) => {
+    zoomed.level = opts.zoom ?? 0;
+    return {
+      app: {},
+      render: vi.fn(),
+      feed: vi.fn(),
+      resize: vi.fn(),
+      camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
+      zoom: (steps: number) => {
+        zoomed.level = Math.min(2, Math.max(0, zoomed.level + steps));
+      },
+      zoomLevel: () => zoomed.level,
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 const run: RunStart = {
@@ -31,6 +41,7 @@ const run: RunStart = {
   bonuses: [],
   variant: null,
   anomaly: null,
+  skin: null,
   content: DEFAULT_CONTENT,
   contentVersion: 0,
   startedAt: '2026-11-07T10:00:00.000Z',
@@ -81,7 +92,34 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test('el diálogo de mejora aparece con la oferta, se elige con 2 y Enter, y la partida sigue', async () => {
+test('la rueda del ratón sobre el campo acerca y aleja la vista, sin pasar de sus límites, y la próxima incursión empieza igual', async () => {
+  await mount();
+  const canvas = document.querySelector<HTMLCanvasElement>('canvas.arena-canvas')!;
+  // Up comes closer; the page itself never scrolls.
+  expect(fireEvent.wheel(canvas, { deltaY: -100 })).toBe(false);
+  expect(zoomed.level).toBe(1);
+  expect(arenaZoom()).toBe(1);
+  fireEvent.wheel(canvas, { deltaY: -100 });
+  fireEvent.wheel(canvas, { deltaY: -100 });
+  expect(zoomed.level).toBe(2);
+  // At the limit the extra turn is dropped: one notch down goes back at once.
+  fireEvent.wheel(canvas, { deltaY: 100 });
+  expect(zoomed.level).toBe(1);
+  expect(arenaZoom()).toBe(1);
+  // Ctrl+wheel is the browser's own zoom: left alone.
+  expect(fireEvent.wheel(canvas, { deltaY: -100, ctrlKey: true })).toBe(true);
+  expect(zoomed.level).toBe(1);
+});
+
+test('la vista empieza donde el jugador dejó la rueda', async () => {
+  setArenaZoom(2);
+  await mount();
+  expect(zoomed.level).toBe(2);
+});
+
+// The owner (2026-11-14): in solo, as in a group run, 1, 2 and 3 take a card at once; Space no longer picks (it was a
+// dash key), and nothing counts in the cards' first moment (a dash or a shot pressed as they open).
+test('el diálogo de mejora aparece con la oferta, 2 la elige al instante, y la partida sigue', async () => {
   await mount();
   clock.frames(2);
   const p = sim.probes[0]!;
@@ -93,9 +131,18 @@ test('el diálogo de mejora aparece con la oferta, se elige con 2 y Enter, y la 
   const options = within(dialog).getAllByRole('radio');
   expect(options).toHaveLength(3);
   const wanted = p.offer[1]!;
+  // Too soon: the cards have just opened.
+  fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
+  clock.frames(2);
+  expect(sim.status).toBe('choosing');
+  tick(400);
+  // Space takes nothing (not even the focused card).
+  fireEvent.keyDown(window, { key: ' ', code: 'Space' });
+  fireEvent.keyUp(window, { key: ' ', code: 'Space' });
+  clock.frames(2);
+  expect(sim.status).toBe('choosing');
   fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
   expect(options[1]).toHaveAttribute('aria-checked', 'true');
-  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   tick(150);
   expect(sim.status).toBe('running');
@@ -121,6 +168,24 @@ test('Escape abre la pausa, Continuar la cierra, y ocultar la pestaña también 
   act(() => document.dispatchEvent(new Event('visibilitychange')));
   expect(screen.getByRole('dialog', { name: copy.arena.pause })).toBeInTheDocument();
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+});
+
+// The installable app (galaxysurvivor.es plan, PR 3): leaving full screen in a run (Esc held, F11, another app) pauses
+// it, like losing the focus; entering it does not.
+test('salir de pantalla completa pausa la incursión; entrar no', async () => {
+  await mount();
+  clock.frames(5);
+  let element: Element | null = document.documentElement;
+  Object.defineProperty(document, 'fullscreenElement', { get: () => element, configurable: true });
+  try {
+    act(() => document.dispatchEvent(new Event('fullscreenchange')));
+    expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+    element = null;
+    act(() => document.dispatchEvent(new Event('fullscreenchange')));
+    expect(screen.getByRole('dialog', { name: copy.arena.pause })).toBeInTheDocument();
+  } finally {
+    delete (document as unknown as Record<string, unknown>)['fullscreenElement'];
+  }
 });
 
 test('al entrar en la incursión se cierra el chat, y una tecla escrita en un campo no pausa ni se queda la sonda sin espacios', async () => {
@@ -263,6 +328,7 @@ test('con mando: la cruceta y el stick mueven la selección de mejora y A la eli
     tick(50);
     expect(options[2]).toHaveAttribute('aria-checked', 'true');
     const wanted = p.offer[2]!;
+    tick(200);
     pad.buttons[0]!.pressed = true;
     tick(50);
     pad.buttons[0]!.pressed = false;
@@ -285,15 +351,16 @@ test('la carta de evolución sale primera, dorada, y deja el arma evolucionada e
   p.pendingLevels = 1;
   p.offer = offerFor(sim, p);
   sim.status = 'choosing';
-  tick(150);
+  tick(500);
   const dialog = screen.getByRole('dialog', { name: copy.arena.levelUp });
   const first = within(dialog).getAllByRole('radio')[0]!;
   expect(first).toHaveClass('evolve');
   expect(first).toHaveTextContent(copy.arena.evolution);
   expect(first).toHaveTextContent('Tormenta de pulsos');
   expect(first).toHaveTextContent(copy.arena.evolves('Pulso láser'));
+  // The cards ignore everything in their first moment.
+  tick(400);
   fireEvent.keyDown(window, { key: '1', code: 'Digit1' });
-  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   tick(150);
   const kit = screen.getByRole('list', { name: copy.arena.weapons });
@@ -308,7 +375,8 @@ test('un Enter rápido en dos subidas seguidas elige de la oferta que está en p
   p.pendingLevels = 2;
   p.offer = offerFor(sim, p);
   sim.status = 'choosing';
-  tick(150);
+  tick(500);
+  tick(400);
   const shown = p.offer;
   fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
@@ -320,7 +388,8 @@ test('un Enter rápido en dos subidas seguidas elige de la oferta que está en p
   clock.frames(2);
   expect(sim.status).toBe('choosing');
   expect(p.offer).toBe(next);
-  tick(150);
+  tick(500);
+  tick(400);
   fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
   clock.frames(2);
   expect(sim.status).toBe('running');
@@ -345,7 +414,7 @@ test('la primera incursión del tutorial espera tras la tarjeta de controles y P
   clock.frames(5);
   tick(150);
   expect(sim.tick).toBeGreaterThan(t);
-  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.tour.coach.move);
+  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.tour.coach.move(keyLabels()));
   // The pause offers to leave the tutorial and keep playing.
   fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: copy.tour.skip }));

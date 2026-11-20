@@ -1,8 +1,9 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { type ChatHistory, type ModChannel, type ModMessage, type ModMute, type ModReportPage, PROBE_TEST, type Role } from '@galaxy/shared';
+import { type ChatHistory, type LiveEvent, type ModChannel, type ModMessage, type ModMute, type ModReportPage, PROBE_TEST, type Role } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit } from '../../src/economy/wallet';
-import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import type WebSocket from 'ws';
+import { createAdminViaCli, fixedConfig, get, ORIGIN, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // Chat moderation on the server (GDD §16.1, §16.4; M6c-1): staff with TOTP (moderators too) watch every chat, hide and
 // restore messages, work the report queue and mute accounts; each change is audited. A message kept visible is not
@@ -212,5 +213,113 @@ describe('desde el chat del juego', () => {
     expect((await audits(a.id)).map((r) => [r.action, r.reason])).toEqual([['chat.mute', 'Fuera de tono']]);
     const admin = await staff('admin');
     expect((await post(ctx.app, '/galaxy/api/chat/mutes', { username: admin.username, minutes: 30, reason: 'Prueba' }, { cookie: mod.cookie })).json()).toEqual({ error: 'staff_target' });
+  });
+});
+
+// The owner's chat asks (2026-11-14): searching every chat at once, the reports counted on each message, many hidden at
+// once, what an account wrote lately, hide and mute in one go, «Eliminar» (never undone), and the live socket telling
+// moderation what is new.
+describe('a escala', () => {
+  test('buscar en todos los chats por texto, cuenta, estado y denuncias', async () => {
+    const [a, b] = [await player(), await player()];
+    const word = `zq${randomUUID().slice(0, 6).replace(/[^a-z0-9]/g, 'x')}`;
+    const first = await write(a, `algo con ${word} dentro`);
+    const second = await write(b, `otra vez ${word.toUpperCase()}`);
+    await write(a, 'nada que ver');
+    const byText = await read<ModMessage[]>(`/messages?q=${word}`);
+    expect(byText.map((m) => m.id)).toEqual([second, first]);
+    expect((await read<ModMessage[]>(`/messages?q=${word}&author=${a.username}`)).map((m) => m.id)).toEqual([first]);
+    await act(`/messages/${first}/hide`, { reason: 'Prueba de estado' });
+    expect((await read<ModMessage[]>(`/messages?q=${word}&state=hidden`)).map((m) => m.id)).toEqual([first]);
+    expect((await read<ModMessage[]>(`/messages?q=${word}&state=visible`)).map((m) => m.id)).toEqual([second]);
+    await report(a, second, 'spam');
+    const reported = await read<ModMessage[]>(`/messages?q=${word}&reported=1`);
+    expect(reported).toEqual([expect.objectContaining({ id: second, reports: 1, pending: 1 })]);
+    // An account that does not exist finds nothing; two letters are not a search.
+    expect(await read<ModMessage[]>('/messages?author=nadie_existe_aqui')).toEqual([]);
+    expect((await get(ctx.app, M('/messages?q=ab'), { cookie: mod.cookie })).statusCode).toBe(400);
+  });
+
+  test('cada mensaje lleva sus denuncias: todas y las que esperan desde su última revisión', async () => {
+    const [a, r1, r2, r3] = [await player(), await player(), await player(), await player()];
+    const id = await write(a, `denunciable ${randomUUID().slice(0, 6)}`);
+    await report(r1, id);
+    await report(r2, id);
+    let q = await inQueue(id);
+    expect(q?.pending).toBe(2);
+    expect(q?.message).toMatchObject({ reports: 2, pending: 2 });
+    await act(`/reports/${id}`, { outcome: 'kept', reason: 'No incumple las normas' });
+    expect(await inQueue(id)).toBeUndefined();
+    await report(r3, id);
+    q = await inQueue(id);
+    expect(q?.message).toMatchObject({ reports: 3, pending: 1 });
+  });
+
+  test('ocultar varios a la vez, una sola entrada en la auditoría, y los ya ocultos se dejan como están', async () => {
+    const a = await player();
+    const ids = [await write(a, 'uno'), await write(a, 'dos'), await write(a, 'tres')];
+    await act(`/messages/${ids[2]}/hide`, { reason: 'Ya estaba' });
+    expect((await act('/messages/hide', { ids, reason: 'Inundación' })).json()).toEqual({ hidden: 2 });
+    for (const id of ids) expect(await seen(a, id)).toBe(false);
+    // One entry for the change, on one of the messages hidden.
+    const entries = [...(await audits(ids[0]!)), ...(await audits(ids[1]!))].filter((r) => r.action === 'chat.hide_many');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.after).toMatchObject({ ids: expect.arrayContaining([ids[0], ids[1]]) });
+    expect((await act('/messages/hide', { ids: [], reason: 'Nada' })).statusCode).toBe(400);
+  });
+
+  test('ocultar lo último de una cuenta: solo lo de su ventana, y nunca a alguien del equipo', async () => {
+    const a = await player();
+    const old = await write(a, 'de hace tiempo');
+    await ctx.db.updateTable('galaxy.chat_messages').set({ created_at: new Date(Date.now() - 3 * 3_600_000) }).where('id', '=', old).execute();
+    const recent = [await write(a, 'spam 1'), await write(a, 'spam 2')];
+    expect((await act(`/authors/${a.username}/hide`, { hours: 1, reason: 'Spam' })).json()).toEqual({ hidden: 2 });
+    expect(await seen(a, old)).toBe(true);
+    for (const id of recent) expect(await seen(a, id)).toBe(false);
+    expect((await act(`/authors/${a.username}/hide`, { hours: 2, reason: 'Spam' })).statusCode).toBe(400);
+    const admin = await staff('admin');
+    expect((await act(`/authors/${admin.username}/hide`, { hours: 24, reason: 'No se puede' })).statusCode).toBe(403);
+  });
+
+  test('ocultar y silenciar de una vez', async () => {
+    const a = await player();
+    const id = await write(a, 'insulto');
+    const res = await act(`/messages/${id}/hide-mute`, { minutes: 60, reason: 'Insultos' });
+    expect(res.json()).toMatchObject({ hidden: true });
+    expect(await seen(a, id)).toBe(false);
+    expect((await post(ctx.app, '/galaxy/api/chat/global/messages', { body: 'otra vez' }, { cookie: a.cookie })).json()).toEqual({ error: 'chat_muted' });
+  });
+
+  test('«Eliminar» no se deshace: no se restaura ni se elimina dos veces, y queda su texto en la auditoría', async () => {
+    const a = await player();
+    const id = await write(a, 'mi teléfono es 600 000 000');
+    expect((await act(`/messages/${id}/delete`, { reason: 'Datos personales' })).json()).toEqual({ deleted: true });
+    expect(await seen(a, id)).toBe(false);
+    expect((await act(`/messages/${id}/restore`, { reason: 'Error' })).json()).toEqual({ error: 'message_deleted' });
+    expect((await act(`/messages/${id}/delete`, { reason: 'Otra vez' })).json()).toEqual({ error: 'message_deleted' });
+    const [row] = await read<ModMessage[]>(`/messages?author=${a.username}`);
+    expect(row?.hidden?.reason).toBe('deleted');
+    expect((await audits(id)).find((r) => r.action === 'chat.delete')?.before).toMatchObject({ body: 'mi teléfono es 600 000 000' });
+  });
+
+  test('con la moderación abierta, el socket vivo avisa de cada mensaje nuevo y de cada denuncia; a un jugador, no', async () => {
+    const [a, r, nosy] = [await player(), await player(), await player()];
+    const listen = async (p: P) => {
+      const events: LiveEvent[] = [];
+      const ws: WebSocket = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin: ORIGIN, cookie: `gs_sid=${p.cookie}` } });
+      ws.on('message', (data) => events.push(JSON.parse(String(data)) as LiveEvent));
+      await new Promise((res) => setTimeout(res, 100));
+      ws.send(JSON.stringify({ type: 'mod', open: true }));
+      await new Promise((res) => setTimeout(res, 100));
+      return { ws, mod: () => events.filter((e) => e.type === 'modChat' || e.type === 'modReport') };
+    };
+    const [staffSocket, playerSocket] = [await listen(mod), await listen(nosy)];
+    const id = await write(a, 'algo nuevo');
+    await report(r, id);
+    await new Promise((res) => setTimeout(res, 150));
+    expect(staffSocket.mod()).toEqual([{ type: 'modChat', channel: 'global' }, { type: 'modReport' }]);
+    expect(playerSocket.mod()).toEqual([]);
+    staffSocket.ws.terminate();
+    playerSocket.ws.terminate();
   });
 });

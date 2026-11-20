@@ -60,8 +60,11 @@ export interface AdminTradeRow {
   id: string;
   a: string;
   b: string;
-  aGalaxy: DealGalaxy | null;
-  bGalaxy: DealGalaxy | null;
+  /** What each side gives (trades 2.0: up to `market.tradeGalaxies` galaxies, and coins on one side at most). */
+  aGalaxies: DealGalaxy[];
+  bGalaxies: DealGalaxy[];
+  aCoins: number;
+  bCoins: number;
   status: TradeStatus;
   createdAt: string;
   closedAt: string | null;

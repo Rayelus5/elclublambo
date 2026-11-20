@@ -1,4 +1,4 @@
-import { type AccountConfig, type ConfigValue, type FriendRelation, type FriendsView, levelOf, type Presence, type SocialPrefs } from '@galaxy/shared';
+import { type AccountConfig, type ConfigValue, type FriendRelation, type FriendsView, levelOf, type Presence, type SocialPrefs, type SocialPrefsRequest } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { HttpError } from '../errors';
@@ -11,7 +11,7 @@ import { HttpError } from '../errors';
 
 type SocialConfig = ConfigValue<'social'>;
 
-export const DEFAULT_PREFS: SocialPrefs = { invites: 'friends', showStatus: true };
+export const DEFAULT_PREFS: SocialPrefs = { invites: 'friends', showStatus: true, notices: 'sound' };
 
 const pair = (x: string, y: string): [string, string] => (x < y ? [x, y] : [y, x]);
 
@@ -59,17 +59,19 @@ async function friendCount(db: Kysely<DB>, accountId: string): Promise<number> {
 }
 
 export async function prefsOf(db: Kysely<DB>, accountId: string): Promise<SocialPrefs> {
-  const row = await db.selectFrom('galaxy.social_prefs').select(['invites', 'show_status']).where('account_id', '=', accountId).executeTakeFirst();
-  return row ? { invites: row.invites as SocialPrefs['invites'], showStatus: row.show_status } : DEFAULT_PREFS;
+  const row = await db.selectFrom('galaxy.social_prefs').select(['invites', 'show_status', 'notices']).where('account_id', '=', accountId).executeTakeFirst();
+  return row ? { invites: row.invites as SocialPrefs['invites'], showStatus: row.show_status, notices: row.notices as SocialPrefs['notices'] } : DEFAULT_PREFS;
 }
 
-export async function setPrefs(db: Kysely<DB>, accountId: string, prefs: SocialPrefs, now: Date): Promise<SocialPrefs> {
+/** Saves the prefs; a request without `notices` (a tab from before them) keeps the saved one. */
+export async function setPrefs(db: Kysely<DB>, accountId: string, prefs: SocialPrefsRequest, now: Date): Promise<SocialPrefs> {
+  const notices = prefs.notices !== undefined ? { notices: prefs.notices } : {};
   await db
     .insertInto('galaxy.social_prefs')
-    .values({ account_id: accountId, invites: prefs.invites, show_status: prefs.showStatus, updated_at: now })
-    .onConflict((oc) => oc.column('account_id').doUpdateSet({ invites: prefs.invites, show_status: prefs.showStatus, updated_at: now }))
+    .values({ account_id: accountId, invites: prefs.invites, show_status: prefs.showStatus, ...notices, updated_at: now })
+    .onConflict((oc) => oc.column('account_id').doUpdateSet({ invites: prefs.invites, show_status: prefs.showStatus, ...notices, updated_at: now }))
     .execute();
-  return prefs;
+  return prefsOf(db, accountId);
 }
 
 /** Whom a change concerns, for the live socket: the other account and why. */
@@ -173,7 +175,7 @@ export async function friendsView(
     .leftJoin('galaxy.clan_members as m', 'm.account_id', 'o.id')
     .leftJoin('galaxy.clans as c', 'c.id', 'm.clan_id')
     .leftJoin('galaxy.social_prefs as p', 'p.account_id', 'o.id')
-    .select(['o.id', 'o.username', 'f.status', 'f.requested_by', 'f.created_at', 'f.accepted_at', 'x.xp', 'c.tag', 'p.show_status'])
+    .select(['o.id', 'o.username', 'o.avatar', 'o.frame', 'f.status', 'f.requested_by', 'f.created_at', 'f.accepted_at', 'x.xp', 'c.tag', 'p.show_status'])
     .where((eb) => eb.or([eb('f.a', '=', me), eb('f.b', '=', me)]))
     .orderBy('o.username')
     .execute();
@@ -189,6 +191,8 @@ export async function friendsView(
     .filter((r) => r.status === 'accepted')
     .map((r) => ({
       username: r.username,
+      avatar: r.avatar,
+      frame: r.frame,
       level: level(r.xp),
       clan: r.tag ?? null,
       presence: r.show_status === false ? ({ status: 'offline' } as const) : presenceOf(r.id),

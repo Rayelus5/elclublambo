@@ -159,7 +159,7 @@ test('marcar pide un motivo y avisa de que la paga no cambia', async () => {
 });
 
 test('en la ficha del jugador cada partida lleva a su repetición', async () => {
-  const player = { id: 'p1', username: 'vega', createdAt: '2026-11-01T10:00:00.000Z', roles: [], level: 12, xp: 15000, banned: null, muted: null, leaderboardExcluded: false, clan: null, wallet: { coins: 0, dust: 0, signal: 0, material: 0, components: 0 }, counts: { galaxies: 0, runs: 1, pulls: 0, listings: 0, trades: 0, messages: 0 }, sessions: [], ips: [], station: [], lab: [], probes: [] } satisfies AdminPlayer;
+  const player = { id: 'p1', username: 'vega', createdAt: '2026-11-01T10:00:00.000Z', deletedAt: null, roles: [], level: 12, xp: 15000, banned: null, muted: null, leaderboardExcluded: false, clan: null, wallet: { coins: 0, dust: 0, signal: 0, material: 0, components: 0 }, counts: { galaxies: 0, runs: 1, pulls: 0, listings: 0, trades: 0, messages: 0 }, sessions: [], ips: [], station: [], lab: [], probes: [] } satisfies AdminPlayer;
   const runs: AdminSection = { rows: [{ id: row.id, at: row.startedAt, sector: 'outer-nebula', probe: 'lumen', outcome: 'abandoned', seconds: 15, depth: 1, kills: 3, suspicious: false, flags: '' }], page: 1, pages: 1 };
   mockApi({ 'GET /galaxy/api/admin/players/vega': () => jsonResponse(200, player), 'GET /galaxy/api/admin/players/vega/runs?page=1': () => jsonResponse(200, runs) });
   renderAt('/admin/jugadores/vega', { '/admin/jugadores/:username': <PlayerScreen /> });

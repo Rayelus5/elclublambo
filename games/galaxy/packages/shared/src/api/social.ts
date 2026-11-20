@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { type Tier, TIERS } from '../gacha/types';
 import type { ClanColor, ClanEmblem } from '../clans/rules';
@@ -10,7 +11,7 @@ import type { PublicGalaxy } from './planetarium';
 export const LEADER_TABS = ['general', 'depth', 'purges', 'clans', 'groups'] as const;
 export type LeaderTab = (typeof LEADER_TABS)[number];
 
-export interface LeaderRow {
+export interface LeaderRow extends PlayerLook {
   /** Competition rank: equal values share it. */
   rank: number;
   username: string;
@@ -36,7 +37,7 @@ export interface ClanRow {
  */
 export interface GroupRow {
   rank: number;
-  players: { username: string; probe: string }[];
+  players: { username: string; probe: string; skin?: string | null }[];
   depth: number;
   cores: number;
   seconds: number;
@@ -74,6 +75,8 @@ export interface Profile {
   /** When the account was created (ISO). */
   since: string;
   level: number;
+  /** The experience into their level and what the next one asks for (null at the top). */
+  xp?: { into: number; next: number | null };
   /** This season's standing, or null when no season is open or it has no points. */
   season: { score: number; rank: number; tier: SeasonTier | null; maxDepth: number; purges: number; extractions: number } | null;
   /** All-time records from runs that are not suspicious. */
@@ -85,7 +88,36 @@ export interface Profile {
   /** The title and the frame they chose (M7a), null when none. */
   title?: string | null;
   frame?: string | null;
+  /** Nov plan C2: their avatar (null: the drawing from their name) and the galaxy shown as their banner (C4). */
+  avatar?: string | null;
+  banner?: PublicGalaxy | null;
+  /**
+   * Plan «skins», part D: the probes they show (up to PROBE_SHOWCASE_MAX, in their order) and every probe they have,
+   * each with its level, its skin and its starting weapon (null: the base one). Only what they earned: nothing locked.
+   */
+  probes?: { showcase: ProfileProbe[]; all: ProfileProbe[] };
 }
+
+/** A probe on a profile (plan «skins», part D). */
+export interface ProfileProbe {
+  id: string;
+  level: number;
+  skin: string | null;
+  variant: string | null;
+}
+
+/** How many probes a profile shows in its showcase. */
+export const PROBE_SHOWCASE_MAX = 3;
+/** The showcase a player chooses: up to three of their probes, each once, in order. */
+export const profileProbesSchema = z
+  .object({
+    probes: z
+      .array(z.string().regex(/^[a-z0-9-]{1,32}$/))
+      .max(PROBE_SHOWCASE_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, { message: 'showcase_twice' }),
+  })
+  .strict();
+export type ProfileProbesRequest = z.infer<typeof profileProbesSchema>;
 
 export interface PublicCollectionPage {
   items: PublicGalaxy[];

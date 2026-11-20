@@ -2,12 +2,13 @@ import { PICKUP } from '../world/pools';
 import type { Sim } from '../types';
 import { PROBE_RADIUS } from './probes';
 import { gainXp } from './xp';
+import { healBlocked, healProbe } from './healing';
 
 // Data fragments (XP), coins, star dust, repair kits, magnets and components on the ground (GDD §5.1). Within a probe's
 // pickup radius they are pulled in, faster and faster, and collected on touch. Coins, dust and components count for
 // the layer they are picked up in. A magnet (SIM 1.7.0) pulls every data fragment on the ground to whoever took it.
 
-const KIND_NAMES = ['xp', 'coin', 'dust', 'repair', 'magnet', 'component'] as const;
+const KIND_NAMES = ['xp', 'coin', 'dust', 'repair', 'magnet', 'component', 'signal'] as const;
 /** Fragments a magnet pulls fly faster than the ones a probe's radius takes. */
 const MAGNET_SPEED = 20;
 
@@ -59,6 +60,8 @@ export function updatePickups(sim: Sim): void {
     }
     if (best < 0) continue;
     const p = sim.probes[best]!;
+    // A kit waits on the ground while the Static blocks this probe's healing (2026-11-16): nothing is wasted.
+    if (pk.kind[i] === PICKUP.repair && healBlocked(sim, p)) continue;
     const r = p.stats.pickup;
     if (!pk.magnet[i] && bestD2 <= r * r) pk.magnet[i] = 1;
     if (!pk.magnet[i]) continue;
@@ -82,12 +85,13 @@ function collect(sim: Sim, i: number, probe: number): void {
   const value = pk.value[i]!;
   pk.kill(i);
   if (kind === PICKUP.xp) gainXp(sim, p, value * p.stats.xp);
-  else if (kind === PICKUP.repair) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * sim.sector.drops.repairHeal * value);
+  else if (kind === PICKUP.repair) healProbe(sim, p, p.stats.maxHp * sim.sector.drops.repairHeal * value, 'other');
   else if (kind === PICKUP.magnet) pullFragments(sim, probe);
   else {
     const bag = sim.loot[sim.layer - 1]!;
     if (kind === PICKUP.coin) bag.coins += value;
     else if (kind === PICKUP.component) bag.components += value;
+    else if (kind === PICKUP.signal) bag.signals += value;
     else bag.dust += value;
   }
   sim.events.push({ t: 'pickup', probe, kind: KIND_NAMES[kind] ?? 'xp', value });

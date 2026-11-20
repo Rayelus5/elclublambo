@@ -2,7 +2,9 @@ import { angleTo } from '../math/trig';
 import { IDLE, type ProbeInput, type ProbeState, type Sim } from '../types';
 import { ticks } from '../version';
 import { downProbe } from './coop';
-import { dodge, onContact, rescue, tickQuirk } from './quirks';
+import { tickDash } from './dash';
+import { onContact, rescue, tickQuirk } from './quirks';
+import { healProbe, refillHealBank } from './healing';
 
 // Probes (GDD §5.2, §6): movement from per-tick inputs, contact damage with half a second of invulnerability, shield,
 // regeneration, and death. The run ends when every probe is down.
@@ -51,30 +53,79 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
   }
 }
 
-/** Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. */
-export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
+/**
+ * Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. With `keep`, the hit
+ * takes at most `1 - keep` of the life the probe has (a volatile elite's blast never kills on its own: 2026-11-14).
+ */
+export function hurtProbe(sim: Sim, p: ProbeState, amount: number, opts?: { keep?: number }): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
-  if (dodge(sim, p)) return;
-  let dmg = amount * (1 - p.stats.armor);
+  // Admin debug mode (2026-11-15): an invulnerable probe takes nothing and leaves no trace (no roll, no breather).
+  if (sim.debug?.god) return;
+  // Fase cuántica (Nov plan B2): the hit goes through; the usual breather follows, so contact does not hit next tick.
+  if (p.stats.evasion > 0 && sim.rng.combat.chance(p.stats.evasion)) {
+    p.invulnT = ticks(INVULN_SECONDS);
+    sim.events.push({ t: 'evade', probe: p.index });
+    return;
+  }
+  // Enemy life plan (2026-11-15): no single hit takes more than `hitCap` of the maximum life. On the raw hit, so armour
+  // and shields still count against the biggest ones.
+  const cap = sim.content.hitCap;
+  let dmg = (cap < 1 ? Math.min(amount, p.stats.maxHp * cap) : amount) * (1 - p.stats.armor);
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
   dmg -= absorbed;
+  if (opts?.keep !== undefined) dmg = Math.min(dmg, p.hp * (1 - opts.keep));
   p.hp -= dmg;
   p.invulnT = ticks(INVULN_SECONDS);
   p.fx['lastHurt'] = sim.tick;
   sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
-  if (p.hp <= 0 && rescue(sim, p)) return;
+  loseLife(sim, p);
+}
+
+/** Out of life: a quirk may rescue it; in a group it falls and waits for a teammate; alone it is lost. */
+function loseLife(sim: Sim, p: ProbeState): void {
+  if (p.hp > 0) return;
+  if (rescue(sim, p)) return;
   // Co-op: it falls and waits for a teammate (systems/coop.ts).
-  if (p.hp <= 0 && sim.coop) {
+  if (sim.coop) {
     downProbe(sim, p);
     return;
   }
-  if (p.hp <= 0) {
-    p.hp = 0;
-    p.alive = false;
-    sim.events.push({ t: 'probeDown', probe: p.index });
-    if (sim.probes.every((q) => !q.alive)) sim.status = 'dead';
-  }
+  p.hp = 0;
+  p.alive = false;
+  sim.events.push({ t: 'probeDown', probe: p.index });
+  if (sim.probes.every((q) => !q.alive)) sim.status = 'dead';
+}
+
+/**
+ * The Static's harm («La Estática te alcanza», 2026-11-16): a steady drain, not a hit — no armour, cap or breather, and
+ * no flash or sound every tick — but the shield takes it first and it holds the shield's recharge like any harm.
+ */
+export function staticHurt(sim: Sim, p: ProbeState, amount: number): void {
+  if (!p.alive || !(amount > 0) || sim.debug?.god) return;
+  const absorbed = Math.min(p.shield, amount);
+  p.shield -= absorbed;
+  p.hp -= amount - absorbed;
+  p.fx['lastHurt'] = sim.tick;
+  loseLife(sim, p);
+}
+
+/**
+ * A hazard's harm (the storm, the well's heart; review of 2026-11-16): armour, the hit cap and the shield count like a
+ * hit, but it leaves no breather — a hazard that hits every 0,5 s would otherwise keep the probe invulnerable to every
+ * enemy. A dash's window still dodges it, and nothing rolls to evade a cloud.
+ */
+export function hazardHurt(sim: Sim, p: ProbeState, amount: number): void {
+  if (!p.alive || p.invulnT > 0 || !(amount > 0) || sim.debug?.god) return;
+  const cap = sim.content.hitCap;
+  let dmg = (cap < 1 ? Math.min(amount, p.stats.maxHp * cap) : amount) * (1 - p.stats.armor);
+  const absorbed = Math.min(p.shield, dmg);
+  p.shield -= absorbed;
+  dmg -= absorbed;
+  p.hp -= dmg;
+  p.fx['lastHurt'] = sim.tick;
+  sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
+  loseLife(sim, p);
 }
 
 const near: number[] = [];
@@ -88,6 +139,12 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
       const e = near[k]!;
       // A Core away in its blink touches nothing (systems/boss.ts `bossAway`, inline: boss.ts imports this file).
       if (!en.alive[e] || en.hackT[e]! > 0 || en.fuseT[e]! > 0 || (sim.boss?.index === e && sim.boss.active?.kind === 'blink')) continue;
+      // On a harpoon's line or thrown by the sling (inline `heldBy`, enemies.ts imports this file): it is the probe's
+      // projectile now and touches nobody (review B, I1).
+      const h = en.held[e]!;
+      if (h > 0 && sim.shots.alive[h - 1] && sim.shots.gen[h - 1] === en.heldGen[e]) continue;
+      // A bounty hunter only flees (systems/run-events.ts): catching it does not hurt.
+      if (en.bounty[e]) continue;
       const dx = en.x[e]! - p.x;
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;
@@ -106,7 +163,9 @@ export function tickProbes(sim: Sim): void {
     if (!p.alive) continue;
     if (p.invulnT > 0) p.invulnT--;
     tickQuirk(sim, p);
-    if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen / 60);
+    tickDash(sim, p);
+    if (p.stats.regen > 0) healProbe(sim, p, p.stats.regen / 60, 'other');
+    refillHealBank(sim, p);
     rechargeShield(sim, p);
   }
 }

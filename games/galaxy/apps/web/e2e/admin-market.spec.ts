@@ -81,7 +81,7 @@ test('un admin revierte un trueque viendo a dónde vuelve cada galaxia y retira 
     return ((await res.json()) as { id: string }).id;
   };
   const [ga, gb] = [await grant(a.username), await grant(b.username)];
-  const proposed = await a.page.request.post('/galaxy/api/trades', { data: { username: b.username, give: ga, want: gb }, headers: { origin, 'idempotency-key': randomUUID() } });
+  const proposed = await a.page.request.post('/galaxy/api/trades', { data: { username: b.username, give: { galaxies: [ga], coins: 0 }, want: { galaxies: [gb], coins: 0 } }, headers: { origin, 'idempotency-key': randomUUID() } });
   expect(proposed.status()).toBe(200);
   const trade = (await proposed.json()) as { id: string; version: number };
   expect((await b.page.request.post(`/galaxy/api/trades/${trade.id}/confirm`, { data: { version: trade.version }, headers: { origin } })).status()).toBe(200);

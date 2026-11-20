@@ -1,14 +1,19 @@
-import type { HangarView, RoomMember, RoomView } from '@galaxy/shared';
+import { DEFAULT_COSMETICS, type HangarView, type ProbeCard, type RoomMember, type RoomView } from '@galaxy/shared';
 import { type CSSProperties, useState } from 'react';
 import { Link } from 'react-router';
 import { useRoomAction } from '../../api/rooms';
-import { useChooseProbe } from '../../api/runs';
-import { spriteDataUrl } from '../../arena/sprites';
+import { useCosmeticsView } from '../../api/cosmetics';
+import { useChooseProbe, useChooseSkin } from '../../api/runs';
+import { probeDrawing, spriteDataUrl } from '../../arena/sprites';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { AddFriendButton } from '../../social/AddFriendButton';
 import { Icon } from '../../ui/Icon';
 import { playEquip } from '../../workshop/sfx';
+import { SpriteLoop } from '../../ui/SpriteLoop';
+import { useReducedMotion } from '../../ui/motion';
 import padUrl from '../lobby-art/launchpad.png';
+import { Avatar } from '../../hub/Avatar';
 
 // The lobby's stage: solo or in a group over it (the two buttons, centred), my probe floating over its launch pad in the middle (the pad painted
 // in Aseprite, art/lobby/paint-lobby.lua), and in a room my teammates on their own pads at its sides. The probe is the
@@ -33,14 +38,14 @@ function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; o
           onClick={() => onMode('solo')}
           data-sfx="hover"
         >
-          <Icon name="probe" />
+          <Icon name="probe" outline />
           <span>
             <b>{l.solo}</b>
             {room ? <small>{l.soloLocked}</small> : null}
           </span>
         </button>
         <button type="button" role="radio" aria-checked={mode === 'group'} className="lip lobby-mode group" onClick={() => onMode('group')} data-sfx="hover">
-          <Icon name="clan" />
+          <Icon name="clan" outline />
           <span>
             <b>{l.group}</b>
             {room ? <small>{l.inRoom(room.members.length, room.max)}</small> : null}
@@ -51,8 +56,71 @@ function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; o
   );
 }
 
+/** How many of my skins the lobby shows at most, besides the base (the owner, 2026-11-17: the rest in the Taller). */
+const LOBBY_SKINS = 4;
+
+/**
+ * The big probe's skins at hand (plan «skins», part C): its base drawing and a few of the skins of it I have (the one
+ * worn always among them), as small swatches under its plate; a choice goes on at once (the room sees it), fixed once
+ * I said «listo». Then a «+» square to the Taller, where all of them are (alone when I have none of it).
+ */
+function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
+  const choose = useChooseSkin();
+  const names = useCosmeticsView(probe.skins.length > 0).data?.catalog?.skins ?? DEFAULT_COSMETICS.skins;
+  const chosen = choose.isPending ? choose.variables.skin : probe.skin;
+  const more = (
+    <Link to={`/taller?sonda=${probe.id}`} className="lobby-skin lobby-skin-more" aria-label={l.moreSkins(probe.name)} title={l.moreSkins(probe.name)} data-sfx="hover">
+      <Icon name="plus" />
+    </Link>
+  );
+  if (probe.skins.length === 0) return <div className="lobby-skins">{more}</div>;
+  // The worn one first among mine if it would not fit, the rest in their order.
+  const worn = chosen && probe.skins.includes(chosen) ? [chosen] : [];
+  const shown = [...worn, ...probe.skins.filter((id) => id !== chosen)].slice(0, LOBBY_SKINS);
+  const ids = probe.skins.filter((id) => shown.includes(id));
+  const options: { id: string | null; name: string; sprite: string }[] = [
+    { id: null, name: l.skinBase, sprite: probe.sprite },
+    ...ids.map((id) => ({ id, name: names.find((k) => k.id === id)?.name ?? id, sprite: probeDrawing(id, probe.sprite) })),
+  ];
+  const busy = fixed || choose.isPending;
+  return (
+    <>
+    <div className="lobby-skins">
+    <div className="lobby-skins-group" role="radiogroup" aria-label={l.skins}>
+      {options.map((o) => (
+        <button
+          key={o.id ?? 'base'}
+          type="button"
+          role="radio"
+          aria-checked={chosen === o.id}
+          aria-label={o.name}
+          title={o.name}
+          className="lobby-skin"
+          // Not `disabled`: the swatch just pressed keeps the keyboard's focus while it saves.
+          aria-disabled={busy}
+          onClick={() => {
+            if (!busy && o.id !== probe.skin) choose.mutate({ probe: probe.id, skin: o.id }, { onSuccess: () => playEquip() });
+          }}
+        >
+          <img src={spriteDataUrl(o.sprite, 1)} alt="" width={24} height={24} draggable={false} />
+        </button>
+      ))}
+    </div>
+    {more}
+    </div>
+    {choose.error ? (
+      <p className="field-error" role="alert">
+        {errorText(choose.error, copy.errors)}
+      </p>
+    ) : null}
+    </>
+  );
+}
+
 function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
   const choose = useChooseProbe();
+  // My probe idles over its pad (its engine, core and lights; a skin's own life).
+  const reduced = useReducedMotion();
   const [dir, setDir] = useState<1 | -1>(1);
   const open = view.probes.filter((p) => p.unlocked);
   const id = (choose.isPending ? choose.variables : null) ?? view.probe;
@@ -78,7 +146,7 @@ function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
         ) : null}
         <Link to={`/taller?sonda=${probe.id}`} className="lobby-probe-link" aria-label={l.toWorkshop(probe.name)} data-sfx="hover">
           <span className="lobby-halo" aria-hidden="true" />
-          <img key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} src={spriteDataUrl(probe.sprite, 16)} alt="" draggable={false} />
+          <SpriteLoop key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} id={probeDrawing(probe.skin, probe.sprite)} scale={16} reduced={reduced} />
           <span className="lobby-pad" style={{ backgroundImage: `url(${padUrl})` }} aria-hidden="true" />
           <span className="lobby-probe-hint" aria-hidden="true">
             <Icon name="wrench" />
@@ -105,6 +173,7 @@ function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
           </span>
           {self ? <span className={`lobby-state${self.ready || self.leader ? ' on' : ''}`}>{self.leader ? t.leads : self.ready ? t.ready : t.notReady}</span> : null}
         </div>
+        <SkinSwatches probe={probe} fixed={!!self?.ready || choose.isPending} />
         {choose.error ? (
           <p className="field-error" role="alert">
             {errorText(choose.error, copy.errors)}
@@ -132,7 +201,7 @@ function Mate({ m, k, lead, busy, probeOf, onKick, onLead }: { m: RoomMember | n
   const probe = probeOf(m.probe);
   return (
     <li className={`lobby-mate${m.ready || m.leader ? ' ready' : ''}${m.connected ? '' : ' away'}`} style={style}>
-      <img className="lobby-mate-probe" src={spriteDataUrl(probe.sprite, 8)} alt={t.flies(probe.name)} draggable={false} />
+      <img className="lobby-mate-probe" src={spriteDataUrl(probeDrawing(m.skin, probe.sprite), 8)} alt={t.flies(probe.name)} draggable={false} />
       <span className="lobby-pad small" style={{ backgroundImage: `url(${padUrl})` }} aria-hidden="true" />
       <span className="lobby-mate-tag">
         <span className="lobby-mate-name">
@@ -141,11 +210,16 @@ function Mate({ m, k, lead, busy, probeOf, onKick, onLead }: { m: RoomMember | n
               <Icon name="trophy" />
             </span>
           ) : null}
+          <Avatar name={m.username} avatar={m.avatar} frame={m.frame} />
           <b>{m.username}</b>
         </span>
         <small>{copy.social.level(m.level)}</small>
         <span className={`lobby-state${m.ready || m.leader ? ' on' : ''}${m.connected ? '' : ' away'}`}>{!m.connected ? t.disconnected : m.leader ? t.leads : m.ready ? t.ready : t.notReady}</span>
+        {/* The leader's row under the card is already full: there it is a round button on the tag's corner. */}
+        {lead ? <AddFriendButton username={m.username} className="lobby-mate-friend-corner" compact /> : null}
       </span>
+      {/* Anyone in the room may befriend a teammate who is not a friend yet (Nov plan A3). */}
+      {lead ? null : <AddFriendButton username={m.username} className="lobby-mate-friend" />}
       {lead ? (
         <span className="lobby-mate-actions">
           <button type="button" className="lip pill small" disabled={busy} onClick={() => onLead(m.username)}>

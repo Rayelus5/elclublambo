@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
 import { LiveConnection, useLive } from '../src/live/LiveConnection';
-import { FriendToasts } from '../src/social/FriendToasts';
+import { LiveToasts } from '../src/live/Toasts';
 import { view } from './hangar-fixtures';
 import { jsonResponse, mockApi, renderAt } from './render';
 
@@ -25,7 +25,7 @@ const friends: FriendsView = {
   incoming: [],
   outgoing: [],
   blocked: [],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
 };
 const room = (over: Partial<RoomView> = {}): RoomView => ({
@@ -36,8 +36,8 @@ const room = (over: Partial<RoomView> = {}): RoomView => ({
   sector: nebula.id,
   state: 'lobby',
   members: [
-    { username: 'sonda_rayo', level: 3, probe: 'lumen', ready: false, connected: true, leader: true },
-    { username: 'deneb', level: 5, probe: 'lumen', ready: false, connected: false, leader: false },
+    { username: 'sonda_rayo', level: 3, probe: 'lumen', skin: null, ready: false, connected: true, leader: true },
+    { username: 'deneb', level: 5, probe: 'lumen', skin: null, ready: false, connected: false, leader: false },
   ],
   max: 4,
   createdAt: '2026-11-09T10:00:00Z',
@@ -47,6 +47,7 @@ const room = (over: Partial<RoomView> = {}): RoomView => ({
 });
 const rooms = (over: Partial<RoomsView> = {}): RoomsView => ({
   mine: null,
+  rooms: { count: 3, max: 10 },
   open: [{ code: 'ZXCVBN', sector: nebula.id, leader: 'orion', size: 3, max: 4, levels: [2, 9], createdAt: '2026-11-09T10:00:00Z' }],
   allowed: true,
   reason: null,
@@ -59,6 +60,8 @@ const base = (v: RoomsView) => ({
   'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
   'GET /galaxy/api/friends': () => jsonResponse(200, friends),
   'GET /galaxy/api/rooms': () => jsonResponse(200, v),
+  // The lobby measures the game server's ping (2026-11-17).
+  'GET /galaxy/api/ping': () => new Response(null, { status: 204 }),
 });
 const bodyOf = (fetch: ReturnType<typeof mockApi>, url: string) => {
   const call = fetch.mock.calls.find(([u, init]) => u === url && init?.method === 'POST');
@@ -99,11 +102,13 @@ test('crear una sala privada en un sector abierto, y unirse por código o a la s
   lobby('/incursion?modo=grupo');
   expect(await screen.findByText(t.noRooms)).toBeInTheDocument();
   // Only the sectors I have open can be chosen.
-  const sector = await screen.findByLabelText(t.sector);
+  const sector = await screen.findByRole('combobox', { name: t.sector });
   const open = view()
     .sectors.filter((s) => s.unlocked)
     .map((s) => s.name);
-  await waitFor(() => expect(within(sector).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.click(sector);
+  await waitFor(() => expect(within(screen.getByRole('listbox', { name: t.sector })).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.keyboard('{Escape}');
   // A friend in a room can be joined from the side.
   const side = screen.getByRole('region', { name: t.friendsTitle });
   expect(within(side).getByText('lyra').closest('li')).toContainElement(within(side).getByRole('button', { name: t.joinFriend }));
@@ -138,7 +143,16 @@ test('quien ha dejado varias partidas en grupo hace poco ve hasta cuándo espera
 });
 
 test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta que todos están listos', async () => {
-  const fetch = mockApi({ ...base(rooms({ mine: room() })), 'POST /galaxy/api/rooms/kick': () => jsonResponse(200, room({ members: [room().members[0]!] })) });
+  let mine: RoomView | null = room();
+  const fetch = mockApi({
+    ...base(rooms()),
+    'GET /galaxy/api/rooms': () => jsonResponse(200, rooms({ mine })),
+    'POST /galaxy/api/rooms/kick': () => jsonResponse(200, (mine = room({ members: [room().members[0]!] }))),
+    'POST /galaxy/api/rooms/leave': () => {
+      mine = null;
+      return jsonResponse(200, { left: true });
+    },
+  });
   const user = userEvent.setup();
   lobby();
   // The leader's own view (who I am arrives with the session).
@@ -153,6 +167,63 @@ test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta q
   await user.click(within(items[0]!).getByRole('button', { name: t.kick }));
   await waitFor(() => expect(bodyOf(fetch, '/galaxy/api/rooms/kick')).toEqual({ username: 'deneb' }));
   await waitFor(() => expect(within(team).queryByText('deneb')).not.toBeInTheDocument());
+  // Alone in the room (2026-11-17, the owner): no group run alone; one click leaves the room and plays solo.
+  expect(await screen.findByText(t.needMate)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.start })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: t.playSolo }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u, init]) => u === '/galaxy/api/rooms/leave' && init?.method === 'POST')).toBe(true));
+  const who = screen.getByRole('radiogroup', { name: copy.lobby.who });
+  await waitFor(() => expect(within(who).getByRole('radio', { name: new RegExp(copy.lobby.solo) })).toHaveAttribute('aria-checked', 'true'));
+  expect(await screen.findByRole('button', { name: copy.hangar.launch })).toBeInTheDocument();
+});
+
+test('en grupo se ve el servidor con su ping y cuántas salas hay abiertas', async () => {
+  mockApi(base(rooms({ rooms: { count: 7, max: 10 } })));
+  lobby('/incursion?modo=grupo');
+  const server = await screen.findByRole('img', { name: /España/ });
+  await waitFor(() => expect(server).toHaveAccessibleName(/^Servidor España, ping \d+ ms$/));
+  expect(screen.getByText(t.roomsCount(7, 10))).toBeInTheDocument();
+  // Rooms to spare: no warning, a room can be made.
+  expect(screen.queryByText(t.roomsFull)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.create })).toBeEnabled();
+});
+
+test('con todas las salas ocupadas, lo dice, no deja crear otra y ofrece jugar en solitario', async () => {
+  mockApi(base(rooms({ rooms: { count: 10, max: 10 } })));
+  const user = userEvent.setup();
+  lobby('/incursion?modo=grupo');
+  expect(await screen.findByText(t.roomsFull)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.create })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: t.playSolo }));
+  const who = screen.getByRole('radiogroup', { name: copy.lobby.who });
+  await waitFor(() => expect(within(who).getByRole('radio', { name: new RegExp(copy.lobby.solo) })).toHaveAttribute('aria-checked', 'true'));
+});
+
+test('desde la sala se puede añadir como amigo a quien no lo es, y no a uno mismo (plan de noviembre A3)', async () => {
+  const withMates = room({
+    members: [
+      room().members[0]!,
+      { username: 'deneb', level: 5, probe: 'lumen', skin: null, ready: false, connected: true, leader: false },
+      { username: 'vega', level: 7, probe: 'lumen', skin: null, ready: true, connected: true, leader: false },
+    ],
+  });
+  const after: FriendsView = { ...friends, outgoing: [{ username: 'deneb', level: 5, at: '2026-11-12T00:00:00Z' }] };
+  const fetch = mockApi({ ...base(rooms({ mine: withMates })), 'POST /galaxy/api/friends/requests': () => jsonResponse(200, after) });
+  const user = userEvent.setup();
+  lobby();
+  // The leader's own view (who I am arrives with the session): there the button is round, beside theirs.
+  expect(await screen.findByRole('button', { name: t.start })).toBeInTheDocument();
+  const team = await screen.findByRole('list', { name: t.playersTitle });
+  const deneb = within(team).getAllByRole('listitem').find((li) => li.textContent?.includes('deneb'))!;
+  const vega = within(team).getAllByRole('listitem').find((li) => li.textContent?.includes('vega'))!;
+  const add = await within(deneb).findByRole('button', { name: copy.friends.profile.add });
+  // Already a friend (once my friends list is in): no button.
+  await waitFor(() => expect(within(vega).queryByRole('button', { name: copy.friends.profile.add })).not.toBeInTheDocument());
+  await user.click(add);
+  await waitFor(() => expect(bodyOf(fetch, '/galaxy/api/friends/requests')).toEqual({ username: 'deneb' }));
+  expect(await within(deneb).findByRole('button', { name: copy.friends.profile.sent })).toBeDisabled();
+  // My own pad (the hero) never offers it.
+  expect(screen.queryAllByRole('button', { name: copy.friends.profile.add })).toHaveLength(0);
 });
 
 test('quien no lidera marca que está listo, y no ve los mandos del líder', async () => {
@@ -180,7 +251,8 @@ test('el líder con todos listos pulsa Despegar y el lobby pasa a ser la partida
   lobby();
   await user.click(await screen.findByRole('button', { name: t.start }));
   await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/rooms/start')).toBe(true));
-  expect(await screen.findByText(t.arena.connecting)).toBeInTheDocument();
+  // The loading screen (the owner, 2026-11-14) says it is connecting.
+  expect(await screen.findByRole('status', { name: t.loading.label })).toHaveTextContent(t.loading.steps.connect);
   expect(FakeSocket.last?.url).toContain('/galaxy/api/coop/play/ws?run=run-1');
 });
 
@@ -215,7 +287,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const live = { '/': (
   <>
-    <FriendToasts />
+    <LiveToasts />
     <LiveConnection />
   </>
 ) };
@@ -271,4 +343,18 @@ test('quien abandonó una partida en grupo recibe su resultado al acabar: un avi
   await user.click(within(toast).getByRole('button', { name: t.resultSee }));
   const dialog = await screen.findByRole('dialog', { name: t.resultTitle });
   expect(within(dialog).getByRole('heading', { name: copy.results.abandoned })).toBeInTheDocument();
+});
+
+// The owner, 2026-11-14: the room's chat button lit in red with what is unread in it, and «Salir de la sala» red and
+// plain to see.
+test('en la sala, el chat se enciende en rojo con lo que hay sin leer y Salir de la sala es rojo', async () => {
+  mockApi({
+    ...base(rooms({ mine: room() })),
+    'GET /galaxy/api/chat/unread': () => jsonResponse(200, { global: 0, clan: null, room: 4, mentions: { global: 0, clan: 0, room: 0 } }),
+  });
+  lobby();
+  const chat = await screen.findByRole('button', { name: copy.chat.roomChatLabel(4) });
+  expect(chat).toHaveClass('has-unread');
+  expect(chat).toHaveTextContent('4');
+  expect(screen.getByRole('button', { name: t.leave })).toHaveClass('danger');
 });

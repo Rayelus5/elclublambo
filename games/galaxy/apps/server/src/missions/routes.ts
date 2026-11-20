@@ -1,4 +1,4 @@
-import { achievementClaimParamsSchema, cosmeticsSchema, missionClaimParamsSchema, type MissionsView } from '@galaxy/shared';
+import { achievementClaimParamsSchema, missionClaimParamsSchema, type MissionsView } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { requireSession } from '../auth/guards';
@@ -7,7 +7,7 @@ import type { DB } from '../db/schema';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
-import { claimAchievement, claimMission, missionConfigs, missionsView, setCosmetics } from './service';
+import { claimAchievement, claimMission, missionConfigs, missionsView } from './service';
 
 // Missions and achievements' routes (GDD §12.3; M7a): the screen's view, collecting (idempotent, like every economy
 // action) and choosing the title and frame shown on the profile.
@@ -44,9 +44,4 @@ export function registerMissionRoutes(api: FastifyInstance, deps: { db: Kysely<D
     });
   });
 
-  api.put('/galaxy/api/profile/cosmetics', async (req): Promise<MissionsView> => {
-    const s = requireSession(req);
-    await setCosmetics(deps.db, s.accountId, cosmeticsSchema.parse(req.body));
-    return missionsView(deps.db, await missionConfigs(deps.config), s.accountId, deps.now());
-  });
 }

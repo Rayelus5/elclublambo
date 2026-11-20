@@ -1,20 +1,31 @@
 import { buildApp } from './app';
 import { createDb } from './db';
 import { loadEnv } from './env';
+import { startMarketJobs } from './market/jobs';
 import { startRetention } from './retention';
 
 // Production entry (`node dist/main.js`): env from the container, listen on 0.0.0.0:PORT, close cleanly on SIGTERM
 // (docker stop / compose recreate) so in-flight requests finish and the pool is released.
 const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
-const app = await buildApp({ env, db });
+// The scheduled mail's job runs inside the app (it needs the live config and socket; mail v2, P5).
+const app = await buildApp({ env, db, jobs: { mail: true } });
 const stopRetention = startRetention(db, app.log);
+// The market's job (2026-11-14): expired listings and the public numbers.
+const stopMarket = startMarketJobs(db, app.log);
+// The shop's keys: a code, never the keys (shop and lab plan, F4).
+if (env.stripe) app.log.info({ mode: env.stripe.mode }, 'stripe_ready');
+else app.log.info({ issue: env.stripeIssue ?? 'stripe_off' }, env.stripeIssue ?? 'stripe_off');
+// The game's own domain (galaxysurvivor.es plan): public values; one that did not fit was left out, never fatal.
+app.log.info({ canonical: env.GALAXY_CANONICAL_ORIGIN, legacy: env.GALAXY_LEGACY_REDIRECT_FROM }, 'domain');
+for (const issue of env.domainIssues) app.log.warn({ issue }, issue);
 
 let closing = false;
 async function shutdown(signal: string) {
   if (closing) return;
   closing = true;
   stopRetention();
+  stopMarket();
   app.log.info({ signal }, 'shutting down');
   await app.close();
   await db.destroy();

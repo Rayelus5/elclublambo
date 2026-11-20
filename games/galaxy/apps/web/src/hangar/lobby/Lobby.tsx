@@ -1,10 +1,11 @@
 import type { HangarView } from '@galaxy/shared';
 import type { BiomeId } from '@galaxy/sim';
-import { type CSSProperties, useLayoutEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useLayoutEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { useGacha } from '../../api/economy';
 import { useRooms } from '../../api/rooms';
 import { BIOME_LOOK } from '../../arena/stage/biomes';
+import { probeDrawing } from '../../arena/sprites';
 import { useMe } from '../../auth/useMe';
 import { useGalaxyImage } from '../../cards/useGalaxyImage';
 import { copy } from '../../copy/es';
@@ -44,7 +45,22 @@ function FarGalaxy({ seed }: { seed: string }) {
   );
 }
 
-export function Lobby({ view, onLaunch, launching, error, coached }: { view: HangarView; onLaunch: () => void; launching: boolean; error: unknown; coached: boolean }) {
+export function Lobby({
+  view,
+  onLaunch,
+  launching,
+  error,
+  coached,
+  notice,
+}: {
+  view: HangarView;
+  onLaunch: () => void;
+  launching: boolean;
+  error: unknown;
+  coached: boolean;
+  /** Over the launch, solo only: an admin's content draft about to be tried (admin debug mode, 2026-11-15). */
+  notice?: ReactNode;
+}) {
   const reduced = useReducedMotion();
   const me = useMe().data;
   const gacha = useGacha().data;
@@ -56,7 +72,7 @@ export function Lobby({ view, onLaunch, launching, error, coached }: { view: Han
   const fauna = sector?.fauna.map((f) => f.sprite).join(',') ?? '';
   const probes = view.probes
     .filter((p) => p.unlocked)
-    .map((p) => p.sprite)
+    .map((p) => probeDrawing(p.skin, p.sprite))
     .join(',');
   const cast = useMemo(() => ({ look, fauna: fauna ? fauna.split(',') : [], probes: probes ? probes.split(',') : [] }), [look, fauna, probes]);
   const seed = view.loadout.find((g) => g !== null)?.seed ?? '2026110901';
@@ -80,12 +96,12 @@ export function Lobby({ view, onLaunch, launching, error, coached }: { view: Han
         <Rail />
         <Stage view={view} room={room} me={me?.username ?? ''} mode={mode} onMode={onMode} showModes={!coached} />
         <aside className="lip panel lobby-side" aria-label={mode === 'group' ? copy.coop.title : copy.lobby.where}>
-          {room ? <RoomPanel view={view} room={room} me={me?.username ?? ''} /> : mode === 'group' ? <GroupPanel view={view} /> : <WherePanel view={view} />}
+          {room ? <RoomPanel view={view} room={room} me={me?.username ?? ''} /> : mode === 'group' ? <GroupPanel view={view} onSolo={() => onMode('solo')} /> : <WherePanel view={view} />}
         </aside>
         <div className="lobby-foot">
           <TodayMissions d=".3s" className="lobby-missions" />
           <RelicStrip view={view} />
-          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} />
+          <LaunchDock view={view} mode={mode} room={room} me={me?.username ?? ''} onLaunch={onLaunch} launching={launching} error={error} notice={notice} onSolo={() => onMode('solo')} />
         </div>
       </div>
       {launching ? <span className="lobby-flash" aria-hidden="true" /> : null}

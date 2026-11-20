@@ -1,4 +1,4 @@
-import { ADMIN_RUNS_PAGE, type AdminRunClaim, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig, type CoopPlayer } from '@galaxy/shared';
+import { ADMIN_RUNS_PAGE, type AdminRunClaim, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig, type CoopPlayer, TEST_FLAG } from '@galaxy/shared';
 import type { CoopRules, RelicInput, StatBonus } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
@@ -58,6 +58,8 @@ export async function listRuns(db: Kysely<DB>, q: { page: number; player?: strin
   let query = base(db);
   if (q.player) query = query.where(sql<string>`lower(a.username)`, '=', q.player.toLowerCase());
   if (q.suspicious) query = query.where('r.suspicious', '=', q.suspicious === 'true');
+  // An admin's test run (debug mode, 2026-11-15) is suspicious only so it counts for nothing: not one to review.
+  if (q.suspicious === 'true') query = query.where(sql<boolean>`not (${TEST_FLAG} = any(r.flags))`);
   if (q.group) query = query.where('r.coop_run_id', q.group === 'true' ? 'is not' : 'is', null);
   const [{ total }, rows] = await Promise.all([
     query.select(sql<number>`count(*)::int`.as('total')).executeTakeFirstOrThrow(),
@@ -119,7 +121,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
   const stored = r.content_version > 0
     ? await db.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', r.content_version).executeTakeFirst()
     : undefined;
-  const upgrades = (r.upgrades ?? {}) as { bonuses?: StatBonus[]; variant?: string | null; anomaly?: string | null };
+  const upgrades = (r.upgrades ?? {}) as { bonuses?: StatBonus[]; variant?: string | null; anomaly?: string | null; skin?: string | null };
   // A version gone from the history, or one today's schema no longer reads, replays with the defaults, and says so.
   let content = parseConfig('content', {});
   let contentFallback = r.content_version > 0 && !stored;
@@ -151,6 +153,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       bonuses: Array.isArray(upgrades.bonuses) ? upgrades.bonuses : [],
       variant: typeof upgrades.variant === 'string' ? upgrades.variant : null,
       anomaly: coop ? coop.anomaly : typeof upgrades.anomaly === 'string' ? upgrades.anomaly : null,
+      skin: typeof upgrades.skin === 'string' ? upgrades.skin : null,
       content,
     },
     inputs: coop ? (coop.inputs ? Buffer.from(coop.inputs).toString('base64') : null) : r.inputs ? Buffer.from(r.inputs).toString('base64') : null,
@@ -183,6 +186,8 @@ export async function markRun(db: Kysely<DB>, actor: AuditActor, s: SessionInfo,
       .forUpdate('r')
       .executeTakeFirst();
     if (!run) throw new HttpError(404, 'run_not_found');
+    // A test run of the debug mode stays out of everything: unmarking it would make it count (2026-11-15).
+    if (run.flags.includes(TEST_FLAG)) throw new HttpError(409, 'run_test');
     await guardTarget(trx, s, run.username, { self: false });
     if (!run.finished_at) throw new HttpError(409, 'run_open');
     const before = { suspicious: run.suspicious, flags: run.flags };

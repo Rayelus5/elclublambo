@@ -41,6 +41,25 @@ Es distinta de la web de ElClub a propósito: nada de Base Blue, Cerulean ni Arc
 
 **Regla de tinta:** las superficies brillantes (Solar, Nova, Terminal) llevan **tinta oscura** (`--on-*`); las profundas (UV, Sky) llevan **blanco**. Ningún componente usa hex sueltos: solo tokens.
 
+### 2.1 bis Visión del color
+
+Plan «escáner pro», parte C. En Ajustes → Accesibilidad, «Visión del color» (Normal, Protanopía, Deuteranopía, Tritanopía) cambia solo los colores que significan algo. El arte de las galaxias y los sprites decorativos no cambian.
+- **Qué cambia:** los tokens de rareza, Terminal (a favor), Nova (daño) y Estática (peligro); los cuatro colores de jugador y los elementos.
+- **De dónde salen:** una sola fuente, `a11y/color-vision.ts`. La aplican:
+  - el CSS, con las variables puestas en `<html>`;
+  - la arena, con `stagePalette`, que cambia al momento;
+  - el escáner pro;
+  - los tonos de rareza en JS.
+- **Con qué criterio:**
+  - Rojo-verde (protanopía y deuteranopía) pasa el significado al eje azul–naranja, al estilo Okabe–Ito; tritanopía, al rojo–turquesa.
+  - Cada grupo (rarezas, jugadores, bien y peligro), simulado (Machado 2009, severidad total), queda a una ΔE2000 de 12 o más entre pares, con contraste de 3:1 o más sobre el fondo. Lo comprueba `test/color-vision.test.ts`.
+  - Hoy, sin este modo, rara y épica quedan a ΔE 0,6 con deuteranopía.
+- **Forma además de color:**
+  - cada elemento lleva su glifo de 3×3 en la marca del enemigo;
+  - la rareza lleva rombos (1–5);
+  - la cuenta atrás de un compañero caído es discontinua y su reanimación lleva un «+»;
+  - la vida de un compañero tiene una muesca al 30 % y parpadea cuando baja de ahí.
+
 ### 2.2 Contraste medido (WCAG 2.2)
 
 | Texto sobre fondo | Relación | Nivel |
@@ -130,7 +149,9 @@ box-shadow:
 - **Entrada de pantalla:** una sola coreografía; el fondo primero, el logo cae, los paneles entran en cascada (40–60 ms entre piezas). Después la pantalla queda quieta salvo el fondo.
 - **Fondo:** galaxia girando, estrellas titilando, sondas y cometas ocasionales; la Estática corrompe la galaxia unos 300 ms cada 7–12 s.
 - **Carga:** el indicador es un **spinner braille** (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` a 80 ms por paso).
-- **`prefers-reduced-motion`:** sin desplazamientos ni rebotes; la galaxia queda fija; la entrada es instantánea; el spinner pasa a tres puntos que cambian de opacidad.
+- **Movimiento reducido:** sin desplazamientos ni rebotes; la galaxia queda fija; la entrada es instantánea; el spinner pasa a tres puntos que cambian de opacidad.
+  - Lo decide Ajustes → Accesibilidad → Movimiento (plan «escáner pro», parte A): «Sistema» sigue el `prefers-reduced-motion` del ordenador, «Reducido» y «Completo» mandan sobre él.
+  - El CSS lo lee de `<html data-motion="reduced">` (bloques `:where(:root[data-motion='reduced'])`, nunca `@media (prefers-reduced-motion)`); React, de `useReducedMotion()`; el resto, de `prefersReduced()` (`settings/prefs.ts`). La arena lo cambia sin reiniciar la incursión.
 
 ## 6. Composición y pantallas anchas
 
@@ -144,11 +165,21 @@ box-shadow:
 
 Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con anillo `--ice` de 3 px separado 3–4 px, y estado deshabilitado (opacidad 50 %, sin labio, `cursor: not-allowed`).
 
+**Sin barras de desplazamiento [U, 2026-11-11].** No hay barras en ningún sitio, aunque todo sigue desplazándose con la rueda, el dedo o el teclado. Lo que se desplaza de lado usa `ui/HScroll.tsx`:
+- una flecha en el lado donde hay más contenido, y ese borde difuminado;
+- en las tiras, la rueda del ratón lo mueve de lado hasta el final, y después la rueda vuelve a ser de la página;
+- en las tablas (`variant="table"`), la rueda sigue siendo de la página y las flechas van arriba.
+
 | Componente | Variantes | Notas |
 |---|---|---|
 | **Button** | `primary` (Solar, héroe), `mode` (Nova, Terminal), `event` (UV), `nav` (Sky), `pill` (oscura o Solar), `icon` (redondo oscuro 48 px) | Estados: reposo, hover, pulsado, foco, deshabilitado, cargando (spinner braille + `aria-busy`). `icon` siempre con `aria-label` |
 | **Panel** | normal, cabecera de color (Solar en la temporada) | Opaco 94 %, borde blanco al 6 %, labio `--panel-lip` |
 | **Field** | texto, contraseña (con mostrar/ocultar), código de 6 dígitos | Etiqueta visible encima (nunca solo placeholder); 48 px de alto; fondo `--panel-2` con sombra interior; error debajo en `--static` enlazado con `aria-describedby`; `autocomplete` correcto (`username`, `current-password`, `new-password`, `one-time-code`); se puede pegar siempre |
+| **Deslizador** (`ui/Slider.tsx`) | con o sin valor | Un `range` nativo (teclas, táctil y lectores como siempre) dibujado por el juego: pista hundida de 12 px, relleno Solar hasta `--fill`, mando de 28 px con borde Solar y labio, que crece al pasar por encima; el valor en un pocillo a la derecha y en `aria-valuetext`. Deshabilitado al 45 % |
+| **Interruptor** (`ui/Switch.tsx`) | encendido, apagado | `button role="switch"` de 62×36: pista hundida; encendido, verde Terminal con labio y el mando con una marca, que se desliza con rebote. Siempre con una etiqueta visible que lo nombra |
+| **Elección segmentada** (`ui/Segmented.tsx`) | 2–4 opciones | `radiogroup` de WAI-ARIA con la apariencia de `.segmented`: una sola parada de Tab y las flechas, Inicio y Fin eligen (saltan las deshabilitadas) |
+| **Select** (`ui/Select.tsx`) | `sm` 40 px (filtros, barras y tablas del admin), `md` 44 px (juego), `lg` 50 px (formularios junto a campos de 50 px); `block` a todo el ancho | Nunca el desplegable del sistema [U, 2026-11-12]. Combobox de solo selección de WAI-ARIA: el botón (Panel 2, labio de 4 px, chevrón que gira al abrir) se nombra por su `<label htmlFor>`, `aria-label` o `aria-labelledby` y es tan ancho como su opción más larga. La lista vive en `<body>` con posición fija (ningún panel ni diálogo la recorta), sale debajo o encima según el sitio, mide como mucho 320 px y se desplaza por dentro; sigue al botón al desplazarse y lleva el zoom de las pantallas grandes. Opción activa con fondo hielo y barra a la izquierda; elegida con la marca Solar; deshabilitadas al 55 %. Teclado: flechas, Inicio, Fin, páginas, buscar al escribir (sin acentos), Intro, Espacio, Tab elige y sigue, Escape cierra solo la lista. Entrada corta (150 ms) que desaparece con movimiento reducido. Con `name` lleva un `input` oculto para los formularios |
+| **DateField** (`ui/DateField.tsx`) | fecha, fecha y hora (`time`) | Las fechas del admin sin el calendario del sistema. Campo de texto en español (`dd/mm/aaaa` y `hh:mm`; también acepta ISO pegado) con un botón de calendario dentro. El calendario (diálogo de WAI-ARIA, sobre `<body>`) empieza en lunes: mes con flechas a los lados, día elegido en Solar, hoy con borde hielo; flechas por día y semana, Inicio y Fin de la semana, páginas por mes (con Mayúsculas, por año), Intro elige, Escape cierra solo el calendario, Tab no sale de él. Con hora, hora y minutos con las flechas y «Listo». Se ve entero: si no cabe ni arriba ni abajo, tapa su campo. El valor conserva el formato del `input` nativo (`2026-11-12`, `2026-11-12T10:30`) |
 | **Badge** | contador (Nova), novedad (tinta Solar), en línea (punto Terminal) | Contadores con `aria-label` que diga el número |
 | **Tabs** | segmentadas en píldora | `role="tablist"`, flechas del teclado |
 | **Toast** | info, éxito, error | Región `aria-live="polite"`; errores críticos con `role="alert"` |
@@ -159,13 +190,14 @@ Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con a
 | **Menú principal** | Jugar (héroe Solar), modos (Nova, Terminal), evento (UV), misiones (panel), seis losas y pie | Las losas llevan un icono del color de su sección y una línea debajo (dato o «En desarrollo») |
 | **Carta de galaxia** | anverso, reverso; acabados Normal, Holo, Prismático, Relieve braille, Corrupto | 5:7, todo en `cqw` (igual a cualquier ancho). Marco del color de su rareza (`data-tier`) con el relieve de siempre; Épica y Legendaria brillan. Ventana cuadrada con la imagen del motor, nivel («Nv 3», «Nivel 3» para lectores) y acabado arriba; placa oscura con nombre, designación y rareza. Interactiva: se inclina hasta 11° hacia el puntero y el brillo lo sigue; con movimiento reducido no se mueve. El acabado vive entre el marco y la placa, que siempre queda limpia: Holo, bandas de arcoíris finas que se deslizan; Prismático, espectro que gira y puntos de luz; Relieve braille, el marco y la placa con puntos en relieve; Corrupto, líneas de escaneo, sangrado rojo y cian y un fallo solo mientras el puntero está encima. La imagen se carga solo cerca de la pantalla (máximo 12 peticiones al Worker) y se suelta al salir. Reverso: el braille de 48 columnas de su semilla en relieve y los nueve rasgos |
 | **Inspector 3D** | WebGL2, plano | Se abre desde el detalle («Inspeccionar en 3D», Solar). three.js llega solo entonces (su propio fragmento) y al cerrar devuelve el contexto WebGL. La carta son capas en profundidad: campo de estrellas lejos, la galaxia en mezcla aditiva (las estrellas se ven a través de su negro), el marco con su ventana y la luz del acabado encima; se inclina hasta unos 19° con el puntero (5° con movimiento reducido, sin balanceo) y «Ver el reverso» la gira. Luz por acabado en un shader: brillo que sigue al puntero; Holo, bandas de arcoíris; Prismático, espectro y destellos que titilan; Relieve braille, los puntos captan la luz; Corrupto, líneas y filas que fallan. Sin WebGL2, la carta plana por las dos caras con un aviso |
-| **Filtros** | chips de rareza, selector, segmentado | Chips de 40 px con su rombo y su recuento; el pulsado lleva el borde de su rareza (`aria-pressed`). Selectores con etiqueta visible encima («Tipo», «Paleta», «Acabado») y «Cualquiera». Orden en segmentado («Más nuevas», «Más raras»). Todo vive en la URL (`?tier=rare&sort=rarity`) |
+| **Ficha de reliquia** (`hangar/RelicSheet.tsx`) | equipar, ver | Plan «escáner pro», parte D. A la izquierda la carta en 3D (`InspectorView`); a la derecha la rareza, el acabado, la designación, el nivel y, al equipar, «Va a la ranura N» o «Sustituye a X». «Lo que hace» con cada poder y sus números de la configuración viva (`GET /content`): pasiva y su potencia, proyectiles, forma, frecuencia, elemento, fenómeno, núcleo cuásar o doble y fondo. Después los conjuntos (los que estrena, «Nuevo») y el aviso de apilado. La columna de poderes se desplaza por dentro, así «Equipar» y «Volver a la lista» quedan siempre a mano. Se abre al elegir una galaxia en el selector de reliquias (que filtra por fenómeno y rareza) y al pulsar la carta del detalle de la colección (solo ver) |
+| **Filtros** | chips de rareza, botón «Filtros», selector de orden, acciones | Una barra de dos filas (2026-11-14). Arriba, chips de 40 px con su rombo y su recuento; el pulsado lleva el borde de su rareza (`aria-pressed`). Debajo, a la izquierda: «Filtros», con el número de activos en una pastilla solar, que abre una fila con Tipo, Paleta, Fenómeno, Acabado, Favoritas y «Limpiar filtros»; y el orden en nuestro desplegable («Más raras» por defecto, Más nuevas, Más antiguas, Más polvo, Menos polvo, Nombre A–Z y Z–A). A la derecha, las acciones Fusionar (solar), Automática y Desintegrar. La pista del modo activo va tras el orden. Todo vive en la URL (`?tier=rare&sort=new`; «Más raras» no se escribe). La fila de filtros se abre sola si la dirección ya trae alguno |
 | **Rejilla de cartas** | normal, elegir | Cartas de 200 px, huecos de 24–30 px, anclada a la izquierda; páginas de 30 con «Cargar más». La acción cubre la carta dentro de su inclinación (enlace al detalle o botón de elegir con `aria-pressed`); elegida: anillo Solar y marca; no elegible: velada y `disabled` |
 | **Bandeja de fusión** | — | Fija abajo y centrada: «3 de 5», de qué nivel a cuál, el coste en polvo (en `--static` y «No tienes bastante polvo estelar» si falta), Cancelar y «Fusionar ahora» (Solar), deshabilitado hasta que todo cuadra. Todo se ve antes de pedir nada |
 | **Modal** | diálogo, confirmación (`alertdialog`) | Panel con labio sobre velo `rgb(2 3 10 / .84)`, sin desenfoque (se recalcula en cada fotograma detrás de lo animado); nombre por su título; el foco entra, no sale con Tab, vuelve al cerrar; Escape y el velo cierran. Lo que no se puede deshacer pide confirmación con lo que da («Se convierte en 113 de polvo estelar. No se puede deshacer») y el foco empieza en Cancelar |
 | **Panel de colección** | con galaxias, vacío | Cabecera Sky. Recuento por rareza con rombos (`data-tier`; hueco si no hay ninguna), las más raras (6, o 4 por debajo de 820 px de alto y 3 por debajo de 680) con la primera resaltada, y botón Sky «Abrir colección» o, sin galaxias, «Escanear el cielo» |
 
-Iconos: SVG de trazo redondeado (2,2 px), nunca emojis. Los decorativos con `aria-hidden`.
+Iconos: SVG de trazo redondeado (2,2 px), nunca emojis. Los decorativos con `aria-hidden`. Sobre un color (la barra del lobby, una píldora, una ficha o un botón de color) el icono va **blanco sobre un contorno grueso** (`<Icon outline>`: el mismo dibujo detrás, con un trazo mucho más ancho en `--color-panel-lip` al 30 %, desplazado abajo a la izquierda), que da una profundidad de dibujo animado y se tiñe del color de la ficha. Así se lee igual en cualquier tono y todos se ven iguales (2026-11-17). El texto de al lado conserva su color `--on-*`.
 
 **Pantalla de título.** Barra superior arriba; debajo, el menú anclado a la izquierda (56 px, hasta 660 px de ancho) y el panel de colección a la derecha (40 px, 340–400 px). El bloque se coloca un poco por encima del centro del alto libre y escala con el alto de la ventana (`clamp()` en `vh`: logo 44–100 px, Jugar 128–230 px, losas 84–120 px); si no cabe, se desplaza. En el centro, el cielo muestra las galaxias del propio jugador (§8).
 
@@ -185,7 +217,18 @@ Desde M2a el fondo de acceso son **galaxias reales del motor** (`packages/engine
 
 El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilidades de cada rareza en la próxima tirada (suerte creciente incluida), cuánto falta para la Legendaria segura con su barra, la suerte de bienvenida y, en eventos, la destacada y su garantía. Se paga con el escaneo gratis del día (Terminal), señales (Solar) o monedas (oscuro); sin saldo, el botón se ve apagado antes de pulsar.
 
-- **Terminal CRT:** bisel con relieve y pantalla curva oscura con líneas de escaneo y viñeta. En reposo, braille de hielo que respira y «Listo para escanear».
+- **Terminal CRT:** bisel con relieve y pantalla curva oscura con líneas de escaneo y viñeta, a todo el ancho del panel (un panorama). En reposo, **cielo vivo** (2026-11-17): estrellas que se desplazan, un radar que barre cada 4 s (1,1 s mientras se escanea) y 12 destellos del color de cada rareza, tantos como dicen las probabilidades del próximo escaneo y siempre una legendaria; se encienden al paso del barrido. «Listo para escanear» abajo, sin título encima. En el de evento, en violeta y con la misma altura (2026-11-17).
+- **Detrás de la página:** una nebulosa que se mueve despacio (azul; violeta y rosa en el de evento), en su capa recortada para no ensanchar la página.
+- **Garantía:** un núcleo (anillo que se llena con los escaneos sin Legendaria y un orbe que brilla más cuanto más cerca); desde el 80 % se calienta y late. `progressbar` con su nombre.
+- **Botones «Sobres»** (2026-11-17, elegidos por el propietario entre tres maquetas):
+  - «Escanear» sale una vez, como título del bloque, con tus señales y monedas al lado (icono y número). No hay etiquetas por fila.
+  - Cada botón lleva el dibujo de lo que abre (una carta, cinco en abanico o un mazo de diez; el abanico se abre al pasar el ratón), «×1», «×5» o «×10» en la letra de título y el precio en una pastilla oscura con el icono de la moneda, sin su nombre.
+  - Señales en Solar con labio naranja (UV con labio violeta en el de evento); monedas en azul con labio azul oscuro. Un brillo pasa de vez en cuando.
+  - «Mejor precio», una cinta Nova, solo en el tamaño que de verdad ahorra por escaneo. Si no te llega, debajo de la fila sale «Te faltan N … para la de X», con la tirada más pequeña que no llega.
+  - Para el lector de pantalla, cada botón dice «Escanear 10, 10 señales».
+  - El brillo del núcleo de la garantía sale del cuadrado (`overflow: visible`).
+- **«Puede salirte»:** tarjetas de 92 px en una tira que se desplaza por dentro, con su nombre, su rareza y su rasgo más llamativo; los ejemplos llevan «Ejemplo». En el de evento, la galaxia destacada sale en grande en su tarjeta.
+- **«Últimos hallazgos»:** una cinta bajo el escáner que avanza sola de derecha a izquierda («vega encontró una Legendaria Aena, hace 2 min») y se para al pasar el ratón o con el teclado; al final, «Tus mejores» de la semana. Es una lista de verdad para el lector de pantalla (la copia que hace el bucle va oculta) y nada se anuncia al moverse. Con movimiento reducido, todo queda quieto.
 - **Secuencia** (`revealSequence`, pura y probada), por tirada:
   1. **Estática:** ruido tenue redibujado unas 12 veces por segundo (0,9 s la primera, 0,32 s las siguientes; nunca un destello).
   2. **Señal:** suben tantas barras como pasos de rareza (1 Común … 5 Legendaria), en su color; más barras, más espera (0,52 s + 0,17 s por paso) y suena el clac de la Perkins.
@@ -193,11 +236,65 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
   4. **Fenómeno detectado** con su nombre, si lo tiene (1,3 s).
   5. **Fallo de pantalla** solo en Legendaria: dos sacudidas con separación RGB en 0,9 s, por debajo de 3 destellos por segundo (WCAG 2.3.1).
   6. **Carta:** sale de la pantalla girando, por encima del bisel, sobre un halo de su rareza, y suena su acorde (más brillante cuanto más rara; arpegio en Legendaria).
-- **Ritmo:** una tirada espera al jugador en su carta; en una de diez las cartas siguen solas (1,9 s). Pulsar la pantalla o «Seguir» lleva a la carta de la tirada actual o a la siguiente; «Saltar» va al resumen. El resumen ordena de más a menos rara.
+- **Ritmo:** una tirada espera al jugador en su carta; en una de cinco o de diez las cartas siguen solas (1,9 s). Pulsar la pantalla o «Seguir» lleva a la carta de la tirada actual o a la siguiente; «Saltar» va al resumen. El resumen ordena de más a menos rara.
 - **Accesibilidad:** cada carta revelada se anuncia («Legendaria: Kathra») en una región educada; el sonido se silencia con un botón y se recuerda; todo con teclado.
 - **Movimiento reducido:** sin fallo de pantalla ni sacudidas, estática quieta, la imagen aparece con un fundido y cada carta espera al jugador.
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
+
+
+### Presentación pro (escáner y fusiones)
+
+Plan «escáner pro», parte B. Activada por defecto [U, 2026-11-12]; se apaga en Ajustes → Pantalla.
+
+**Cuándo sale la clásica:** sin WebGL2, mientras el tutorial guiado está en el escáner, o con el ajuste apagado. La fusión automática no tiene revelación.
+
+**Fusión** (plan «fusión pro»): en vez del salto, las galaxias que entran aparecen en anillo alrededor de un núcleo (`ignicion`), giran cada vez más rápido y más cerca mientras el núcleo anticipa la rareza (`orbita`, con `ascenso` a veces), se hunden en él una a una (`colapso`) y la nueva nace de la explosión (`impacto`, `carta`). Con movimiento reducido, el anillo se funde en su sitio.
+
+**Cómo está hecha:**
+- **Línea de tiempo:** una sola de GSAP, en pausa, construida a partir de un guion de datos (`scanner/pro/script.ts`, `GUION`).
+- **Rig:** la línea de tiempo no mueve elementos. Mueve un «rig» de números, que leen en cada fotograma la escena 3D (three.js, en su propio trozo) y las capas del DOM (variables CSS).
+- **Reloj:** el reloj de audio lleva el tiempo, así imagen y sonido no se separan.
+
+**Fases:**
+1. **Cierre:** al pulsar, dos bandas negras cierran la pantalla, de arriba abajo y de abajo arriba, hasta el negro absoluto. Ocurre mientras la petición viaja.
+2. **Ignición:** nace un punto de luz con un destello anamórfico y las bandas se abren a formato cine (12 % arriba y abajo).
+3. **Salto:** viaje warp entre estrellas que se estiran. Desde rara, la estela toma el color de la rareza máxima.
+4. **Ascenso:** a veces, una épica finge acabar y una legendaria rompe de violeta a dorado, con un solo destello.
+5. **Caída:** una estrella fugaz, o diez en lluvia, la primera del color máximo.
+6. **Impacto:** un parón, dos ondas expansivas, un resplandor y chispas.
+7. **Las cartas:**
+   - **Una tirada:** la carta sube boca abajo y gira. En la banda inferior, el nombre se escribe letra a letra y la rareza se estampa con sus rombos (1–5).
+   - **Cinco** (2026-11-17): igual que diez, en una sola fila centrada y un poco más grandes.
+   - **Diez:** las cartas caen boca abajo en una rejilla de 5×2, de menor a mayor rareza. Giran en cascada, con el canto encendido en su color justo antes. Épicas y legendarias pasan a primer plano, la legendaria con rayos dorados.
+   - **«¡Destacada!»** bajo la banda superior y **«Fenómeno detectado»** dentro de ella.
+8. **Resumen:** el mismo de la clásica, sobre el cielo apagado.
+
+**Durante la cinemática:**
+- **Controles:**
+  - «Seguir» (clic, Espacio) va a la siguiente parada y nunca se salta una revelación;
+  - «Saltar» y Escape van al resumen;
+  - los dos se ignoran 400 ms al empezar y 250 ms tras cada salto.
+- **Una tirada** espera en su carta («Pulsa para seguir»).
+- **Imagen que no llega:** la carta espera hasta 4 s antes de girar.
+
+**Sonido:**
+- cada momento tiene su sonido sintetizado;
+- se puede cambiar por un archivo en `src/assets/audio/escaner/` (ver su `LEEME.md`);
+- la música son cuatro capas de un mismo bucle, que entran según la rareza más alta vista;
+- la música del juego espera mientras tanto.
+
+**Movimiento reducido:**
+- sin salto, ascenso, temblores, destellos ni parones;
+- las cartas aparecen y se descubren con fundidos.
+
+**Fotosensibilidad** (comprobada por test): como máximo 2 destellos por segundo, con opacidad de 0,6 o menos y ninguno rojo.
+
+**Rendimiento:**
+- un contexto WebGL que se devuelve al cerrar;
+- resolución de 1,5 como mucho, que baja a la versión ligera si los primeros fotogramas pasan de 20 ms.
+
+**Ensayo** (`/admin/escaner-ensayo`): la reproduce con tiradas inventadas, para dirigirla. Detalle en el plan.
 
 ## 8 ter. Hangar y resultados
 
@@ -256,13 +353,24 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
 La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la simulación; el HUD es React encima (§8 quinquies). Consulta de ui-ux-pro-max: estilo *pixel art* (nitidez sin suavizado, paleta limitada, animación por fotogramas), contraste ≥ 4,5:1 en todo texto, poco movimiento a la vez y respeto de `prefers-reduced-motion`.
 
 - **Escala:** zoom entero (`round(alto / 340)`, mínimo 1) con muestreo `nearest`; la cámara se redondea a píxeles de pantalla. Se ve una altura de mundo de ~340 u (300–400 según el monitor) y como mucho **21:9** de ancho; lo que sobra son **bandas laterales** con estática tramada oscura y un filete `--panel-lip`, sin ventaja de visión.
+- **Zoom con la rueda [U, 2026-11-11]:** en solitario y en grupo, la rueda del ratón acerca la vista a pasos enteros, hasta el doble de cerca (a 1080 px, de ×3 a ×6), y la devuelve. La vista de siempre es la más lejana. Entre pasos se desliza unos fotogramas (al instante con movimiento reducido), y el nivel se recuerda en el navegador para la próxima incursión. Solo cambia el dibujo: la simulación y el lockstep no se enteran, y cada jugador del grupo tiene el suyo.
 - **Suelo:** `--void` con nubes de nebulosa tramadas (Bayer 4×4) en violeta y azul muy apagados (contraste ≤ 1,6:1 con el fondo), motas braille muy tenues (32 %) y un leve paralaje de estrellas al 50 %. Las rocas, el hielo, el coral, la escoria y los cristales del bioma son **objetos rompibles** de la simulación (SIM 1.7.0): opacos, con un destello blanco de vez en cuando que dice «se puede romper», una barra de vida roja de 2 px encima en cuanto reciben daño y grietas al bajar del 66 % y del 33 %. Al romperse estallan en partículas del polvo del bioma y sueltan componentes y polvo. Todo es determinista por trozos de 256 u y sin colisión.
 - **Sprites (pixel art en código, contorno de 1 px `#0b0c24`, luz arriba a la izquierda):**
   - **Sonda Lumen:** cuerpo hielo y blanco con visor cian y propulsor Solar que parpadea; mira hacia donde se mueve (volteo horizontal).
   - **Fauna de la Estática:** cada especie con su tono para reconocerla al vuelo, con acentos magenta y cian de la Estática. Ácaro: magenta. Célula: violeta. Manta: azul tinta con bordes magenta. Coral: coral y naranja. Caparazón: placas acero con núcleo magenta, y su frente blindado es un arco claro visible. Jefe: colmena de 40 px con celdas, grietas y núcleo que late.
   - **Proyectiles:** los propios son claros y fríos (hielo, Solar, violeta del arco); los enemigos son círculos `--static` con centro blanco y contorno, siempre distinguibles por forma y color de los propios.
   - **Botín:** fragmentos de datos como gemas braille en **verde Terminal** (1 y 5; el 25 en Solar), lo único verde del suelo. Monedas Solar, polvo hielo centelleante, kit de reparación rojo Nova con cruz blanca, **imán** de herradura roja con puntas blancas que parpadean (al recogerlo, onda verde y todos los datos del mapa vuelan hacia quien lo cogió) y **componente** como tuerca de acero con núcleo Terminal.
-  - **Dash** (salto de Chispa, Embestida del cometa): la sonda se desliza 0,12 s con salida suave, deja 5 imágenes fantasma cian que se apagan en 0,28 s, chispas en el origen y el destino y un «whoosh» de ruido filtrado. La invulnerabilidad es un brillo suave con un aro cian, no un parpadeo. Con movimiento reducido no hay estela.
+  - **Dash** (el del jugador, SIM 1.12.0: SHIFT, Espacio, A o RB): la sonda recorre su distancia en 0,15 s, deja 5 imágenes fantasma cian (o del color de su skin) que se apagan en 0,28 s, chispas en el origen y el destino y un «whoosh» de ruido filtrado, más largo con un Cometa. La invulnerabilidad es un brillo suave con un aro cian, no un parpadeo. Con movimiento reducido no hay estela.
+  - **Medidor del dash** (HUD, junto a la vida): la primera tecla del dash del jugador («SHIFT» por defecto) y un rombo por carga en el cian del dash, encendido si está lista. La siguiente se llena de abajo arriba mientras vuelve (se desliza entre lecturas del HUD) y salta un poco al llegar. Durante la pausa entre dos dashes las listas se atenúan y la tecla se apaga. Para lectores de pantalla dice «Dash con SHIFT o Clic izquierdo: 1 de 2 cargas, la siguiente en 3 s», con sus teclas. Con movimiento reducido no hay saltos ni deslizamientos.
+  - **Carta elegida en grupo:** brilla en solar, crece, sube un poco y vuela al kit (abajo a la izquierda) en 0,52 s mientras las otras se apagan y la tira se desvanece; suena la confirmación. Con movimiento reducido, solo un fundido de 0,16 s.
+  - **Carga de una incursión en grupo:** a pantalla completa sobre la arena, con el degradado del bioma del sector, «Incursión en grupo», el nombre del sector, una tarjeta por jugador (su sonda con su skin, su nombre o «Tú» con borde solar, su sonda) y los pasos Conectando › Preparando la arena › Esperando al equipo › Despegue con una barra solar. Desde el 2026-11-17 tapa la salida de verdad:
+    - en cada tarjeta, «Conectado» (verde) o «Conectando» (latiendo) según quién tiene ya la partida abierta;
+    - en cuanto la arena está dibujada, la pantalla se vuelve un velo translúcido del bioma (`.see`), más oscuro bajo la tarjeta, y el mundo en su primer fotograma se ve alrededor;
+    - con todos dentro (o pasados 10 s), un 3-2-1 grande en Solar contado con el reloj del servidor;
+    - se va, con un fundido de 0,3 s, cuando la partida corre de verdad en este navegador (el primer tick dado y al día), nunca antes de 1,2 s.
+
+    Al volver a una partida en marcha no hay cuenta atrás: se va al ponerse al día. Es un `status` con `aria-busy`; con movimiento reducido no hay animaciones.
+  - **Controles (Ajustes › Incursión):** una cuadrícula de dos columnas con cada acción y sus dos huecos. Al pulsar un hueco, se vuelve solar y dice «Pulsa una tecla»; Esc cancela. La línea de estado avisa si una tecla se quitó de otra acción. La × de cada hueco aparece al pasar el ratón o con el foco. En la pausa se ocultan la ayuda y la línea del mando.
 - **Capas:** suelo → decoración → recogidas → áreas (charcos, novas, auras, campo lento) → avisos → enemigos → sondas → disparos → efectos y números.
 - ***Juice*:**
   - **Golpe:** destello blanco de 6 ticks y número de daño (Fredoka 700 blanco con contorno oscuro; crítico Solar y más grande) que sube 18 px y se apaga en 0,6 s. Como mucho 60 números a la vez; los demás se suman al último.
@@ -270,13 +378,19 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
   - **Elementos:** partículas de su color (quemadura naranja, ralentización azul, corrosión verde, descarga violeta, hackeo ámbar, robo de vida rojo, escudo esmeralda, rebote neón).
   - **Daño recibido:** sacudida de 3 a 6 px que decae al 85 % por fotograma, más un borde rojo en la pantalla (HUD).
   - **Élites y jefe:** cada 0,8 s, durante 80 ms, glitch de la Estática con copias desplazadas 1 px en rojo y cian.
+  - **Anomalía de una reliquia** (`arena/stage/anomaly.ts`): un fallo a propósito, en el lenguaje del glitch de la Estática y la rasgadura de la Fisura, a saltos de 1/20 s y siempre local. Sobre la sonda sale «¡Anomalía!» en magenta, con una sacudida de 2 y un chasquido de estática seguido de dos pasos cuadrados que bajan.
+    - **Salto:** donde estaba quedan sus copias roja y cian temblando 0,3 s, una línea rota de estática hasta el destino y una rasgadura de cuatro franjas lila y magenta. La sonda y la cámara se deslizan 0,12 s y la sonda aparece en escalones con sus copias juntándose.
+    - **Congelación:** un anillo de estática en arcos rotos que se cierra sobre su radio, con un velo lila de 0,07.
+    - **Descarga:** un rayo quebrado magenta o cian hasta cada enemigo golpeado.
+    - **Fotosensibilidad y grupo:** la rasgadura no pasa de 0,35 ni sale más de 2 veces por segundo, y solo en la tuya. La de un compañero se ve con la mitad de chispas, sin rasgadura ni sonido.
+    - **Movimiento reducido:** sin deslizamiento, temblor ni rasgadura; contornos quietos que se apagan.
 - **Avisos (siempre antes del golpe):**
   - **Embestida:** banda roja translúcida que late, con flecha.
   - **Ráfaga del jefe:** anillo que se cierra.
-  - **Explosión de Inestable:** círculo rojo que se llena.
+  - **Explosión de Inestable** (2026-11-14): todo su alcance con un borde rojo grueso que parpadea cada vez más rápido y un relleno que crece hasta que estalla (1,2 s). Su mecha pita cada vez más seguido. Al estallar: un destello naranja con el centro blanco, una onda naranja hasta su alcance, chispas naranjas, rojas y amarillas, una sacudida de 5 px y un «bum» grave. Con movimiento reducido el borde no parpadea y no hay sacudida.
   - **Lanza** (tiradores `lancer`, M3b-3): la misma banda que la embestida, del largo de su alcance, mientras apuntan.
   - **Salto** (`blink` de fauna y Núcleos): círculo rojo que se llena donde va a aparecer. Al saltar, chispas lila donde estaba y violeta donde llega. Un Núcleo que salta queda como un fantasma (20 % de opacidad) hasta aparecer.
-  - **Minas** de los Núcleos: los círculos rojos que se llenan de la explosión de Inestable, uno por mina. Estallan con partículas rojas y una sacudida de 3 px.
+  - **Minas** de los Núcleos: el mismo aviso de la explosión de Inestable, uno por mina, y el mismo estallido.
 - **Apoyo** (`support`, M3b-3): anillo verde Terminal si cura y lila si escuda. Cualquier enemigo con escudo lleva el círculo hielo, sea élite o no.
 - **Biomas** (M3b-3, GDD §5.5). Cada sector cambia los tres tonos de la nebulosa, las estrellas, las motas y las rocas, siempre oscuros y de poco contraste; los avisos son del mismo rojo en todos. Consulta de ui-ux-pro-max: la legibilidad de los avisos no depende del fondo.
   - **Nebulosa Exterior:** la de M3a.
@@ -284,6 +398,9 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
   - **Arrecife Hueco:** violeta y turquesa, con corales rosa y turquesa.
   - **Forja Rota:** humo pardo con estrellas de brasa y escoria con ascuas, lejos del rojo de los avisos.
   - **Fisura de la Señal:** estática violeta y esquirlas flotantes.
+- **Tormenta del Núcleo** (plan «banda sonora, skins, perfil y entorno», parte E): solo dibujo, en un registro de efectos de entorno (`arena/stage/environment.ts`) donde cada evento del mundo futuro es una entrada más. Mientras hay un Núcleo, el fondo entra en tormenta en 2 s y sale en 2 s cuando cae; el nivel sale de la fase de la simulación, así que una repetición que salta se ve bien. La nebulosa vira al color de peligro de la paleta activa, el velo oscurece, salen ondas de choque lejanas del Núcleo, las estrellas se estiran un poco hacia él y los bordes laten en rojo (un latido cada 2,6 s). Cada bioma añade lo suyo: relámpagos violeta (Nebulosa Exterior), ventisca de esquirlas (Anillos de Escarcha), pulsos bioluminiscentes (Arrecife Hueco), lluvia de ascuas (Forja Rota) y desgarros de glitch (Fisura de la Señal). Vive bajo el mundo, en luz que se suma, y nada tapa la fauna ni los disparos.
+  - **Fotosensibilidad:** como mucho 2 destellos en un segundo, nada por encima de 0,35 de opacidad y nunca rojo a pantalla completa.
+  - **Movimiento reducido:** solo el tinte y la viñeta, quietos.
 - **Fauna y Núcleos de M3b-3:** se dibujan por regla con la forma, tres tonos del bioma con luz arriba a la izquierda, rasgos a mano y un contorno de 1 px. Llevan dos fotogramas, y los Núcleos miden 40×40 como la Colmena. PERKINS presenta cada sector y cada Núcleo nuevos la primera vez, con una línea.
 - **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
 - **Arsenal (M3b-1):**
@@ -385,6 +502,38 @@ Consulta de ui-ux-pro-max: no hubo resultado para «árbol de mejoras». Se apli
   - **Al máximo:** borde y brillo del color de la rama, y «Al máximo».
 - **Cabecera:** «Volver a la estación», el título y el saldo de polvo y componentes.
 - **Sin reparar:** «Repara el laboratorio en la estación para usarlo» y «Ir a la estación».
+
+**La pizarra** (plan de tienda y laboratorio, F3; la maqueta aprobada en F0) es la vista de siempre; la de arriba queda como «Lista» (`?vista=lista`).
+- **Un tablero que llena la pantalla bajo la cabecera**, con una retícula de puntos que se mueve con él.
+- **El núcleo permanente** («Para siempre», solar) y, mientras hay una temporada abierta con su árbol, **el de temporada** a su derecha (ultravioleta, con su nombre y «Se reinicia el…»).
+- **Colocación:** cada núcleo es un árbol radial. Las ramas salen en diagonal y su ancho va según sus hojas; cada profundidad es un anillo más afuera, y un árbol grande abre sus anillos hasta que ningún nodo se apiña. La pista `at` de un nodo manda.
+- **Nodos:** su icono, un disco y un aro con un tramo por nivel (`pathLength` igual al máximo).
+  - Bloqueado: borde discontinuo y el icono en gris.
+  - Disponible: late.
+  - Puedes pagarlo: borde del color de la rama.
+  - Al máximo: dorado.
+  - Debajo, su nombre y «N / máx». Con el zoom lejos, sin rótulos.
+- **Aristas:** curvas suaves desde quien lo abre. Se iluminan con el color de la rama al abrirse.
+- **Moverse:**
+  - arrastrar, a partir de 5 px para que un clic siga siendo un clic;
+  - la rueda o dos dedos acercan hacia el puntero, de ×0,3 a ×2,5;
+  - teclado: +, − y 0; las flechas van de nodo a nodo, y [ y ] suben y bajan por la rama;
+  - herramientas abajo a la izquierda: acercar, alejar, «Ver todo», ir a cada núcleo, «Leyenda» y «Corrimiento al rojo» (en un diálogo);
+  - el minimapa, abajo a la derecha, lleva a donde se pulse.
+- **Panel del nodo**, a la derecha:
+  - núcleo y rama;
+  - nombre y qué da por nivel;
+  - las barras de nivel;
+  - «Ahora» y «Siguiente nivel», calculados en el servidor;
+  - coste, con lo que falta en Nova;
+  - qué lo abre;
+  - en los de temporada, «Se reinicia el…»;
+  - «Mejorar a nivel N», o por qué no se puede.
+- **Subir de nivel:**
+  - el tramo se llena, el disco da un bote y saltan chispas;
+  - la energía corre por las aristas de los nodos que se abren, cada uno con su campanilla;
+  - suena un arpegio que sube con el nivel, y un acorde y «… al máximo» al llegar arriba.
+  - Con movimiento reducido: sin movimiento, solo el sonido.
 
 ## 8 nonies. Niveles de las reliquias
 
@@ -536,13 +685,34 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **«Comunidad»:** se tiñe de Hielo mientras la hoja está abierta, y vuelve a pulsarse para cerrarla.
 - **Al abrir:** entra deslizándose 28 px en 0,24 s (sin animación con movimiento reducido). El foco va al campo, o a las pestañas si no puedes escribir.
 - **Al cerrar:** con Escape o con la X; el foco vuelve a quien la abrió.
-- **El socket:** solo escucha mientras la hoja está abierta, y cada vez que conecta vuelve a leer el canal sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **En directo:** los mensajes llegan por el socket vivo, abierto en todo el juego. Cada vez que vuelve, se releen los canales sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **Pantalla completa:** un botón junto a la X la abre centrada en grande (hasta 1100 px) sobre un velo, con las mismas piezas. Vuelve a pulsarse para salir (`aria-pressed`).
 - **En una incursión** la hoja se cierra: el teclado es del juego.
 
-**Las pestañas:** Comunidad y, si tienes clan, Clan. Las flechas cambian de una a otra.
+**Las pestañas:** Comunidad y, si tienes clan o sala, Clan y Sala. Las flechas cambian de una a otra.
+
+**Sin leer (petición del propietario, 2026-11-14):**
+- **La pastilla:** pequeña, en Nova, con lo que no has leído («99+» a partir de 100). Va en Comunidad (arriba, sumando todos tus chats; en la esquina cuando el botón se pliega), en cada pestaña que no es la abierta y en «Chat de la sala».
+- **Si te nombran:** la pastilla es «@» en Solar.
+- **Lo que dice:** el nombre accesible de cada botón, por ejemplo «Comunidad, 5 sin leer, con menciones».
+- **«Chat de la sala»:** se enciende entero en Nova mientras hay algo sin leer.
+- **«Salir de la sala»:** en Nova siempre.
+- **Abrir:** Comunidad abre el canal que tiene algo nuevo (primero el clan, luego la sala).
+- **Leer:** lo que ves al fondo de la lista cuenta como leído un momento después (nunca con la pestaña del navegador oculta).
+- **Avisos:** con un chat cerrado, un aviso dice quién escribió, dónde y qué, con «Responder».
+  - Los del mismo canal se juntan en uno que cuenta («3 mensajes nuevos en el clan»); una mención va siempre aparte.
+  - Se eligen en Ajustes › Sonido › Avisos del chat. Vienen encendidos el clan, la sala y las menciones; Comunidad, apagada.
+
+**La lista:**
+- separadores de día («Hoy», «Ayer», «14 de noviembre») en mayúsculas pequeñas entre dos líneas;
+- los mensajes seguidos de un mismo autor (menos de 5 minutos) se juntan: sin avatar ni nombre otra vez, con la hora al pasar el ratón;
+- «Ver anteriores» arriba trae la página de antes sin mover lo que estás leyendo; sin más, «No hay mensajes anteriores»;
+- leyendo más arriba, una pastilla «2 mensajes nuevos» baja al final.
 
 **Cada mensaje:**
 - el avatar a 28 px, el nombre enlazado a su perfil (en Solar si es tuyo), «Nivel N», la etiqueta del clan (solo en Comunidad) y la hora;
+- cada «@nombre» va en Hielo; el tuyo, sobre Solar, y el mensaje que te nombra lleva un fondo Solar tenue con una barra a la izquierda;
+- «Bloquear» pregunta antes, en un diálogo de alerta, lo que hace un bloqueo (y, si era tu amigo, que deja de serlo). Sus mensajes desaparecen y no vuelven;
 - el texto conserva sus saltos de línea;
 - tus mensajes llevan un fondo Solar muy tenue;
 - al pasar el ratón o con el foco aparece «Denunciar» y, para moderadores, «Ocultar» y «Silenciar 1 hora» (en Nova). Cada acción dice en su nombre accesible a quién se hace;
@@ -555,6 +725,9 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **Debajo:** la ayuda «Enter envía y Mayúsculas con Enter salta de línea» y el contador «12 de 280», que se pone en Nova al pasarse.
 - **Si no puedes escribir:** en su lugar, en Solar, «Necesitas nivel 5 para escribir» o «Te han silenciado hasta las 14:05».
 - **Si vas muy deprisa:** «Vas muy deprisa. Espera un poco», sin borrar lo escrito.
+- **Nombrar:** «@» y el principio de un nombre abre encima del campo una lista de hasta 8 jugadores (con su avatar).
+  - Salen primero quienes escribieron en el canal, tu sala y tus amigos; con dos letras, también los del servidor.
+  - Es un combobox de WAI-ARIA: las flechas mueven, Enter o Tab eligen (sin enviar) y Escape la cierra sin cerrar la hoja.
 
 ## 8 quattuordecies. Mercado
 
@@ -572,15 +745,30 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - Muestra la pared de la estación, un ojo de buey con un planeta anillado, el cartel con una moneda y dos mostradores cuyos emisores proyectan cartas de galaxia. Las cartas flotan y giran, y las luces de la viga se persiguen.
 - Es decorativo, y sin animación con movimiento reducido.
 
-**Las pestañas:** Comprar, Vender y Mis anuncios, cada una con su URL (`?pestana=vender|mios`).
+**Las pestañas:** Comprar, Vender, Mis anuncios, Ofertas, Trueques y Estadísticas, cada una con su URL (`?pestana=vender|mios|ofertas|trueques|estadisticas`). No se parten en dos líneas.
+
+**Arriba, lo que tienes** (petición del propietario, 2026-11-14): polvo, monedas y señales (la barra de recursos de siempre), donde antes decía «El mercado se queda el 7 %». La comisión se dice al vender.
 
 **Quién puede comerciar:** sin nivel 10 o sin 3 días de cuenta, un aviso con candado y borde Solar dice qué falta. Todo se ve, pero los botones de comprar y vender se desactivan y su descripción es ese aviso.
 
 **Comprar:**
-- **Filtros:** rareza, orden (Más recientes, Más baratas, Más caras) y búsqueda por nombre, que espera a que dejes de escribir.
+- **Filtros** (2026-11-14: «profesional para 100.000 anuncios»):
+  - las rarezas como chips con su rombo de color, «Todas» primero;
+  - la búsqueda por nombre o designación, que espera a que dejes de escribir;
+  - el orden: Más recientes, Más baratas, Más caras, Más raras, Acaban antes y Más nivel;
+  - «Filtros (N)», que abre un panel con acabado, tipo, paleta, fenómeno, nivel desde y hasta, precio desde y hasta, y «Quitar filtros».
+- **Cuántas:** «24 galaxias, y hay más», y al final «Cargar más», que sigue desde la última sin mover lo que ya se ve.
+- **Ver de cerca:** pulsar la carta abre la ficha de reliquia (la carta 3D y lo que hace), titulada con su nombre. Lleva el precio, el vendedor y hasta cuándo está a la venta, con «Cerrar» y «Comprar». Comprar abre la confirmación encima; al cerrarla se vuelve a la ficha.
 - **Cada carta:** la galaxia con su nombre, la rareza (Solar si es legendaria), el precio en Solar con moneda y el vendedor enlazado.
-- **El botón «Comprar»** dice en su nombre qué compra. Sin monedas, debajo dice cuántas faltan. En lo tuyo pone «Tuya».
+- **El botón «Comprar»** dice en su nombre qué compra. Sin monedas se apaga y cuántas faltan va solo en su descripción, sin aviso bajo la carta (2026-11-14). En lo tuyo pone «Tuya».
+- **Las cantidades de monedas** (2026-11-14): el icono de moneda y el número agrupado («1.000.000.000»), sin la palabra «monedas», que queda solo para los lectores de pantalla (`CoinAmount`). Caben en una línea en la carta. Las frases completas («Recibes 930 monedas después de la comisión») la mantienen.
 - **El diálogo** confirma con el precio y el saldo que deja. Después dice «Es tuya», con «Verla en tu colección». Si alguien se adelantó, lo dice y el escaparate se vuelve a leer.
+
+**Estadísticas:**
+- «El mercado en cifras», contado cada 5 minutos.
+- Las últimas 24 horas y los últimos 7 días, en recuadros: ventas, monedas movidas, comisión retirada, en venta ahora y trueques cerrados.
+- Una tabla por rareza (ventas y precio medio de la semana).
+- La venta más cara de la semana, sobre un fondo Solar tenue.
 
 **Vender:**
 - **«Elegir galaxia»** abre el selector de la colección. Las equipadas, expuestas o ya en venta salen marcadas como «No disponible».
@@ -594,34 +782,69 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - una galaxia en venta lleva la insignia «En venta»;
 - no se desintegra, fusiona ni mejora, y su detalle dice por qué.
 
+**Ofertas** (2026-11-14, GDD §14.6):
+- **En la ficha de un anuncio:** «Hacer oferta» (o «Subir oferta» si ya tienes una) junto a «Comprar», con las ofertas que lleva y la tuya en Solar.
+- **El diálogo:** se abre encima de la ficha, con la carta, el precio y el campo numérico «Tu oferta en monedas». Debajo dice entre cuánto y cuánto, cuánto falta si no llega, que las monedas se reservan y cuánto dura, y las ofertas que quedan. El botón dice «Ofrecer N monedas». Enviada, «Oferta enviada».
+- **Cada carta del escaparate:** «Tu oferta: N» en Solar, o «N ofertas».
+- **La pestaña Ofertas** (`?pestana=ofertas`):
+  - «Ofertas por lo tuyo», con «Aceptar» en Solar y «Rechazar»;
+  - «Tus ofertas», con «Retirar» y el chip de lo reservado;
+  - cada fila con su carta, la cantidad, quién, lo que se pide, el estado en un chip (Abierta en Terminal) y hasta cuándo.
+- **Aceptar** se confirma diciendo lo que cobras tras la comisión y que las demás ofertas se cierran.
+- **Arriba, junto a lo que tienes:** el chip «N en ofertas», que lleva a la pestaña.
+
 ## 8 quindecies. Trueque
 
-Galaxia por galaxia entre dos jugadores (GDD §14.5, M5c-2). Se propone desde el perfil de otro jugador («Proponer trueque») y se sigue en la pestaña «Trueques» del mercado (`/mercado?pestana=trueques`).
+Galaxias y monedas entre dos jugadores (GDD §14.5, M5c-2; trueques 2.0 el 2026-11-14). Se propone desde el perfil de otro jugador («Proponer trueque») y se sigue en la pestaña «Trueques» del mercado (`/mercado?pestana=trueques`).
 
 Consulta de ui-ux-pro-max: se aplicaron dos guías:
 - **Confirmar lo que no se deshace:** cancelar un trueque pide confirmación;
 - **El estado siempre a la vista:** cada trueque dice a quién le toca.
 
-**Componer el trueque** (proponer o «Cambiar»):
-- **Las casillas:** «Doy» y «Quiero», una junto a otra con ⇄ en Solar entre ambas. Cada una tiene su carta o un hueco punteado que dice «Nada todavía».
+**Componer el trueque** (proponer o «Contraoferta»):
+- **Las columnas:** «Doy» y «Quiero», una junto a otra con ⇄ en Solar entre ambas. Cada una tiene sus cartas (a 120 px cuando hay varias), cada carta con su × para quitarla («Quitar …»), o un hueco punteado que dice «Nada todavía».
+- **Añadir:** «Elegir lo que doy» y «Elegir lo que pido», con «+», hasta el límite por lado. Con el lado lleno, el botón deja paso a «Hasta N galaxias por lado».
 - **Doy:** el selector de tu colección marca lo equipado, expuesto, en venta o en otro trueque como «No disponible».
-- **Quiero:** un selector con la colección pública del otro.
-- **El aviso:** «Lo que das queda reservado hasta que el trato se cierre o caduque en 3 días».
-- **Enviar:** «Proponer» o «Guardar cambios», desactivados mientras no des nada.
+- **Quiero:** un selector con la colección pública del otro, sin las que ya pides.
+- **Las monedas:** un campo numérico por columna, «Monedas que das» y «Monedas que pides». Con monedas en un lado, el campo del otro se apaga y dice «Las monedas van en un solo lado del trato».
+  - **Si das monedas:** «Se reservan de tu saldo», o cuántas te faltan, y entonces no se envía.
+  - **Si las pides:** «Recibes N monedas después de la comisión del mercado».
+- **El aviso:** el límite por lado y «Lo que das queda reservado hasta que el trato se cierre o caduque en 3 días».
+- **Enviar:** «Proponer» (desactivado mientras no des nada) o «Enviar contraoferta» (desactivado si no cambias nada).
 
 **Cada trueque abierto:**
 - **La cabecera:** «Con» y el otro jugador enlazado a su perfil, y hasta cuándo sigue abierto.
-- **Las cartas:** «Tú das» y «Recibes», lado a lado.
+- **Las cartas:** «Tú das» y «Recibes», lado a lado. Varias cartas van a 112 px. Las monedas, en un chip Solar con moneda; las que recibes dicen cuánto queda tras la comisión.
 - **El estado:**
   - «… ha confirmado. Te toca», en Solar y con el borde de la tarjeta en Solar;
   - «Has confirmado. Esperando a …»;
-  - «Falta una galaxia en algún lado».
+  - «Cada parte tiene que dar algo: galaxias o monedas».
 - **Las acciones:**
   - «Confirmar trato» confirma la versión que ves. Si el trato cambió entretanto, lo dice y se vuelve a leer;
-  - «Cambiar»;
+  - «Contraoferta», que abre el compositor con el trato que ves;
   - «Cancelar», en Nova, que pide confirmación.
+- **Historial (N):** un desplegable bajo una línea fina, del paso más nuevo al más viejo. Cada paso lleva:
+  - su versión («v2»);
+  - quién hizo qué, en negrita: «Propusiste», «lyra hizo una contraoferta», «Trato hecho» en Terminal o «… canceló» en Nova;
+  - el trato de las propuestas y contraofertas: «Tú das … · lyra da …»;
+  - la hora.
 
-**Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y las dos galaxias.
+**Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y lo que dio cada lado («Diste Vega y Orión», «Recibiste 500 monedas»).
+
+**Tablón** (2026-11-14, GDD §14.5):
+- **Dos vistas:** «Mis trueques» y «Tablón», como pastillas bajo las pestañas, cada una con su URL (`?pestana=trueques&vista=tablon`). La activa lleva el borde Solar.
+- **La barra:** las rarezas como chips («Da galaxias» de esa rareza) y «Publicar» en Solar con «+». Debajo, cuántas puedes tener abiertas y publicar hoy; sin hueco, el botón se apaga y lo dice.
+- **Tus publicaciones**, arriba, con el borde Solar, «Tuya», sus respuestas y «Retirar» en Nova, que pide confirmación.
+- **Cada publicación:**
+  - una tarjeta con el autor enlazado y hasta cuándo dura;
+  - «Da»: sus cartas (a 104 px cuando hay varias) y el chip Solar de monedas;
+  - «Busca»: chips de rareza con su rombo, de tipo, de paleta, de fenómeno y «Acepta monedas» en Solar; o «Escucha propuestas» en cursiva;
+  - la nota, citada con una raya a la izquierda;
+  - abajo, las respuestas y «Responder» en Solar, o «Ver tu respuesta» si ya respondiste.
+- **Cargar más**, como en Comprar.
+- **Publicar:** el mismo compositor de dos columnas, «Doy» (cartas y monedas) y «Busco» (chips de rareza, los tres desplegables de rasgos y el chip «Acepto monedas»). Debajo, la nota con su cuenta de letras y que nada se reserva hasta aceptar una respuesta. Las monedas siguen yendo en un solo lado.
+- **Responder:** el compositor de trueques titulado «Respuesta a …». Arriba, lo que busca la publicación y su nota. «Quiero» lleva lo que da, fijo («Lo que da la publicación»), sin quitar ni añadir. Se envía con «Enviar respuesta» y lleva a «Mis trueques».
+- **En Mis trueques**, un trueque que responde a una publicación lleva la etiqueta «Respuesta a una publicación del tablón» en Hielo.
 
 **En la colección:**
 - una galaxia ofrecida lleva la insignia «En trueque»;
@@ -705,21 +928,41 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 
 Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - **El estado no se dice solo con color:** un mensaje oculto se atenúa y lleva una barra Nova a la izquierda, pero sobre todo dice «Oculto por denuncias» u «Oculto por <nombre>»;
-- **Lo que se actualiza solo se puede parar:** el chat en vivo dice «Se actualiza cada 5 segundos», con un punto Terminal que late, y «Pausar» lo detiene («En pausa»);
+- **Lo nuevo no mueve lo que lees:** desde el 14/11 nada se relee solo. El socket vivo avisa de lo que llega («2 mensajes nuevos» con «Ver», en Terminal) y la cola de denuncias se relee al llegar una;
 - **Cada acción se confirma y se ve hecha:** cada una abre un diálogo con motivo y termina con «Hecho. Queda en la auditoría»;
 - **Un vacío orienta:** «No hay denuncias pendientes. Las nuevas aparecen aquí», «Nadie está silenciado ahora».
 
-**Apartados:** una fila de pastillas bajo el título, con nombre de navegación «Apartados de moderación»: Denuncias, Chat en vivo, Silencios y, solo para admins, Clanes, Comercio y Alertas (§8 novodecies). La activa, en Panel 2 con su labio, como las pestañas de la ficha.
+**Apartados:** una fila de pastillas bajo el título, con nombre de navegación «Apartados de moderación»: Denuncias, Mensajes, Silencios y, solo para admins, Clanes, Comercio y Alertas (§8 novodecies). La activa, en Panel 2 con su labio, como las pestañas de la ficha.
 
 **Un mensaje** es una tarjeta Panel de 920 px como mucho:
 - arriba, el autor en negrita, el canal en una etiqueta Hielo y la hora en gris;
 - el texto tal cual se escribió, a 15 px, saltos de línea incluidos;
 - sus etiquetas: oculto (Nova) y cuántas denuncias tiene (Solar);
-- sus botones, que dicen lo que hacen: «Ocultar» (Nova) o «Restaurar», y «Silenciar a <nombre>».
+- sus botones, que dicen lo que hacen: «Ocultar» (Nova) o «Restaurar», y «Silenciar a <nombre>»;
+- uno eliminado dice «Eliminado» y no tiene «Restaurar» ni «Eliminar».
+
+**Carga del servidor** (2026-11-17, petición del propietario), encima de Salas en vivo:
+- **Fichas** con lo de ahora: salas abiertas «5/10» (esperando y jugando), jugadores en salas, partidas en grupo y sus conectados, partidas en solitario, conexiones en vivo, CPU del servidor y del árbitro (en % de un núcleo, con el p99 por paso), retraso del bucle de eventos (p99, con p50 y máximo), memoria y tiempo encendido.
+- **Líneas de la última hora** en las cuatro que más se mueven (salas, jugadores, CPU, bucle): una sola serie cada una, sin leyenda (la ficha la nombra), de 2 px en tinta apagada con el último punto en hielo. Al pasar el ratón, una línea fina y el valor con su hora. Cada una se resume para el lector de pantalla («entre X e Y, N muestras»).
+- **«Ver la tabla»:** toda la hora en una tabla, la más reciente arriba.
+- El servidor toma una muestra cada 15 s y guarda la última hora en memoria: un despliegue la empieza de cero. Lo ven moderadores y admins (`GET /galaxy/api/admin/load`).
 
 **Denuncias:** arriba, cuántos mensajes esperan revisión; lo denunciado más recientemente va primero (una denuncia nueva lo sube) y la cola va de 50 en 50 con «Anterior» y «Siguiente». Cada tarjeta suma un recuadro con «N denuncias sin revisar» en Solar y lo que escribieron. Sus botones se nombran según el estado del mensaje: «Ocultar» y «Dejar visible» si está a la vista, «Dejar oculto» y «Restaurar» si las denuncias ya lo ocultaron.
 
-**Chat en vivo:** una barra con el selector de canal (Comunidad y los clanes con mensajes en los últimos 30 días, como «[GX] Galácticos»), el estado en vivo, «Pausar» y, para admins, el enlace «Filtro de palabras» a la clave `chat`. Debajo, lo más nuevo primero y «Ver anteriores».
+**Mensajes** (petición del propietario, 2026-11-14: «más sencilla y completa, que soporte 100.000 mensajes»):
+- **Los filtros:** una rejilla (`role="search"`) que se parte según el ancho y nunca empuja la página hacia los lados.
+  - El chat: «Todos los chats», Comunidad, los clanes y las salas recientes.
+  - El texto: tres letras como mínimo, en cualquier parte.
+  - La cuenta, el estado (Todos, Visibles, Ocultos), «Solo los denunciados» y Desde y Hasta con el calendario del juego.
+  - «Quitar filtros» y, para admins, «Filtro de palabras».
+- **La lista:** debajo, cuántos hay y lo más nuevo primero, con «Ver anteriores». Con «Todos los chats», cada tarjeta dice el suyo.
+- **Cada mensaje visible:** a la izquierda, una casilla para marcarlo. Con alguno marcado, una barra pegada arriba dice cuántos y ofrece «Ocultar los N seleccionados» (100 como mucho) y «Quitar la selección».
+- **Los botones:**
+  - «Ocultar» o «Restaurar»;
+  - «Ocultar y silenciar», en Nova, con la duración y el motivo en un solo diálogo;
+  - «Eliminar», que avisa de que no se deshace;
+  - «Historial».
+- **El historial de una cuenta:** sus mensajes, con una cabecera Hielo con «Ocultar lo último» (la última hora, 24 horas o 7 días, 500 como mucho), «Silenciar a <nombre>» y «Todos los mensajes».
 
 **Silencios:** «Silenciar una cuenta» (cuenta, duración de 10 minutos a 30 días y motivo) y la tabla de los que siguen en curso, cada uno con «Levantar».
 
@@ -762,40 +1005,128 @@ Las acciones en bloque sobre alertas quedan fuera, porque en la beta habrá poca
 
 ## 8 vicies. Buzón y avisos
 
-El buzón de la barra de arriba, los avisos de la pantalla de título y `/admin/comunicacion` (GDD §4 y §16.5, M6d-1).
+El buzón de la barra de arriba, los avisos de la pantalla de título, `/admin/comunicacion` y la biblioteca de packs (GDD §4 y §16.5; M6d-1; buzón v2, 2026-11-16).
 
-Consulta de ui-ux-pro-max: se aplicaron tres guías:
-- **Un contador se dice en una sola etiqueta:** el botón se llama «Buzón, 2 sin leer», y la insignia es solo visual, sin una región en vivo que compita;
-- **Cada acción se ve hecha:** «Recoger» pasa a «Recogido» con su marca Terminal, y el monedero de arriba suma al momento;
+Consulta de ui-ux-pro-max (M6d-1 y buzón v2): se aplicaron estas guías:
+- **Un contador se dice en una sola etiqueta:** el botón se llama «Buzón, 2 sin leer», y la insignia es solo visual, sin una región en vivo que compita.
+- **Cada acción se ve hecha:** «Recoger» pasa a «Recogido» con su marca Terminal, y lo recogido se revela regalo a regalo.
 - **Un aviso se puede cerrar,** con su propio botón «Cerrar aviso».
+- **Pestañas y grupos con teclado:** las pestañas y los grupos de opciones siguen el patrón WAI-ARIA (flechas, Inicio y Fin); los tipos y los dibujos son radios nativos.
+- **El color nunca va solo:** cada tipo, rareza y acabado lleva también su nombre.
+- **Avisos al momento y junto a su causa:** el regalo grande y los regalos que fallan se dicen en una región en vivo.
 
-**El botón del buzón:**
-- el icono de carta;
-- con mensajes sin leer, una insignia Solar de 22 px en su esquina con el número (9+ desde 10).
+### Tipos de mensaje
 
-**El buzón** es un diálogo de 880 px como mucho:
-- **a la izquierda, la lista:** cada mensaje con su título, su fecha y, en palabras, «Nuevo» (Solar, con una barra Solar a su izquierda) y «Con regalo» (Terminal);
-- **a la derecha, la carta abierta:** el título en Bungee, la fecha y cuándo caduca, y el texto tal cual se escribió;
-- **un regalo es un recuadro con un brillo Solar:**
-  - el paquete pintado en Aseprite: 32×32 a ×3, una caja Hielo con cinta y lazo Solar, un destello que baja por la cinta y una chispa que parpadea; quieto con movimiento reducido;
-  - lo que da, en pastillas con el icono y el color de cada moneda (monedas en Solar, polvo en Hielo, señales en Nova);
-  - «Recoger»;
-  - una vez recogido, el paquete se apaga y dice «Recogido»;
-- vacío: «Tu buzón está vacío. Aquí llegan las noticias y los regalos del equipo»;
-- con menos de 760 px de ancho, la carta baja bajo la lista.
+Cada mensaje tiene un tipo con su icono y su color (`apps/web/src/mail/types.ts`):
 
-**Los avisos de la pantalla de título:** sobre el logo, una línea cada uno, como el aviso de mantenimiento:
-- los importantes en Solar con el icono de alerta;
-- los informativos en Hielo con un cometa;
+| Tipo | Icono | Color | Para qué |
+|---|---|---|---|
+| Anuncio | megáfono | Cielo | Noticias y novedades |
+| Regalo | estrella | Solar | Un detalle del equipo |
+| Compensación | llave | Terminal | Un fallo, una caída o una espera |
+| Evento | calendario | Nova | El anuncio y los premios de un evento |
+| Recompensa | trofeo | UV | Un premio ganado |
+| Personal | carta | Hielo | Un mensaje para uno o unos pocos |
+| Referidos | invitar | Terminal | Los regalos por invitar (los envía el juego) |
+| Tienda | tienda | Solar | Lo que pasa con una compra (los envía el juego) |
+| Sistema | información | Hielo | Lo que el juego avisa por su cuenta |
+
+El tipo sale en la tarjeta del panel, en el sello de la carta, en la lista y el filtro del buzón, y en el aviso en directo.
+
+### Regalos y packs
+
+**Un regalo siempre va dibujado y con sus palabras** (`apps/web/src/gifts/GiftArt.tsx`, `words.ts`):
+- **una moneda:** su icono en su color (monedas y la moneda de temporada en Solar o Cielo, polvo en UV, señales en Hielo, señales de evento en Nova, material y componentes en Terminal);
+- **una pieza:**
+  - el avatar o la skin dibujados;
+  - el marco alrededor de una cara;
+  - un título, como un pergamino, con su texto en sus palabras;
+- **una galaxia:** una carta sellada en el color de su rareza, con el brillo de su acabado (holo, prismático, braille, corrupto o fisura) y «×N» si son varias;
+- **una sonda:** volando; **experiencia y puntos de temporada:** su insignia.
+
+En tiras pequeñas (packs, lista de enviados) las piezas y las sondas van como icono.
+
+**Un pack** es un grupo de regalos de la biblioteca, con su nombre y su dibujo:
+- seis dibujos de 32×32 en cuatro fotogramas, quietos con movimiento reducido: paquete (`paint-gift.lua`), cofre, cápsula, estrella, caja de suministros y regalo (`art/mail/paint-packs.lua`);
+- al enviarlo, se copia en el mensaje: cambiar el pack después no toca lo ya enviado.
+
+### El buzón
+
+**El botón:** el icono de carta y, con mensajes sin leer, una insignia Solar de 22 px con el número (9+ desde 10).
+
+**El diálogo** mide 1040 px como mucho:
+- **arriba:**
+  - las pestañas Bandeja y Archivo;
+  - con regalos por recoger, «Recoger todo (N)» en Solar;
+  - los tipos que hay, como fichas con su icono y cuántos, más «Todos»: filtran la lista;
+- **a la izquierda, la lista:**
+  - cada mensaje con el icono de su tipo, su título y su fecha;
+  - en palabras: «Nuevo» (Solar, con una barra del color de su tipo), «Con regalo» (Terminal) y «Caduca pronto» (Nova);
+  - «Cargar más» si hay más;
+- **a la derecha, la carta:**
+  - el sello de su tipo, el título en Bungee, la fecha, cuándo caduca y el texto tal cual se escribió;
+  - **el regalo, en un recuadro con brillo Solar:** el paquete animado, cada regalo dibujado y, debajo de su nombre, los de cada pack, y «Recoger»; recogido, el paquete se apaga y dice «Recogido»;
+  - si caduca pronto, una línea Nova;
+  - abajo, «Archivar» (o «Devolver a la bandeja») y «Borrar», que no se puede con un regalo sin recoger y lo explica;
+- **vacío:** «Tu buzón está vacío…»; el archivo vacío dice para qué sirve;
+- con menos de 720 px de ancho, la carta baja bajo la lista.
+
+**La revelación** (`GiftReveal`) se abre al recoger:
+- cada regalo entra uno tras otro, dibujado y con un brillo Solar;
+- lo que ya tenía el jugador dice «Ya lo tenías» y lo que no se pudo dar, «No se pudo dar» en Nova;
+- las galaxias salen como su carta, con «Ver en la colección», que cierra el buzón;
+- con movimiento reducido, todo a la vez y quieto.
+
+**El aviso en directo** de un correo lleva el icono de su tipo y dice «Tienes un regalo en el buzón» cuando lo trae.
+
+**Los avisos de la pantalla de título:** sobre el logo, una línea cada uno:
+- los importantes en Solar, con el icono de alerta;
+- los informativos en Hielo, con un cometa;
 - cada uno con su botón de cerrar.
 
-**Comunicación (panel):**
-- **«Enviar un mensaje»:** título, mensaje, Para (todas, una lista de cuentas, o por nivel y fecha de alta), «Llega a N cuentas» en Hielo, los regalos en su recuadro, la caducidad y el motivo;
-  - con regalo, la contraseña y el botón en Nova;
-  - el botón dice a cuántas cuentas envía: «Enviar a 2 cuentas»;
-- **la tabla de enviados:** para quién, regalos, llega a, leído, recogido, estado y «Retirar»;
-- **«Publicar un aviso»:** texto, tono, empieza y termina;
-- **la tabla de avisos:** «En curso» (Terminal), «Programado» (Hielo) o «Terminado», y «Terminar».
+### Comunicación (panel)
+
+**«Enviar un mensaje»** se reparte en dos columnas desde 1240 px: el formulario a la izquierda y, fija a la derecha, la carta tal como la verá el jugador.
+
+- **El formulario:**
+  1. si hay plantillas, «Empezar con una plantilla»;
+  2. el tipo, en tarjetas con su icono, color y para qué sirve;
+  3. título, mensaje y para quién, con «Llega a N cuentas» en Hielo;
+  4. **los regalos:**
+     - la bandeja con lo elegido, cuántos caben y, en Nova, qué falla de cada uno, con «Quitar»;
+     - el selector por pestañas:
+       - Recursos: una fila por moneda, con su cantidad y «Añadir»;
+       - Estilo: la galería de piezas dibujadas, filtrada por pieza, por origen y por nombre;
+       - Galaxias: la rareza y el acabado, en muestras con su color y su nombre; el rasgo, cuántas y una muestra a petición;
+       - Sondas, Progreso y Packs, con el enlace a la biblioteca;
+  5. cuándo: «Ahora» o «Programar», con la fecha y la hora;
+  6. la caducidad y el motivo.
+- **La columna de la carta:**
+  - la vista previa;
+  - el aviso de regalo grande:
+    - en Nova, «Solo lo puede enviar un superadmin», si no lo eres;
+    - en Solar, «Lo puedes enviar porque eres superadmin», si lo eres;
+    - en los dos casos, con cada motivo y su límite;
+  - la contraseña, si da algo;
+  - el botón («Enviar a N cuentas» o «Programar el envío»), en Nova cuando da algo;
+  - «Guardar como plantilla».
+- **La tabla de enviados:**
+  - el tipo en su ficha, para quién y los regalos dibujados, con «Grande» si lo era;
+  - las barras de leídos y recogidos («600 de 1200»), con cuántos regalos ya tenían los jugadores y cuántos no se pudieron dar;
+  - el estado: En el buzón (Terminal), Programado (Hielo, con su hora), Caducado o Retirado;
+  - «Duplicar» y «Retirar».
+- **«Publicar un aviso» y la tabla de avisos:** sin cambios. Cada aviso dice En curso (Terminal), Programado (Hielo) o Terminado, y se puede terminar.
+
+**La biblioteca de packs** (`/admin/configuracion/mail`, la página de la clave `mail`):
+- una rejilla de tarjetas: el dibujo animado, el nombre, cuántos regalos lleva con su tira, «Apagado» si lo está, «Editar» y la papelera; al final, la tarjeta de rayas «Nuevo pack»;
+- **el editor:**
+  - el dibujo grande, el nombre y el identificador, que sale del nombre y no cambia después;
+  - «Activo»;
+  - los seis dibujos como radios con su nombre;
+  - lo que da, con la misma bandeja y el mismo selector, sin packs;
+  - abajo, el motivo, la contraseña y «Guardar y publicar», con «Cancelar» al lado;
+- **cada cambio se publica al momento** (2026-11-17; antes era un borrador que se perdía al recargar): guardar un pack, quitar un pack o una plantilla («Quitar «…»», con su motivo, su contraseña y «Quitar y publicar») y cambiar los días de aviso (su «Guardar y publicar» sale al cambiarlos). Al acabar dice «Guardado y publicado como versión N»;
+- **si otro admin publicó antes**, un aviso arriba lo dice con «Cargar lo publicado»; lo escrito se queda, y guardarlo otra vez va sobre la versión nueva sin pisarla.
 
 ## 8 unvicies. Estadísticas
 
@@ -972,16 +1303,170 @@ Un panel al pie del Laboratorio, solo a partir del nivel en que se abre:
 
 La confirmación es un `alertdialog` que dice qué vuelve a cero y qué se queda. Con movimiento reducido, el orbe no late.
 
+### Avatares en el podio y el perfil, y el cielo del menú
+
+Plan «escáner pro», parte E.
+- **Sin caja detrás:** `.podium-avatar` y `.profile-avatar` no tienen fondo, borde ni aro; el marco hace de borde.
+- **Misma huella:** `Avatar` con `fit="outer"` toma `size` como huella exterior (96/72 en el podio, 144 en el perfil). Con marco, la imagen mide size·32/48 y el marco la rodea; sin marco, la imagen llena la huella. Así todos miden lo mismo por fuera.
+- **El cielo del menú:**
+  - en «Personalizar» → «Fondo» se eligen hasta 12 galaxias propias (`galaxy.backdrops`, `GET /profile/backdrop`);
+  - salen barajadas en cada visita y en cada vuelta, sin repetir la misma dos veces seguidas;
+  - sin elegir ninguna, salen las 6 más raras;
+  - la paleta antimateria y la anomalía no se pueden elegir (se verían como una pantalla rota);
+  - las que se venden o se cambian desaparecen solas.
+
 ## 8 tertricies. Ajustes
 
-**`/ajustes`**, desde el pie del menú: tres grupos con labio.
-- **Sonido:** deslizadores de Música y Efectos con su porcentaje, «Silenciar todo» y «Probar un efecto».
-- **Incursión:** apuntar con el ratón.
-- **Ayuda:** volver a oír a PERKINS y enseñar otra vez los primeros pasos, con su confirmación escrita.
-
-Las casillas tienen 44 px de alto.
+**`/ajustes`**, desde el pie del menú (rediseño del plan «escáner pro», parte A; el propietario: «un estilo y organización mucho más intuitiva»): un solo panel con una columna de pestañas con icono y, al lado, la pestaña elegida con su nombre, una línea de lo que contiene y sus filas. Cada fila dice qué es el ajuste y, debajo, qué hace; su control va a la derecha.
+- **Pestañas** (`?seccion=`, que se sustituye, así «Volver» sigue llevando a donde estabas):
+  - **Sonido:** Música y Efectos (deslizadores), sonidos de la interfaz y «Silenciar todo» (interruptores), la prueba de sonido y «Avisos» de la cuenta.
+  - **Pantalla:** la presentación pro, «Instalar el juego» (el botón «Instalar» cuando el navegador lo ofrece, «Ya la tienes instalada» en verde Terminal o dónde está el icono de Chrome y Edge; solo donde se puede instalar) y «Pantalla completa» (interruptor; Esc sigue pausando), fuera de la pausa; y el cursor del juego, su tamaño y su color.
+  - **Accesibilidad:** Movimiento (Sistema, Reducido, Completo), con lo que pide ahora el ordenador, y Visión del color con su vista previa (rarezas, jugadores, a favor y peligro, elementos con su glifo; en la pausa, sin la vista previa).
+  - **Incursión:** apuntar con el ratón.
+  - **Ayuda:** PERKINS, los primeros pasos y el tutorial, con su confirmación escrita.
+- **La elegida:** fondo Panel 2 con labio, icono Solar y una barra Solar con brillo en el borde. Las pestañas siguen el patrón de WAI-ARIA (flechas, Inicio, Fin).
+- **En la pausa:** el mismo panel, algo más apretado y sin la fila de «Avisos», cabe sin barra a 1280×720; la Ayuda espera al menú de inicio.
+- **Pantallas estrechas:** las pestañas pasan arriba en fila y los controles bajan bajo su texto.
+- **La píldora «Instalar»** (galaxysurvivor.es): al final del pie del menú, solo mientras el navegador ofrece instalar y fuera de la app instalada. Icono en Ice y una × redonda en su esquina, como las insignias del pie, que la oculta para siempre en ese navegador. Ocupa el hueco que queda: con la tienda abierta se queda en el icono, para que el pie siga en una línea.
 
 **Acabado Fisura:** estática violeta con dos vetas de cristal que cruzan la carta despacio. En el inspector, vetas que brillan donde está el puntero y destellos sueltos.
+
+## 8 quattricies. Tienda de recursos
+
+**`/tienda`** (GDD §11.5), según la maqueta aprobada en F0:
+- **Cabecera:** «Volver», el título y el monedero con componentes (clase `shop-wallet`, adonde vuelan las fichas).
+- **Arriba:** la oferta destacada, con rayos que giran, un brillo que la cruza, sus etiquetas («+X % de regalo», «Rebajado», «Primera ×2») y una cuenta atrás real hasta su fin. Al lado, el pack de bienvenida (mientras no se haya comprado) y la tarjeta del extra de primera compra.
+- **Pestañas:** Monedas, Polvo, Componentes y Packs, en la dirección (`?pestana=monedas|polvo|componentes|packs`).
+- **Rejilla de 3×2:** cada pack con su arte de píxel y centelleos, su nombre, lo que da, «N + M de regalo», el extra en solar, la cinta («Más popular», «Mejor valor») y el precio en el botón.
+- **Arte de los packs [U, 2026-11-11]:** 22 sprites de 84×84, sobre el brillo de su recurso: a ×2 en las tarjetas, a ×3 en la oferta destacada (×2 en pantallas pequeñas) y a ×1 en el pack de bienvenida y en el resumen del pago. Siguen el nombre de cada producto:
+
+  | Pack | Monedas | Polvo | Componentes |
+  |---|---|---|---|
+  | 1 | Puñado | Pizca | Caja de piezas |
+  | 2 | Bolsa | Frasco | Kit |
+  | 3 | Saco | Tarro | Cajón técnico |
+  | 4 | Cofre | Ánfora | Palé |
+  | 5 | Arca | Nebulosa embotellada | Contenedor de carga |
+  | 6 | Bóveda estelar | Galaxia de polvo | Fábrica en una caja |
+
+  - Estilo: contorno de tinta por fuera y del tono oscuro de cada material por dentro, sombreado por bandas con la luz arriba a la izquierda, brillo en el metal y el cristal, y destellos.
+  - Detrás van el pack de bienvenida (una caja de regalo) y los kits: de arranque (caja de suministros), del explorador (mochila con brújula) y del comandante (cofre real con los tres recursos). Un combinado nuevo toma el kit de su tamaño.
+  - Fuente: `art/shop/tienda-packs.aseprite`, un fotograma por pack. Se generan con `art/shop/gen/` (`build.py` escribe la tira `apps/web/src/shop/packs.png`; `preview.py` saca la hoja de aprobación).
+- **El precio de antes** se tacha solo si lo manda el servidor (directiva Ómnibus). Lo que no se puede comprar dice por qué en su botón apagado.
+- **Pie:** «IVA incluido», «Condiciones de compra» (diálogo con el vendedor y el límite) y el límite diario. Nada crece de lado.
+
+**Diálogo de pago** (`Dialog`, 560 px):
+1. Resumen con el arte, lo que da, el extra y el precio, y la casilla, desmarcada.
+2. El formulario de Stripe con su tema `night` en nuestros colores: Apple Pay y Google Pay arriba, el correo para el recibo y la tarjeta. El velo no cierra el diálogo mientras se paga.
+3. La espera, con una ruedecita y «Confirmando el pago con tu banco».
+
+**Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave. Un pack de skins dice «N skins nuevas en tu Taller».
+
+**Packs de skins** (2026-11-17, pestaña Estilo)
+- **La tarjeta** (`SetArt`):
+  - Las ocho sondas del pack a ×2 (48 px), en dos filas de cuatro, cada una en su casilla oscura.
+  - Se mueve una cada vez, por turnos cada 1,4 s, y todas mientras se apunta a la tarjeta o tiene el foco. Con movimiento reducido, ninguna.
+  - Las que el jugador ya tiene salen atenuadas, con un tic terminal, y su nombre dice «ya la tienes».
+  - Debajo: el nombre del pack, «8 skins animadas» en grande y «Una para cada sonda · solo en este pack», o «Tienes 3 de 8: te damos las otras 5».
+  - Con fecha de fin, la etiqueta «A la venta hasta el 10 de enero». La cinta `limited` dice «Edición limitada».
+- **El pago** enseña las ocho a ×3, todas en movimiento.
+- **Las skins** (`art/probes/paint-probes.lua`): 8 fotogramas a 10 fps, planas como las demás, cada pack con formas propias y su llama, chispas y estela (`FLAMES`):
+
+  | Pack | Forma | Lo que se mueve |
+  |---|---|---|
+  | Navidad | cuerpo verde acebo, gorro de Papá Noel, bastón de caramelo, espumillón | borla, bombillas en cadena, copos |
+  | Fuego | roca carbonizada, grietas de lava, piezas de ascua | grietas que laten, lenguas de fuego, ascuas |
+  | Agua | azul de mar, espuma, aleta dorsal y cola de pez | onda de luz, burbujas |
+  | Galáctico | espacio con estrellas, rosa nebulosa, anillo de planeta | estrellas que titilan, una luna en el anillo |
+  | Carbono | fibra de carbono, alerón, filos de neón | un pulso que recorre el neón |
+  | Rubí | cuerpo tallado, cristales de rubí, platino | un destello por las facetas, chispas |
+
+## 8 quinquatricies. Perfil: avatar, marco, título, banner y «Personalizar» (plan de noviembre C2–C4)
+
+**Avatar**
+- Pixel art de 32×32 a escala entera (×1 en listas y barra, ×2 en el perfil y en «Personalizar»).
+- Un avatar animado es una tira de 4 fotogramas a 6 fps; con movimiento reducido se queda quieto.
+- Sin avatar se ve «Tu firma»: la figura de 5×5 que sale del nombre.
+
+**Marco**
+- Pixel art de 48×48 con una ventana transparente de 32×32: el avatar va en (8, 8).
+- Los épicos y legendarios son tiras de 6 fotogramas a 8 fps.
+- Si a un marco le falta el arte, se ve un aro de su color.
+- El componente es `hub/Avatar.tsx`, con `name`, `avatar`, `frame` y `size`.
+
+**Título**
+- Se escribe con el estilo del catálogo: `plain`, `shine` (un brillo que lo recorre), `aurora` (un degradado que fluye) o `flare` (un resplandor solar).
+- Con movimiento reducido, sin animación.
+
+**«Personalizar»**
+- Se abre desde tu perfil. Es un diálogo con una vista previa arriba («Así te verán») y pestañas Avatar, Marco, Título y Banner.
+- Cada pestaña es una rejilla de piezas con su rareza en su color de rareza.
+- Lo que no tienes sale bloqueado (gris, con candado), con el texto de cómo conseguirlo y, si es de la tienda, un enlace a «Estilo».
+- «Guardar» manda solo lo que cambió.
+
+**Banner**
+- Una galaxia del jugador arriba en su perfil: dibujada una vez en un canvas, difuminada y oscurecida, y fundida con la página.
+- Un acabado especial la recorre (holo, prismático, braille, corrupto o fisura). Una copia más suave tiñe toda la página detrás de los paneles, que conservan su fondo para que todo se lea.
+- Nunca se usa `backdrop-filter` encima de capas que se mueven.
+
+## 8 sexquatricies. Notas de versión
+
+- **Una versión cada vez** (2026-11-14): la del enlace (`?version=`) o la más nueva, con «Versión anterior» y «Siguiente versión» debajo, cada una con su número pequeño.
+- **Índice por categorías** a la izquierda, la más nueva arriba:
+  - **2027, 2028…**, con sus meses dentro (v27.01…);
+  - **BETA**, con las 1.x, al final.
+- **Cada categoría** es un botón con su flecha, su nombre (el año y BETA en la letra de títulos), cuántas versiones tiene y un punto solar si trae alguna nueva. Se abre y se cierra (`aria-expanded`); de entrada solo está abierta la que lleva la versión que se ve.
+- **La versión que se ve** lleva el borde de hielo (`aria-current="page"`). Las versiones se escriben «v1.24».
+
+## 8 septquatricies. Tablón de noticias
+
+- **Dónde:** el botón «Noticias» de la barra superior (con su cuenta de lo nuevo) abre el tablón, un diálogo de hasta 1180 px que nunca crece hacia los lados.
+- **De arriba abajo:**
+  - los **avisos** del equipo (el importante, marcado);
+  - el **carrusel «Destacado»**: la imagen grande a la izquierda (16:9 en estrecho) y el título, el texto y el botón sólido a la derecha. Pasa solo cada 8 s, pero nunca con movimiento reducido ni mientras el ratón o el foco están encima. Tiene flechas y puntos (`aria-current`);
+  - las **secciones** como columnas de un tablón: Comunidad, Eventos y torneos y Novedades, cada una con su color (lila, solar, terminal) y sus tarjetas una bajo otra. Son tres en ancho y una en móvil.
+- **La tarjeta:** imagen 16:9, una etiqueta pequeña («v1.26», «Evento»), «Nueva», el título en la letra de títulos, el texto, unas líneas en su color y el botón con flecha.
+  - El enlace la cubre entera: dentro del juego navega y cierra el tablón; una URL se abre en otra pestaña (`noopener`) y lo dice su nombre accesible.
+  - Las clases de variante llevan prefijo (`news-card-hero`, `news-card-tile`), porque `.tile` y otras son globales.
+- **Arte:** las imágenes de la galería (`apps/web/src/news/art/*.png`, 960×540) se dibujan con las piezas del juego: sus sondas y skins, la fauna, los Núcleos, las galaxias reales y los iconos, sobre fondo de espacio y sin texto. Se regeneran con `VITE_NEWS_ART=1` y la prueba `news-art.browser.test.ts`.
+- **Admin › Tablón:**
+  - cada sección con sus filas: flechas de orden a la izquierda, miniatura, título, estado («En el tablón», «Oculta», «Programada», «Terminada», «Ahora no tiene nada que contar») y adónde lleva, con las acciones a la derecha;
+  - el editor con el formulario a la izquierda y la tarjeta tal como la verán a la derecha;
+  - la imagen se elige en una rejilla de miniaturas o se sube arrastrando;
+  - el enlace se elige entre tres opciones (ninguno, una pantalla de una lista cerrada o una página https).
+
+## 8 octoquatricies. Editor de contenido
+
+`/admin/configuracion/content`: las incursiones enteras (`content`) se editan sin tocar JSON, pensado para admins que no conocen el código (plan del editor de contenido, 2026-11-16).
+
+- **Borradores en el servidor:** la portada lista los borradores abiertos, uno nuevo y el historial (cualquier versión vuelve como borrador). Un borrador se guarda solo campo a campo, se junta con lo publicado si otro admin publicó entretanto (por entrada, eligiendo qué lado se queda) y se prueba en una incursión de prueba antes de publicarlo.
+- **Encima, «Crear…»:** una fila de botones pequeños, uno por tipo (enemigo, Núcleo, sector, arma, sonda, pasiva, reacción, anomalía, conjunto). Cada asistente va por pasos en pestañas con su recuento de problemas (etiqueta Nova): nombre y «Basado en…», una sección por paso con los textos al final, lo que necesita para formar parte del juego y una revisión con «Añadir al borrador» en Solar. Nunca publica.
+- **Las zonas:** pestañas con icono (Arsenal, Sondas, Fauna, Núcleos, Sectores, Elementos, Reliquias, Eventos de incursión, Reglas de la incursión, Técnico); la elegida en Solar. Debajo, su frase y, si tiene varias listas, sus pastillas.
+- **Lista y ficha:**
+  - a la izquierda, de 240 a 300 px y fija al desplazar, la búsqueda sin tildes y las entradas con su dibujo (32 px, pixelado), su nombre y su identificador en monoespaciada; la elegida con una barra Solar, la que tiene problemas con una Nova, lo nuevo con la etiqueta «Nueva»;
+  - a la derecha, la ficha: dibujo de 48 px, el nombre en la letra de títulos, «Duplicar» y «Quitar» (apagado en lo publicado, o en lo que se usa en otro sitio, que dice dónde);
+  - los campos se agrupan por secciones con un rótulo en versalitas, y los técnicos van al final, bajo «Más ajustes» (cerrado salvo si tienen un problema);
+  - por debajo de 900 px la lista sube encima de la ficha.
+- **Controles propios:**
+  - el dibujo se elige en una galería por grupos (Fauna, Núcleos, Sondas, Iconos, Otros, Todos) con búsqueda; el elegido se anima salvo con movimiento reducido;
+  - los selectores de entradas y de tipos llevan su dibujo o su explicación debajo de cada opción; «Otro: necesita programación» se ve y no se elige;
+  - las listas de ids se ordenan por nombre con flechas (las formas de un Núcleo);
+  - la tabla de niveles de un arma: una fila por nivel, una columna por número con su minigráfico Solar, lo que el tipo no usa apagado y al final;
+  - los gráficos sobre su editor: la vida de un Núcleo por fases (Terminal, Solar, Nova, UV), cuándo sale cada enemigo de un sector y sus oleadas, la parte de cada evento y la tabla de reacciones;
+  - un texto vacío enseña en gris, en cursiva, el que se ve hoy en el juego.
+- **El panel lateral:** Problemas, Avisos (con «He leído los avisos» para poder publicar), Qué cambia (con los nombres del editor), Probar en incursión, la simulación rápida del bot (lo publicado frente al borrador), dónde se notará y la publicación.
+- **El JSON** sigue en su pestaña; mientras no es válido no se vuelve al editor, para no perder lo escrito. Si el editor no puede enseñar un borrador roto, lo dice y ofrece el JSON.
+
+## 8 novoquatricies. La portada de galaxysurvivor.es
+
+La portada pública (`apps/landing`, aprobada el 17/11/2026 como «Viaje de la sonda») usa estos mismos tokens, fuentes y labios. Tiene su propia hoja (`src/styles/landing.css`) y una prueba que vigila que los colores coincidan con los del juego.
+
+- **La idea:** la sonda despega de la plataforma y baja por la página siguiendo una ruta de puntos que se ilumina a su paso. Cada parada es un sector con su luz (`data-biome`), y al final atraca en la estación.
+- **La ruta** cruza el carril central de las paradas a dos columnas y se aparta a un lado en las centradas (`data-anchor`), nunca por encima del texto.
+- **Los clips del juego** van en bucle y sin sonido. Se abren como un ping de radar, se descargan al llegar y se paran fuera de pantalla.
+- **Sin JS** todo se ve, y con movimiento reducido nada se mueve.
+- **A partir de 2400 px** todo es un 25 % más grande, como el juego.
+- **En el móvil,** «Jugar gratis» abre el aviso «Se juega en ordenador», que deja compartir o copiar el enlace.
 
 ## 9. Copy
 

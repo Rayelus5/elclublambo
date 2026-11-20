@@ -5,7 +5,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 
 export default defineConfig([
-  globalIgnores(['**/dist/**', '**/node_modules/**', '**/test-results/**', '**/playwright-report/**']),
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', 'apps/landing/gen/**', '**/node_modules/**', '**/test-results/**', '**/playwright-report/**']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -16,6 +16,11 @@ export default defineConfig([
   {
     files: ['scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', '**/*.config.{js,mjs,ts}'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // The landing's asset and build scripts run in Node and drive a browser page (Playwright's page.evaluate).
+    files: ['apps/*/scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],

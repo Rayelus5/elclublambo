@@ -7,10 +7,12 @@ import { updateBlasts } from './systems/blasts';
 import { updateLayer } from './systems/layers';
 import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
+import { dashRules, moveDash, startDashes } from './systems/dash';
 import { updatePickups } from './systems/pickups';
 import { updateRelics } from './systems/relics';
 import { applyCoopInputs, updateDowned, updateOffers } from './systems/coop';
 import { syncProps } from './systems/props';
+import { createWorld, updateWorld } from './systems/world-events';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
 import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
@@ -19,6 +21,9 @@ import { xpFor } from './systems/xp';
 import { IDLE, type ProbeInput, type ProbeState, type Sim, type SimOptions } from './types';
 import { SpatialGrid } from './world/grid';
 import { createPools } from './world/pools';
+import { healBudget } from './systems/healing';
+import { updateStillness } from './systems/stillness';
+import { updateRunEvents } from './systems/run-events';
 
 // The run simulation (GDD §5, §5.7, §18.4): a fixed 60 Hz step fed with one input per probe per tick. Same options and
 // same inputs → the same run, on every machine. While a level-up choice is open the world is frozen: only choices
@@ -70,7 +75,8 @@ export function createSim(opts: SimOptions): Sim {
     boss: null,
     blasts: [],
     beacon: null,
-    loot: [{ coins: 0, dust: 0, components: 0 }],
+    loot: [{ coins: 0, dust: 0, components: 0, signals: 0 }],
+    world: createWorld(opts.seed, content.satellites),
     kills: 0,
     bossKills: 0,
     events: [],
@@ -118,14 +124,19 @@ export function createSim(opts: SimOptions): Sim {
       downs: 0,
       stats: { maxHp: def.hp } as ProbeState['stats'],
       shield: 0,
+      dash: { charges: 0, recharge: 0, pause: 0, t: 0, dir: 0 },
       kills: 0,
       fx: {},
+      still: { x, y: 0, t: 0 },
+      healBank: 0,
     };
     return p;
   });
   for (const p of sim.probes) {
     refreshStats(sim, p);
     p.hp = p.stats.maxHp;
+    p.dash.charges = dashRules(sim, p).max;
+    p.healBank = healBudget(sim, p) * sim.content.healing.burst;
   }
   return sim;
 }
@@ -149,6 +160,10 @@ function settle(sim: Sim): void {
       pool.px[i] = pool.x[i]!;
       pool.py[i] = pool.y[i]!;
     }
+  }
+  for (const s of sim.world.satellites) {
+    s.px = s.x;
+    s.py = s.y;
   }
 }
 
@@ -203,6 +218,8 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickProbes(sim);
   moveProbes(sim, inputs);
   recordMoves(sim, inputs);
+  updateStillness(sim);
+  startDashes(sim, inputs);
   tickFlashes(sim);
   direct(sim);
   updateEnemies(sim, relocate);
@@ -212,7 +229,10 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   updateFoeShots(sim);
   rebuildGrid(sim);
   syncProps(sim);
+  updateWorld(sim);
+  updateRunEvents(sim);
   for (const p of sim.probes) {
+    moveDash(sim, p);
     fireWeapons(sim, p);
     updateRelics(sim, p);
   }

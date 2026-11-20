@@ -1,0 +1,24 @@
+{
+  "banners": [
+    {
+      "id": "deep-scan",
+      "kind": "standard",
+      "name": "Escáner profundo",
+      "pityGroup": "standard",
+      "currency": "signal"
+    },
+    {
+      "id": "rumbo-profundo",
+      "kind": "event",
+      "name": "Escáner de Rumbo profundo",
+      "pityGroup": "event-rumbo-profundo",
+      "currency": "signal:rumbo-profundo",
+      "featured": {
+        "trait": "phenomenon",
+        "value": "pulsar"
+      },
+      "startsAt": "2026-11-22T23:00:00.000Z",
+      "endsAt": "2026-12-06T23:00:00.000Z"
+    }
+  ]
+}

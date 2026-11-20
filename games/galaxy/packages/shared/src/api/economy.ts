@@ -7,7 +7,8 @@ import type { Finish, Tier, Wallet } from '../gacha/types';
 export const pullRequestSchema = z
   .object({
     banner: z.string().regex(/^[a-z0-9-]{1,32}$/),
-    count: z.union([z.literal(1), z.literal(10)]),
+    // x1, x5 (2026-11-17) or x10: gacha/costs.ts PULL_COUNTS.
+    count: z.union([z.literal(1), z.literal(5), z.literal(10)]),
     pay: z.enum(['coins', 'signal', 'free']),
   })
   .strict();
@@ -18,6 +19,23 @@ export const fuseRequestSchema = z
   .strict()
   .refine((r) => new Set(r.ids).size === r.ids.length, 'duplicate_ids');
 export type FuseRequest = z.infer<typeof fuseRequestSchema>;
+
+/** How many galaxies one «Desintegrar varias» takes at most. */
+export const DISINTEGRATE_MAX = 50;
+/**
+ * Desintegrar varias (the owner: by selection, as when fusing): 1 to 50 different galaxies, all or none. With `preview`
+ * the server only says how many and how much dust, and changes nothing (no idempotency key needed).
+ */
+export const disintegrateManySchema = z
+  .object({ ids: z.array(z.uuid()).min(1).max(DISINTEGRATE_MAX), preview: z.boolean().optional() })
+  .strict()
+  .refine((r) => new Set(r.ids).size === r.ids.length, 'duplicate_ids');
+export type DisintegrateManyRequest = z.infer<typeof disintegrateManySchema>;
+export interface DisintegrateManyPreview {
+  count: number;
+  /** Dust for all of them, as if one by one (the lab's Reciclaje and the relic refunds included). */
+  dust: number;
+}
 
 /** Engine traits as stored (keys in draw order; arms/inclination only where they apply). */
 export type GalaxyTraits = Record<string, string>;
@@ -106,11 +124,13 @@ export interface LeftoverView {
 
 export interface GachaView {
   banners: BannerView[];
-  costs: { coins: number; coinsTen: number; signals: number };
+  costs: { coins: number; coinsFive: number; coinsTen: number; signals: number };
   freePullAvailable: boolean;
   wallet: Wallet;
   /** Conversions the player has not seen yet. */
   leftovers?: LeftoverView[];
+  /** The resource shop for this account (shop and lab plan, F5): open (its links show) and with an offer running. */
+  shop?: { open: boolean; offer: boolean };
 }
 
 /** The conversions the player has now seen. */
@@ -121,6 +141,13 @@ export interface PullResponse {
   wallet: Wallet;
   view: GachaView;
 }
+
+/**
+ * The collection's orders (the owner, 2026-11-14): rarest (the screen's default), newest, oldest, most and least star
+ * dust on disintegrating, and by name. The API's default stays `new` (other screens ask for theirs).
+ */
+export const COLLECTION_SORTS = ['rarity', 'new', 'old', 'dust-desc', 'dust-asc', 'name-asc', 'name-desc'] as const;
+export type CollectionSort = (typeof COLLECTION_SORTS)[number];
 
 export interface CollectionPage {
   items: GalaxySummary[];

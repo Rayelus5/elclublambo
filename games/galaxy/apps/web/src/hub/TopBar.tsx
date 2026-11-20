@@ -1,12 +1,14 @@
-import type { MeResponse, Wallet } from '@galaxy/shared';
+import { DISCORD_URL, type MeResponse, type Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { isAdmin, isStaff } from '../auth/useMe';
+import { isStaff } from '../auth/useMe';
+import { unreadTotal, useChatUnread } from '../api/chat';
 import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
 import { LeftoversNotice } from './Leftovers';
 import { NewsButton } from './News';
+
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
@@ -16,7 +18,8 @@ import { WalletBar } from './WalletBar';
 const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
- * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
+ * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan with its free-pull notice, only
+ * where the page has no scanner button of its own: the title menu has it as a big button),
  * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1), Comunidad opens the chat sheet (M5b-2)
  * and Noticias the notices and multipliers (open beta). Balances are read as whole sentences.
  */
@@ -26,6 +29,7 @@ export function TopBar({
   freePull,
   onLogout,
   leaving,
+  scanner = true,
 }: {
   me: MeResponse;
   wallet: Wallet | undefined;
@@ -33,10 +37,17 @@ export function TopBar({
   /** Salir: only on the title screen (the lobby keeps the rest of the bar). */
   onLogout?: () => void;
   leaving?: boolean;
+  /** The deep scan's shortcut (the title menu leaves it out: its own Escáner button leads there). */
+  scanner?: boolean;
 }) {
   const chatOpen = useUi((s) => s.chat !== null);
   const openChat = useUi((s) => s.openChat);
   const closeChat = useUi((s) => s.closeChat);
+  // What is unread in my chats (the owner, 2026-11-14): the count on Comunidad, «@» when someone names me; it opens on
+  // the channel that has something new (my clan's or my room's first).
+  const unreadView = useChatUnread().data;
+  const unread = unreadTotal(unreadView);
+  const firstUnread = unreadView && (unreadView.clan ?? 0) > 0 ? 'clan' : unreadView && (unreadView.room ?? 0) > 0 ? 'room' : 'global';
   const friendsOpen = useUi((s) => s.friends);
   const openFriends = useUi((s) => s.openFriends);
   const closeFriends = useUi((s) => s.closeFriends);
@@ -46,25 +57,33 @@ export function TopBar({
   return (
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
-        <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
-          <Icon name="radar" />
-          <span>{copy.hub.scanner}</span>
-          {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
-        </Link>
+        {scanner ? (
+          <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
+            <Icon name="radar" outline />
+            <span>{copy.hub.scanner}</span>
+            {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
+          </Link>
+        ) : null}
         <Link to="/mercado" className="lip pill fold enter" style={delay('1s')}>
           <Icon name="store" />
           <span className="label">{copy.hub.market}</span>
         </Link>
         <button
           type="button"
-          className="lip pill fold enter"
+          className="lip pill fold enter chat-button"
           style={delay('1.05s')}
           aria-haspopup="dialog"
           aria-expanded={chatOpen}
-          onClick={() => (chatOpen ? closeChat() : openChat('global'))}
+          aria-label={copy.chat.communityLabel(unread.n, unread.mentions)}
+          onClick={() => (chatOpen ? closeChat() : openChat(firstUnread))}
         >
           <Icon name="chat" />
           <span className="label">{copy.hub.community}</span>
+          {unread.n > 0 ? (
+            <span className={`chat-unread${unread.mentions > 0 ? ' mention' : ''}`} aria-hidden="true">
+              {unread.mentions > 0 ? '@' : unread.n > 99 ? '99+' : unread.n}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -85,15 +104,28 @@ export function TopBar({
           {requests > 0 ? <span className="friends-request" aria-hidden="true" /> : null}
         </button>
         <NewsButton style={delay('1.11s')} />
+        {/* The game's Discord community (the owner): out of the game, in a new tab. */}
+        <a
+          href={DISCORD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="lip pill fold enter discord-button"
+          style={delay('1.14s')}
+          aria-label={copy.hub.discordLabel}
+          title={copy.hub.discordLabel}
+        >
+          <Icon name="discord" />
+          <span className="label">{copy.hub.discord}</span>
+        </a>
       </nav>
       <div className="group">
-        <div className="lip panel hud enter" style={delay('1s')} data-tour="wallet">
+        <div className="lip panel hud hud-me enter" style={delay('1s')} data-tour="wallet">
           <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
-            <Avatar name={me.username} />
+            {/* Its face the pill's whole height (48 px); a frame sticks out round it. */}
+            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} size={48} />
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}
-              {isStaff(me) ? <span className="badge-admin">{isAdmin(me) ? copy.hub.admin : copy.hub.moderator}</span> : null}
             </div>
             {/* Its name keeps what it shows (label in name) and says where it leads. */}
             <span className="sr-only">{copy.social.yourProfile}</span>

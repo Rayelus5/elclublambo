@@ -7,6 +7,7 @@ import type { DB } from '../db/schema';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { type Notices, withNotices } from '../realtime/notices';
 import type { RunsDeps } from '../runs/hangar';
 import { collectAntenna, collectRefinery, loadRefinery, stationView, upgradeRoom } from './service';
 import { missionConfigs } from '../missions/service';
@@ -27,12 +28,12 @@ export function registerStationRoutes(api: FastifyInstance, deps: RunsDeps): voi
     req: FastifyRequest,
     name: string,
     body: unknown,
-    run: (accountId: string, key: string, trx: Kysely<DB>) => Promise<StationView>,
+    run: (accountId: string, key: string, trx: Kysely<DB>, out: Notices) => Promise<StationView>,
   ): Promise<StationView> {
     const s = requireSession(req);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'station', 60, 60);
-    return runOperation(deps.db, s.accountId, key, `station.${name}`, requestHash({ name, body }), (trx) => run(s.accountId, key, trx));
+    return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, `station.${name}`, requestHash({ name, body }), (trx) => run(s.accountId, key, trx, out)));
   }
 
   api.post('/galaxy/api/station/refinery/load', async (req) => {
@@ -42,7 +43,7 @@ export function registerStationRoutes(api: FastifyInstance, deps: RunsDeps): voi
   api.post('/galaxy/api/station/refinery/collect', async (req) => {
     empty.parse(req.body ?? undefined);
     const mcfg = await missionConfigs(deps.config);
-    return action(req, 'refinery.collect', null, (account, key, trx) => collectRefinery(deps, trx, account, key, mcfg));
+    return action(req, 'refinery.collect', null, (account, key, trx, out) => collectRefinery(deps, trx, account, key, mcfg, out));
   });
   api.post('/galaxy/api/station/antenna/collect', async (req) => {
     empty.parse(req.body ?? undefined);

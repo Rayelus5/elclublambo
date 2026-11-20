@@ -1,11 +1,14 @@
 import type { CoopPlayer } from '@galaxy/shared';
-import type { Content, HudSnapshot } from '@galaxy/sim';
-import { useEffect } from 'react';
+import type { Content, HudSnapshot, Offer } from '@galaxy/sim';
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { playUi } from '../audio/ui-sfx';
 import { describeOffer } from '../arena/hud/LevelUp';
 import { spriteDataUrl } from '../arena/sprites';
-import { TEAM_TINT } from '../arena/stage/stage';
+import { teamTint } from '../arena/stage/palette';
+import { usePrefs } from '../settings/prefs';
 import { copy } from '../copy/es';
-import { typing } from '../ui/keys';
+import { CARD_GUARD_MS, cardKey, typing } from '../ui/keys';
+import { useKeyLabels } from '../settings/keybinds';
 
 // The co-op HUD (multiplayer plan, phase 6): the cards without pause (a strip at the bottom: 1, 2 or 3 picks at once,
 // a click too, and the time left before one is taken at random; the arrows keep moving the probe), the team (life
@@ -14,31 +17,88 @@ import { typing } from '../ui/keys';
 const t = copy.coop.arena;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
-/** `onPick(i, seq)`: the card and the offer it was on, as shown (never a newer one the frame loop already has). */
-export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnapshot; content: Content; pickSeconds: number; onPick: (i: number, seq: number) => void }) {
-  const offer = hud.offer;
+/** How long a taken card takes to fly to the kit (ms; a short fade with reduced motion). */
+export const CARD_FLY_MS = 520;
+const CARD_FADE_MS = 160;
+
+/**
+ * The cards of a group run (the world never stops). `open`: whether my offer is up (and not yet answered); `onPick(i,
+ * seq)`: the card and the offer it was on, as shown (never a newer one the frame loop already has). The pick goes at
+ * once; the strip stays a moment while the card taken glows and flies to the kit, whatever the world does meanwhile.
+ * Nothing counts in its first CARD_GUARD_MS (a dash or a shot pressed just as it opens).
+ */
+export function CoopCards({
+  hud,
+  content,
+  pickSeconds,
+  onPick,
+  open = true,
+  reduced = false,
+}: {
+  hud: HudSnapshot;
+  content: Content;
+  pickSeconds: number;
+  onPick: (i: number, seq: number) => void;
+  open?: boolean;
+  reduced?: boolean;
+}) {
+  const keys = useKeyLabels();
   const seq = hud.coop?.offerSeq ?? 0;
+  const [taken, setTaken] = useState<{ offer: Offer[]; seq: number; index: number; fly: { x: number; y: number } } | null>(null);
+  // The offer answered never shows again, whatever the HUD still says until the world moves on.
+  const [answered, setAnswered] = useState(-1);
+  const live = open && seq !== answered ? hud.offer : null;
+  const cards = useRef<(HTMLButtonElement | null)[]>([]);
+  const shownAt = useRef(0);
+  const showing = taken === null && live !== null;
   useEffect(() => {
-    if (!offer) return;
+    if (showing) shownAt.current = Date.now();
+  }, [seq, showing]);
+  const take = useCallback(
+    (i: number) => {
+      if (!live || taken || Date.now() - shownAt.current < CARD_GUARD_MS) return;
+      // Where the kit is from the card: it flies there.
+      const card = cards.current[i]?.getBoundingClientRect();
+      const kit = document.querySelector('.hud-kit')?.getBoundingClientRect();
+      const fly = card && kit ? { x: kit.left + 40 - (card.left + card.width / 2), y: kit.top + 10 - (card.top + card.height / 2) } : { x: 0, y: 60 };
+      setTaken({ offer: live, seq, index: i, fly });
+      setAnswered(seq);
+      playUi('confirm');
+      onPick(i, seq);
+    },
+    [live, onPick, seq, taken],
+  );
+  useEffect(() => {
+    if (!taken) return;
+    const id = setTimeout(() => setTaken(null), reduced ? CARD_FADE_MS : CARD_FLY_MS);
+    return () => clearTimeout(id);
+  }, [taken, reduced]);
+  useEffect(() => {
+    if (!live || taken) return;
     function onKey(e: KeyboardEvent): void {
       if (typing(e)) return;
-      const n = Number.parseInt(e.key, 10);
-      if (n >= 1 && n <= offer!.length) {
-        onPick(n - 1, seq);
+      const n = cardKey(e.code);
+      if (n >= 1 && n <= live!.length) {
+        take(n - 1);
         e.preventDefault();
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [offer, onPick, seq]);
+  }, [live, take, taken]);
+  const offer = taken ? taken.offer : live;
   if (!offer) return null;
   const left = Math.ceil(hud.coop?.pickLeft ?? 0);
   const total = Math.max(1, pickSeconds);
   return (
-    <section className="coop-cards" aria-label={t.cards}>
+    <section
+      className={`coop-cards${taken ? ' taking' : ''}`}
+      aria-label={t.cards}
+      style={taken ? ({ '--fly-x': `${Math.round(taken.fly.x)}px`, '--fly-y': `${Math.round(taken.fly.y)}px` } as CSSProperties) : undefined}
+    >
       <header>
         <b>{t.cards}</b>
-        <span className="coop-cards-hint">{t.cardsHint}</span>
+        <span className="coop-cards-hint">{t.cardsHint(keys)}</span>
         <span className="coop-cards-left" role="timer" aria-label={t.pickLeft(left)}>
           <svg viewBox="0 0 36 36" aria-hidden="true">
             <circle cx="18" cy="18" r="15" className="track" />
@@ -51,14 +111,25 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
         {offer.map((o, i) => {
           const d = describeOffer(content, o);
           return (
-            <button key={`${o.kind}:${o.id}`} type="button" className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : ''}`} onClick={() => onPick(i, seq)}>
+            <button
+              key={`${o.kind}:${o.id}`}
+              ref={(el) => {
+                cards.current[i] = el;
+              }}
+              type="button"
+              className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : o.level === 1 && o.kind !== 'heal' ? ' fresh' : ''}${taken?.index === i ? ' chosen' : ''}`}
+              onClick={() => take(i)}
+              aria-pressed={taken ? taken.index === i : undefined}
+            >
               <span className="levelup-key" aria-hidden="true">
                 {i + 1}
               </span>
-              <img src={spriteDataUrl(d.icon, 3)} alt="" width={36} height={36} />
+              <img src={spriteDataUrl(d.icon, 4)} alt="" width={48} height={48} />
               <span className="coop-card-text">
                 <b>{d.name}</b>
                 {d.tag ? <small>{d.tag}</small> : null}
+                {/* What it does, as in solo runs (Nov plan A1): clamped to three lines over the running world. */}
+                <span className="coop-card-desc">{d.text}</span>
               </span>
             </button>
           );
@@ -69,6 +140,7 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
 }
 
 export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: CoopPlayer[]; slot: number }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const team = hud.coop?.team ?? [];
   return (
     <aside className="coop-team" aria-label={t.team}>
@@ -77,7 +149,7 @@ export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: C
           const name = m.index === slot ? t.you : (players[m.index]?.username ?? '');
           const frac = m.maxHp > 0 ? Math.max(0, Math.min(1, m.hp / m.maxHp)) : 0;
           return (
-            <li key={m.index} className={`coop-mate ${m.life}`} style={{ ['--mate' as string]: hex(TEAM_TINT[m.index % TEAM_TINT.length]!) }}>
+            <li key={m.index} className={`coop-mate ${m.life}`} style={{ ['--mate' as string]: hex(teamTint(m.index, cvd)) }}>
               <span className="coop-mate-name">
                 <b>{name}</b>
                 <small>{m.life === 'up' ? copy.social.level(m.level) : t.life[m.life]}</small>
@@ -125,12 +197,13 @@ export function SpectateBar({
   watching: number;
   onWatch: (slot: number) => void;
 }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const can = spectatable(hud, me);
   const at = Math.max(0, can.indexOf(watching));
   const step = (d: number) => onWatch(can[(at + d + can.length) % can.length]!);
   const name = players[watching]?.username ?? '';
   return (
-    <div className="coop-spectate" style={{ ['--tint' as string]: hex(TEAM_TINT[watching % TEAM_TINT.length]!) }}>
+    <div className="coop-spectate" style={{ ['--tint' as string]: hex(teamTint(watching, cvd)) }}>
       {can.length > 1 ? (
         <button type="button" className="coop-spectate-arrow" aria-label={t.watchPrev} onClick={() => step(-1)}>
           ‹

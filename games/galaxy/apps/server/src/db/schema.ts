@@ -1,3 +1,4 @@
+import type { MailType } from '@galaxy/shared';
 import type { ColumnType, Generated } from 'kysely';
 
 /** Kysely types for schema `galaxy` (supabase/migrations/*_galaxy_*.sql). Keys are schema-qualified. */
@@ -17,6 +18,11 @@ export interface AccountsTable {
   /** M7a: the title and the frame the account shows (among its cosmetics). */
   title: ColumnType<string | null, string | null | undefined, string | null>;
   frame: ColumnType<string | null, string | null | undefined, string | null>;
+  /** Nov plan C2: the avatar shown (null: the drawing made from the name) and the galaxy shown as the profile banner. */
+  avatar: ColumnType<string | null, string | null | undefined, string | null>;
+  banner: ColumnType<string | null, string | null | undefined, string | null>;
+  /** Plan «escáner pro», part F: anonymised and closed by an admin («Eliminar»). */
+  deleted_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
 export interface AccountRolesTable {
@@ -90,6 +96,22 @@ export interface GameConfigVersionsTable {
   created_at: Timestamp;
   created_by: string | null;
   note: string;
+}
+
+/** Config drafts (the content editor, 2026-11-16, P2): changed top-level fields per key, made on `base_versions`. */
+export interface ConfigDraftsTable {
+  id: Generated<string>;
+  title: string;
+  data: ColumnType<unknown, string | undefined, string>;
+  base_versions: ColumnType<unknown, string | undefined, string>;
+  revision: ColumnType<number, number | undefined, number>;
+  status: ColumnType<'open' | 'published' | 'discarded', 'open' | undefined, 'open' | 'published' | 'discarded'>;
+  published_versions: ColumnType<unknown, string | null | undefined, string | null>;
+  created_by: string | null;
+  updated_by: ColumnType<string | null, string | null | undefined, string | null>;
+  created_at: Generated<Date>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
 export interface GameConfigActiveView {
@@ -204,8 +226,8 @@ export interface SeasonAdjustmentsTable {
   account_id: string;
   season: string;
   points: number;
-  /** M7a: an admin's, a mission's or an achievement's. */
-  source: ColumnType<'admin' | 'mission' | 'achievement', 'admin' | 'mission' | 'achievement' | undefined, never>;
+  /** M7a: an admin's, a mission's or an achievement's; mail v2 (2026-11-16): a gift's. */
+  source: ColumnType<'admin' | 'mission' | 'achievement' | 'mail', 'admin' | 'mission' | 'achievement' | 'mail' | undefined, never>;
   created_at: Timestamp;
 }
 
@@ -302,10 +324,10 @@ export interface TutorialTable {
   gift_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
-/** M7a: the titles and frames an account has earned. */
+/** M7a: the titles and frames an account has earned (and avatars, Nov plan C2; probe skins, part C of the plan «skins»). */
 export interface CosmeticsTable {
   account_id: string;
-  kind: 'title' | 'frame';
+  kind: 'title' | 'frame' | 'avatar' | 'skin';
   value: string;
   created_at: Timestamp;
 }
@@ -317,12 +339,126 @@ export interface LabNodesTable {
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
+/** Shop and lab plan F2a: the Laboratorio's seasonal core, a node's level in one season (no row: level 0). */
+export interface LabSeasonNodesTable {
+  account_id: string;
+  season: string;
+  node: string;
+  level: number;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** Shop and lab plan F4: a payment of the resource shop, from its checkout to its delivery (and any refund). */
+export interface ShopPurchasesTable {
+  id: Generated<string>;
+  account_id: string;
+  product: string;
+  snapshot: ColumnType<unknown, string, string>;
+  amount_cents: number;
+  currency: Generated<string>;
+  stripe_price_id: string;
+  first_bonus: Generated<boolean>;
+  status: ColumnType<string, string | undefined, string>;
+  stripe_session_id: string | null;
+  stripe_payment_intent: string | null;
+  granted: ColumnType<unknown | null, string | null | undefined, string | null>;
+  /** The pieces a paid set gave (2026-11-17): only those a refund takes back. */
+  granted_pieces: ColumnType<unknown | null, string | null | undefined, string | null>;
+  clawed: ColumnType<unknown, string | undefined, string>;
+  refunded_cents: Generated<number>;
+  consent_at: ColumnType<Date, Date | string, Date | string>;
+  terms_version: string;
+  madrid_day: ColumnType<string, string, string>;
+  created_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+  paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** Shop and lab plan F4: a Stripe event already handled (append-only). */
+export interface ShopStripeEventsTable {
+  id: string;
+  type: string;
+  purchase_id: string | null;
+  received_at: ColumnType<Date, Date | string | undefined, never>;
+}
+
+/** Shop and lab plan F4: something about a purchase the admin must look at. */
+export interface ShopAlertsTable {
+  id: Generated<string>;
+  kind: string;
+  account_id: string | null;
+  purchase_id: string | null;
+  details: ColumnType<unknown, string | undefined, string>;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  reviewed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  reviewed_by: string | null;
+}
+
+/** Shop and lab plan F4: an account whose shop is closed until an admin opens it. */
+export interface ShopBlocksTable {
+  account_id: string;
+  reason: string;
+  purchase_id: string | null;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  created_by: string | null;
+}
+
+/** Plan «skins», part D: the probes a player shows on their profile, by slot (0–2). */
+/** Plan «referidos»: a referral code and its owner. */
+export interface ReferralCodesTable {
+  id: Generated<string>;
+  code: string;
+  owner_id: string;
+  enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  max_uses: number | null;
+  expires_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  note: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+}
+
+/** Plan «referidos»: an owner's own gifts and level (null: the global ones). */
+export interface ReferralRewardsTable {
+  owner_id: string;
+  owner_gifts: ColumnType<Record<string, number> | null, string | null, string | null>;
+  newcomer_gifts: ColumnType<Record<string, number> | null, string | null, string | null>;
+  activation_level: number | null;
+  updated_by: string | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** Plan «referidos»: one row per newcomer that signed up with a code. */
+export interface ReferralsTable {
+  account_id: string;
+  code_id: string;
+  owner_id: string;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  signup_ip: string | null;
+  user_agent: string | null;
+  state: ColumnType<'pending' | 'held' | 'rewarded' | 'rejected', 'pending' | 'held' | undefined, 'pending' | 'held' | 'rewarded' | 'rejected'>;
+  flags: ColumnType<string[], string[] | undefined, string[]>;
+  newcomer_paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  owner_paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  activated_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  reviewed_by: string | null;
+  reviewed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface ProbeShowcaseTable {
+  account_id: string;
+  slot: number;
+  probe: string;
+}
+
 /** M4b-1: a probe's level and chosen starting weapon (no row: level 1, base weapon). */
 export interface ProbeLevelsTable {
   account_id: string;
   probe: string;
   level: ColumnType<number, number | undefined, number>;
   variant: string | null;
+  /** The skin it wears (plan «skins», part C; null: its base drawing). */
+  skin: ColumnType<string | null, string | null | undefined, string | null>;
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
@@ -368,7 +504,11 @@ export interface ChatMessagesTable {
   created_at: Timestamp;
   hidden_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   hidden_by: string | null;
-  hidden_reason: 'moderator' | 'reports' | null;
+  hidden_reason: 'moderator' | 'reports' | 'deleted' | null;
+  /** Its reports, those waiting since its last review, and the newest one's time (kept by triggers). */
+  report_count: Generated<number>;
+  report_pending: Generated<number>;
+  report_last_at: ColumnType<Date | null, never, never>;
 }
 
 /** One report per account and message (M5b-2). */
@@ -380,6 +520,20 @@ export interface ChatReportsTable {
 }
 
 /** An account that cannot write until `until` (M5b-2). */
+/** What an account has read in a channel (by its key), and the mentions of it (the owner's chat asks, 2026-11-14). */
+export interface ChatReadsTable {
+  account_id: string;
+  channel: string;
+  last_read_id: ColumnType<string, string | number, string | number>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+export interface ChatMentionsTable {
+  message_id: ColumnType<string, string | number, never>;
+  account_id: string;
+  channel: string;
+}
+
 export interface ChatMutesTable {
   account_id: string;
   until: ColumnType<Date, Date | string, Date | string>;
@@ -409,6 +563,46 @@ export interface MarketListingsTable {
   buyer_id: string | null;
   sold_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   commission: ColumnType<string | null, number | null | undefined, number | null>;
+  /** Copied from the galaxy when it is listed, to search and sort the market at scale (a trigger; 2026-11-14). */
+  tier: ColumnType<number | null, never, never>;
+  finish: ColumnType<string | null, never, never>;
+  galaxy_type: ColumnType<string | null, never, never>;
+  palette: ColumnType<string | null, never, never>;
+  phenomenon: ColumnType<string | null, never, never>;
+  level: ColumnType<number | null, never, never>;
+  score: ColumnType<number | null, never, never>;
+  search: ColumnType<string | null, never, never>;
+}
+
+/** Coins held (2026-11-14: offers now, trades' gold next): held, spent on a sale, or released back to their owner. */
+export interface CoinHoldsTable {
+  id: Generated<string>;
+  account_id: string;
+  amount: ColumnType<string, number | string, never>;
+  kind: 'offer' | 'trade';
+  status: ColumnType<'held' | 'spent' | 'released', 'held' | undefined, 'spent' | 'released'>;
+  created_at: Timestamp;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** An offer on a market listing, its coins held in `coin_holds`. */
+export interface MarketOffersTable {
+  id: Generated<string>;
+  listing_id: string;
+  buyer_id: string;
+  amount: ColumnType<string, number | string, never>;
+  hold_id: string;
+  status: ColumnType<'open' | 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed' | 'withdrawn', 'open' | undefined, 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed' | 'withdrawn'>;
+  created_at: Timestamp;
+  expires_at: TimestampRequired;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** The market's public numbers, one row the market's job rewrites. */
+export interface MarketStatsTable {
+  id: Generated<number>;
+  data: ColumnType<unknown, string, string>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
 /** The IPs an account signed in from, kept after its sessions end (M5c-1 review: the market's shared-IP alerts). */
@@ -426,15 +620,64 @@ export interface TradesTable {
   status: ColumnType<'open' | 'done' | 'cancelled' | 'expired', 'open' | undefined, 'done' | 'cancelled' | 'expired'>;
   a_id: string;
   b_id: string;
-  a_galaxy: string | null;
-  b_galaxy: string | null;
   a_offered: Generated<boolean>;
   b_offered: Generated<boolean>;
   a_confirmed: Generated<boolean>;
   b_confirmed: Generated<boolean>;
+  /** Trades 2.0 (2026-11-14): the coins each side gives (one side at most) and their holds while offered. */
+  a_coins: ColumnType<string, number | string | undefined, number | string>;
+  b_coins: ColumnType<string, number | string | undefined, number | string>;
+  a_hold: string | null;
+  b_hold: string | null;
+  commission: ColumnType<string | null, number | string | null | undefined, number | string | null>;
+  /** The board post it answers (2026-11-14), if any. */
+  post_id: ColumnType<string | null, string | null | undefined, string | null>;
   created_at: Timestamp;
   expires_at: TimestampRequired;
   closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+/** A post on the public trade board (2026-11-14): what its author gives and is after. Nothing of it is held. */
+export interface TradePostsTable {
+  id: Generated<string>;
+  author_id: string;
+  coins: ColumnType<string, number | string | undefined, number | string>;
+  wants: ColumnType<{ tiers: string[]; type?: string; palette?: string; phenomenon?: string; coins: boolean }, string, string>;
+  note: ColumnType<string, string | undefined, string>;
+  status: ColumnType<'open' | 'closed' | 'cancelled' | 'expired', 'open' | undefined, 'closed' | 'cancelled' | 'expired'>;
+  created_at: Timestamp;
+  expires_at: TimestampRequired;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface TradePostItemsTable {
+  post_id: string;
+  galaxy_id: string;
+}
+
+/** A galaxy a side of a trade gives (trades 2.0): held while its owner offers it in the open trade. */
+export interface TradeItemsTable {
+  trade_id: string;
+  side: 'a' | 'b';
+  galaxy_id: string;
+  held: Generated<boolean>;
+}
+
+/** One step of a trade's history (append-only): the deal a proposal or counter-offer made. */
+export interface TradeEventsTable {
+  id: Generated<string>;
+  trade_id: string;
+  version: number;
+  actor_id: string | null;
+  kind: 'proposed' | 'countered' | 'confirmed' | 'done' | 'cancelled';
+  deal: ColumnType<TradeEventDeal | null, string | null | undefined, never>;
+  created_at: Timestamp;
+}
+
+/** A deal as a trade's history keeps it (tiers as stored, 0–5). */
+export interface TradeEventDeal {
+  a: { galaxies: { id: string; name: string; tier: number }[]; coins: number };
+  b: { galaxies: { id: string; name: string; tier: number }[]; coins: number };
 }
 
 /** A sale the admin should look at (M5c-1): an IP shared by buyer and seller, or a price far above the floor. */
@@ -476,14 +719,23 @@ export interface MailboxMessagesTable {
   created_at: Timestamp;
   expires_at: ColumnType<Date, Date | string, never>;
   withdrawn_at: ColumnType<Date | null, never, Date | string>;
+  /** Mail v2: its kind, and whether it needed a superadmin. */
+  type: ColumnType<MailType, MailType | undefined, never>;
+  /** Mail v2, P5: when it goes out (null: at once), and when it went (null: still waiting). */
+  scheduled_at: ColumnType<Date | null, Date | string | null | undefined, never>;
+  sent_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+  big: ColumnType<boolean, boolean | undefined, never>;
 }
 
-/** A message's receipt by an account (M6d-1): read, and its gift claimed once. */
+/** A message's receipt by an account (M6d-1): read, and its gift claimed once; mail v2: archived, deleted, what it gave. */
 export interface MailboxReceiptsTable {
   message_id: string;
   account_id: string;
   read_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
   claimed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+  archived_at: ColumnType<Date | null, never, Date | string | null>;
+  deleted_at: ColumnType<Date | null, never, Date | string>;
+  granted: ColumnType<unknown, never, string>;
 }
 
 /** A notice of the title screen (M6d-1), shown between two dates unless ended early. */
@@ -496,6 +748,39 @@ export interface TitleNoticesTable {
   created_by: string | null;
   created_at: Timestamp;
   ended_at: ColumnType<Date | null, never, Date | string>;
+}
+
+/** The news board's cards (2026-11-14): custom ones, and one of each auto card (its words come from the game). */
+export interface NewsPostsTable {
+  id: Generated<string>;
+  kind: string;
+  section: string;
+  title: Generated<string>;
+  body: Generated<string>;
+  image: ColumnType<unknown, string | null | undefined, string | null>;
+  link: ColumnType<unknown, string | null | undefined, string | null>;
+  featured: Generated<boolean>;
+  sort: Generated<number>;
+  starts_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  ends_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  hidden: Generated<boolean>;
+  created_by: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** Images the admin uploaded for the news board (PNG, JPG or WebP, 2 MB at most), served from the same origin. */
+export interface MediaAssetsTable {
+  id: Generated<string>;
+  name: string;
+  mime: string;
+  bytes: number;
+  width: number;
+  height: number;
+  sha256: string;
+  data: Buffer;
+  created_by: string | null;
+  created_at: Timestamp;
 }
 
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
@@ -553,6 +838,8 @@ export interface SocialPrefsTable {
   account_id: string;
   invites: string;
   show_status: boolean;
+  /** Real-time notices plan: 'sound' | 'silent' | 'off'. */
+  notices: Generated<string>;
   updated_at: Timestamp;
 }
 
@@ -563,6 +850,33 @@ export interface AccountXpTable {
 }
 
 /** The galaxies an account exhibits in its planetarium, one per pedestal (M4c-2). */
+/** Plan «notas de versión»: the panel's release notes; one with a code note's id replaces (or hides) it. */
+export interface ReleaseNotesTable {
+  id: string;
+  version: string;
+  date: ColumnType<Date, Date | string, Date | string>;
+  title: string;
+  summary: Generated<string>;
+  items: unknown;
+  hidden: Generated<boolean>;
+  updated_by: string | null;
+  updated_at: Timestamp;
+}
+
+/** Plan «ajustes en la cuenta»: the player's settings (accountSettingsSchema), one row per account. */
+export interface SettingsTable {
+  account_id: string;
+  data: unknown;
+  updated_at: Timestamp;
+}
+
+/** Plan «escáner pro», part E: the galaxies a player chose for the title screen's sky (up to 12). */
+export interface BackdropsTable {
+  account_id: string;
+  slot: number;
+  galaxy_id: string;
+}
+
 export interface ExhibitsTable {
   account_id: string;
   slot: number;
@@ -612,6 +926,8 @@ export interface RunsTable {
   slot: ColumnType<number | null, number | null | undefined, never>;
   party_size: ColumnType<number, number | undefined, never>;
   points_factor: ColumnType<number, number | undefined, never>;
+  /** Pay by sector (2026-11-16): the sector's factor at the run's start (sectors.pay). */
+  sector_factor: ColumnType<number, number | undefined, never>;
   /** Phase 6c: when the player left this group run on purpose (null: stayed, or a solo run). */
   left_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
@@ -703,6 +1019,7 @@ export interface DB {
   'galaxy.reset_codes': ResetCodesTable;
   'galaxy.admin_audit_log': AdminAuditLogTable;
   'galaxy.game_config_versions': GameConfigVersionsTable;
+  'galaxy.config_drafts': ConfigDraftsTable;
   'galaxy.game_config_active': GameConfigActiveView;
   'galaxy.balances': BalancesTable;
   'galaxy.ledger': LedgerTable;
@@ -722,7 +1039,16 @@ export interface DB {
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
+  'galaxy.probe_showcase': ProbeShowcaseTable;
+  'galaxy.referral_codes': ReferralCodesTable;
+  'galaxy.referral_rewards': ReferralRewardsTable;
+  'galaxy.referrals': ReferralsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.lab_season_nodes': LabSeasonNodesTable;
+  'galaxy.shop_purchases': ShopPurchasesTable;
+  'galaxy.shop_stripe_events': ShopStripeEventsTable;
+  'galaxy.shop_alerts': ShopAlertsTable;
+  'galaxy.shop_blocks': ShopBlocksTable;
   'galaxy.probe_grants': ProbeGrantsTable;
   'galaxy.season_adjustments': SeasonAdjustmentsTable;
   'galaxy.mission_progress': MissionProgressTable;
@@ -740,12 +1066,17 @@ export interface DB {
   'galaxy.social_prefs': SocialPrefsTable;
   'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
+  'galaxy.backdrops': BackdropsTable;
+  'galaxy.settings': SettingsTable;
+  'galaxy.release_notes': ReleaseNotesTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;
   'galaxy.clan_members': ClanMembersTable;
   'galaxy.clan_requests': ClanRequestsTable;
   'galaxy.clan_kicks': ClanKicksTable;
   'galaxy.chat_messages': ChatMessagesTable;
+  'galaxy.chat_reads': ChatReadsTable;
+  'galaxy.chat_mentions': ChatMentionsTable;
   'galaxy.chat_reports': ChatReportsTable;
   'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.chat_report_reviews': ChatReportReviewsTable;
@@ -753,10 +1084,19 @@ export interface DB {
   'galaxy.mailbox_messages': MailboxMessagesTable;
   'galaxy.mailbox_receipts': MailboxReceiptsTable;
   'galaxy.title_notices': TitleNoticesTable;
+  'galaxy.news_posts': NewsPostsTable;
+  'galaxy.media_assets': MediaAssetsTable;
   'galaxy.market_listings': MarketListingsTable;
+  'galaxy.market_stats': MarketStatsTable;
+  'galaxy.coin_holds': CoinHoldsTable;
+  'galaxy.market_offers': MarketOffersTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
   'galaxy.trades': TradesTable;
+  'galaxy.trade_items': TradeItemsTable;
+  'galaxy.trade_events': TradeEventsTable;
+  'galaxy.trade_posts': TradePostsTable;
+  'galaxy.trade_post_items': TradePostItemsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;

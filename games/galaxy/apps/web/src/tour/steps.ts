@@ -62,3 +62,12 @@ export const CHAPTER_ROUTE: Record<TutorialChapter, string> = { hub: '/', scanne
 
 /** The steps a player sees counted (the arena's is not a card). */
 export const COUNTED = TOUR_STEPS.filter((s) => !s.hidden);
+
+/**
+ * A chapter's steps for this player: the ones whose condition says they are done are skipped (a reload after the
+ * welcome pulls skips them), except the step the player is on (`here`), which never vanishes under them: the welcome
+ * pulls are made by the very step that waits for the reveal to close.
+ */
+export function chapterSteps(chapter: TutorialChapter, here: string | null, onboarding: OnboardingView | undefined): TourStep[] {
+  return TOUR_STEPS.filter((s) => s.chapter === chapter && (s.id === here || !s.skipIf?.(onboarding)));
+}

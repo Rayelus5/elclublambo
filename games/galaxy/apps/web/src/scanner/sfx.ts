@@ -1,18 +1,61 @@
-import { TIERS, type Tier } from '@galaxy/shared';
+import { atLeast, TIERS, type Tier } from '@galaxy/shared';
 import { getSettings, setSettings, sfxOut } from '../audio/mixer';
 import { noise, tone } from '../audio/synth';
 
 // The scanner's sounds (GDD §9), synthesised with WebAudio: no audio files, so the CSP stays as it is. The clack is a
 // Perkins braille machine's key (a filtered noise burst with a low thud); the chord brightens with the rarity and the
 // Legendary one is a rising arpeggio. Short sounds only, always after the player's own click; muting is remembered.
-// Chord notes (Hz) per tier: a fifth for common, a triad, a seventh, a ninth, and an arpeggio for legendary.
-const CHORDS: Record<Tier, number[]> = {
+// Chord notes (Hz) per tier: a fifth for common, a triad, a seventh, a ninth, an arpeggio for legendary. Plan «rareza
+// Mítica» M2: a Mítica sounds its own chord, MYTHIC_CHORD (a swell under a Lydian bloom), not an arpeggio.
+const CHORDS: Record<Exclude<Tier, 'mythic'>, number[]> = {
   common: [261.63, 392],
   uncommon: [293.66, 369.99, 440],
   rare: [329.63, 415.3, 493.88, 622.25],
   epic: [349.23, 440, 523.25, 659.25, 783.99],
   legendary: [392, 493.88, 587.33, 739.99, 880, 1174.66],
 };
+
+/**
+ * The Mítica's own chord (plan «rareza Mítica» M2), shared with the pro reveal's synthesised one: G Lydian — its raised
+ * fourth (C#) sounds past the legendary's G major — as a low swell (G2 and D3) growing under a stack that blooms upward,
+ * every voice a pair pulled `detune` cents apart so it shimmers.
+ */
+export const MYTHIC_CHORD = {
+  swell: [98, 146.83],
+  bloom: [196, 293.66, 369.99, 440, 554.37, 739.99, 880, 1108.73, 1479.98],
+  detune: 7,
+  /** Seconds between one voice of the bloom and the next, upward. */
+  stagger: 0.06,
+} as const;
+
+/** Both voices of a detuned pair on `hz`. */
+export function detunedPair(hz: number, cents: number = MYTHIC_CHORD.detune): [number, number] {
+  return [hz * 2 ** (-cents / 1200), hz * 2 ** (cents / 1200)];
+}
+
+/** One held voice: a linear swell over `attack`, then an exponential fade to nothing by `at + dur`. */
+function held(ctx: AudioContext, out: AudioNode, at: number, hz: number, type: OscillatorType, peak: number, attack: number, dur: number) {
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(hz, at);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, at);
+  gain.gain.linearRampToValueAtTime(peak, at + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  osc.connect(gain).connect(out);
+  osc.start(at);
+  osc.stop(at + dur + 0.05);
+}
+
+/** The Mítica's chord at `t0`: the swell under it, then the bloom climbing, every voice a shimmering pair. */
+function mythicChord(ctx: AudioContext, out: AudioNode, t0: number) {
+  MYTHIC_CHORD.swell.forEach((hz, i) => held(ctx, out, t0, hz, 'sine', i === 0 ? 0.11 : 0.06, 0.55, 2.9));
+  const peak = 0.15 / Math.sqrt(MYTHIC_CHORD.bloom.length * 2);
+  MYTHIC_CHORD.bloom.forEach((hz, i) => {
+    const t = t0 + 0.1 + i * MYTHIC_CHORD.stagger;
+    for (const v of detunedPair(hz)) held(ctx, out, t, v, i < 4 ? 'triangle' : 'sine', peak, 0.05, 2.1 + i * 0.05);
+  });
+}
 
 export interface Sfx {
   clack(): void;
@@ -97,7 +140,7 @@ export function createSfx(): Sfx {
       const t = bus.ctx.currentTime;
       tone(bus.ctx, bus.out, t, 140, 40, 0.35 + 0.1 * k, 0.08 + 0.04 * k, 'sine');
       noise(bus.ctx, bus.out, t, 0.25 + 0.1 * k, 0.15 + 0.12 * k, 1200 + 400 * k);
-      [2093, 2637, 3136, 4186].slice(0, Math.max(0, k)).forEach((hz, i) => tone(bus.ctx, bus.out, t + 0.05 + i * 0.05, hz, hz, 0.3, 0.02, 'sine'));
+      [2093, 2637, 3136, 4186, 5274].slice(0, Math.max(0, k)).forEach((hz, i) => tone(bus.ctx, bus.out, t + 0.05 + i * 0.05, hz, hz, 0.3, 0.02, 'sine'));
     },
     fanfare() {
       const bus = audio();
@@ -127,7 +170,11 @@ export function createSfx(): Sfx {
       if (!bus) return;
       const a = bus.ctx;
       const t0 = a.currentTime;
-      const arpeggio = tier === 'legendary';
+      if (tier === 'mythic') {
+        mythicChord(a, bus.out, t0);
+        return;
+      }
+      const arpeggio = atLeast(tier, 'legendary');
       const notes = CHORDS[tier];
       const bright = TIERS.indexOf(tier);
       notes.forEach((hz, i) => {

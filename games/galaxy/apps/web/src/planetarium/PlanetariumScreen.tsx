@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import type { PlanetariumCard } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
@@ -26,7 +27,7 @@ function Featured({ cards }: { cards: PlanetariumCard[] }) {
       {cards.length === 0 ? (
         <p className="featured-empty">{t.featuredEmpty}</p>
       ) : (
-        <ul className="featured-list" aria-label={t.featured}>
+        <HScroll as="ul" className="featured-list" aria-label={t.featured} label={t.featured}>
           {cards.map((c) => (
             <li key={c.owner}>
               <Link to={`/planetario/${encodeURIComponent(c.owner)}`} className="featured-card" aria-label={t.featuredItem(c.owner, c.prestige)}>
@@ -36,7 +37,7 @@ function Featured({ cards }: { cards: PlanetariumCard[] }) {
               </Link>
             </li>
           ))}
-        </ul>
+        </HScroll>
       )}
     </section>
   );

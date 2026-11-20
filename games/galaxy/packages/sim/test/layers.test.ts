@@ -42,7 +42,7 @@ describe('capas y jefe', () => {
     const sim = layered((c) => {
       const s = c.sectors[0]!;
       s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
-      s.density = { base: 2, perMinute: 0, max: 2, cap: 2000, bossFactor: 0.5 };
+      s.density = { base: 2, perMinute: 0, max: 2, cap: 2000, bossFactor: 0.5, perLayer: 0 };
       s.layerSeconds = 10;
     });
     const dummy = sim.content.enemies.findIndex((e) => e.id === 'dummy');
@@ -63,9 +63,22 @@ describe('capas y jefe', () => {
   test('la vida del jefe crece con la capa', () => {
     const sim = layered();
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
     untilBoss(sim);
     expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(1800 * 1.7, 9);
+  });
+
+  test('Nov plan B4: en la capa 2 llega la segunda forma, con su nombre en el HUD y la vida de su capa', () => {
+    const sim = layered((c) => {
+      c.sectors[0]!.bossCycle = ['hive', 'hive-swarm', 'hive-queen'];
+    });
+    sim.layer = 2;
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
+    untilBoss(sim);
+    const form = sim.content.bosses.find((b) => b.id === 'hive-swarm')!;
+    expect(events(sim, 'bossSpawn')).toEqual([{ t: 'bossSpawn', boss: 'hive-swarm', layer: 2 }]);
+    expect(hudSnapshot(sim, 0).boss).toMatchObject({ name: form.name, title: form.title });
+    expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(form.hp * (1 + form.scaling.hpPerLayer), 9);
   });
 
   test('al vencerlo cae el cofre y se abre la baliza a 520 u', () => {
@@ -165,8 +178,8 @@ describe('extracción', () => {
       p.y = sim.pickups.y[i]!;
       step(sim, [IDLE]);
     }
-    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0, components: 0 });
-    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3, components: 0 });
+    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0, components: 0, signals: 0 });
+    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3, components: 0, signals: 0 });
   });
 });
 

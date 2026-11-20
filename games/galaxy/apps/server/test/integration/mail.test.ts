@@ -1,7 +1,7 @@
 import { type AdminMailRow, type AdminNoticeRow, type MyMailbox, PROBE_TEST, type Role, type TitleNotice } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getWallet } from '../../src/economy/wallet';
-import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import { createAdminViaCli, fixedConfig, get, openLive, post, sessionCookie, settle, testApp, totpNow, uniqueName } from '../helpers';
 
 // Communication on the server (GDD §16.5; M6d-1). Admins send news to a segment (here always a list of these tests'
 // own accounts: the local database is the owner's, and a message for everyone would reach their accounts too), with
@@ -140,7 +140,7 @@ describe('el admin', () => {
     await claim(a, id);
     const row = ((await get(ctx.app, A('/mail'), { cookie: admin.cookie })).json() as AdminMailRow[]).find((m) => m.id === id)!;
     expect(row).toMatchObject({ recipients: 2, read: 1, claimed: 1, by: admin.username, withdrawnAt: null, gifts: { dust: 3 } });
-    expect(await audits(id)).toMatchObject([{ action: 'mail.send', actor_label: admin.username, after: { title: 'Novedades de la beta', gifts: { dust: 3 }, recipients: 2 }, reason: 'Prueba del buzón' }]);
+    expect(await audits(id)).toMatchObject([{ action: 'mail.send', actor_label: admin.username, after: { title: 'Novedades de la beta', type: 'announcement', contents: { v: 2, items: [{ kind: 'currency', currency: 'dust', amount: 3 }], packs: [] }, recipients: 2 }, reason: 'Prueba del buzón' }]);
   });
 
   test('un moderador o un jugador no envían ni ven el buzón del panel', async () => {
@@ -231,5 +231,18 @@ describe('revisión final', () => {
       ['mail.send', 'Prueba del buzón'],
       ['mail.withdraw', 'Error de texto'],
     ]);
+  });
+});
+
+describe('avisos en tiempo real', () => {
+  test('un correo nuevo llega al momento a sus destinatarios conectados, y a nadie más', async () => {
+    const [a, b, out] = [await player(), await player(), await player()];
+    const [la, lb, lo] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie), await openLive(ctx.app, out.cookie)];
+    const { id } = (await send([a.username, b.username])).json() as { id: string };
+    await settle();
+    expect(la.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta', type: 'announcement', gift: false }]);
+    expect(lb.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta', type: 'announcement', gift: false }]);
+    expect(lo.notices()).toEqual([]);
+    for (const l of [la, lb, lo]) l.ws.terminate();
   });
 });

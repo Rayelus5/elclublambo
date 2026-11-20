@@ -8,8 +8,10 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
+import { WorkshopScreen } from '../../src/workshop/WorkshopScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
 import { TeamResults } from '../../src/coop/TeamResults';
+import { AddFriendButton } from '../../src/social/AddFriendButton';
 import '../../src/styles/app.css';
 
 // The hangar (the lobby) and the results with the app's real styles: the lobby's areas never overlap at any of these
@@ -51,6 +53,8 @@ const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
     condition: null,
     progress: 0,
     season: sec.season,
+    // What a run there pays (2026-11-16): the defaults of the live config.
+    pay: ({ 'outer-nebula': 0.8, 'frost-rings': 1, 'hollow-reef': 1.25, 'broken-forge': 1.5, 'signal-rift': 1.8 } as Record<string, number>)[id] ?? 1,
     ...over,
   };
 };
@@ -111,6 +115,16 @@ const result: RunResult = {
   progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
+// My friends (Nov plan A3): vega is one, the others are not.
+const friendsView = {
+  friends: [{ username: 'vega_de_la_nebulosa', level: 12, clan: null, presence: { status: 'online', activity: 'room' }, since: '2026-11-01T00:00:00Z' }],
+  incoming: [],
+  outgoing: [],
+  blocked: [],
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
+  max: 200,
+};
+
 let root: Root | null = null;
 afterEach(() => {
   root?.unmount();
@@ -119,15 +133,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(el: ReturnType<typeof createElement>): void {
+function mount(el: ReturnType<typeof createElement>, over: Record<string, unknown> = {}, path = '/'): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
       const known: Record<string, unknown> = {
         '/hangar': view,
-        '/gacha': { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
+        '/gacha': { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
         '/auth/me': { id: 'a1', username: 'piloto_rayo', roles: [], mfa: false, level: 4 },
-        '/rooms': { mine: null, open: [], allowed: true, reason: null, minLevel: 1 },
+        '/rooms': { mine: null, rooms: { count: 2, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 },
+        '/friends': friendsView,
+        // The game server's ping (2026-11-17): any 2xx will do.
+        '/ping': null,
+        ...over,
       };
       const key = Object.keys(known).find((k) => url.endsWith(k));
       // What this page does not need here answers as missing (its panels show nothing, as when it fails).
@@ -140,7 +158,7 @@ function mount(el: ReturnType<typeof createElement>): void {
   document.body.appendChild(host);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   root = createRoot(host);
-  root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, el)));
+  root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [path] }, el)));
 }
 
 for (const [w, h] of [
@@ -169,12 +187,76 @@ for (const [w, h] of [
   }, 60_000);
 }
 
+// «Probar en incursión» (the content editor, 2026-11-16): the draft's notice — its title, its sector and probe pickers —
+// sits in the launch dock, over the button; the lobby keeps its areas apart and the launch button its size.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`hangar con un borrador de contenido a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    const draft = {
+      id: 'd1',
+      title: 'Sector nuevo',
+      status: 'open',
+      revision: 1,
+      fields: [{ key: 'content', field: 'hitCap' }],
+      createdBy: 'rayelus',
+      updatedBy: 'rayelus',
+      createdAt: '2026-11-16T10:00:00.000Z',
+      updatedAt: '2026-11-16T10:00:00.000Z',
+      stale: false,
+      data: { content: { hitCap: 0.35 } },
+      baseVersions: { content: 12 },
+      publishedVersions: null,
+    };
+    {
+      mount(createElement(HangarScreen), { '/auth/me': { id: 'a1', username: 'rayelus', roles: ['admin'], mfa: true, level: 30 }, '/admin/config-drafts/d1': draft }, '/?borrador=d1');
+      const notice = await vi.waitFor(() => {
+        const el = document.querySelector<HTMLElement>('.lobby-draft');
+        if (!el) throw new Error('sin aviso');
+        return el;
+      }, { timeout: 10_000 });
+      expect(notice.closest('.lobby-dock')).not.toBeNull();
+      const names = ['.lobby-top', '.lobby-rail', '.lobby-stage', '.lobby-side', '.lobby-foot'];
+      const areas = names.map((sel) => document.querySelector(sel)!.getBoundingClientRect());
+      for (let i = 0; i < areas.length; i++)
+        for (let j = i + 1; j < areas.length; j++) {
+          const [a, b] = [areas[i]!, areas[j]!];
+          expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1, `${names[i]} × ${names[j]}`).toBe(false);
+        }
+      const screenRoot = document.querySelector('.screen-root')!;
+      expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+      expect(document.querySelector('.lobby-launch')!.getBoundingClientRect().width).toBeGreaterThan(240);
+      expect(document.querySelector('.lobby-foot')!.getBoundingClientRect().bottom).toBeLessThanOrEqual(h + 1);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-draft-${w}.png` });
+    }
+  }, 60_000);
+}
+
 test('resultados a 1280×720', async () => {
   await page.viewport(1280, 720);
   mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {} }))));
   await new Promise((r) => setTimeout(r, 1500));
   expect(document.querySelector('.results')).not.toBeNull();
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-1280.png' });
+}, 60_000);
+
+test('las esquirlas de temporada: el icono justo a la derecha del número, en su línea', async () => {
+  await page.viewport(1280, 720);
+  const progress = { xp: 250, level: 7, levelUp: true, points: 145, shards: 72 };
+  mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result: { ...result, progress }, onAgain: () => {} }))));
+  const shards = await vi.waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.results-shards');
+    if (!el) throw new Error('sin esquirlas');
+    return el;
+  });
+  const number = shards.querySelector<HTMLElement>('[aria-hidden="true"]')!.getBoundingClientRect();
+  const icon = shards.querySelector('.ico')!.getBoundingClientRect();
+  expect(Math.abs(icon.top + icon.height / 2 - (number.top + number.height / 2))).toBeLessThan(3);
+  expect(icon.left - number.right).toBeGreaterThanOrEqual(0);
+  expect(icon.left - number.right).toBeLessThan(10);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-shards.png', element: shards.closest<HTMLElement>('.results-progress')! });
 }, 60_000);
 
 test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
@@ -185,7 +267,7 @@ test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
     { slot: 2, name: 'lyra', probe: 'Chispa', sprite: 'probe-spark', level: 4, kills: 15, revives: 0, downs: 1, life: 'left' as const },
     { slot: 3, name: 'orion', probe: 'Vigía', sprite: 'probe-sentinel', level: 7, kills: 88, revives: 1, downs: 1, life: 'out' as const },
   ];
-  const team = createElement(TeamResults, { rows, me: 0 });
+  const team = createElement(TeamResults, { rows, me: 0, befriend: (u: string) => createElement(AddFriendButton, { username: u, className: 'team-friend' }) });
   mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {}, team }))));
   await new Promise((r) => setTimeout(r, 1200));
   expect(document.querySelector('.team-results table')).not.toBeNull();
@@ -202,3 +284,146 @@ test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
   box.scrollIntoView({ block: 'start' });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-team-1280.png' });
 }, 60_000);
+
+// «Añadir amigo» on the room's pads (Nov plan A3): it fits the narrow cards and pushes nothing sideways.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`sala con compañeros y «Añadir amigo» a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    const members = [
+      { username: 'piloto_rayo', level: 4, probe: 'lumen', ready: false, connected: true, leader: true },
+      { username: 'vega_de_la_nebulosa', level: 12, probe: 'lumen', ready: true, connected: true, leader: false },
+      { username: 'lyra', level: 4, probe: 'lumen', ready: false, connected: true, leader: false },
+      { username: 'orion_el_cazador', level: 7, probe: 'lumen', ready: true, connected: true, leader: false },
+    ];
+    const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
+    mount(createElement(HangarScreen), { '/rooms': { mine, rooms: { count: 4, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } });
+    // A loaded CI machine takes longer than a fixed wait: poll until the room and my friends are in.
+    await vi.waitFor(() => expect(document.querySelectorAll('.lobby-mate .add-friend button').length).toBe(2), { timeout: 30_000, interval: 200 });
+    const adds = [...document.querySelectorAll<HTMLElement>('.lobby-mate .add-friend button')];
+    for (const b of adds) expect(b.scrollWidth).toBeLessThanOrEqual(b.clientWidth + 1);
+    const screenRoot = document.querySelector('.screen-root')!;
+    expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+    // «Salir de la sala» as wide as «Chat de la sala» (the owner, 2026-11-17).
+    const widthOf = (sel: string) => document.querySelector<HTMLElement>(sel)!.getBoundingClientRect().width;
+    expect(Math.abs(widthOf('.lobby-leave') - widthOf('.lobby-room-chat'))).toBeLessThan(1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/room-friends-${w}.png` });
+  }, 60_000);
+}
+
+// The game server with its ping and the rooms count over the group panel (2026-11-17), and the full-server note with
+// «Jugar en solitario»: they fit the side panel at both sizes. VITE_ARENA_SHOTS=1 saves them.
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`en grupo: servidor, ping y salas llenas a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(HangarScreen), { '/rooms': { mine: null, rooms: { count: 10, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } }, '/?modo=grupo');
+    await vi.waitFor(() => expect(document.querySelector('.lobby-full')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+    await vi.waitFor(() => expect(document.querySelector('.lobby-server')?.getAttribute('aria-label')).toMatch(/ms$/), { timeout: 30_000, interval: 200 });
+    for (const el of document.querySelectorAll<HTMLElement>('.lobby-server-row, .lobby-full')) {
+      expect(el.scrollWidth, el.className).toBeLessThanOrEqual(el.clientWidth + 1);
+    }
+    const side = document.querySelector<HTMLElement>('.lobby-side')!;
+    expect(side.scrollWidth).toBeLessThanOrEqual(side.clientWidth + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/lobby-group-full-${w}.png`, element: side });
+  }, 60_000);
+}
+
+// Alone in a room (2026-11-17): «Despegar» waits, the hint says why and «Jugar en solitario» sits under it, inside the
+// dock at the smallest size.
+test('solo en la sala: el aviso y «Jugar en solitario» caben en el dock a 1280×720', async () => {
+  await page.viewport(1280, 720);
+  const members = [{ username: 'piloto_rayo', level: 4, probe: 'lumen', ready: false, connected: true, leader: true }];
+  const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
+  mount(createElement(HangarScreen), { '/rooms': { mine, rooms: { count: 1, max: 10 }, open: [], allowed: true, reason: null, minLevel: 1 } });
+  await vi.waitFor(() => expect(document.querySelector('.lobby-dock .lobby-solo')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+  const dock = document.querySelector<HTMLElement>('.lobby-dock')!;
+  const solo = dock.querySelector<HTMLElement>('.lobby-solo')!.getBoundingClientRect();
+  const box = dock.getBoundingClientRect();
+  expect(solo.left).toBeGreaterThanOrEqual(box.left - 1);
+  expect(solo.right).toBeLessThanOrEqual(box.right + 1);
+  expect(solo.bottom).toBeLessThanOrEqual(720);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/lobby-room-alone-1280.png' });
+}, 60_000);
+
+// Plan «skins», part C: the big probe's swatches in the lobby and the skin picker in the Taller fit at both sizes,
+// without pushing the page sideways. VITE_ARENA_SHOTS=1 saves them.
+const withSkins: HangarView = { ...view, probes: view.probes.map((p) => (p.id === 'lumen' ? { ...p, skin: 'skin-lumen-coral', skins: ['skin-lumen-chatarra', 'skin-lumen-coral'], runs: 30 } : p)) };
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`skins en el lobby y en el Taller a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(HangarScreen), { '/hangar': withSkins });
+    await new Promise((r) => setTimeout(r, 1500));
+    // The base and the two of Lumen, then the «+» to the Taller.
+    expect(document.querySelectorAll('.lobby-skins-group .lobby-skin')).toHaveLength(3);
+    expect(document.querySelectorAll('.lobby-skin-more')).toHaveLength(1);
+    expect(document.querySelector('.lobby-skin[aria-checked="true"]')?.getAttribute('aria-label')).toBe('Lumen de coral');
+    const screenRoot = document.querySelector('.screen-root')!;
+    expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/lobby-skins-${w}.png` });
+    root?.unmount();
+    document.body.innerHTML = '';
+    mount(createElement(WorkshopScreen), { '/hangar': withSkins });
+    await new Promise((r) => setTimeout(r, 1500));
+    const picker = document.querySelector<HTMLElement>('.workshop-bay .skin-grid')!;
+    // Under «Equipar», the base and the ten collections of Lumen (two owned; Aurora, Leyenda and the shop's six packs
+    // locked), in mini cards that fit the bay's column.
+    expect(picker.querySelectorAll('input[type="radio"]')).toHaveLength(11);
+    expect(picker.querySelectorAll('input[type="radio"][aria-disabled="true"]')).toHaveLength(8);
+    const column = document.querySelector<HTMLElement>('.workshop-bay')!.getBoundingClientRect();
+    for (const card of picker.querySelectorAll<HTMLElement>('.skin-mini')) {
+      const r = card.getBoundingClientRect();
+      expect(r.left).toBeGreaterThanOrEqual(column.left);
+      expect(r.right).toBeLessThanOrEqual(column.right);
+    }
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    // Big cards: the skin at ×4 (96 px).
+    expect(picker.querySelector<HTMLElement>('.skin-mini img')!.getBoundingClientRect().width).toBe(96);
+    // Pointing at a locked skin previews it in the bay, big.
+    const fire = picker.querySelector<HTMLInputElement>('input[value="skin-lumen-fuego"]')!.closest('label')!;
+    fire.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+    fire.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }));
+    await expect.poll(() => document.querySelector('.workshop-probe')?.getAttribute('data-drawing')).toBe('skin-lumen-fuego');
+    expect(document.querySelector('.workshop-preview-tag')).not.toBeNull();
+    picker.scrollIntoView({ block: 'center' });
+    if (import.meta.env['VITE_ARENA_SHOTS']) {
+      await page.screenshot({ path: `__shots__/workshop-skins-${w}.png` });
+      await page.screenshot({ path: `__shots__/workshop-skin-picker-${w}.png`, element: picker });
+    }
+  }, 60_000);
+}
+
+// The owner: the Taller's bay goes at the top of its column, not centred, and its plate (name, level, «Equipar») right
+// under it, not at the bottom of the screen — even when the sheet beside it is tall (the skins).
+for (const [w, h] of [
+  [1280, 720],
+  [1600, 900],
+  [1920, 1080],
+  [2560, 1440],
+] as const) {
+  test(`en el Taller la bahía va arriba y su placa justo debajo a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(WorkshopScreen), { '/hangar': withSkins });
+    await vi.waitFor(() => expect(document.querySelector('.workshop-plate h2')).not.toBeNull(), { timeout: 30_000, interval: 200 });
+    await new Promise((r) => setTimeout(r, 500));
+    const bay = document.querySelector<HTMLElement>('.workshop-bay')!.getBoundingClientRect();
+    const art = document.querySelector<HTMLElement>('.workshop-bay-art')!.getBoundingClientRect();
+    const plate = document.querySelector<HTMLElement>('.workshop-plate')!.getBoundingClientRect();
+    // The art at the top of its column (its frame's ring is 9 px), the plate 16 px under it.
+    expect(art.top - bay.top).toBeLessThanOrEqual(12);
+    expect(plate.top - art.bottom).toBeGreaterThanOrEqual(0);
+    expect(plate.top - art.bottom).toBeLessThanOrEqual(32);
+    // Still as big as the screen allows: the art and its plate fit in the window.
+    expect(art.width).toBeGreaterThanOrEqual(128 * 4);
+    expect(plate.bottom).toBeLessThanOrEqual(h + 1);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/workshop-bay-${w}.png` });
+  }, 60_000);
+}

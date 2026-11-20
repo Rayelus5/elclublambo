@@ -1,0 +1,102 @@
+{
+  "packs": [
+    {
+      "id": "bienvenida",
+      "name": "Bienvenida",
+      "art": "parcel",
+      "enabled": true,
+      "items": [
+        {
+          "kind": "currency",
+          "currency": "coins",
+          "amount": 1000
+        },
+        {
+          "kind": "currency",
+          "currency": "dust",
+          "amount": 200
+        },
+        {
+          "kind": "currency",
+          "currency": "signal",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "compensacion-caida",
+      "name": "Compensación por caída",
+      "art": "crate",
+      "enabled": true,
+      "items": [
+        {
+          "kind": "currency",
+          "currency": "coins",
+          "amount": 1500
+        },
+        {
+          "kind": "currency",
+          "currency": "signal",
+          "amount": 3
+        },
+        {
+          "kind": "currency",
+          "currency": "components",
+          "amount": 40
+        }
+      ]
+    },
+    {
+      "id": "podio-torneo",
+      "name": "Podio del torneo",
+      "art": "star",
+      "enabled": true,
+      "items": [
+        {
+          "kind": "galaxy",
+          "tier": "epic",
+          "finish": "holo",
+          "trait": null,
+          "count": 1
+        },
+        {
+          "kind": "currency",
+          "currency": "dust",
+          "amount": 800
+        },
+        {
+          "kind": "cosmetic",
+          "piece": "frame",
+          "id": "gold"
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "caida-servidor",
+      "name": "Caída del servidor",
+      "type": "compensation",
+      "title": "Perdón por la caída",
+      "body": "El juego estuvo parado un rato. Gracias por tu paciencia: aquí tienes una compensación",
+      "items": [],
+      "packs": [
+        "compensacion-caida"
+      ],
+      "expiresInDays": 14
+    },
+    {
+      "id": "ganadores-torneo",
+      "name": "Ganadores de un torneo",
+      "type": "reward",
+      "title": "Enhorabuena por el podio",
+      "body": "Has quedado entre los mejores del torneo. Aquí tienes tu premio",
+      "items": [],
+      "packs": [
+        "podio-torneo"
+      ],
+      "expiresInDays": 30
+    }
+  ],
+  "warnDays": 3
+}

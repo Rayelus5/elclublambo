@@ -1,5 +1,5 @@
 import { type Profile, TIERS } from '@galaxy/shared';
-import { useId, useState } from 'react';
+import { type CSSProperties, useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useProfile } from '../api/social';
@@ -15,12 +15,39 @@ import { useTrades } from '../api/trades';
 import { TradeComposer } from '../trades/TradeComposer';
 import { HomeLink } from '../ui/BackLink';
 import { SeasonHistoryList } from '../season/TrophiesScreen';
+import { useCosmeticsView } from '../api/cosmetics';
+import { CustomizeDialog } from '../profile/CustomizeDialog';
+import { BlockConfirm } from './BlockConfirm';
+import { ProbesPanel } from './ProbesPanel';
+import { InvitePanel } from './InvitePanel';
+import { ProfileBanner } from '../profile/ProfileBanner';
+import { NoticeModeField } from '../live/NoticeMode';
+import { TitleText } from '../profile/TitleText';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
-// to visit it. Nothing private.
+// to visit it. Nothing private, except on their own profile: their invitation codes, when the team gave them one
+// (plan «referidos», part R2).
 
 const t = copy.social;
+
+/** The level and how far the next one is: a bar of the experience into this level, or «Nivel máximo» at the top. */
+function LevelBar({ level, xp }: { level: number; xp: Profile['xp'] }) {
+  const next = xp && xp.next !== null && xp.next > 0 ? xp.next : null;
+  return (
+    <div className="profile-level">
+      <div className="profile-level-row">
+        <span className="profile-level-chip">{t.level(level)}</span>
+        {xp ? <span className="profile-level-left">{next === null ? t.maxLevel : t.xpLeft(Math.max(0, next - xp.into), level + 1)}</span> : null}
+      </div>
+      {xp && next !== null ? (
+        <span className="profile-xp" role="progressbar" aria-label={t.xpBar(level + 1)} aria-valuemin={0} aria-valuemax={next} aria-valuenow={Math.min(xp.into, next)}>
+          <span style={{ '--p': String(Math.min(1, xp.into / next)) } as CSSProperties} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function Panel({ title, className, children }: { title: string; className: string; children: React.ReactNode }) {
   const id = useId();
@@ -45,10 +72,12 @@ function Facts({ items }: { items: [string, number][] }) {
   );
 }
 
-function Body({ p }: { p: Profile }) {
+function Body({ p, mine }: { p: Profile; mine: boolean }) {
   const who = encodeURIComponent(p.username);
   return (
     <div className="profile-grid">
+      {p.probes ? <ProbesPanel probes={p.probes} mine={mine} /> : null}
+      {mine ? <InvitePanel /> : null}
       <Panel title={t.seasonTitle} className="profile-season">
         {p.season ? (
           <>
@@ -88,7 +117,7 @@ function Body({ p }: { p: Profile }) {
           {[...TIERS].reverse().map((tier) => (
             <li key={tier} data-tier={tier} className={p.collection.counts[tier] ? undefined : 'none'}>
               <i aria-hidden="true" />
-              <b>{fmt(p.collection.counts[tier])}</b>
+              <b>{fmt(p.collection.counts[tier] ?? 0)}</b>
               <span>{copy.tiers[tier]}</span>
             </li>
           ))}
@@ -125,11 +154,15 @@ export function ProfileScreen() {
   const viewer = useMe().data?.username;
   const navigate = useNavigate();
   const [proposing, setProposing] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
   const trades = useTrades();
+  // My cosmetics: the inventory for «Personalizar» on my profile, and the catalog that styles anyone's title.
+  const cosmetics = useCosmeticsView(!!viewer);
   const p = profile.data;
   const missing = profile.error instanceof ApiError && (profile.error.status === 404 || profile.error.status === 400);
   return (
-    <div className="screen-root profile-root">
+    <div className="screen-root profile-root" data-finish={p?.banner && p.banner.finish !== 'normal' ? p.banner.finish : undefined}>
+      {p?.banner ? <ProfileBanner galaxy={p.banner} /> : null}
       <div className="profile">
         <header className="collection-bar">
           <HomeLink>
@@ -153,23 +186,39 @@ export function ProfileScreen() {
         {p ? (
           <>
             <section className="profile-head">
-              <span className={`profile-avatar${p.frame ? ` frame-${p.frame}` : ''}`}>
-                <Avatar name={p.username} />
+              <span className="profile-avatar">
+                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={144} fit="outer" />
               </span>
-              <div>
+              <div className="profile-id">
                 <h1>{p.username}</h1>
-                {p.title ? <p className="profile-title">{p.title}</p> : null}
-                <p className="profile-level">{t.level(p.level)}</p>
-                <p className="profile-since">{t.since(p.since)}</p>
-                {p.clan ? (
-                  <Link to={`/clanes/${p.clan.tag}`} className="profile-clan">
-                    <ClanEmblem emblem={p.clan.emblem} color={p.clan.color} scale={1} />
-                    <span>{p.clan.name}</span>
-                    <span className="clan-tag">{p.clan.tag}</span>
-                  </Link>
+                {p.title ? (
+                  <p className="profile-title">
+                    <TitleText text={p.title} catalog={cosmetics.data?.catalog} />
+                  </p>
                 ) : null}
+                <LevelBar level={p.level} xp={p.xp} />
+                <div className="profile-meta">
+                  {p.clan ? (
+                    <Link to={`/clanes/${p.clan.tag}`} className="profile-clan">
+                      <ClanEmblem emblem={p.clan.emblem} color={p.clan.color} scale={1} />
+                      <span>{p.clan.name}</span>
+                      <span className="clan-tag">{p.clan.tag}</span>
+                    </Link>
+                  ) : null}
+                  <p className="profile-since">{t.since(p.since)}</p>
+                </div>
               </div>
             </section>
+            {viewer && viewer === p.username ? (
+              <div className="profile-actions">
+                <button type="button" className="lip pill pill-uv" aria-haspopup="dialog" disabled={!cosmetics.data} onClick={() => setCustomizing(true)}>
+                  <Icon name="starOn" />
+                  <span>{copy.customize.open}</span>
+                </button>
+                <NoticeModeField />
+              </div>
+            ) : null}
+            {customizing && cosmetics.data ? <CustomizeDialog username={p.username} view={cosmetics.data} onClose={() => setCustomizing(false)} /> : null}
             {viewer && viewer !== p.username ? (
               <div className="profile-actions">
                 <FriendButtons username={p.username} />
@@ -179,15 +228,15 @@ export function ProfileScreen() {
                 </button>
               </div>
             ) : null}
-            {proposing ? (
+            {proposing && trades.data ? (
               <TradeComposer
                 username={p.username}
-                days={trades.data?.rules.tradeDays ?? 3}
+                rules={trades.data.rules}
                 onDone={() => navigate('/mercado?pestana=trueques')}
                 onClose={() => setProposing(false)}
               />
             ) : null}
-            <Body p={p} />
+            <Body p={p} mine={!!viewer && viewer === p.username} />
           </>
         ) : profile.isPending ? (
           <p className="planetarium-wait" role="status" aria-label={copy.loading}>
@@ -207,9 +256,10 @@ function FriendButtons({ username }: { username: string }) {
   const relation = useRelation(username);
   const action = useFriendAction();
   const f = copy.friends.profile;
+  const [asking, setAsking] = useState(false);
   const r = relation.data?.relation;
   if (!r) return null;
-  const run = (kind: 'request' | 'accept' | 'remove' | 'block' | 'unblock') => action.mutate({ username, action: kind });
+  const run = (kind: 'request' | 'accept' | 'remove' | 'unblock') => action.mutate({ username, action: kind });
   return (
     <>
       {r === 'none' ? (
@@ -239,11 +289,13 @@ function FriendButtons({ username }: { username: string }) {
           <span>{f.unblock}</span>
         </button>
       ) : (
-        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('block')}>
+        <button type="button" className="lip pill" aria-haspopup="dialog" disabled={action.isPending} onClick={() => setAsking(true)}>
           <Icon name="lock" />
           <span>{f.block}</span>
         </button>
       )}
+      {/* Always asked first: a friend stops being one (the owner, 2026-11-14). */}
+      {asking ? <BlockConfirm username={username} friend={r === 'friends'} onClose={() => setAsking(false)} /> : null}
       {action.isError ? (
         <p className="field-error" role="alert">
           {errorText(action.error, copy.errors)}

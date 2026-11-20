@@ -31,7 +31,7 @@ const event = {
 };
 const view = (over: Partial<GachaView> = {}): GachaView => ({
   banners: [standard, event],
-  costs: { coins: 100, coinsTen: 900, signals: 1 },
+  costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 },
   freePullAvailable: false,
   wallet: { coins: 250, dust: 0, signal: 10, 'signal:primer-contacto': 4 },
   ...over,
@@ -52,7 +52,8 @@ test('el escáner de evento se distingue: su pestaña dice «Escáner de evento�
   expect(screen.getByRole('heading', { level: 1, name: t.eventTab })).toBeInTheDocument();
   expect(screen.getByText(event.name)).toBeInTheDocument();
   expect(document.querySelector('.scanner.is-event')).not.toBeNull();
-  expect(screen.getByText(t.withEventSignals(4))).toBeInTheDocument();
+  // The pay block's head says what you hold: the event signals by their icon and number (2026-11-17, «Sobres»).
+  expect(within(document.querySelector<HTMLElement>('.pull-head')!).getByText(copy.hub.resource.eventSignal(4))).toBeInTheDocument();
 });
 
 test('la destacada del evento se anuncia en grande: el rasgo, cuántos escaneos faltan para que sea segura y el camino hecho', async () => {
@@ -77,7 +78,8 @@ test('/escaner?tipo=evento abre directamente el escáner de evento', async () =>
 test('el monedero enseña las señales de evento en su propio ticket, aparte de las normales; sin evento ni saldo, no sale', async () => {
   mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view()) });
   const { unmount } = renderAt('/escaner', { '/escaner': <ScannerScreen /> });
-  expect(await screen.findByRole('img', { name: copy.hub.resource.eventSignal(4) })).toHaveClass('event-signal');
+  // On the standard tab the event ticket leads to the event tab; the normal one is where you are, just a number.
+  expect(await screen.findByRole('link', { name: new RegExp(copy.hub.resource.eventSignal(4)) })).toHaveClass('event-signal');
   expect(screen.getByRole('img', { name: copy.hub.resource.signal(10) })).toBeInTheDocument();
   unmount();
   vi.unstubAllGlobals();

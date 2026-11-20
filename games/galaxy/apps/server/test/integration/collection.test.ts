@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { generateGalaxy, type CollectionPage, type GalaxyDetail, type GalaxySummary } from '@galaxy/shared';
+import { generateGalaxy, TIERS, type CollectionPage, type GalaxyDetail, type GalaxySummary } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { inTransaction } from '../../src/db/tx';
 import { credit, getWallet } from '../../src/economy/wallet';
@@ -64,18 +64,57 @@ test('la colección pagina sin repetir ni saltar, por fecha y por rareza (Review
       const page = await list(cookie, `?sort=${sort}&limit=60${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
       seen.push(...page.items);
       cursor = page.next;
-      expect(page.counts).toEqual({ common: 100, uncommon: 0, rare: 25, epic: 0, legendary: 5 });
+      expect(page.counts).toEqual({ common: 100, uncommon: 0, rare: 25, epic: 0, legendary: 5, mythic: 0 });
     } while (cursor);
     expect(seen, sort).toHaveLength(130);
     expect(new Set(seen.map((g) => g.id)).size).toBe(130);
     if (sort === 'rarity') {
-      const tiers = seen.map((g) => ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(g.tier));
+      const tiers = seen.map((g) => TIERS.indexOf(g.tier));
       expect(tiers).toEqual([...tiers].sort((a, b) => b - a));
     } else {
       const times = seen.map((g) => Date.parse(g.createdAt));
       expect(times).toEqual([...times].sort((a, b) => b - a));
     }
   }
+});
+
+// The owner (2026-11-14): oldest first, most and least star dust (what disintegrating pays) and by name, each paging
+// with its cursor, never repeating nor skipping.
+test('ordena por antigüedad, polvo y nombre, paginando sin repetir ni saltar', async () => {
+  const { cookie, id } = await player();
+  await own(id, 0, 30);
+  await own(id, 3, 8, 'holo');
+  await own(id, 4, 4);
+  const all = async (sort: string) => {
+    const seen: GalaxySummary[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list(cookie, `?sort=${sort}&limit=7${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      seen.push(...page.items);
+      cursor = page.next;
+    } while (cursor);
+    expect(seen, sort).toHaveLength(42);
+    expect(new Set(seen.map((g) => g.id)).size, sort).toBe(42);
+    return seen;
+  };
+  const old = await all('old');
+  const times = old.map((g) => Date.parse(g.createdAt));
+  expect(times).toEqual([...times].sort((a, b) => a - b));
+  for (const [sort, sign] of [
+    ['dust-desc', -1],
+    ['dust-asc', 1],
+  ] as const) {
+    const seen = await all(sort);
+    // What each would pay, from its detail: never against the order.
+    const dust = await Promise.all(seen.map(async (g) => ((await get(ctx.app, `/galaxy/api/galaxies/${g.id}`, { cookie })).json() as GalaxyDetail).dust));
+    for (let k = 1; k < dust.length; k++) expect(sign * (dust[k]! - dust[k - 1]!), sort).toBeGreaterThanOrEqual(0);
+  }
+  // By name: A–Z is Z–A backwards (the database's own collation decides ties of case and signs).
+  const az = await all('name-asc');
+  const za = await all('name-desc');
+  expect(az.map((g) => g.id)).toEqual(za.map((g) => g.id).reverse());
+  expect(az[0]!.name.localeCompare(az.at(-1)!.name, 'en', { sensitivity: 'base' })).toBeLessThanOrEqual(0);
+  expect((await get(ctx.app, '/galaxy/api/galaxies?sort=nope', { cookie })).statusCode).toBe(400);
 });
 
 test('filtra por nivel, tipo, paleta y acabado, y solo enseña las propias', async () => {
@@ -96,7 +135,33 @@ test('filtra por nivel, tipo, paleta y acabado, y solo enseña las propias', asy
   const mine = (await get(ctx.app, `/galaxy/api/galaxies/${legendary.items[0]!.id}`, { cookie: me.cookie })).json() as GalaxyDetail;
   expect(mine).toMatchObject({ origin: 'grant', lineage: [], level: 1 });
   expect(mine.dna).toMatch(/^[0-9a-f]{64}$/);
-  expect((await get(ctx.app, '/galaxy/api/galaxies?tier=mythic', { cookie: me.cookie })).statusCode).toBe(400);
+  // The sixth tier (plan «rareza Mítica»): a filter of its own, and nothing above it.
+  expect((await list(me.cookie, '?tier=mythic')).items).toHaveLength(0);
+  const [mythic] = await own(me.id, 5, 1, 'prismatic');
+  const mythics = await list(me.cookie, '?tier=mythic');
+  expect(mythics.items.map((g) => [g.id, g.tier])).toEqual([[mythic, 'mythic']]);
+  expect(mythics.counts).toMatchObject({ legendary: 3, mythic: 1 });
+  expect((await get(ctx.app, '/galaxy/api/galaxies?tier=divine', { cookie: me.cookie })).statusCode).toBe(400);
+});
+
+test('filtra por fenómeno: uno concreto, cualquiera o ninguno (plan «escáner pro», parte D)', async () => {
+  const me = await player();
+  await own(me.id, 4, 3);
+  await own(me.id, 0, 6);
+  const all = await list(me.cookie, '?limit=60');
+  const withOne = all.items.filter((g) => g.traits['phenomenon'] !== 'none');
+  const without = all.items.filter((g) => g.traits['phenomenon'] === 'none');
+  // Legendaries always have one.
+  expect(withOne.length).toBeGreaterThanOrEqual(3);
+  const any = await list(me.cookie, '?phenomenon=any&limit=60');
+  expect(any.items.map((g) => g.id).sort()).toEqual(withOne.map((g) => g.id).sort());
+  const none = await list(me.cookie, '?phenomenon=none&limit=60');
+  expect(none.items.map((g) => g.id).sort()).toEqual(without.map((g) => g.id).sort());
+  const one = withOne[0]!.traits['phenomenon']!;
+  const exact = await list(me.cookie, `?phenomenon=${one}&limit=60`);
+  expect(exact.items.length).toBeGreaterThan(0);
+  expect(exact.items.every((g) => g.traits['phenomenon'] === one)).toBe(true);
+  expect((await get(ctx.app, '/galaxy/api/galaxies?phenomenon=Supernova!', { cookie: me.cookie })).statusCode).toBe(400);
 });
 
 test('desintegrar da el polvo una vez; la galaxia desaparece de la colección', async () => {
@@ -231,3 +296,46 @@ test('el laboratorio (M4b-2): Reciclaje da más polvo al desintegrar y Fusión e
   expect(fused.statusCode).toBe(200);
   expect((fused.json() as { wallet: { dust: number } }).wallet.dust).toBe(135 - 48);
 });
+
+// Desintegrar varias (the owner: «no se puede hacer desintegración por galaxias seleccionadas, como sí al fusionar»):
+// up to 50 in one go, all or none, paid as if one by one, with a preview that changes nothing.
+test('desintegrar varias paga lo mismo que una a una, y el aviso previo no cambia nada', async () => {
+  const { cookie, id } = await player();
+  const commons = await own(id, 0, 3);
+  const [rare] = await own(id, 2, 1, 'holo');
+  const ids = [...commons, rare!];
+  const preview = await post(ctx.app, '/galaxy/api/galaxies/disintegrate', { ids, preview: true }, { cookie });
+  expect(preview.statusCode).toBe(200);
+  // 3 commons (5 each) and a holo rare (45).
+  expect(preview.json()).toEqual({ count: 4, dust: 60 });
+  expect((await list(cookie)).items).toHaveLength(4);
+  expect((await getWallet(ctx.db, id)).dust).toBe(0);
+  const key = randomUUID();
+  const res = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids }, key);
+  expect(res.statusCode).toBe(200);
+  expect(res.json()).toMatchObject({ count: 4, dust: 60, wallet: { dust: 60 } });
+  // The same request again (a lost answer) pays nothing more.
+  const again = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids }, key);
+  expect(again.statusCode).toBe(200);
+  expect((await getWallet(ctx.db, id)).dust).toBe(60);
+  expect((await list(cookie)).items).toHaveLength(0);
+});
+
+test('desintegrar varias es todo o nada: una que no se puede deja todas en su sitio', async () => {
+  const { cookie, id } = await player();
+  const ids = await own(id, 0, 3);
+  await ctx.db.updateTable('galaxy.galaxies').set({ locked: true }).where('id', '=', ids[1]!).execute();
+  const res = await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids });
+  expect(res.statusCode).toBe(409);
+  expect(res.json()).toEqual({ error: 'galaxy_locked' });
+  expect((await list(cookie)).items).toHaveLength(3);
+  expect((await getWallet(ctx.db, id)).dust).toBe(0);
+  // Someone else's galaxy, a repeated id, or more than 50: refused before anything moves.
+  const other = await player();
+  const [theirs] = await own(other.id, 0, 1);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: [ids[0]!, theirs!] })).statusCode).toBe(404);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: [ids[0]!, ids[0]!] })).statusCode).toBe(400);
+  expect((await act(cookie, '/galaxy/api/galaxies/disintegrate', { ids: Array.from({ length: 51 }, () => randomUUID()) })).statusCode).toBe(400);
+  expect((await list(other.cookie)).items).toHaveLength(1);
+});
+

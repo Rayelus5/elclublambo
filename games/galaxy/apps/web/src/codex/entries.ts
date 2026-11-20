@@ -1,5 +1,6 @@
 import type { CodexProgress } from '@galaxy/shared';
-import { type Content, DEFAULT_CONTENT } from '@galaxy/sim';
+import { bossIdAt, type BossPattern, type Content, DEFAULT_CONTENT, type SectorDef } from '@galaxy/sim';
+import { beastLore, coreLore, sectorLore } from './texts';
 
 // The Códice's entries (GDD §15; M7b-2): the ECN terminal's records, opened by playing. The texts are the lore the owner
 // approved as a placeholder (docs/LORE.md v1, 2026-11-08). Each entry says how it opens while it is still locked.
@@ -33,48 +34,14 @@ const CHRONICLE: [string, string, number][] = [
   ['La Señal', 'Todas las estaciones captaron el mismo patrón a la vez, desde una fisura nueva en el cielo. PERKINS lo reconoció enseguida. No ha querido decir de qué.', 12],
 ];
 
-const SECTOR_TEXT: Record<string, string> = {
-  'outer-nebula': 'El borde, el primero que devoró la Estática. Gas rosado lleno de ácaros y células que se parten. Aquí empiezan todas las sondas.',
-  'frost-rings': 'Un sistema de anillos helados donde la Estática ralentiza todo, hasta la luz. Los témpanos flotan con algo dentro.',
-  'hollow-reef': 'Un arrecife de coral espacial vaciado por dentro. Lo que antes filtraba polvo estelar ahora dispara.',
-  'broken-forge': 'Una vieja fundición de estrellas. Sus máquinas siguen trabajando sin nadie que las mande, y lo que forjan ya no es metal.',
-  'signal-rift': 'Una grieta abierta en el cielo esta temporada. De ella sale la Señal. Todo lo que vive aquí parece repetir algo.',
+/** How to face the attacks the Cores' new forms brought (Nov plan B4), from their real behaviour. */
+const CORE_FIGHT: Partial<Record<BossPattern['kind'], string>> = {
+  laser: 'Marca una línea y el abanico que va a barrer: sal hacia el lado contrario al giro, nunca hacia donde va.',
+  closing: 'Marca un anillo a tu alrededor que se cierra: busca la salida señalada en blanco y cruza por ella.',
+  barrage: 'Marca una fila de círculos que estallan uno tras otro hacia ti: apártate de lado, no hacia atrás.',
 };
-const CORE_TEXT: Record<string, string> = {
-  hive: 'Una colmena de ácaros que dejó de tener reina y empezó a tener hambre.',
-  glacier: 'Congela el tiempo a su alrededor para proteger lo que incuba.',
-  anemone: 'Antes filtraba la luz del arrecife; ahora la bebe.',
-  anvil: 'La máquina que daba forma a las estrellas. Sigue golpeando, aunque ya no haya nada que forjar.',
-  'echo-core': 'Aparece en las capas más hondas de cualquier sector. Repite los movimientos de las sondas que perdió.',
-  signal: 'No ataca como una criatura: emite. Quien la escucha demasiado tiempo empieza a entenderla.',
-};
-const BEAST_TEXT: Record<string, string> = {
-  mite: 'La primera forma de la Estática: pequeña, rápida y nunca sola.',
-  cell: 'Al romperla se convierte en dos. El Archivo recomienda no romperla cerca de casa.',
-  cellet: 'Lo que queda de una célula partida, y no es poco.',
-  ray: 'Planea en silencio y embiste cuando la miras.',
-  spitter: 'Un coral que aprendió a escupir.',
-  shell: 'Lo que queda de algo que se escondió demasiado tiempo.',
-  splinter: 'Fragmentos de algo más grande que aún no ha llegado.',
-  narwhal: 'Carga en línea recta con un cuerno de hielo que no se derrite.',
-  beacon: 'Antes guiaba a las naves por los anillos; ahora las atrae.',
-  geode: 'Hermosa por dentro. No la abras.',
-  floe: 'Hielo a la deriva con algo que late dentro.',
-  polyp: 'Crece donde nadie mira.',
-  jelly: 'Deja un rastro que confunde a los sensores.',
-  urchin: 'Se protege como siempre, pero ahora sus púas vuelan.',
-  eel: 'Recorre el arrecife como una chispa con hambre.',
-  colony: 'Muchos que actúan como uno.',
-  ember: 'Chispas de la forja que se niegan a apagarse.',
-  ram: 'Una máquina de derribo que ya no distingue paredes de sondas.',
-  sentry: 'Defendía la forja. Sigue defendiéndola, de ti.',
-  golem: 'Lo que la forja tira, la Estática lo recoge y lo pone a andar.',
-  welder: 'Repara a los suyos con una paciencia inquietante.',
-  crucible: 'Funde lo que toca y lo devuelve hostil.',
-  glitch: 'Un error que aprendió a moverse.',
-  wraith: 'Una sonda perdida que aún cree que está en misión.',
-  cantor: 'Su canto refuerza a los que lo rodean.',
-};
+/** How deep to look for where each form first comes (three forms, a deep Core every few layers). */
+const FORM_LAYERS = 24;
 const FIGHT: Record<string, string> = {
   chase: 'Va directo a por ti: mantén la distancia y deja que tus armas de área limpien el grupo.',
   charge: 'Se detiene antes de embestir: apártate de la línea en cuanto se para.',
@@ -98,20 +65,34 @@ const FRAGMENTS: [string, number][] = [
 export function codexEntries(content: Content = DEFAULT_CONTENT): CodexEntry[] {
   const out: CodexEntry[] = CHRONICLE.map(([title, text, level], i) => ({ id: `chronicle-${i}`, section: 'chronicle', title, text, hint: `Se abre con el nivel ${level} de cuenta`, open: atLevel(level) }));
   for (const s of content.sectors) {
-    out.push({ id: `sector-${s.id}`, section: 'sectors', title: s.name, text: SECTOR_TEXT[s.id] ?? s.description ?? '', hint: `Se abre al jugar una incursión en ${s.name}`, open: (p) => !!p.sectors[s.id] });
+    out.push({ id: `sector-${s.id}`, section: 'sectors', title: s.name, text: sectorLore(s), hint: `Se abre al jugar una incursión en ${s.name}`, open: (p) => !!p.sectors[s.id] });
   }
-  const bossSector = new Map(content.sectors.map((s) => [s.boss, s] as const));
+  // Nov plan B4: every form of every Core, by where it first comes. A sector's first form opens when its Core is purged,
+  // a later one when a run there purged the layer it comes in; the deep Core's, on reaching the layer it comes in.
+  const firstAt = new Map<string, { sector: SectorDef; layer: number; deep: boolean }>();
+  for (const s of content.sectors) {
+    for (let layer = 1; layer <= FORM_LAYERS; layer++) {
+      const id = bossIdAt(s, layer);
+      if (!firstAt.has(id)) firstAt.set(id, { sector: s, layer, deep: !!s.deepBoss && layer % s.deepBoss.every === 0 });
+    }
+  }
   for (const b of content.bosses ?? []) {
-    const sector = bossSector.get(b.id);
-    const abyssal = b.id === 'echo-core';
-    out.push({
-      id: `core-${b.id}`,
-      section: 'cores',
-      title: b.name,
-      text: CORE_TEXT[b.id] ?? '',
-      hint: abyssal ? 'Se abre al llegar a la capa 4 de cualquier sector' : sector ? `Se abre al purgar el Núcleo de ${sector.name}` : 'Se abre al purgarlo',
-      open: abyssal ? (p) => p.maxDepth >= 4 : sector ? (p) => (p.sectors[sector.id]?.bossKills ?? 0) > 0 : () => false,
-    });
+    const at = firstAt.get(b.id);
+    const kinds = new Set(b.phases.flatMap((ph) => ph.patterns.map((x) => x.kind)));
+    const fight = [...kinds].flatMap((k) => CORE_FIGHT[k] ?? []).join(' ');
+    let hint = 'Se abre al purgarlo';
+    let open: CodexEntry['open'] = () => false;
+    if (at?.deep) {
+      hint = `Se abre al llegar a la capa ${at.layer} de cualquier sector`;
+      open = (p) => p.maxDepth >= at.layer;
+    } else if (at && at.layer === 1) {
+      hint = `Se abre al purgar el Núcleo de ${at.sector.name}`;
+      open = (p) => (p.sectors[at.sector.id]?.bossKills ?? 0) > 0;
+    } else if (at) {
+      hint = `Se abre al purgar el Núcleo de la capa ${at.layer} de ${at.sector.name}`;
+      open = (p) => (p.sectors[at.sector.id]?.maxBossKills ?? 0) >= at.layer;
+    }
+    out.push({ id: `core-${b.id}`, section: 'cores', title: b.name, text: coreLore(b), hint, open, ...(fight ? { fight } : {}) });
   }
   // A species opens once a run in one of its sectors has lasted until it appears (minions with their summoner).
   const firstSeen = new Map<string, { sector: string; at: number }[]>();
@@ -125,14 +106,15 @@ export function codexEntries(content: Content = DEFAULT_CONTENT): CodexEntry[] {
   }
   for (const e of content.enemies) {
     const seen = firstSeen.get(e.id) ?? [];
-    if (seen.length === 0 || !BEAST_TEXT[e.id]) continue;
+    const lore = beastLore(e);
+    if (seen.length === 0 || !lore) continue;
     const first = seen.reduce((a, b) => (b.at < a.at ? b : a));
     const sectorName = content.sectors.find((s) => s.id === first.sector)?.name ?? first.sector;
     out.push({
       id: `beast-${e.id}`,
       section: 'bestiary',
       title: e.name,
-      text: BEAST_TEXT[e.id]!,
+      text: lore,
       hint: first.at <= 0 ? `Se abre al jugar en ${sectorName}` : `Se abre al aguantar ${Math.ceil(first.at / 60)} min en ${sectorName}`,
       open: (p) => seen.some((x) => (p.sectors[x.sector]?.maxSeconds ?? -1) >= x.at),
       fight: FIGHT[e.behavior.kind],

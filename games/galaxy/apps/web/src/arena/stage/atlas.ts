@@ -28,16 +28,18 @@ function whiteOf(rgba: Uint8ClampedArray): Uint8ClampedArray {
   return out;
 }
 
-export function buildAtlas(): Atlas {
+/** Every sprite of the arena, and `extra` ones for this run (its probes' skins, turned: sprites' skinSprites). */
+export function buildAtlas(extra: Record<string, SpriteDef> = {}): Atlas {
+  const all: Record<string, SpriteDef> = { ...SPRITES, ...extra };
   // Shelf packing, two copies (colour, white) of every frame.
   type Slot = { id: string; frame: number; white: boolean; x: number; y: number; def: SpriteDef };
   const slots: Slot[] = [];
   let x = PAD;
   let y = PAD;
   let shelf = 0;
-  const ids = Object.keys(SPRITES).sort((a, b) => SPRITES[b]!.h - SPRITES[a]!.h);
+  const ids = Object.keys(all).sort((a, b) => all[b]!.h - all[a]!.h);
   for (const id of ids) {
-    const def = SPRITES[id]!;
+    const def = all[id]!;
     for (let f = 0; f < def.frames.length; f++) {
       for (const white of [false, true]) {
         if (x + def.w + PAD > WIDTH) {
@@ -82,7 +84,7 @@ export function buildAtlas(): Atlas {
     frames,
     white,
     pixel,
-    defs: SPRITES,
+    defs: all,
     destroy() {
       source.destroy();
     },
@@ -103,6 +105,31 @@ export function ditherTexture(w: number, h: number, paint: (x: number, y: number
       ctx.fillRect(x, y, 1, 1);
     }
   }
+  const source = TextureSource.from(canvas);
+  source.scaleMode = 'nearest';
+  source.addressMode = 'repeat';
+  return new Texture({ source });
+}
+
+/**
+ * A grey mask, one byte per pixel (0 clear, else that grey, opaque), tinted when drawn: the Núcleo's storm cloud in
+ * the nebula's shape (environment.ts). Written through ImageData, so it costs little next to the noise it copies.
+ */
+export function maskTexture(w: number, h: number, grey: Uint8Array): Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    const g = grey[i]!;
+    if (!g) continue;
+    img.data[i * 4] = g;
+    img.data[i * 4 + 1] = g;
+    img.data[i * 4 + 2] = g;
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
   const source = TextureSource.from(canvas);
   source.scaleMode = 'nearest';
   source.addressMode = 'repeat';

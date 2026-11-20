@@ -34,7 +34,27 @@ export type ProbeChoice = z.infer<typeof probeChoiceSchema>;
 export const sectorChoiceSchema = z.object({ sector: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 export type SectorChoice = z.infer<typeof sectorChoiceSchema>;
 
-export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
+/** The live content the web describes relics with (plan «escáner pro», part D): GET /galaxy/api/content. */
+export interface LiveContentView {
+  version: number;
+  content: Content;
+}
+
+/**
+ * `test`: an admin's test run (debug mode, 2026-11-15), started with a content draft; it pays and counts for nothing.
+ * Only an admin with TOTP may send it.
+ */
+export const startRunRequestSchema = z
+  .object({
+    sector: contentId,
+    probe: contentId,
+    simVersion: z.string().min(1).max(20),
+    test: z.literal(true).optional(),
+    /** A config draft to play (the content editor, 2026-11-16): only in a test run. */
+    draft: z.uuid().optional(),
+  })
+  .strict()
+  .refine((r) => !r.draft || r.test, 'draft_needs_test');
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
 const count = (max: number) => z.number().int().min(0).max(max);
@@ -48,12 +68,20 @@ export const finishRunRequestSchema = z
     kills: count(10_000_000),
     bossKills: count(999),
     level: z.number().int().min(1).max(999),
-    /** Coins, star dust and components (SIM 1.7.0; absent before) picked up in each layer (length = depth). */
-    loot: z.array(z.object({ coins: count(10_000_000), dust: count(10_000_000), components: count(1_000_000).optional() }).strict()).min(1).max(999),
+    /**
+     * Coins, star dust and components (SIM 1.7.0; absent before) picked up in each layer (length = depth), and the
+     * abandoned satellites' signals (SIM 1.10.0; absent before).
+     */
+    loot: z.array(z.object({ coins: count(10_000_000), dust: count(10_000_000), components: count(1_000_000).optional(), signals: count(3).optional() }).strict()).min(1).max(999),
     /** The simulation's final state hash. */
     hash: z.string().regex(/^[0-9a-f]{16}$/),
     /** The recorded inputs (packages/sim encodeLog) in base64. */
     inputs: z.string().max(2_800_000).regex(/^[A-Za-z0-9+/]*={0,2}$/),
+    /**
+     * A test run of the debug mode (2026-11-15): it gives up every reward. Anyone may send it (giving up is harmless), so a
+     * finish resent after the admin's TOTP session lapsed still closes the run.
+     */
+    test: z.literal(true).optional(),
   })
   .strict()
   .refine((r) => r.loot.length === r.depth, 'loot_depth');
@@ -76,6 +104,8 @@ export interface SectorCard {
   progress: number;
   /** A season sector (GDD §13.1): open only while its season lasts. */
   season: boolean;
+  /** What a run here pays, × (2026-11-16: sectors.pay). */
+  pay: number;
 }
 
 export interface ProbeCard {
@@ -103,6 +133,11 @@ export interface ProbeCard {
   variant: string;
   /** The base weapon first, then its variants. */
   variants: ProbeVariantCard[];
+  /** The skin it wears (plan «skins», part C; null: its base drawing) and the skins of it the player has. */
+  skin: string | null;
+  skins: string[];
+  /** Runs counted with it (its Chatarra skin comes at SCRAP_SKIN_RUNS). */
+  runs: number;
 }
 
 /** One starting weapon in the Hangar's picker. */
@@ -123,6 +158,9 @@ export type ProbeLevelUp = z.infer<typeof probeLevelUpSchema>;
 /** The starting weapon: the base or one of its variants. */
 export const probeVariantSchema = z.object({ variant: contentId }).strict();
 export type ProbeVariantChoice = z.infer<typeof probeVariantSchema>;
+/** The skin a probe wears: one of the player's skins of that probe, or null for its base drawing (plan «skins»). */
+export const probeSkinSchema = z.object({ skin: z.string().regex(/^skin-[a-z0-9-]{1,40}$/).nullable() }).strict();
+export type ProbeSkinChoice = z.infer<typeof probeSkinSchema>;
 
 export interface DailyView {
   playedSeconds: number;
@@ -172,6 +210,8 @@ export interface RunStart {
   variant: string | null;
   /** The season's anomaly at the start (M7d-3), or null. */
   anomaly: string | null;
+  /** The skin its probe wears (only drawing: the simulation never sees it; null: the base drawing). */
+  skin: string | null;
   content: Content;
   contentVersion: number;
   startedAt: string;
@@ -192,12 +232,19 @@ export interface RunResult {
   kills: number;
   level: number;
   /** `material`: raw material for the station's refinery (M4a). */
-  payout: { coins: number; dust: number; signals: number; material: number; components?: number };
+  payout: { coins: number; dust: number; signals: number; material: number; components?: number; satellites?: number };
   /**
    * `boosts`: the global multipliers that paid this run (M6d-5), empty when none ran at its finish; absent from results
    * kept before M6d-5 (a resent finish answers what was stored).
    */
-  breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[]; boosts?: { id: string; name: string; currency: 'coins' | 'dust' | 'material' | 'signal'; factor: number }[] };
+  breakdown: {
+    layers: RunLayerPay[];
+    share: number;
+    daily: { seconds: number; multiplier: number }[];
+    boosts?: { id: string; name: string; currency: 'coins' | 'dust' | 'material' | 'signal'; factor: number }[];
+    /** What the run's sector paid, × (2026-11-16; absent from results kept before). */
+    sector?: { id: string; factor: number };
+  };
   wallet: Wallet;
   /**
    * What the run gave the account (M5a): experience, the level after it and whether it went up, and the season points
@@ -205,4 +252,12 @@ export interface RunResult {
    */
   /** `shards`: the season currency the run paid (M7d-1; absent when none). */
   progress: { xp: number; level: number; levelUp: boolean; points: number; shards?: number };
+  /** A test run of the debug mode (2026-11-15): nothing was paid or counted. */
+  test?: true;
+}
+
+/** POST /galaxy/api/runs/:id/test (debug mode, 2026-11-15): the admin's own open solo run is now a test run. */
+export interface TestRunResponse {
+  id: string;
+  test: true;
 }

@@ -4,6 +4,7 @@ import { requestGalaxy, type GalaxyRender } from '../galaxy/client';
 import { composeInto } from '../galaxy/compose';
 import { galaxyReady, initialState, layerStyles, nextPhase } from './backdrop-schedule';
 import { seedFor } from './backdrop-seeds';
+import { prefersReduced } from '../settings/prefs';
 
 // The access backdrop (DESIGN_SYSTEM §8): real galaxies from the engine on deep black, one at a time. Each one is
 // scanned in by a braille scan line, turns and approaches very slowly (a rigid transform of the composed image, so
@@ -67,7 +68,7 @@ export function GalaxyBackdrop({ seeds = [] }: { seeds?: readonly string[] }) {
   }, [seeds]);
   const layerA = useRef<HTMLDivElement>(null);
   const layerB = useRef<HTMLDivElement>(null);
-  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = prefersReduced();
 
   useEffect(() => {
     const host = root.current;

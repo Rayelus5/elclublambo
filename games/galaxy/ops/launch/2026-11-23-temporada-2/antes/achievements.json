@@ -1,0 +1,228 @@
+{
+  "list": [
+    {
+      "id": "a-first-run",
+      "name": "Primer despegue",
+      "description": "Juega tu primera incursión",
+      "stat": "runs",
+      "target": 1,
+      "tier": "bronze",
+      "reward": {
+        "signal": 1,
+        "points": 20,
+        "title": "Cadete",
+        "frame": null,
+        "avatar": "probe-lumen",
+        "skin": null
+      }
+    },
+    {
+      "id": "a-legend1",
+      "name": "Primera legendaria",
+      "description": "Consigue una galaxia legendaria",
+      "stat": "legendaries",
+      "target": 1,
+      "tier": "bronze",
+      "reward": {
+        "signal": 1,
+        "points": 20,
+        "title": null,
+        "frame": "bronze",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-runs50",
+      "name": "Veterano",
+      "description": "Juega 50 incursiones",
+      "stat": "runs",
+      "target": 50,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Veterano",
+        "frame": "silver",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-boss10",
+      "name": "Purgador",
+      "description": "Purga 10 Núcleos",
+      "stat": "bossKills",
+      "target": 10,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Purgador",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-kills10k",
+      "name": "Exterminador",
+      "description": "Elimina 10.000 enemigos",
+      "stat": "kills",
+      "target": 10000,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Exterminador",
+        "frame": null,
+        "avatar": "probe-spark",
+        "skin": null
+      }
+    },
+    {
+      "id": "a-fuse10",
+      "name": "Alquimista",
+      "description": "Fusiona 10 veces",
+      "stat": "fusions",
+      "target": 10,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Alquimista",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-extract25",
+      "name": "Siempre vuelvo",
+      "description": "Extrae 25 veces",
+      "stat": "extractions",
+      "target": 25,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Superviviente",
+        "frame": null,
+        "avatar": "probe-bastion",
+        "skin": null
+      }
+    },
+    {
+      "id": "a-depth5",
+      "name": "Abismo",
+      "description": "Llega a la capa 5",
+      "stat": "depth",
+      "target": 5,
+      "tier": "gold",
+      "reward": {
+        "signal": 3,
+        "points": 120,
+        "title": "Abisal",
+        "frame": "abyss",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-boss100",
+      "name": "Azote de Núcleos",
+      "description": "Purga 100 Núcleos",
+      "stat": "bossKills",
+      "target": 100,
+      "tier": "gold",
+      "reward": {
+        "signal": 5,
+        "points": 120,
+        "title": null,
+        "frame": "nebula",
+        "avatar": "static-ghost",
+        "skin": null
+      }
+    },
+    {
+      "id": "a-runs500",
+      "name": "Leyenda del ECN",
+      "description": "Juega 500 incursiones",
+      "stat": "runs",
+      "target": 500,
+      "tier": "gold",
+      "reward": {
+        "signal": 5,
+        "points": 120,
+        "title": "Leyenda del ECN",
+        "frame": "gold",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-group10",
+      "name": "Escuadrón",
+      "description": "Juega 10 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 10,
+      "tier": "bronze",
+      "reward": {
+        "signal": 1,
+        "points": 20,
+        "title": "Compañero",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-revive25",
+      "name": "Ángel de la guarda",
+      "description": "Reanima a 25 compañeros",
+      "stat": "revives",
+      "target": 25,
+      "tier": "silver",
+      "reward": {
+        "signal": 2,
+        "points": 50,
+        "title": "Ángel de la guarda",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-depth6",
+      "name": "Imparable",
+      "description": "Llega a la capa 6",
+      "stat": "depth",
+      "target": 6,
+      "tier": "gold",
+      "reward": {
+        "signal": 5,
+        "points": 120,
+        "title": "Imparable",
+        "frame": "abyss",
+        "avatar": null,
+        "skin": null
+      }
+    },
+    {
+      "id": "a-group50",
+      "name": "Leyenda del escuadrón",
+      "description": "Juega 50 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 50,
+      "tier": "silver",
+      "reward": {
+        "signal": 3,
+        "points": 50,
+        "title": "Leyenda del escuadrón",
+        "frame": null,
+        "avatar": null,
+        "skin": null
+      }
+    }
+  ]
+}

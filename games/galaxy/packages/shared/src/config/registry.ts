@@ -1,12 +1,20 @@
-import { contentSchema, STAT_KEYS } from '@galaxy/sim';
-import { DEFAULT_LAB_NODES } from '../lab/tree';
+import { mailConfigSchema } from '../gifts/library';
+import { mailLimitsSchema } from '../gifts/limits';
+import { DEFAULT_CHAT_WORDS } from '../chat/words';
+import { type Content, contentSchema, STAT_KEYS } from '@galaxy/sim';
+import { contentArtIssues } from './art';
+import { DEFAULT_LAB_NODES, nodeTotal } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { SEASON_FINISHES, TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
+import { TRADE_GALAXIES_MAX } from '../api/trade';
 import { redshiftSchema } from '../progress/redshift';
+import { shopSchema } from '../shop/schema';
+import { cosmeticsConfigSchema } from '../cosmetics/catalog';
+import { mailGiftsSchema } from '../api/mail';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -66,6 +74,75 @@ const DEFAULT_BANNERS = [
   { id: 'deep-scan', kind: 'standard' as const, name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
 ];
 
+/** One node of a Laboratorio tree (`falloff` and `at` came with the seasonal core: older nodes get 1 and null). */
+const labNodeSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]{1,32}$/),
+    branch: z.enum(['probe', 'relics', 'station', 'extraction']),
+    name: z.string().min(1).max(40),
+    effect: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('stat'), stat: z.enum(STAT_KEYS) }).strict(),
+      z.object({ kind: z.literal('payout'), currency: z.enum(['coins', 'dust', 'material']) }).strict(),
+      z.object({ kind: z.literal('refinery'), field: z.enum(['rate', 'queue']) }).strict(),
+      z.object({ kind: z.literal('antenna') }).strict(),
+      z.object({ kind: z.literal('disintegrate') }).strict(),
+      z.object({ kind: z.literal('fusion') }).strict(),
+    ]),
+    per: z.number().gt(0).max(0.2),
+    max: z.number().int().min(1).max(10),
+    requires: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
+    cost: z.object({ dust: z.number().int().min(0).max(10_000_000), components: z.number().int().min(0).max(1_000_000) }).strict(),
+    growth: z.number().min(1).max(3),
+    falloff: z.number().min(0.5).max(1).default(1),
+    at: z.object({ angle: z.number().min(-180).max(180), ring: z.number().int().min(1).max(12) }).strict().nullable().default(null),
+  })
+  .strict();
+
+/** What every stat may add from both trees at their max: a guard against a tree that would break the brakes (§8.6). */
+export const LAB_STAT_BUDGET = 1;
+
+/**
+ * The checks over both Laboratorio trees together: unique ids across both, each requirement inside its own tree, no
+ * cycles, the fusion discount and each run pay bonus at most half, each stat within its budget, and no station machine
+ * in the season's tree (the refinery and the antenna run lazily over time; a seasonal reset would rewrite the past).
+ */
+function labTreesIssues(lab: { nodes: { id: string; requires: string | null; effect: { kind: string; currency?: string; stat?: string }; per: number; max: number; falloff: number }[]; season: { id: string; requires: string | null; effect: { kind: string; currency?: string; stat?: string }; per: number; max: number; falloff: number }[] }, ctx: z.RefinementCtx): void {
+  const ids = new Set<string>();
+  for (const [path, tree] of [['nodes', lab.nodes], ['season', lab.season]] as const) {
+    for (const n of tree) {
+      if (ids.has(n.id)) ctx.addIssue({ code: 'custom', path: [path], message: `lab_duplicate:${n.id}` });
+      ids.add(n.id);
+    }
+    const byId = new Map(tree.map((n) => [n.id, n]));
+    for (const n of tree) {
+      if (n.requires !== null && !byId.has(n.requires)) ctx.addIssue({ code: 'custom', path: [path], message: `lab_requires:${n.id}` });
+      // Follow the chain of requirements: a node seen twice is a cycle.
+      const seen = new Set<string>([n.id]);
+      for (let at = n.requires; at !== null; at = byId.get(at)?.requires ?? null) {
+        if (seen.has(at)) {
+          ctx.addIssue({ code: 'custom', path: [path], message: `lab_cycle:${n.id}` });
+          break;
+        }
+        seen.add(at);
+      }
+    }
+  }
+  for (const n of lab.season) {
+    // Only what a run uses: the station's machines run lazily over time and the collection prices galaxies, so a reset
+    // in the middle of a season would change their past (or their quotes).
+    if (n.effect.kind !== 'stat' && n.effect.kind !== 'payout') ctx.addIssue({ code: 'custom', path: ['season'], message: `lab_season_kind:${n.id}` });
+  }
+  const both = [...lab.nodes, ...lab.season];
+  const sum = (pick: (n: (typeof both)[number]) => boolean) => both.filter(pick).reduce((a, n) => a + nodeTotal(n, n.max), 0);
+  if (sum((n) => n.effect.kind === 'fusion') > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: 'lab_fusion_cap' });
+  for (const c of ['coins', 'dust', 'material'] as const) {
+    if (sum((n) => n.effect.kind === 'payout' && n.effect.currency === c) > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_payout_cap:${c}` });
+  }
+  for (const stat of STAT_KEYS) {
+    if (sum((n) => n.effect.kind === 'stat' && n.effect.stat === stat) > LAB_STAT_BUDGET + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_stat_cap:${stat}` });
+  }
+}
+
 export const configSchemas = {
   features: z
     .object({
@@ -76,6 +153,10 @@ export const configSchemas = {
       /** M6b: the market, the swaps and the chat can be switched off from the admin panel. */
       market: z.boolean().default(true),
       trades: z.boolean().default(true),
+      /** Offers on market listings (2026-11-14). */
+      offers: z.boolean().default(true),
+      /** The public trade board (2026-11-14). */
+      board: z.boolean().default(true),
       chat: z.boolean().default(true),
       /** Plan phase 3: friends, presence and invites. */
       friends: z.boolean().default(true),
@@ -92,13 +173,18 @@ export const configSchemas = {
     totpPerAccountTenMin: limit(10),
     resetRedeemPerIpHour: limit(10),
   }).strict(),
-  /** Deep scan (GDD §9). Tier order: common, uncommon, rare, epic, legendary. Finish order: see FINISHES. */
+  /**
+   * Deep scan (GDD §9). Tier order: common, uncommon, rare, epic, legendary. Finish order: see FINISHES. The mythic
+   * (sixth tier) has its own chance per pull, drawn before the rest and never raised by the luck: 0 until the owner
+   * publishes it.
+   */
   gacha: z
     .object({
       tiers: z
         .object({ base: distribution([0.5, 0.28, 0.13, 0.06, 0.03]) })
         .strict()
         .default({ base: [0.5, 0.28, 0.13, 0.06, 0.03] }),
+      mythic: z.number().min(0).max(0.05).default(0),
       standard: pity({ base: 0.03, softStart: 8, softStep: 0.06, hard: 20 }),
       welcome: z
         .object({ ...pityFields, signals: z.number().int().min(0).max(1000) })
@@ -109,11 +195,13 @@ export const configSchemas = {
       costs: z
         .object({
           coins: z.number().int().min(0).max(1_000_000),
+          // The 5-pull (2026-11-17, the owner: 475, 5 % off); a config published before it gets this.
+          coinsFive: z.number().int().min(0).max(5_000_000).default(475),
           coinsTen: z.number().int().min(0).max(10_000_000),
           signals: z.number().int().min(1).max(100),
         })
         .strict()
-        .default({ coins: 100, coinsTen: 900, signals: 1 }),
+        .default({ coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }),
       dailyFree: z.boolean().default(true),
       finishes: distribution([0.85, 0.1, 0.035, 0.013, 0.002]),
       banners: z
@@ -131,11 +219,12 @@ export const configSchemas = {
     .object({
       disintegrate: z
         .object({
-          tier: z.array(z.number().int().min(0).max(1_000_000)).length(5),
+          // Common → mythic; one published before the mythic stops at the legendary (the mythic yields as it).
+          tier: z.array(z.number().int().min(0).max(1_000_000)).min(5).max(6),
           finish: z.array(z.number().min(0).max(100)).length(5),
         })
         .strict()
-        .default({ tier: [5, 12, 30, 75, 200], finish: [1, 1.5, 2, 2.5, 5] }),
+        .default({ tier: [5, 12, 30, 75, 200, 500], finish: [1, 1.5, 2, 2.5, 5] }),
       fusion: z
         .object({
           count: z.number().int().min(2).max(10),
@@ -185,6 +274,8 @@ export const configSchemas = {
           componentsPerMinute: z.number().min(0).max(10_000).default(20),
           /** Star dust the props can add per minute played, on top of what the kills drop. */
           propDustPerMinute: z.number().min(0).max(10_000).default(30),
+          /** Signals from abandoned satellites (SIM 1.10.0): the most one run pays (and never more than its seed had). */
+          satelliteSignals: z.number().int().min(0).max(3).default(3),
         })
         .strict()
         .default({
@@ -200,6 +291,7 @@ export const configSchemas = {
           runComponents: 30,
           componentsPerMinute: 20,
           propDustPerMinute: 30,
+          satelliteSignals: 3,
         }),
       expireHours: z.number().int().min(1).max(168).default(24),
       startPerHour: limit(30),
@@ -256,59 +348,11 @@ export const configSchemas = {
    */
   lab: z
     .object({
-      nodes: z
-        .array(
-          z
-            .object({
-              id: z.string().regex(/^[a-z0-9-]{1,32}$/),
-              branch: z.enum(['probe', 'relics', 'station', 'extraction']),
-              name: z.string().min(1).max(40),
-              effect: z.discriminatedUnion('kind', [
-                z.object({ kind: z.literal('stat'), stat: z.enum(STAT_KEYS) }).strict(),
-                z.object({ kind: z.literal('payout'), currency: z.enum(['coins', 'dust', 'material']) }).strict(),
-                z.object({ kind: z.literal('refinery'), field: z.enum(['rate', 'queue']) }).strict(),
-                z.object({ kind: z.literal('antenna') }).strict(),
-                z.object({ kind: z.literal('disintegrate') }).strict(),
-                z.object({ kind: z.literal('fusion') }).strict(),
-              ]),
-              per: z.number().gt(0).max(0.2),
-              max: z.number().int().min(1).max(10),
-              requires: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
-              cost: z.object({ dust: z.number().int().min(0).max(10_000_000), components: z.number().int().min(0).max(1_000_000) }).strict(),
-              growth: z.number().min(1).max(3),
-            })
-            .strict(),
-        )
-        .min(1)
-        .max(200)
-        .superRefine((nodes, ctx) => {
-          const ids = new Set<string>();
-          for (const n of nodes) {
-            if (ids.has(n.id)) ctx.addIssue({ code: 'custom', message: `lab_duplicate:${n.id}` });
-            ids.add(n.id);
-          }
-          const byId = new Map(nodes.map((n) => [n.id, n]));
-          for (const n of nodes) {
-            if (n.requires !== null && !byId.has(n.requires)) ctx.addIssue({ code: 'custom', message: `lab_requires:${n.id}` });
-            // Follow the chain of requirements: a node seen twice is a cycle.
-            const seen = new Set<string>([n.id]);
-            for (let at = n.requires; at !== null; at = byId.get(at)?.requires ?? null) {
-              if (seen.has(at)) {
-                ctx.addIssue({ code: 'custom', message: `lab_cycle:${n.id}` });
-                break;
-              }
-              seen.add(at);
-            }
-          }
-          const sum = (pick: (n: (typeof nodes)[number]) => boolean) => nodes.filter(pick).reduce((a, n) => a + n.per * n.max, 0);
-          if (sum((n) => n.effect.kind === 'fusion') > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: 'lab_fusion_cap' });
-          for (const c of ['coins', 'dust', 'material'] as const) {
-            if (sum((n) => n.effect.kind === 'payout' && n.effect.currency === c) > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_payout_cap:${c}` });
-          }
-        })
-        .default(DEFAULT_LAB_NODES),
+      nodes: z.array(labNodeSchema).min(1).max(200).default(DEFAULT_LAB_NODES),
+      season: z.array(labNodeSchema).max(120).default([]),
     })
-    .strict(),
+    .strict()
+    .superRefine((lab, ctx) => labTreesIssues(lab, ctx)),
   /**
    * Relic levels and slots (GDD §8.4, §8.4 bis; M4c-1): the dust of reaching each level from 2 to 10, the share of it
    * returned when a galaxy is fused or disintegrated, and the milestone and dust of each slot from the third to the sixth.
@@ -437,7 +481,7 @@ export const configSchemas = {
       words: z
         .array(z.string().regex(/^[\p{L}\p{N}]{2,40}$/u))
         .max(500)
-        .default([]),
+        .default([...DEFAULT_CHAT_WORDS]),
     })
     .strict(),
   /**
@@ -454,10 +498,17 @@ export const configSchemas = {
           rare: z.number().int().min(1).default(400),
           epic: z.number().int().min(1).default(1500),
           legendary: z.number().int().min(1).default(6000),
+          // Absent in a config published before the mythic: the legendary's floor (minPriceFor).
+          mythic: z.number().int().min(1).optional(),
         })
         .strict()
-        .refine((m) => m.common <= m.uncommon && m.uncommon <= m.rare && m.rare <= m.epic && m.epic <= m.legendary, 'minPrice grows with the tier')
-        .default({ common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 }),
+        .refine(
+          (m) => m.common <= m.uncommon && m.uncommon <= m.rare && m.rare <= m.epic && m.epic <= m.legendary && (m.mythic === undefined || m.legendary <= m.mythic),
+          'minPrice grows with the tier',
+        )
+        .default({ common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15_000 }),
+      /** A mythic may be put up for sale (swaps always may). */
+      mythicListing: z.boolean().default(false),
       maxPrice: z.number().int().min(1).max(1_000_000_000).default(10_000_000),
       commission: z.number().min(0).max(0.5).default(0.07),
       days: z.number().int().min(1).max(60).default(7),
@@ -474,13 +525,41 @@ export const configSchemas = {
       minAccountDays: z.number().int().min(0).max(365).default(3),
       alertMultiple: z.number().min(2).max(1000).default(20),
       sharedIpDays: z.number().int().min(1).max(365).default(30),
+      /**
+       * Offers on listings (the owner, 2026-11-14; their coins are held): how long one lasts (never past its listing),
+       * how many a buyer keeps open and makes a day, and how many a listing takes (a new one then beats the lowest).
+       */
+      offers: z
+        .object({
+          hours: z.number().int().min(1).max(168).default(48),
+          open: z.number().int().min(1).max(100).default(10),
+          perDay: z.number().int().min(1).max(500).default(30),
+          perListing: z.number().int().min(1).max(100).default(20),
+        })
+        .strict()
+        .default({ hours: 48, open: 10, perDay: 30, perListing: 20 }),
       /** Swaps (M5c-2): how long one stays open, how many an account keeps open, and the tier gap that warns the admin. */
       tradeDays: z.number().int().min(1).max(30).default(3),
       openTrades: z.number().int().min(1).max(50).default(5),
       tradeAlertTierGap: z.number().int().min(1).max(4).default(3),
+      /** How many galaxies a side of a swap gives at most (trades 2.0, the owner, 2026-11-14: «hasta 3 por lado»). */
+      tradeGalaxies: z.number().int().min(1).max(TRADE_GALAXIES_MAX).default(3),
+      /**
+       * The public trade board (2026-11-14): how many posts an account keeps open and makes a day, how long one lasts,
+       * and how many open answers a post takes.
+       */
+      board: z
+        .object({
+          open: z.number().int().min(1).max(20).default(3),
+          perDay: z.number().int().min(1).max(100).default(5),
+          days: z.number().int().min(1).max(30).default(7),
+          answers: z.number().int().min(1).max(100).default(20),
+        })
+        .strict()
+        .default({ open: 3, perDay: 5, days: 7, answers: 20 }),
     })
     .strict()
-    .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),
+    .refine((m) => m.maxPrice >= Math.max(m.minPrice.legendary, m.minPrice.mythic ?? 0), 'maxPrice is at least the legendary and mythic floors'),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
   /**
    * Co-op (multiplayer plan, phases 5–6): who may play (account level, after the tutorial), the rooms (how many at
@@ -490,8 +569,10 @@ export const configSchemas = {
   coop: z
     .object({
       minLevel: z.number().int().min(1).max(99).default(1),
-      maxRooms: z.number().int().min(1).max(10_000).default(500),
-      lobbyIdleMinutes: z.number().int().min(1).max(240).default(30),
+      // Rooms open at a time, waiting or playing (2026-11-17, the owner: 10, adjustable here), and how long one that
+      // stops changing lives (10 min, so a forgotten lobby does not hold a place).
+      maxRooms: z.number().int().min(1).max(10_000).default(10),
+      lobbyIdleMinutes: z.number().int().min(1).max(240).default(10),
       invitesPerMinute: z.number().int().min(1).max(60).default(6),
       pickSeconds: z.number().min(3).max(60).default(15),
       downSeconds: z.number().min(5).max(120).default(30),
@@ -576,11 +657,12 @@ export const configSchemas = {
       slots: z.number().int().min(1).max(6).default(6),
       points: z
         .object({
-          tiers: z.array(z.number().int().min(0).max(100)).length(5).default([1, 2, 4, 7, 12]),
+          // Common → mythic; one published before the mythic stops at the legendary (the mythic counts as it).
+          tiers: z.array(z.number().int().min(0).max(100)).min(5).max(6).default([1, 2, 4, 7, 12, 20]),
           finish: z.number().int().min(0).max(100).default(1),
         })
         .strict()
-        .default({ tiers: [1, 2, 4, 7, 12], finish: 1 }),
+        .default({ tiers: [1, 2, 4, 7, 12, 20], finish: 1 }),
       xpPerPoint: z.number().min(0).max(0.05).default(0.001),
       cap: z.number().min(0).max(0.05).default(0.05),
       featured: z.number().int().min(1).max(24).default(8),
@@ -609,6 +691,19 @@ export const configSchemas = {
           'broken-forge': { sector: 'hollow-reef', stat: 'bossKills', value: 1 },
         }),
       season: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('signal-rift'),
+      /**
+       * What a run in each sector pays (2026-11-16): coins, dust, material, components and season points, × this factor
+       * (experience never below ×1). The harder the sector, the more it pays; a sector not listed pays ×1.
+       */
+      pay: z
+        .record(z.string().regex(/^[a-z0-9-]{1,32}$/), z.number().min(0.1).max(3))
+        .default({ 'outer-nebula': 0.8, 'frost-rings': 1, 'hollow-reef': 1.25, 'broken-forge': 1.5, 'signal-rift': 1.8 }),
+      /** The season sector also asks for this many runs (any sector; null: open to everyone while its season is). */
+      seasonUnlock: z
+        .object({ stat: z.literal('runs'), value: z.number().int().min(1).max(10_000) })
+        .strict()
+        .nullable()
+        .default({ stat: 'runs', value: 15 }),
     })
     .strict(),
   /**
@@ -688,6 +783,36 @@ export const configSchemas = {
         .default([]),
     })
     .strict(),
+  /**
+   * The resource shop (shop and lab plan, F4): coins, star dust and components for real money with Stripe, closed by
+   * default and first for the staff alone. Products, prices, Stripe prices, offers and limits.
+   */
+  shop: shopSchema,
+  /**
+   * Profile cosmetics (Nov plan C2): the avatars, frames and styled titles, how rare each is, where it comes from and
+   * how to get it. The art is in the web app, found by id.
+   */
+  cosmetics: cosmeticsConfigSchema,
+  /**
+   * Referrals (plan «referidos»): whether a code is needed to sign up, the gifts (the newcomer's at once, the owner's
+   * when the newcomer reaches the level), and the caps and the shared-address window that hold a sign-up for review.
+   */
+  referrals: z
+    .object({
+      required: z.boolean().default(false),
+      ownerGifts: mailGiftsSchema.prefault({ coins: 100, dust: 50, signal: 2 }),
+      newcomerGifts: mailGiftsSchema.prefault({ coins: 100, dust: 50, signal: 2 }),
+      activationLevel: z.number().int().min(1).max(100).default(5),
+      perCodePerDay: z.number().int().min(1).max(10_000).default(20),
+      ownerPerWeek: z.number().int().min(1).max(10_000).default(30),
+      ipSignupsPerDay: z.number().int().min(1).max(1000).default(3),
+      sharedIpDays: z.number().int().min(1).max(365).default(30),
+    })
+    .strict(),
+  // Mail v2 (2026-11-16): the admins' pack library and templates, and what makes a gift a superadmin's (only a
+  // superadmin publishes `mailLimits`).
+  mail: mailConfigSchema,
+  mailLimits: mailLimitsSchema,
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;
@@ -716,13 +841,16 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). It also
- * refuses what the game cannot serve yet: event banners (GDD §9) have their rules, but not their event signals in the
- * wallet, combined odds on screen or featured checks, so until the events milestone no one can publish half a feature.
+ * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). Only the
+ * key's own schema: what must hold across keys (an event and its scanner, a featured value, the season's anomaly) is
+ * config/ops-checks.ts, run by the CLI's check-config and the ops folders' test.
  */
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
   if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+  // What the schema cannot know: the content's drawings exist in the arena (art.ts). Only publishing checks it, never
+  // reading what is live.
+  if (key === 'content') return contentArtIssues(result.data as Content);
   return [];
 }
 

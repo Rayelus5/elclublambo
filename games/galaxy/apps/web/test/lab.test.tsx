@@ -1,4 +1,4 @@
-import { type LabView, labEffects, labNodeStatus, parseConfig } from '@galaxy/shared';
+import { type LabNode, type LabView, labEffects, labNodeStatus, nodeNextGain, nodeTotal, parseConfig } from '@galaxy/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { copy } from '../src/copy/es';
@@ -11,12 +11,18 @@ import { jsonResponse, mockApi, renderAt } from './render';
 
 const t = copy.lab;
 const cfg = parseConfig('lab', {});
+/** A node as the server sends it. */
+const nodeView = (n: LabNode, levels: Record<string, number>) => {
+  const status = labNodeStatus(n, levels, cfg);
+  return { id: n.id, branch: n.branch, name: n.name, effect: n.effect, per: n.per, requires: n.requires, ...status, now: nodeTotal(n, status.level), nextGain: nodeNextGain(n, status.level), at: n.at };
+};
 
 /** The view of an account with these node levels and this wallet. */
 function view(levels: Record<string, number> = {}, over: Partial<LabView> = {}): LabView {
   return {
     open: true,
-    nodes: cfg.nodes.map((n) => ({ id: n.id, branch: n.branch, name: n.name, effect: n.effect, per: n.per, requires: n.requires, ...labNodeStatus(n, levels, cfg) })),
+    nodes: cfg.nodes.map((n) => nodeView(n, levels)),
+    season: null,
     effects: labEffects(levels, cfg),
     wallet: { coins: 0, dust: 500, signal: 0, components: 200 },
     ...over,
@@ -24,7 +30,7 @@ function view(levels: Record<string, number> = {}, over: Partial<LabView> = {}):
 }
 const open = (v = view(), routes: Record<string, (b: unknown) => Response> = {}) => {
   const fetch = mockApi({ 'GET /galaxy/api/lab': () => jsonResponse(200, v), ...routes });
-  renderAt('/laboratorio', { '/laboratorio': <LabScreen /> });
+  renderAt('/laboratorio?vista=lista', { '/laboratorio': <LabScreen /> });
   return fetch;
 };
 const card = (name: string) => screen.getByText(name, { selector: 'b' }).closest('li')!;
@@ -77,7 +83,7 @@ test('mejorar envía el nivel con su clave y enseña la vista nueva; un 409 dice
     'POST /galaxy/api/lab/nodes/hull/upgrade': () => jsonResponse(200, view({ hull: 1 })),
     'POST /galaxy/api/lab/nodes/resonance/upgrade': () => jsonResponse(409, { error: 'lab_changed' }),
   });
-  renderAt('/laboratorio', { '/laboratorio': <LabScreen /> });
+  renderAt('/laboratorio?vista=lista', { '/laboratorio': <LabScreen /> });
   const hull = (await screen.findByText('Blindaje reforzado', { selector: 'b' })).closest('li')!;
   fireEvent.click(within(hull).getByRole('button', { name: new RegExp(t.upgrade(1)) }));
   await waitFor(() => expect(card('Blindaje reforzado')).toHaveTextContent(t.level(1, 5)));

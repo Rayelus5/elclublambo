@@ -1,0 +1,67 @@
+{
+  "tiers": {
+    "base": [
+      0.5,
+      0.28,
+      0.13,
+      0.06,
+      0.03
+    ]
+  },
+  "mythic": 0.0005,
+  "standard": {
+    "base": 0.01,
+    "softStart": 2,
+    "softStep": 0.0005,
+    "hard": 50
+  },
+  "welcome": {
+    "base": 0.06,
+    "softStart": 5,
+    "softStep": 0.15,
+    "hard": 10,
+    "signals": 10
+  },
+  "featured": {
+    "base": 0.005,
+    "softStart": 30,
+    "softStep": 0.002,
+    "hard": 45
+  },
+  "costs": {
+    "coins": 100,
+    "coinsTen": 900,
+    "signals": 1
+  },
+  "dailyFree": true,
+  "finishes": [
+    0.85,
+    0.1,
+    0.035,
+    0.013,
+    0.002
+  ],
+  "banners": [
+    {
+      "id": "deep-scan",
+      "kind": "standard",
+      "name": "Escáner profundo",
+      "pityGroup": "standard",
+      "currency": "signal"
+    },
+    {
+      "id": "primer-contacto",
+      "kind": "event",
+      "name": "Escáner de Temporada",
+      "pityGroup": "event-primer-contacto",
+      "currency": "signal:primer-contacto",
+      "featured": {
+        "trait": "phenomenon",
+        "value": "supernova"
+      },
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-13T23:00:00.000Z"
+    }
+  ],
+  "leftoverDust": 50
+}

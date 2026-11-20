@@ -22,7 +22,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['packages/*/test/**/*.test.ts', 'apps/server/test/unit/**/*.test.ts'],
+          include: ['packages/*/test/**/*.test.ts', 'apps/server/test/unit/**/*.test.ts', 'apps/landing/test/**/*.test.ts'],
           exclude: [...configDefaults.exclude, 'packages/*/test/browser/**'],
           // The engine's golden tests render whole galaxies (a 192-column merger takes ~1 s here, 3–4× more on CI).
           testTimeout: 30_000,
@@ -54,10 +54,17 @@ export default defineConfig({
         resolve: { alias: webReact, dedupe: ['react', 'react-dom'] },
         // three.js is only imported dynamically (the inspector): declare it so Vite does not reload the page mid-test.
         // React Query and React Router are pre-bundled with the same React as the components (one copy of React).
-        optimizeDeps: { include: ['three', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
+        optimizeDeps: { include: ['three', 'gsap', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
         test: {
           name: 'browser',
           include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],
+          // Software WebGL on a CI runner shared by every browser file is slow, not stuck: the 15 s default timed out
+          // engine and arena tests that pass in a few seconds locally (Nov plan C1).
+          testTimeout: 45_000,
+          hookTimeout: 60_000,
+          // On that shared runner a busy moment can stall a page for seconds (its screenshots time out too): a browser
+          // test that fails there runs again, twice at most. Locally it never does, so a real failure still shows.
+          retry: process.env['CI'] ? 2 : 0,
           browser: {
             enabled: true,
             // Software WebGL (SwiftShader) everywhere: CI runners have no GPU, and the same renderer locally keeps

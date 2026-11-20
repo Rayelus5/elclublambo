@@ -1,3 +1,4 @@
+import { useWheelSideways } from '../ui/HScroll';
 import type { SeasonResult, SeasonReward, SeasonView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
@@ -8,6 +9,7 @@ import { copy, fmt } from '../copy/es';
 import { daysLeft, nextTier, TierEmblem } from '../social/parts';
 import { BackLink } from '../ui/BackLink';
 import { Icon, type IconName } from '../ui/Icon';
+import { refreshPieces } from '../api/cosmetics';
 
 // The season (GDD §13.1; M7d-1, DESIGN_SYSTEM §8 novovicies): the score with its tier, the route climbed with it (a
 // track of steps, each collected once) and the shop that sells with the season currency.
@@ -24,6 +26,8 @@ function useSeasonAction() {
         headers: { 'idempotency-key': crypto.randomUUID() },
       }),
     onSuccess: (view) => {
+      // A step, an item or the closing reward can give a piece or a probe skin (plan «skins»): shown at once.
+      refreshPieces(qc);
       qc.setQueryData(SEASON_KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
       void qc.invalidateQueries({ queryKey: ['me'] });
@@ -33,7 +37,7 @@ function useSeasonAction() {
 
 /** What a reward is mostly about, for its icon and its colour: the season currency first, then the rest. */
 function rewardKind(r: SeasonReward): { icon: IconName; kind: string } {
-  if (r.title || r.frame) return { icon: 'trophy', kind: 'cosmetic' };
+  if (r.title || r.frame || r.avatar || r.skin) return { icon: 'trophy', kind: 'cosmetic' };
   if (r.shards) return { icon: 'shard', kind: 'shards' };
   if (r.signal) return { icon: 'ticket', kind: 'signal' };
   if (r.dust) return { icon: 'dust', kind: 'dust' };
@@ -77,6 +81,7 @@ export function SeasonScreen() {
     el.scrollLeft = li ? Math.max(0, li.offsetLeft - 24) : 0;
     measure();
   }, [firstOpen, measure]);
+  useWheelSideways(track);
   const slide = (dir: 1 | -1) => track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.8, behavior: 'smooth' });
   const next = v?.steps.find((s) => !s.reached);
   const nextT = v?.season ? nextTier(v.score, v.season.tiers) : null;

@@ -1,6 +1,7 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { pixels, SPRITES } from '../src/arena/sprites';
+import { ART_SKINS, skinParts } from '@galaxy/shared';
+import { drawableId, pixels, probeFlame, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
 
 // The arena's pixel art is written in code as palette grids (plan ruling 10). Every grid must be well formed and
 // every sprite the content names must exist, or the renderer would draw holes.
@@ -29,7 +30,9 @@ test('existen los sprites y los iconos que nombra el contenido, y los del botín
   ];
   const engine = ['xp-1', 'xp-5', 'xp-25', 'coin', 'dust', 'repair', 'bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'blade', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'foe-bullet', 'rock-1', 'rock-2', 'rock-3',
     // M3b-1: the arsenal's shots and the enemies' states.
-    'missile', 'shard', 'split-shard', 'mine', 'disc', 'turret', 'strike-mark', 'stun-star', 'mark-pip'];
+    'missile', 'shard', 'split-shard', 'mine', 'disc', 'turret', 'strike-mark', 'stun-star', 'mark-pip',
+    // Nov plan B3: the harpoon's head and the mortar's shell (the sling's body, the hologram and the beam are drawn).
+    'harpoon', 'mortar-shell'];
   for (const id of [...named, ...engine]) expect(SPRITES[id], id).toBeDefined();
 });
 
@@ -50,10 +53,30 @@ test('M3b-3: cada especie y cada Núcleo de los sectores nuevos, y 3 rocas por b
   for (const id of M3B3_CORES) expect([SPRITES[id]!.w, SPRITES[id]!.h], id).toEqual([40, 40]);
 });
 
+// Nov plan B4: the second and third forms of every Core, 40×40 with two frames, and none looks like another.
+const B4_FORMS = [
+  ...['hive-swarm', 'hive-queen', 'glacier-egg', 'glacier-daughter', 'anemone-spore', 'anemone-maw'],
+  ...['anvil-hammer', 'anvil-furnace', 'echo-choir', 'echo-mirror', 'signal-carrier', 'signal-answer'],
+];
+
+test('Nov plan B4: cada forma nueva de Núcleo tiene su sprite de 40×40 con 2 fotogramas distintos, y ninguna repite otra', () => {
+  const cores = ['hive', ...M3B3_CORES, ...B4_FORMS];
+  expect(cores).toHaveLength(18);
+  for (const id of B4_FORMS) {
+    const def = SPRITES[id]!;
+    expect(def, id).toBeDefined();
+    expect([def.w, def.h, def.frames.length], id).toEqual([40, 40, 2]);
+    expect(def.frames[0], id).not.toEqual(def.frames[1]);
+  }
+  const looks = new Set(cores.map((id) => SPRITES[id]!.frames[0]!.join('')));
+  expect(looks.size).toBe(18);
+  for (const b of DEFAULT_CONTENT.bosses) expect(cores, b.id).toContain(b.sprite);
+});
+
 test('ningún sprite de botín, disparo o icono pisa a uno de la fauna o de la sonda', async () => {
   const { ITEMS } = await import('../src/arena/sprites/items');
   const { ICONS } = await import('../src/arena/sprites/icons');
-  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive', ...M3B3_FAUNA, ...M3B3_CORES];
+  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive', ...M3B3_FAUNA, ...M3B3_CORES, ...B4_FORMS];
   for (const id of [...Object.keys(ITEMS), ...Object.keys(ICONS)]) expect(fauna, id).not.toContain(id);
 });
 
@@ -70,4 +93,60 @@ test('ningún id se repite entre el botín y los disparos y los iconos', async (
   const { ITEMS } = await import('../src/arena/sprites/items');
   const { ICONS } = await import('../src/arena/sprites/icons');
   for (const id of Object.keys(ITEMS)) expect(Object.keys(ICONS), id).not.toContain(id);
+});
+
+// Plan «banda sonora, skins, perfil y entorno», part B: the eight probes redrawn in Aseprite (art/probes), bigger and
+// alive while idle, each with the nozzle its flame comes out of.
+test('las ocho sondas rediseñadas: 24 × 24, cuatro fotogramas en reposo que cambian y su propia tobera', () => {
+  const probes = DEFAULT_CONTENT.probes.map((p) => p.sprite);
+  expect(probes).toHaveLength(8);
+  for (const id of probes) {
+    const def = SPRITES[id]!;
+    expect([def.w, def.h, def.frames.length], id).toEqual([24, 24, 4]);
+    expect(new Set(def.frames.map((f) => f.join('|'))).size, id).toBeGreaterThan(1);
+    // Behind its centre, inside its drawing (the flame comes out of the engine, not out of the void).
+    expect(probeNozzle(id), id).toBeGreaterThanOrEqual(8);
+    expect(probeNozzle(id), id).toBeLessThanOrEqual(12);
+  }
+  // A drawing without its own (a skin to come, an old id) keeps the old nozzle.
+  expect(probeNozzle('mite')).toBe(8);
+});
+
+// Plan «skins», part C: every skin the catalog can name has its drawing, over its own probe's shape (the same size
+// and frames, the same nozzle); only the skins a run uses are turned for its eight ways.
+test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gira solo si una partida la usa', () => {
+  for (const id of ART_SKINS) {
+    const def = SKIN_ART[id];
+    expect(def, id).toBeDefined();
+    const probe = SPRITES[`probe-${skinParts(id)!.probe}`]!;
+    // Still ones keep their probe's idle frames; Aurora moves in six, Leyenda and the shop's packs in eight.
+    const line = skinParts(id)!.line;
+    const frames = line === 'chatarra' || line === 'coral' ? probe.frames.length : line === 'aurora' ? 6 : 8;
+    expect([def!.w, def!.h, def!.frames.length], id).toEqual([probe.w, probe.h, frames]);
+    expect(probeNozzle(id), id).toBe(probeNozzle(`probe-${skinParts(id)!.probe}`));
+    // Not in the base atlas: a run with no skins never turns or packs them.
+    expect(SPRITES[id], id).toBeUndefined();
+  }
+  const used = skinSprites(['skin-lumen-coral', null, 'no-such-skin', undefined]);
+  expect(Object.keys(used).sort()).toEqual(['skin-lumen-coral', 'skin-lumen-coral@n', 'skin-lumen-coral@ne', 'skin-lumen-coral@s', 'skin-lumen-coral@se']);
+  expect(skinSprites([])).toEqual({});
+});
+
+test('Aurora, Leyenda y los packs de la tienda llevan su llama y su estela; las demás, las de siempre', () => {
+  expect(probeFlame('skin-lumen-aurora')).toMatchObject({ dash: expect.any(Number) });
+  for (const line of ['navidad', 'fuego', 'agua', 'galaxia', 'carbono', 'rubi']) {
+    const f = probeFlame(`skin-echo-${line}`);
+    expect(f, line).not.toBeNull();
+    expect(f!.flame.length, line).toBe(3);
+    expect(f!.embers.length, line).toBeGreaterThan(0);
+  }
+  expect(probeFlame('skin-comet-leyenda')!.flame.length).toBeGreaterThan(0);
+  expect(probeFlame('skin-lumen-coral')).toBeNull();
+  expect(probeFlame('probe-lumen')).toBeNull();
+});
+
+test('un dibujo que la arena no tiene se pinta con otro conocido en vez de romper la incursión', () => {
+  expect(drawableId('mite', 'cell')).toBe('mite');
+  expect(drawableId('zz-no-existe', 'cell')).toBe('cell');
+  expect(drawableId('mite', 'cell', () => false)).toBe('cell');
 });

@@ -55,16 +55,19 @@ jobs:
         run: |
           web_ok=0
           galaxy_ok=0
+          landing_ok=0
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
             [ "$web_ok" = 1 ] || { curl -fsS -o /dev/null http://127.0.0.1:3000/foro/login && web_ok=1; }
             # Galaxy Survivor: health answers {"ok":true,"db":"up"} only when the server reaches Postgres as galaxy_api.
             [ "$galaxy_ok" = 1 ] || { curl -fsS http://127.0.0.1:8080/galaxy/api/health | grep -q '"ok":true' && galaxy_ok=1; }
-            if [ "$web_ok" = 1 ] && [ "$galaxy_ok" = 1 ]; then
+            # The landing of galaxysurvivor.es at the root of the same server (plan «galaxysurvivor.es»).
+            [ "$landing_ok" = 1 ] || { curl -fsS http://127.0.0.1:8080/ | grep -q '<h1' && landing_ok=1; }
+            if [ "$web_ok" = 1 ] && [ "$galaxy_ok" = 1 ] && [ "$landing_ok" = 1 ]; then
               exit 0
             fi
             sleep 3
           done
-          echo "smoke: web_ok=$web_ok galaxy_ok=$galaxy_ok" >&2
+          echo "smoke: web_ok=$web_ok galaxy_ok=$galaxy_ok landing_ok=$landing_ok" >&2
           $COMPOSE ps
           exit 1
 

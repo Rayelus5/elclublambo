@@ -20,11 +20,11 @@ describe('contenido por defecto', () => {
     expect(DEFAULT_CONTENT.enemies.map((e) => e.id)).toEqual(expect.arrayContaining(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']));
     expect(DEFAULT_CONTENT.bosses[0]!.id).toBe('hive');
     expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(expect.arrayContaining(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']));
-    expect(DEFAULT_CONTENT.passives).toHaveLength(20);
+    expect(DEFAULT_CONTENT.passives).toHaveLength(25);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo']);
   });
 
-  test('M3b-3: cinco sectores con sus biomas, 25 especies y 6 Núcleos', () => {
+  test('M3b-3: cinco sectores con sus biomas, 25 especies y 6 Núcleos de 3 formas cada uno (Nov plan B4)', () => {
     expect(DEFAULT_CONTENT.sectors.map((s) => [s.id, s.biome])).toEqual([
       ['outer-nebula', 'nebula'],
       ['frost-rings', 'ice'],
@@ -33,7 +33,23 @@ describe('contenido por defecto', () => {
       ['signal-rift', 'rift'],
     ]);
     expect(DEFAULT_CONTENT.enemies).toHaveLength(25);
-    expect(DEFAULT_CONTENT.bosses.map((b) => b.id).sort()).toEqual(['anemone', 'anvil', 'echo-core', 'glacier', 'hive', 'signal']);
+    expect(DEFAULT_CONTENT.bosses.map((b) => b.id).sort()).toEqual(
+      [
+        ...['hive', 'hive-swarm', 'hive-queen'],
+        ...['glacier', 'glacier-egg', 'glacier-daughter'],
+        ...['anemone', 'anemone-spore', 'anemone-maw'],
+        ...['anvil', 'anvil-hammer', 'anvil-furnace'],
+        ...['echo-core', 'echo-choir', 'echo-mirror'],
+        ...['signal', 'signal-carrier', 'signal-answer'],
+      ].sort(),
+    );
+    expect(Object.fromEntries(DEFAULT_CONTENT.sectors.map((s) => [s.id, s.bossCycle]))).toEqual({
+      'outer-nebula': ['hive', 'hive-swarm', 'hive-queen'],
+      'frost-rings': ['glacier', 'glacier-egg', 'glacier-daughter'],
+      'hollow-reef': ['anemone', 'anemone-spore', 'anemone-maw'],
+      'broken-forge': ['anvil', 'anvil-hammer', 'anvil-furnace'],
+      'signal-rift': ['signal', 'signal-carrier', 'signal-answer'],
+    });
   });
 
   test('cada sector normal: al menos 5 familias, su propio Núcleo y el Núcleo profundo cada 4 capas; solo la Fisura es de temporada', () => {
@@ -43,7 +59,7 @@ describe('contenido por defecto', () => {
     for (const s of normal) {
       const families = new Set(s.spawns.map((sp) => DEFAULT_CONTENT.enemies.find((e) => e.id === sp.enemy)!.family));
       expect(families.size, s.id).toBeGreaterThanOrEqual(5);
-      expect(s.deepBoss, s.id).toEqual({ boss: 'echo-core', every: 4 });
+      expect(s.deepBoss, s.id).toEqual({ boss: 'echo-core', every: 4, cycle: ['echo-core', 'echo-choir', 'echo-mirror'] });
     }
     const rift = DEFAULT_CONTENT.sectors.find((s) => s.season)!;
     expect(rift.deepBoss).toBeNull();
@@ -56,7 +72,25 @@ describe('contenido por defecto', () => {
     for (const k of ['orbit', 'support', 'blink', 'lancer']) expect(kinds.has(k as never), k).toBe(true);
     expect(DEFAULT_CONTENT.enemies.some((e) => e.behavior.kind === 'armored' && e.behavior.weakTo)).toBe(true);
     const patterns = new Set(DEFAULT_CONTENT.bosses.flatMap((b) => b.phases.flatMap((p) => p.patterns.map((x) => x.kind))));
-    for (const k of ['wall', 'mines', 'blink']) expect(patterns.has(k as never), k).toBe(true);
+    for (const k of ['wall', 'mines', 'blink', 'laser', 'closing', 'barrage']) expect(patterns.has(k as never), k).toBe(true);
+  });
+
+  test('Nov plan B4: cada forma nueva tiene nombre y sprite propios, la vida de su forma 1 y un ataque que su forma anterior no tiene', () => {
+    const byId = new Map(DEFAULT_CONTENT.bosses.map((b) => [b.id, b]));
+    const kinds = (id: string) => new Set(byId.get(id)!.phases.flatMap((p) => p.patterns.map((x) => x.kind)));
+    const cycles = [...DEFAULT_CONTENT.sectors.map((s) => s.bossCycle!), DEFAULT_CONTENT.sectors[0]!.deepBoss!.cycle!];
+    expect(new Set(DEFAULT_CONTENT.bosses.map((b) => b.name)).size).toBe(DEFAULT_CONTENT.bosses.length);
+    expect(new Set(DEFAULT_CONTENT.bosses.map((b) => b.sprite)).size).toBe(DEFAULT_CONTENT.bosses.length);
+    for (const cycle of cycles) {
+      const first = byId.get(cycle[0]!)!;
+      for (let k = 1; k < cycle.length; k++) {
+        const form = byId.get(cycle[k]!)!;
+        expect(form.hp, form.id).toBeGreaterThanOrEqual(first.hp);
+        expect(form.title, form.id).toBe(first.title);
+        const before = kinds(cycle[k - 1]!);
+        expect([...kinds(form.id)].some((x) => !before.has(x)), form.id).toBe(true);
+      }
+    }
   });
 
   test('cada inicial destaca en su estadística fuerte: Lumen recoge de lejos, Bastión aguanta, Chispa corre', () => {
@@ -237,5 +271,19 @@ describe('el arsenal', () => {
     const c = clone();
     c.xp = { base: 0, linear: 0, quad: 0 };
     expect(() => contentSchema.parse(c)).toThrow();
+  });
+});
+
+// The volatile elite's blast (the owner, 2026-11-14): how much of the life one has it leaves (`keep`) is new; a content
+// published before it (PRE's) still validates and gets the 40 %.
+describe('la explosión del élite Inestable', () => {
+  test('sin `keep` publicado vale el 40 %, y no se puede dejar por debajo de nada ni quitar del todo', () => {
+    const old = structuredClone(DEFAULT_CONTENT) as unknown as { elites: { id: string; explode: Record<string, number> | null }[] };
+    delete old.elites.find((e) => e.id === 'volatile')!.explode!['keep'];
+    const parsed = contentSchema.parse(old);
+    expect(parsed.elites.find((e) => e.id === 'volatile')!.explode).toEqual({ radius: 50, damage: 12, delay: 1.2, keep: 0.4 });
+    const bad = structuredClone(DEFAULT_CONTENT) as unknown as { elites: { id: string; explode: Record<string, number> | null }[] };
+    bad.elites.find((e) => e.id === 'volatile')!.explode!['keep'] = 0;
+    expect(() => contentSchema.parse(bad)).toThrow();
   });
 });

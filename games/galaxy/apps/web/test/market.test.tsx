@@ -2,10 +2,11 @@ import type { GachaView, GalaxyDetail, GalaxySummary, MarketListing, MarketPage,
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
-import { copy } from '../src/copy/es';
+import { copy, fmt } from '../src/copy/es';
 import { GalaxyDetailDialog } from '../src/collection/GalaxyDetailDialog';
 import { MarketScreen } from '../src/market/MarketScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The market on the web (GDD §14.6, §14.7; M5c-1): Comprar, Vender and Mis anuncios; who may trade and why not;
 // buying after a confirmation that shows the price and the balance; selling at least at the rarity's floor, with what
@@ -14,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.market;
 const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 12 };
-const gacha = (coins: number): GachaView => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins, dust: 0, signal: 0 } });
+const gacha = (coins: number): GachaView => ({ banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins, dust: 0, signal: 0 } });
 const galaxy = (id: string, over: Partial<GalaxySummary> = {}): GalaxySummary => ({
   id,
   seed: '12345',
@@ -30,7 +31,8 @@ const galaxy = (id: string, over: Partial<GalaxySummary> = {}): GalaxySummary =>
 });
 const rules = (over: Partial<MarketRules> = {}): MarketRules => ({
   commission: 0.07,
-  minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 },
+  minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000, mythic: 15000 },
+  mythicListing: false,
   maxPrice: 10_000_000,
   canTrade: true,
   reason: null,
@@ -39,6 +41,7 @@ const rules = (over: Partial<MarketRules> = {}): MarketRules => ({
   listingsLeft: 10,
   purchasesLeft: 10,
   days: 7,
+  offers: { enabled: true, hours: 48, openLeft: 10, todayLeft: 30 },
   ...over,
 });
 const listing = (id: string, price: number, seller = 'lyra', over: Partial<MarketListing> = {}): MarketListing => ({
@@ -50,14 +53,14 @@ const listing = (id: string, price: number, seller = 'lyra', over: Partial<Marke
   expiresAt: '2026-11-15T10:00:00.000Z',
   ...over,
 });
-const page = (listings: MarketListing[], r: Partial<MarketRules> = {}): MarketPage => ({ listings, page: 1, pages: 1, rules: rules(r) });
+const page = (listings: MarketListing[], r: Partial<MarketRules> = {}): MarketPage => ({ listings, next: null, rules: rules(r) });
 const mine = (over: Partial<MyMarket> = {}): MyMarket => ({ active: [], sold: [], rules: rules(), ...over });
 
 function mount(routes: Record<string, (b: unknown) => Response> = {}, coins = 1000) {
   return mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(coins)),
-    'GET /galaxy/api/market?sort=new&page=1': () => jsonResponse(200, page([listing('1', 600), listing('2', 2000), listing('3', 500, 'sonda_rayo')])),
+    'GET /galaxy/api/market?sort=new': () => jsonResponse(200, page([listing('1', 600), listing('2', 2000), listing('3', 500, 'sonda_rayo')])),
     'GET /galaxy/api/market/mine': () => jsonResponse(200, mine()),
     ...routes,
   });
@@ -74,7 +77,9 @@ test('tres pestañas, y las cartas dicen precio y vendedor', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: t.title })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /^(Comprar|Vender|Mis anuncios)$/ }).map((a) => a.textContent)).toEqual([t.tabs.buy, t.tabs.sell, t.tabs.mine]);
   const card = await itemOf('Vega g1');
-  expect(within(card).getByText(t.price(600))).toBeInTheDocument();
+  // The price: the coin icon and the number, the word only for screen readers (the owner, 2026-11-14).
+  expect(within(card).getByText(fmt(600))).toBeInTheDocument();
+  expect(card).toHaveTextContent(t.price(600));
   expect(within(card).getByRole('link', { name: 'lyra' })).toHaveAttribute('href', '/perfil/lyra');
   // One's own listing: no «Comprar».
   const own = await itemOf('Vega g3');
@@ -83,19 +88,21 @@ test('tres pestañas, y las cartas dicen precio y vendedor', async () => {
 });
 
 test('sin el nivel o los días, todo se ve pero no se compra, y se dice por qué', async () => {
-  mount({ 'GET /galaxy/api/market?sort=new&page=1': () => jsonResponse(200, page([listing('1', 600)], { canTrade: false, reason: 'level' })) });
+  mount({ 'GET /galaxy/api/market?sort=new': () => jsonResponse(200, page([listing('1', 600)], { canTrade: false, reason: 'level' })) });
   screenAt();
   expect(await screen.findByText(t.gate(10, 3))).toBeInTheDocument();
   expect(screen.getByText(t.gateLevel)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: t.buyOf('Vega g1') })).toBeDisabled();
 });
 
-test('sin monedas dice cuántas faltan', async () => {
+test('sin monedas no se compra; cuántas faltan lo dice el botón, no un aviso bajo la carta (2026-11-14)', async () => {
   mount({}, 100);
   screenAt();
   const card = await itemOf('Vega g1');
-  expect(within(card).getByRole('button', { name: t.buyOf('Vega g1') })).toBeDisabled();
-  expect(within(card).getByText(t.missing(500))).toBeInTheDocument();
+  const buy = within(card).getByRole('button', { name: t.buyOf('Vega g1') });
+  expect(buy).toBeDisabled();
+  expect(buy).toHaveAccessibleDescription(t.missing(500));
+  expect(card.querySelector('.panel-note')).toBeNull();
 });
 
 test('comprar pide confirmación con el precio y el saldo, y después lleva a la colección', async () => {
@@ -123,20 +130,20 @@ test('si alguien se adelanta lo dice y relee el escaparate', async () => {
   const dialog = await screen.findByRole('alertdialog');
   await user.click(within(dialog).getByRole('button', { name: t.confirmBuy(600) }));
   expect(await within(dialog).findByRole('alert')).toHaveTextContent(copy.errors.listing_gone);
-  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/market?sort=new&page=1').length).toBeGreaterThan(1));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/market?sort=new').length).toBeGreaterThan(1));
 });
 
 test('el escaparate se filtra por rareza y se ordena', async () => {
   const fetch = mount({
-    'GET /galaxy/api/market?tier=epic&sort=new&page=1': () => jsonResponse(200, page([listing('9', 1500)])),
-    'GET /galaxy/api/market?tier=epic&sort=cheap&page=1': () => jsonResponse(200, page([listing('9', 1500)])),
+    'GET /galaxy/api/market?tier=epic&sort=new': () => jsonResponse(200, page([listing('9', 1500)])),
+    'GET /galaxy/api/market?tier=epic&sort=cheap': () => jsonResponse(200, page([listing('9', 1500)])),
   });
   screenAt();
   const user = userEvent.setup();
   await itemOf('Vega g1');
-  await user.selectOptions(screen.getByLabelText(t.filterTier), 'epic');
-  await user.selectOptions(screen.getByLabelText(t.sortLabel), 'cheap');
-  await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/market?tier=epic&sort=cheap&page=1')).toBe(true));
+  await user.click(within(screen.getByRole('group', { name: t.filterTier })).getByRole('button', { name: copy.tiers.epic }));
+  await pickOption(user, screen.getByRole('combobox', { name: t.sortLabel }), t.sorts.cheap);
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/market?tier=epic&sort=cheap')).toBe(true));
   expect(await itemOf('Vega g9')).toBeInTheDocument();
 });
 

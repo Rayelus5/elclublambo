@@ -31,7 +31,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   level: 7,
   season: { score: 2400, rank: 4, tier: 'silver', maxDepth: 6, purges: 3, extractions: 5 },
   records: { maxDepth: 9, purges: 12, runs: 40 },
-  collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1 } },
+  collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1, mythic: 0 } },
   planetarium: { prestige: 31, exhibits: 4, cover: pub() },
   clan: null,
   ...over,
@@ -76,7 +76,7 @@ test('sin puntos esta temporada lo dice, y un nombre sin jugador también', asyn
 });
 
 test('la colección pública: sus cartas sin acciones, por rareza y paginada', async () => {
-  const page = (items: PublicGalaxy[], next?: string): PublicCollectionPage => ({ items, ...(next ? { next } : {}), counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1 } });
+  const page = (items: PublicGalaxy[], next?: string): PublicCollectionPage => ({ items, ...(next ? { next } : {}), counts: { common: 0, uncommon: 0, rare: 2, epic: 0, legendary: 1, mythic: 0 } });
   const fetch = mockApi({
     'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page([pub(), pub({ id: 'g2', name: 'Orvel', tier: 'rare', finish: 'normal' })], 'c1')),
     'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30&cursor=c1': () => jsonResponse(200, page([pub({ id: 'g3', name: 'Nimbus', tier: 'rare', finish: 'normal' })])),
@@ -97,4 +97,71 @@ test('la colección pública: sus cartas sin acciones, por rareza y paginada', a
   await user.click(screen.getByRole('button', { name: new RegExp(copy.tiers.rare) }));
   await waitFor(() => expect(fetch.mock.calls.map(([url]) => url)).toContain('/galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30&tier=rare'));
   await waitFor(() => expect(within(screen.getByRole('list', { name: t.collectionOf('vega') })).getAllByRole('article')).toHaveLength(1));
+});
+
+// The banner (Nov plan C2/C4): one of their galaxies, dark and blurred at the top of the profile; its special finish
+// themes the whole page (subtly, behind the panels). None without a banner; none for a normal finish.
+test('con banner de acabado especial, el perfil lleva el banner y el tema de su acabado', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ banner: pub({ finish: 'rift' }) })) });
+  const { container } = renderAt('/perfil/vega', screens);
+  await screen.findByRole('heading', { level: 1, name: 'vega' });
+  expect(container.querySelector('.profile-banner')).not.toBeNull();
+  expect(container.querySelector('.profile-root')).toHaveAttribute('data-finish', 'rift');
+});
+
+test('sin banner no hay banner ni tema; con acabado normal, banner sin tema', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile()), 'GET /galaxy/api/profiles/lyra': () => jsonResponse(200, profile({ username: 'lyra', banner: pub({ finish: 'normal' }) })) });
+  const first = renderAt('/perfil/vega', screens);
+  await screen.findByRole('heading', { level: 1, name: 'vega' });
+  expect(first.container.querySelector('.profile-banner')).toBeNull();
+  expect(first.container.querySelector('.profile-root')).not.toHaveAttribute('data-finish');
+  first.unmount();
+  const second = renderAt('/perfil/lyra', screens);
+  await screen.findByRole('heading', { level: 1, name: 'lyra' });
+  expect(second.container.querySelector('.profile-banner')).not.toBeNull();
+  expect(second.container.querySelector('.profile-root')).not.toHaveAttribute('data-finish');
+});
+
+test('la cabecera: el avatar grande y la barra de experiencia hasta el siguiente nivel', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ xp: { into: 1240, next: 2000 } })) });
+  const { container } = renderAt('/perfil/vega', screens);
+  const bar = await screen.findByRole('progressbar', { name: t.xpBar(8) });
+  expect(bar).toHaveAttribute('aria-valuenow', '1240');
+  expect(bar).toHaveAttribute('aria-valuemax', '2000');
+  expect(screen.getByText(t.xpLeft(760, 8))).toBeInTheDocument();
+  // Plan «escáner pro», part E: the avatar takes the whole 144 px footprint (without a frame, it fills it: 32 × 4.5).
+  const box = container.querySelector<HTMLElement>('.profile-avatar .avatar-box')!;
+  expect(box.dataset['fit']).toBe('outer');
+  expect(box.style.getPropertyValue('--s')).toBe('4.5');
+});
+
+test('en el nivel más alto no hay barra: lo dice', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ xp: { into: 500, next: null } })) });
+  renderAt('/perfil/vega', screens);
+  expect(await screen.findByText(t.maxLevel)).toBeInTheDocument();
+  expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+});
+
+// Blocking from a profile always asks first and says a friend stops being one (the owner, 2026-11-14: «si dos personas
+// son amigas y una le da a bloquear sin querer, se elimina de amigo aunque no lo parezca»).
+test('bloquear desde el perfil pregunta antes y avisa de que deja de ser tu amigo', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 6 }),
+    'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile()),
+    'GET /galaxy/api/friends/relation/vega': () => jsonResponse(200, { relation: 'friends' }),
+    'GET /galaxy/api/trades': () => jsonResponse(200, { trades: [] }),
+    'GET /galaxy/api/cosmetics': () => jsonResponse(200, {}),
+    'POST /galaxy/api/friends/vega/block': () => jsonResponse(200, { friends: [], incoming: [], outgoing: [], blocked: [{ username: 'vega', at: '2026-11-14T10:00:00Z' }], prefs: { invites: 'friends', showStatus: true, notices: 'sound' }, max: 100 }),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: copy.friends.profile.block }));
+  const confirm = await screen.findByRole('alertdialog', { name: copy.friends.blockTitle('vega') });
+  expect(confirm).toHaveTextContent(copy.friends.blockBody);
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/block'))).toBe(false);
+  await user.click(within(confirm).getByRole('button', { name: copy.friends.keep }));
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  await user.click(screen.getByRole('button', { name: copy.friends.profile.block }));
+  await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: copy.friends.block }));
+  await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/friends/vega/block' && init?.method === 'POST')).toBe(true));
 });

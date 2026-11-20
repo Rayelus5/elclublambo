@@ -27,6 +27,9 @@ export function DesktopGate({ children, win }: { children: ReactNode; win?: WinL
       <div className="lip panel gate-card">
         <h1>{copy.desktop.title}</h1>
         <p>{copy.desktop.body}</p>
+        <a className="lip pill gate-link" href="/">
+          {copy.desktop.landing}
+        </a>
       </div>
     </main>
   );

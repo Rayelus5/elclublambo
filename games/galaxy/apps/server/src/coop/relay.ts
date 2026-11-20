@@ -1,5 +1,6 @@
-import { COOP_SUM_EVERY, type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
-import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
+import { COOP_SUM_EVERY, type CoopGate, type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
+import { createStepTimes, type StepSummary } from './step-times';
+import { CoopFeed, createSim, DASH, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
 
 // One co-op run as the server plays it (multiplayer plan, phase 6). Inputs arrive from the players' sockets and are
 // sealed at once, as log events, on the next tick not yet closed; the clock closes ticks at 60 Hz whatever the
@@ -8,7 +9,8 @@ import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, sta
 // the tick they close up to (and a heartbeat every few ticks). A player without a socket for a while, while others
 // play, is sealed «away» (intangible) and «back» when it returns; «left» is for good; a player whose last socket
 // closes stops moving at once. With nobody connected the clock waits (a shared outage or a slow start never costs the
-// run); nobody for long, and everyone is sealed «left» and the run ends.
+// run); nobody for long, and everyone is sealed «left» and the run ends. The start (2026-11-17) waits for every
+// player's socket, at most a while, then counts down, and every socket hears who is in and when it starts.
 
 export const TICK_MS = 1000 / 60;
 const BEAT_TICKS = 3;
@@ -29,6 +31,17 @@ export const MAX_RESYNCS = 2;
 export const IDLE_MIN_TICKS = 3600;
 const IDLE_SHARE = 0.8;
 const OPEN = 1;
+
+/**
+ * The start of a run (2026-11-17, the owner: the loading screen must really hide the start): the clock waits until every
+ * player's socket is in, at most `waitMs` (then it starts with whoever is there; the missing one is away from the first
+ * tick), and counts `countdownMs` down so everyone sees the same 3-2-1 over their arena.
+ */
+export interface StartGate {
+  waitMs: number;
+  countdownMs: number;
+}
+export const START_GATE: StartGate = { waitMs: 10_000, countdownMs: 3_000 };
 
 export interface PlaySocket {
   readonly readyState: number;
@@ -96,6 +109,10 @@ export class CoopRun {
   private abandoning = false;
   /** The clock's origin, moved forward by every pause. */
   private origin: number;
+  /** When the first tick is due, once the start gate opened (null: it still waits for players). */
+  private startAt: number | null = null;
+  /** What each step of the referee costs (2026-11-16): logged when the run ends (`coop_cpu`). */
+  private readonly stepTimes = createStepTimes();
 
   constructor(
     readonly id: string,
@@ -103,6 +120,7 @@ export class CoopRun {
     readonly base: CoopRunBase,
     readonly slots: CoopSlot[],
     readonly t0: number,
+    private readonly gate: StartGate = START_GATE,
   ) {
     const n = slots.length;
     this.referee = createSim(coopSimOptions(base, false));
@@ -121,27 +139,51 @@ export class CoopRun {
     this.noteLayer();
   }
 
+  /** What the referee's steps have cost so far (mean, p50, p99, max, share of a core). */
+  cpu(): StepSummary {
+    return this.stepTimes.summary();
+  }
+
   slotOf(accountId: string): number {
     return this.slots.findIndex((s) => s.accountId === accountId);
   }
 
-  /** A player's socket opens (or opens again): it gets the run, the log so far and the tick closed; «back» if away. */
-  attach(slot: number, socket: PlaySocket): void {
+  /**
+   * A player's socket opens (or opens again): it gets the run, the log so far, the tick closed and the start; «back» if
+   * away. Before the start everyone hears who is in now.
+   */
+  attach(slot: number, socket: PlaySocket, now = Date.now()): void {
     this.sockets[slot]!.add(socket);
     this.offlineSince[slot] = null;
     if (this.presence[slot] === PRESENCE_AWAY) this.seal(slot, PRESENCE, PRESENCE_UP, 0, 0);
-    socket.send(JSON.stringify(this.hello(slot)));
+    socket.send(JSON.stringify(this.hello(slot, now)));
+    // Until the first tick everyone hears who is in, the countdown included (review: a late one joining in it).
+    if (this.closed === 0) this.tellGate(now);
   }
 
   /** The run so far, as a socket needs it to start: the start (with the slot it plays or looks at), the log, the tick. */
-  private hello(slot: number): CoopServerMessage {
-    return { t: 'hello', start: { ...this.base, slot }, log: toBase64(encodeLog({ probes: this.slots.length, events: this.events })), to: this.closed };
+  private hello(slot: number, now: number): CoopServerMessage {
+    return { t: 'hello', start: { ...this.base, slot }, log: toBase64(encodeLog({ probes: this.slots.length, events: this.events })), to: this.closed, gate: this.gateNow(now) };
+  }
+
+  /** Who is in, and how long until the first tick (null: still waiting for players). */
+  private gateNow(now: number): CoopGate {
+    return { connected: this.slots.map((_, slot) => this.hasSocket(slot)), startsIn: this.startAt === null ? null : Math.round(this.startAt - now) };
+  }
+
+  private tellGate(now: number): void {
+    this.broadcast({ t: 'gate', ...this.gateNow(now) });
+  }
+
+  /** How many players have the run open now (the admin's server load). */
+  connectedCount(): number {
+    return this.sockets.filter((set) => set.size > 0).length;
   }
 
   /** A staff socket watching live (phase 7): the run so far, as if from the first slot, then every frame. */
-  watch(socket: PlaySocket): void {
+  watch(socket: PlaySocket, now = Date.now()): void {
     this.watchers.add(socket);
-    socket.send(JSON.stringify(this.hello(0)));
+    socket.send(JSON.stringify(this.hello(0, now)));
   }
 
   unwatch(socket: PlaySocket): void {
@@ -161,6 +203,7 @@ export class CoopRun {
     if (this.offlineSince[slot] === null) this.offlineSince[slot] = now;
     // Its last socket closed: the probe stops where it is (it may be gone for a while).
     this.input(slot, 0, 0, -1);
+    if (this.closed === 0) this.tellGate(now);
   }
 
   /** A player's movement and aim: sealed only when it changes what is in effect. */
@@ -178,9 +221,21 @@ export class CoopRun {
 
   /** A card picked on the offer the player saw (the referee ignores it if that offer is gone). */
   pick(slot: number, index: number, seq: number): void {
-    if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
+    // Nothing to pick before the first tick (the countdown).
+    if (this.ended || this.closed === 0 || this.presence[slot] === PRESENCE_LEFT) return;
     this.withdraw(slot, PICK_SEQ);
     this.pending.push(this.closed + 1, slot, PICK_SEQ, index, seq, 0);
+  }
+
+  /**
+   * A dash asked for (SIM 1.12.0), with the pointer's angle: sealed on the next tick, one per tick (a second one on the
+   * same open tick replaces it). The referee decides whether it can (a charge, past the pause, standing).
+   */
+  dash(slot: number, angle: number): void {
+    // A dash pressed during the countdown is dropped (review: it fired on tick 1 and spent a charge).
+    if (this.ended || this.closed === 0 || this.presence[slot] === PRESENCE_LEFT) return;
+    this.withdraw(slot, DASH);
+    this.pending.push(this.closed + 1, slot, DASH, angle, 0, 0);
   }
 
   /** Whether the player in `slot` still has a play socket open (who went has their result told elsewhere). */
@@ -278,13 +333,40 @@ export class CoopRun {
   }
 
   /**
+   * The start gate (2026-11-17): it opens when every player still in has a socket, or when the wait is over with someone
+   * in; then the first tick is `countdownMs` away. Everyone gone before the start closes it at once; nobody at all for
+   * ALL_GONE_MS, and everyone leaves. Returns false while it waits.
+   */
+  private opened(now: number): boolean {
+    if (this.startAt !== null) return true;
+    if (this.abandoning) return this.begin(now, 0);
+    const missing = this.slots.some((_, slot) => this.presence[slot] !== PRESENCE_LEFT && !this.hasSocket(slot));
+    if (this.online() && (!missing || now - this.t0 >= this.gate.waitMs)) return this.begin(now, this.gate.countdownMs);
+    if (!this.online() && now - this.t0 >= ALL_GONE_MS) {
+      for (let slot = 0; slot < this.slots.length; slot++) this.leave(slot);
+      this.abandoning = true;
+      return this.begin(now, 0);
+    }
+    return false;
+  }
+
+  private begin(now: number, countdown: number): true {
+    this.startAt = now + countdown;
+    this.origin = this.startAt;
+    this.tellGate(now);
+    return true;
+  }
+
+  /**
    * Closes every tick the clock has reached (up to a few per call), steps the referee through them and sends what was
    * sealed. Returns true when the run ended in this call.
    */
   pump(now: number): boolean {
     if (this.ended) return false;
+    if (!this.opened(now)) return false;
     if (!this.clockRuns(now)) return false;
-    if (!this.abandoning) this.watchPresence(now);
+    // Nobody is away before the first tick (the countdown is everyone's).
+    if (!this.abandoning && now >= this.origin) this.watchPresence(now);
     const target = Math.min(Math.floor((now - this.origin) / TICK_MS), this.closed + MAX_TICKS_PER_PUMP);
     const sim = this.referee;
     while (this.closed < target && !this.ended) {
@@ -296,7 +378,9 @@ export class CoopRun {
       for (let i = 0; i + 5 < sealed.length; i += 6) if (sealed[i + 2] === MOVE) this.move[sealed[i + 1]!] = [sealed[i + 3]!, sealed[i + 4]!, sealed[i + 5]!];
       this.feed.push(sealed);
       this.closed = tick;
+      const t0 = performance.now();
       step(sim, this.feed.inputsFor(tick));
+      this.stepTimes.record(performance.now() - t0);
       for (const e of sim.events) {
         if (e.t === 'presence' && e.life === 'left') {
           const p = sim.probes[e.probe]!;

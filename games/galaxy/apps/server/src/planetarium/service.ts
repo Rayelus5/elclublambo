@@ -5,6 +5,7 @@ import {
   type PlanetariumConfig,
   type PlanetariumView,
   type PlanetariumVisit,
+  perTier,
   planetariumBonus,
   prestige,
   type PublicGalaxy,
@@ -67,7 +68,8 @@ async function visitsOf(db: Kysely<DB>, ownerId: string): Promise<number> {
  * each with its most prestigious galaxy as the cover.
  */
 async function featuredFor(db: Kysely<DB>, viewerId: string, cfg: PlanetariumConfig): Promise<PlanetariumCard[]> {
-  const points = sql<number>`((${sql.val(cfg.points.tiers)}::int[])[g.tier + 1] + case when g.finish = 'normal' then 0 else ${cfg.points.finish}::int end)`;
+  // perTier: a config published before the mythic gives it the legendary's points (not NULL).
+  const points = sql<number>`((${sql.val(perTier(cfg.points.tiers))}::int[])[g.tier + 1] + case when g.finish = 'normal' then 0 else ${cfg.points.finish}::int end)`;
   const top = await db
     .selectFrom('galaxy.exhibits as e')
     .innerJoin('galaxy.galaxies as g', 'g.id', 'e.galaxy_id')

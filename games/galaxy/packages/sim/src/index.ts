@@ -30,13 +30,18 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
+export { aliveCap, curseOf, direct, holdLife, layerCrowd, layerSeconds, levelFactor, lifeGrowth, relocate, scaleAt, spawnRate, swarmWeight, teamLevel, truceGrowth } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
+export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';
 export { coopFactor, playersIn } from './systems/coop';
-export { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
+export { DASH, MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
+export { type DashRules, dashRules } from './systems/dash';
 export { CoopFeed } from './coop-feed';
-export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
+export { hurtProbe, PROBE_RADIUS, shieldCapacity, staticHurt } from './systems/probes';
+export { healBlocked, healBudget, healProbe } from './systems/healing';
+export { updateStillness } from './systems/stillness';
+export { type ActiveEvent, endRunEvents, type EventPlan, eventLootUpTo, eventReward, eventsForLayer, isLoot, startEvent, updateRunEvents } from './systems/run-events';
 export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {
   AREA,
@@ -65,9 +70,24 @@ export {
   tickStatuses,
 } from './systems/elements';
 export { describeRelic, relicBonuses, relicSkill, relicVision, updateRelics, type RelicSkill } from './systems/relics';
-export { bossAway, bossDef, spawnBoss, updateBoss } from './systems/boss';
+export { activeLaser, bossAway, bossDef, bossIdAt, coreLevelFactor, spawnBoss, updateBoss } from './systems/boss';
 export { updateBlasts } from './systems/blasts';
 export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
-export { createReplayer, decodeLog, encodeLog, fromBase64, logTicks, replay, type Replayer, toBase64 } from './recording';
+export { createLiveReplayer, createReplayer, decodeEvents, decodeLog, encodeEvents, encodeLog, fromBase64, type LiveReplayer, logTicks, replay, type Replayer, toBase64 } from './recording';
 export { botInput, botPick } from './bot';
+export { type BotRun, type BotRunOptions, playBot } from './bot-run';
+export {
+  debugClear,
+  debugEvent,
+  debugGrant,
+  debugHeal,
+  debugInfo,
+  debugLevelUp,
+  debugSkipLayer,
+  debugSummonCore,
+  type DebugGrant,
+  type DebugInfo,
+  type DebugResult,
+  setGod,
+} from './debug';

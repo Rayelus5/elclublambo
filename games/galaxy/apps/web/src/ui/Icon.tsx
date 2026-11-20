@@ -1,6 +1,17 @@
 /** Inline SVG icons (DESIGN_SYSTEM §7): 24×24, round 2.2 px strokes, decorative unless given a label. The title-screen
  * set comes from the approved demo's sprite (titulo-v2.html). */
 const PATHS = {
+  // The Discord mascot's face, drawn in the set's own strokes (the community button of the home screen).
+  discord: (
+    <>
+      <path d="M8.6 6.2c-1.7.3-3.2.8-4.5 1.7C2.3 10.8 1.8 13.8 2 16.8c1.5 1.1 3.1 1.9 4.7 2.3l1-1.7" />
+      <path d="M15.4 6.2c1.7.3 3.2.8 4.5 1.7 1.8 2.9 2.3 5.9 2.1 8.9-1.5 1.1-3.1 1.9-4.7 2.3l-1-1.7" />
+      <path d="M6.8 16.4c3.4 1.5 7 1.5 10.4 0" />
+      <path d="M8.6 6.2l.7 1.5c1.8-.3 3.6-.3 5.4 0l.7-1.5" />
+      <circle cx="9.2" cy="12.6" r="1.3" />
+      <circle cx="14.8" cy="12.6" r="1.3" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
@@ -146,10 +157,11 @@ const PATHS = {
       <path d="M9.5 16l-2.5 4M14.5 16l2.5 4M12 16v5" />
     </>
   ),
+  /** Settings: a cog of eight teeth round its hub (the owner's request: the old rays read as a sun). */
   gear: (
     <>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+      <path d="M10.2 4.7L10.4 2.1L13.6 2.1L13.8 4.7A7.5 7.5 0 0 1 15.9 5.6L17.9 3.9L20.1 6.1L18.4 8.1A7.5 7.5 0 0 1 19.3 10.2L21.9 10.4L21.9 13.6L19.3 13.8A7.5 7.5 0 0 1 18.4 15.9L20.1 17.9L17.9 20.1L15.9 18.4A7.5 7.5 0 0 1 13.8 19.3L13.6 21.9L10.4 21.9L10.2 19.3A7.5 7.5 0 0 1 8.1 18.4L6.1 20.1L3.9 17.9L5.6 15.9A7.5 7.5 0 0 1 4.7 13.8L2.1 13.6L2.1 10.4L4.7 10.2A7.5 7.5 0 0 1 5.6 8.1L3.9 6.1L6.1 3.9L8.1 5.6A7.5 7.5 0 0 1 10.2 4.7z" />
+      <circle cx="12" cy="12" r="3" />
     </>
   ),
   compass: (
@@ -162,6 +174,15 @@ const PATHS = {
     <>
       <circle cx="16.5" cy="7.5" r="3.5" />
       <path d="M13.8 10.2L4 20M11.5 7.5L5.5 13.5M16.5 12.5l-6 6" />
+    </>
+  ),
+  // Three sliders (a collection's filters).
+  sliders: (
+    <>
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+      <circle cx="15" cy="6" r="2" />
+      <circle cx="9" cy="12" r="2" />
+      <circle cx="17" cy="18" r="2" />
     </>
   ),
   list: (
@@ -205,6 +226,25 @@ const PATHS = {
     <>
       <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
       <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+    </>
+  ),
+  display: (
+    <>
+      <rect x="3" y="4.5" width="18" height="12" rx="2.2" />
+      <path d="M9 20h6M12 16.5V20" />
+    </>
+  ),
+  access: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <circle cx="12" cy="7.4" r="1.3" />
+      <path d="M7.6 10.2h8.8M12 10.2v4M12 14.2l-2.4 3.8M12 14.2l2.4 3.8" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
+      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
     </>
   ),
   mute: (
@@ -257,6 +297,13 @@ const PATHS = {
       <path d="M12 5v14M5 12h14" />
     </>
   ),
+  // «Añadir amigo» (Nov plan A3): a person with a plus.
+  addFriend: (
+    <>
+      <circle cx="9.5" cy="8" r="3.5" />
+      <path d="M3 19.5c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5M18.5 8v6M15.5 11h6" />
+    </>
+  ),
   trash: (
     <>
       <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2h9.2L17.5 7M10.2 10.5v5.5M13.8 10.5v5.5" />
@@ -285,13 +332,58 @@ const PATHS = {
       <path d="M6.5 9.5L12 15l5.5-5.5" />
     </>
   ),
+  next: (
+    <>
+      <path d="M9.5 5.5L16 12l-6.5 6.5" />
+    </>
+  ),
+  tick: (
+    <>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </>
+  ),
+  /** «Notas de versión»: a scroll with its lines. */
+  scroll: (
+    <>
+      <path d="M7 4.5h10.5A2.5 2.5 0 0120 7v.5h-3" />
+      <path d="M17 7v11.5a2 2 0 01-2 2H6.5A2.5 2.5 0 014 18v-.5h9.5V7A2.5 2.5 0 0016 4.5" />
+      <path d="M7 4.5A2.5 2.5 0 004.5 7v8" />
+      <path d="M8 9h5M8 12.5h5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" />
+    </>
+  ),
+  // Installing the game as an app (galaxysurvivor.es plan, PR 3): an arrow down into a tray.
+  install: (
+    <>
+      <path d="M12 3.5v11M7.5 10.5L12 15l4.5-4.5" />
+      <path d="M4 15.5v2.8a2.2 2.2 0 002.2 2.2h11.6a2.2 2.2 0 002.2-2.2v-2.8" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;
 
-export function Icon({ name, label, className = 'ico' }: { name: IconName; label?: string; className?: string }) {
+/**
+ * An interface icon. `outline` (2026-11-17, the owner: icons on a colour white, «pero que se sigan viendo, añadir un
+ * contorno») draws the same strokes twice: a much wider dark copy behind (`.ico-back`, half see-through and shifted down
+ * and to the left, a cartoon depth) and the icon on top, so it reads on any tone.
+ */
+export function Icon({ name, label, className = 'ico', outline = false }: { name: IconName; label?: string; className?: string; outline?: boolean }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <svg
+      className={outline ? `${className} ico-ol` : className}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      {outline ? <g className="ico-back">{PATHS[name]}</g> : null}
       {PATHS[name]}
     </svg>
   );

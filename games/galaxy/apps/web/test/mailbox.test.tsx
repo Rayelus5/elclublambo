@@ -1,4 +1,4 @@
-import type { MeResponse, MyMailbox } from '@galaxy/shared';
+import { type MeResponse, type MyMailbox, parseConfig } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -14,11 +14,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.mail;
 const me: MeResponse = { id: 'p1', username: 'vega', roles: [], mfa: false, level: 6 };
+const v2 = { type: 'announcement' as const, granted: null, warn: false, archived: false };
 const box: MyMailbox = {
   unread: 2,
+  unclaimed: 1,
+  next: null,
   messages: [
-    { id: 'm1', title: 'Regalo de bienvenida', body: 'Gracias por probar la beta.\nAquí tienes algo para empezar', gifts: { coins: 100, dust: 5 }, at: '2026-11-08T10:00:00.000Z', expiresAt: '2026-12-08T10:00:00.000Z', read: false, claimed: false },
-    { id: 'm2', title: 'Mantenimiento el domingo', body: 'El juego parará una hora', gifts: {}, at: '2026-11-07T10:00:00.000Z', expiresAt: '2026-12-07T10:00:00.000Z', read: false, claimed: false },
+    { ...v2, contents: { v: 2, items: [{ kind: 'currency', currency: 'coins', amount: 100 }, { kind: 'currency', currency: 'dust', amount: 5 }], packs: [] }, id: 'm1', title: 'Regalo de bienvenida', body: 'Gracias por probar la beta.\nAquí tienes algo para empezar', gifts: { coins: 100, dust: 5 }, at: '2026-11-08T10:00:00.000Z', expiresAt: '2026-12-08T10:00:00.000Z', read: false, claimed: false },
+    { ...v2, contents: { v: 2, items: [], packs: [] }, id: 'm2', title: 'Mantenimiento el domingo', body: 'El juego parará una hora', gifts: {}, at: '2026-11-07T10:00:00.000Z', expiresAt: '2026-12-07T10:00:00.000Z', read: false, claimed: false },
   ],
 };
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) => fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').length;
@@ -78,4 +81,46 @@ test('el buzón se cierra con su botón Cerrar', async () => {
   const dialog = await screen.findByRole('dialog', { name: t.title });
   await userEvent.click(within(dialog).getByRole('button', { name: t.close }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: t.title })).toBeNull());
+});
+
+test('un regalo de los nuevos (una skin y una galaxia, sin monedas) se ve y se recoge (revisión de P3)', async () => {
+  const skin = parseConfig('cosmetics', {}).skins.find((s) => s.source === 'reward')!;
+  const style: MyMailbox = {
+    unread: 1,
+    unclaimed: 1,
+    next: null,
+    messages: [
+      {
+        ...v2,
+        type: 'reward',
+        contents: { v: 2, items: [{ kind: 'cosmetic', piece: 'skin', id: skin.id }, { kind: 'galaxy', tier: 'epic', finish: 'holo', trait: null, count: 1 }], packs: [] },
+        id: 'm3',
+        title: 'Premio del torneo',
+        body: 'Enhorabuena',
+        gifts: {},
+        at: '2026-11-08T10:00:00.000Z',
+        expiresAt: '2026-12-08T10:00:00.000Z',
+        read: false,
+        claimed: false,
+      },
+    ],
+  };
+  const fetch = mockApi({
+    'GET /galaxy/api/mailbox': () => jsonResponse(200, style),
+    'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, {}),
+    'GET /galaxy/api/content': () => jsonResponse(503, { error: 'internal' }),
+    'POST /galaxy/api/mailbox/m3/read': () => jsonResponse(200, { read: true }),
+    'POST /galaxy/api/mailbox/m3/claim': () => jsonResponse(200, { wallet: { coins: 10, dust: 2, signal: 1 }, granted: [] }),
+  });
+  renderAt('/', { '/': bar() });
+  await userEvent.click(await screen.findByRole('button', { name: t.unread(1) }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  expect(within(dialog).getByText(t.hasGift)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('button', { name: /Premio del torneo/ }));
+  const gift = await within(dialog).findByRole('region', { name: t.giftTitle });
+  expect(within(gift).getByText(copy.gifts.cosmetic('skin', skin.name))).toBeInTheDocument();
+  expect(within(gift).getByText(copy.gifts.galaxyWords(1, copy.tiers.epic, copy.finishes.holo))).toBeInTheDocument();
+  await userEvent.click(within(gift).getByRole('button', { name: t.claim }));
+  expect(await within(gift).findByRole('status')).toHaveTextContent(t.claimed);
+  expect(posted(fetch, '/galaxy/api/mailbox/m3/claim')).toBe(1);
 });
