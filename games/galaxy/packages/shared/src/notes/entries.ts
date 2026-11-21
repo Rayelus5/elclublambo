@@ -7,9 +7,9 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
-    id: 'v1-46-clasificacion-temporada',
-    version: '1.46',
-    date: '2026-11-21',
+    id: 'v1-48-clasificacion-temporada',
+    version: '1.48',
+    date: '2026-11-22',
     title: 'La clasificación enseña más de tu temporada',
     summary: 'Tu puesto, tu tramo y los premios de cierre a la vista, y un atajo a la ruta y la tienda',
     items: [
