@@ -7,19 +7,80 @@ import { ranking } from '../social/leaderboard';
 import type { SeasonConfigs } from './service';
 import { grantCosmetics } from '../cosmetics/service';
 
-// Closing a season (GDD §13.1; M7d-2). Once its end has passed, the first read that notices archives it: the final
-// General ranking becomes one result per player (place, score, tier and the rewards of that close, kept so a later
-// change of the config cannot change them). Each result is collected once; the podium's are the station's trophies.
+// Closing a season (GDD §13.1; M7d-2). Once its end has passed, the first read that notices (or the minute job, plan
+// «temporadas como fichas») archives it: the final General ranking becomes one result per player (place, score, tier
+// and the rewards of that close, kept so a later change of the config cannot change them), the season's numbers are
+// frozen with it, and each ranked player gets a message saying where they finished. Each result is collected once;
+// the podium's are the station's trophies. An account that cannot win prizes for its place (admins who play) keeps its
+// rank, and the podium goes to the next ones who can.
 
 /** Seasons already archived in this process: no query once known. */
 const archived = new Set<string>();
 
-/** What a place pays: its tier's reward, plus the podium's for the first places. */
-export function rewardsFor(rank: number, tier: SeasonTier | null, closing: SeasonConfigs['route']['closing']): SeasonReward[] {
+/** What a place pays: its tier's reward, plus the podium's when it is on it. */
+export function rewardsFor(podium: boolean, tier: SeasonTier | null, closing: SeasonConfigs['route']['closing']): SeasonReward[] {
   const out: SeasonReward[] = [];
   if (tier) out.push(closing.tiers[SEASON_TIERS.indexOf(tier)]!);
-  if (rank <= closing.podiumSize) out.push(closing.podium);
+  if (podium) out.push(closing.podium);
   return out;
+}
+
+/**
+ * Who is on the podium: the first `size` places among those who can win prizes for their place (an account that
+ * cannot keeps its rank and is skipped). `rows` in rank order.
+ */
+export function podiumOf(rows: readonly { accountId: string; rank: number }[], size: number, ineligible: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>();
+  for (const r of rows) {
+    if (out.size >= size) break;
+    if (!ineligible.has(r.accountId)) out.add(r.accountId);
+  }
+  return out;
+}
+
+/** What a season was, frozen at its close (`season_archive.stats`). */
+export interface SeasonStats {
+  players: number;
+  runs: number;
+  kills: number;
+  cores: number;
+  extractions: number;
+  maxDepth: number;
+  topSector: string | null;
+  topProbe: string | null;
+  tiers: Record<SeasonTier, number>;
+}
+
+async function seasonStats(db: Kysely<DB>, s: SeasonConfigs['season'], minRunSeconds: number, tiers: (SeasonTier | null)[]): Promise<SeasonStats> {
+  const window = sql`r.finished_at >= ${new Date(s.startsAt)} and r.finished_at < ${new Date(s.endsAt)} and not r.suspicious and r.seconds >= ${minRunSeconds}::int`;
+  const { rows: [agg] } = await sql<{ runs: string; kills: string; cores: string; extractions: string; depth: number | null }>`
+    select count(*) as runs, coalesce(sum(r.kills), 0) as kills, coalesce(sum(r.boss_kills), 0) as cores,
+      count(*) filter (where r.outcome = 'extracted') as extractions, max(r.depth) as depth
+    from galaxy.runs r where ${window}`.execute(db);
+  const most = async (column: 'sector' | 'probe') =>
+    (await sql<{ v: string }>`select r.${sql.ref(column)} as v from galaxy.runs r where ${window} group by r.${sql.ref(column)} order by count(*) desc, r.${sql.ref(column)} limit 1`.execute(db)).rows[0]?.v ?? null;
+  const count = Object.fromEntries(SEASON_TIERS.map((t) => [t, 0])) as Record<SeasonTier, number>;
+  for (const t of tiers) if (t) count[t]++;
+  return {
+    players: tiers.length,
+    runs: Number(agg?.runs ?? 0),
+    kills: Number(agg?.kills ?? 0),
+    cores: Number(agg?.cores ?? 0),
+    extractions: Number(agg?.extractions ?? 0),
+    maxDepth: agg?.depth ?? 0,
+    topSector: await most('sector'),
+    topProbe: await most('probe'),
+    tiers: count,
+  };
+}
+
+const TIER_NAME: Record<SeasonTier, string> = { bronze: 'Bronce', silver: 'Plata', gold: 'Oro', platinum: 'Platino', stellar: 'Estelar' };
+const num = new Intl.NumberFormat('es-ES');
+
+/** The message each ranked player gets when a season closes (a `season` message: its button opens Temporada). */
+export function closingMail(name: string, rank: number, score: number, tier: SeasonTier | null, prizes: boolean): { title: string; body: string } {
+  const where = tier ? `Quedaste ${num.format(rank)}.º en el tramo ${TIER_NAME[tier]}, con ${num.format(score)} puntos` : `Quedaste ${num.format(rank)}.º con ${num.format(score)} puntos`;
+  return { title: `${name} ha terminado`.slice(0, 80), body: prizes ? `${where}. Tus premios te esperan en Temporada` : where };
 }
 
 /**
@@ -35,20 +96,47 @@ export async function closeDue(db: Kysely<DB>, c: SeasonConfigs, now: Date, opts
   }
   // Read with the pool before the transaction (the ranking keeps its own connection); after the end nothing adds.
   const rows = await ranking(db, s, 'general', c.minRunSeconds);
+  const ineligible = new Set((await db.selectFrom('galaxy.accounts').select('id').where('prize_eligible', '=', false).execute()).map((a) => a.id));
+  const podium = podiumOf(rows, c.route.closing.podiumSize, ineligible);
+  const results = rows.map((r) => {
+    const tier = seasonTier(r.value, s);
+    const onPodium = podium.has(r.accountId);
+    return { row: r, tier, podium: onPodium, rewards: rewardsFor(onPodium, tier, c.route.closing) };
+  });
+  const stats = await seasonStats(db, s, c.minRunSeconds, results.map((x) => x.tier));
   await db.transaction().execute(async (trx) => {
     const won = await trx
       .insertInto('galaxy.season_archive')
-      .values({ season: s.id, name: s.name, starts_at: s.startsAt, ends_at: s.endsAt, players: rows.length })
+      .values({ season: s.id, name: s.name, starts_at: s.startsAt, ends_at: s.endsAt, players: rows.length, stats: JSON.stringify(stats) })
       .onConflict((oc) => oc.doNothing())
       .returning('season')
       .executeTakeFirst();
     if (!won) return;
-    for (let i = 0; i < rows.length; i += 500) {
-      const chunk = rows.slice(i, i + 500).map((r) => {
-        const tier = seasonTier(r.value, s);
-        return { season: s.id, account_id: r.accountId, rank: r.rank, score: r.value, tier, podium: r.rank <= c.route.closing.podiumSize, rewards: JSON.stringify(rewardsFor(r.rank, tier, c.route.closing)) };
-      });
-      if (chunk.length > 0) await trx.insertInto('galaxy.season_results').values(chunk).execute();
+    for (let i = 0; i < results.length; i += 500) {
+      const chunk = results.slice(i, i + 500);
+      await trx
+        .insertInto('galaxy.season_results')
+        .values(chunk.map((x) => ({ season: s.id, account_id: x.row.accountId, rank: x.row.rank, score: x.row.value, tier: x.tier, podium: x.podium, rewards: JSON.stringify(x.rewards) })))
+        .execute();
+      // Where each finished, in the same transaction as the archive row that won: a close that runs again sends nothing.
+      const mails = chunk.map((x) => ({ x, mail: closingMail(s.name, x.row.rank, x.row.value, x.tier, x.rewards.length > 0) }));
+      const made = await trx
+        .insertInto('galaxy.mailbox_messages')
+        .values(
+          mails.map(({ x, mail }) => ({
+            title: mail.title,
+            body: mail.body,
+            gifts: '{}',
+            type: 'season' as const,
+            audience: JSON.stringify({ kind: 'segment', usernames: [x.row.username.toLowerCase()] }),
+            created_by: null,
+            created_at: sql<Date>`now()`,
+            expires_at: sql<Date>`now() + interval '60 days'`,
+          })),
+        )
+        .returning('id')
+        .execute();
+      await trx.insertInto('galaxy.mailbox_receipts').values(made.map((m, k) => ({ message_id: m.id, account_id: mails[k]!.x.row.accountId }))).execute();
     }
   });
   archived.add(s.id);

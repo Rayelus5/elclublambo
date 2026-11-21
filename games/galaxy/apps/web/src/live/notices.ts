@@ -35,6 +35,9 @@ export function refreshFor(n: LiveNotice): Refresh[] {
     case 'offer':
       // The offers, the listings (their counts) and the wallet (coins held or back); a galaxy bought, the collection.
       return [{ key: [...MARKET_KEY, 'offers'], hidden: true }, { key: MARKET_KEY }, { key: GACHA_KEY }, ...(n.event === 'accepted' ? [{ key: COLLECTION_KEY }] : [])];
+    case 'season':
+      // A new season: its route and shop, its ranking, its missions, the run's conditions (anomaly) and the lab's tree.
+      return [{ key: ['season'], hidden: true }, { key: LEADERBOARD_KEY }, { key: MISSIONS_KEY }, { key: ['boosts'] }, { key: ['lab'] }, { key: GACHA_KEY }];
   }
 }
 

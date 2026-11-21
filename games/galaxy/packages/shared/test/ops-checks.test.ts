@@ -54,6 +54,15 @@ describe('opsProblems', () => {
     expect(opsProblems({ ...c, gacha }, NOW)).toEqual(['El escáner perdido se paga con señales de un evento que no está en la lista']);
   });
 
+  test('un escáner que sigue abierto después de su evento (alargado a propósito) no es un problema si su evento sigue en la lista', () => {
+    const c = defaults();
+    const ended = event('beta', '2026-11-09T23:00:00.000Z', '2026-11-13T23:00:00.000Z');
+    const gacha = configSchemas.gacha.parse({ ...c.gacha, banners: [DEEP, scanner('beta', '2026-11-09T23:00:00.000Z', '2026-11-23T13:00:00.000Z')] });
+    expect(opsProblems({ ...c, events: { list: [ended] }, gacha }, NOW)).toEqual([]);
+    // Without its event in the list, its signals have nothing behind them.
+    expect(opsProblems({ ...c, events: { list: [] }, gacha }, NOW)).toEqual(['El escáner beta se paga con señales de un evento que no está en la lista']);
+  });
+
   test('lo que ya terminó no cuenta', () => {
     const c = defaults();
     const e = event('pasado', '2026-11-01T23:00:00.000Z', '2026-11-05T23:00:00.000Z');
@@ -87,4 +96,39 @@ describe('opsProblems', () => {
       'La anomalía nada no existe en el contenido',
     ]);
   });
+
+  describe('con temporadas como fichas (varias a la vez: pasadas, la actual y las programadas)', () => {
+    const s1 = { ...configSchemas.season.parse({}), id: 'season-1', startsAt: '2026-11-12T23:00:00.000Z', endsAt: '2026-11-22T23:00:00.000Z', anomaly: 'contagion' };
+    const s2 = { ...configSchemas.season.parse({}), id: 'season-2', startsAt: '2026-11-22T23:00:00.000Z', endsAt: '2026-12-30T23:00:00.000Z', anomaly: 'contagion' };
+    const listed = (c: OpsConfigs, seasons: { season: typeof s1; missions: OpsConfigs['missions']['season'] }[]): OpsConfigs => ({ ...c, seasons });
+
+    test('un evento cabe si cabe en alguna temporada; uno que cruza de una a otra no cabe', () => {
+      const c = defaults();
+      const now = configSchemas.events.parse({
+        list: [
+          { ...event('torneo', '2026-11-12T23:00:00.000Z', '2026-11-22T23:00:00.000Z', 0) },
+          { ...event('rumbo', '2026-11-22T23:00:00.000Z', '2026-12-06T23:00:00.000Z', 0) },
+        ],
+      });
+      expect(opsProblems(listed({ ...c, events: now }, [{ season: s1, missions: [] }, { season: s2, missions: [] }]), NOW)).toEqual([]);
+      const across = event('cruza', '2026-11-19T23:00:00.000Z', '2026-11-25T23:00:00.000Z', 0);
+      expect(opsProblems(listed({ ...c, events: { list: [across] } }, [{ season: s1, missions: [] }, { season: s2, missions: [] }]), NOW)).toEqual([
+        'El evento cruza no cabe en ninguna temporada',
+      ]);
+    });
+
+    test('la anomalía y las misiones se comprueban en cada temporada por separado', () => {
+      const c = defaults();
+      const m = c.missions.daily.pool[0]!;
+      const problems = opsProblems(listed(c, [{ season: { ...s1, anomaly: 'nada' }, missions: [] }, { season: s2, missions: [m] }]), NOW);
+      expect(problems).toEqual([`El id de misión ${m.id} está repetido en la temporada season-2`, 'La anomalía nada de la temporada season-1 no existe en el contenido']);
+    });
+
+    test('las misiones de temporadas distintas pueden repetir id entre ellas', () => {
+      const c = defaults();
+      const m = { ...c.missions.daily.pool[0]!, id: 's-runs' };
+      expect(opsProblems(listed(c, [{ season: s1, missions: [m] }, { season: s2, missions: [m] }]), NOW)).toEqual([]);
+    });
+  });
 });
+

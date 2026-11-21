@@ -89,6 +89,13 @@ function actionsFor(p: AdminPlayer): Action[] {
       password: never,
       build: () => ({ excluded: !p.leaderboardExcluded }),
     },
+    {
+      key: 'prizes',
+      title: p.prizeEligible ? t.actions.noPrizes : t.actions.prizes,
+      path: 'prizes',
+      password: never,
+      build: () => ({ eligible: !p.prizeEligible }),
+    },
   ];
 }
 
@@ -207,6 +214,7 @@ export function PlayerScreen() {
           {p.banned ? <span className="admin-chip bad">{p.banned.permanent ? t.states.bannedForever : t.states.bannedUntil(day(p.banned.until))}</span> : <span className="admin-chip ok">{t.states.ok}</span>}
           {p.muted ? <span className="admin-chip warn">{t.states.muted(day(p.muted.until))}</span> : null}
           {p.leaderboardExcluded ? <span className="admin-chip warn">{t.states.excluded}</span> : null}
+          {p.prizeEligible ? null : <span className="admin-chip warn">{t.states.noPrizes}</span>}
           {p.roles.length ? <span className="admin-chip staff">{p.roles.join(', ')}</span> : null}
         </p>
       </header>

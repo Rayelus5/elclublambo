@@ -29,6 +29,8 @@ export type LiveNotice =
    * An offer (the owner, 2026-11-14): one on my listing (`received`), or what happened to mine (accepted: the galaxy is
    * mine; rejected, outbid, expired or closed: my coins are back).
    */
-  | { kind: 'offer'; event: OfferNoticeEvent; offer: string; galaxy: { id: string; name: string; tier: Tier }; amount: number; from: NoticePlayer | null };
+  | { kind: 'offer'; event: OfferNoticeEvent; offer: string; galaxy: { id: string; name: string; tier: Tier }; amount: number; from: NoticePlayer | null }
+  /** A season started (plan «temporadas como fichas»): told once to everyone online, so the client reads it again. */
+  | { kind: 'season'; event: 'started'; id: string; name: string };
 
 export type OfferNoticeEvent = 'received' | 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed';

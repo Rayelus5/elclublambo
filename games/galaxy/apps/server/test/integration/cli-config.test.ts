@@ -161,3 +161,14 @@ test('notice crea un aviso de la pantalla de título, vivo desde ahora los días
   expect(Math.abs(new Date(row.ends_at).getTime() - (Date.now() + 14 * 86_400_000))).toBeLessThan(60_000);
   expect((await cli(['notice', '', '--reason', 'x'])).code).toBe(1);
 });
+
+test('notice --from programa el aviso para más adelante: no se ve hasta entonces (y no vale una fecha pasada)', async () => {
+  const from = new Date(Date.now() + 3 * 86_400_000).toISOString();
+  const r = await cli(['notice', 'Empieza la temporada', '--from', from, '--days', '7', '--reason', 'Temporada nueva']);
+  expect(r.code, r.out).toBe(0);
+  const row = await trx.selectFrom('galaxy.title_notices').select(['starts_at', 'ends_at']).where('text', '=', 'Empieza la temporada').executeTakeFirstOrThrow();
+  expect(new Date(row.starts_at).toISOString()).toBe(from);
+  expect(new Date(row.ends_at).getTime() - Date.parse(from)).toBe(7 * 86_400_000);
+  expect((await liveNotices(trx, new Date())).some((n) => n.text === 'Empieza la temporada')).toBe(false);
+  expect((await cli(['notice', 'Pasado', '--from', '2020-01-01T00:00:00.000Z', '--reason', 'x y z'])).code).toBe(1);
+});

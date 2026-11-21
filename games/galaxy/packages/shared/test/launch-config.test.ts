@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfigKey, mergeDraft, opsProblems, parseConfig } from '../src';
+import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfigKey, mergeDraft, normalizeSeasonRecord, opsProblems, parseConfig, type SeasonRecordData, seasonConfigOf, seasonRecordIssues } from '../src';
 
 // The live config published on PRE with `cli.js publish-config` (games/galaxy/ops, docs/CONTENIDO.md):
 // - ops/launch/<yyyy-mm-dd>[-slug]/: what was (or will be) published, one file per key with the top-level fields it
@@ -10,6 +10,9 @@ import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfig
 //   and event dates it brings on Madrid midnights. Edits made by hand in the panel are not in these folders: on PRE
 //   the CLI's check-config runs the same checks over what is really live.
 // - ops/plantillas/<name>/: drafts to start a new season or event from, each checked alone over the defaults.
+// - Seasons as records (plan «temporadas como fichas», 2026-11-21): a folder may carry `temporada.json`, a whole season
+//   (dates, rules, route, missions, lab tree) that is imported and scheduled, never published as keys. From the first
+//   one on, every season that counts is checked: the old key's season ends where the first record starts.
 // The open beta launch (2026-11-10) also keeps its own promises (4 weeks, 4 + 4 missions, harder sectors, a week of
 // boosts).
 
@@ -24,24 +27,30 @@ interface Folder {
   drafts: Drafts;
   /** Files whose name is not a config key (`event.json` for `events.json`). */
   strays: string[];
+  /** The folder's season record (`temporada.json`), if it brings one. */
+  record?: unknown;
 }
 interface Stage extends Folder {
   /** The folder's day at 00:00 in Madrid (22:00–23:00 UTC the day before): what still runs from then on counts. */
   at: number;
   before: Live;
   live: Live;
+  /** Every season record up to this folder (a later one with the same id replaces it). */
+  records: SeasonRecordData[];
 }
 
 function read(dir: URL, name: string): Folder {
   const drafts: Drafts = {};
   const strays: string[] = [];
+  let record: unknown;
   for (const file of readdirSync(dir).sort()) {
     if (!file.endsWith('.json')) continue;
     const key = file.slice(0, -'.json'.length);
-    if (isConfigKey(key)) drafts[key] = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
+    if (file === 'temporada.json') record = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
+    else if (isConfigKey(key)) drafts[key] = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
     else strays.push(file);
   }
-  return { name, drafts, strays };
+  return { name, drafts, strays, record };
 }
 
 function folders(sub: 'launch' | 'plantillas', named: (name: string) => boolean): Folder[] {
@@ -63,6 +72,7 @@ function defaults<K extends ConfigKey>(key: K): ConfigValue<K> {
 /** Each folder's files over what was live before it, in folder order, the way `publish-config` publishes them. */
 function fold(list: Folder[], start: Live = {}): Stage[] {
   let live = start;
+  let records: SeasonRecordData[] = [];
   return list.map((f) => {
     const before = live;
     const next: Live = { ...before };
@@ -70,8 +80,29 @@ function fold(list: Folder[], start: Live = {}): Stage[] {
       (next as Record<ConfigKey, unknown>)[key] = parseConfig(key, mergeDraft(key, before[key] ?? defaults(key), f.drafts[key]));
     }
     live = next;
-    return { ...f, at: Date.parse(`${f.name.slice(0, 10)}T00:00:00Z`) - 2 * 3_600_000, before, live };
+    if (f.record !== undefined && seasonRecordIssues(f.record).length === 0) {
+      const r = normalizeSeasonRecord(f.record);
+      records = [...records.filter((x) => x.id !== r.id), r];
+    }
+    return { ...f, at: Date.parse(`${f.name.slice(0, 10)}T00:00:00Z`) - 2 * 3_600_000, before, live, records };
   });
+}
+
+/**
+ * Every season that counts with records: the old key's season (cut where the first record starts: from then on the
+ * records rule) and each record. Undefined while there is none, so the old single-season checks apply.
+ */
+function seasonsOf(live: Live, records: SeasonRecordData[]): NonNullable<Parameters<typeof opsProblems>[0]['seasons']> | undefined {
+  if (records.length === 0) return undefined;
+  const legacy = get(live, 'season');
+  const first = Math.min(...records.map((r) => Date.parse(r.startsAt)));
+  const out: NonNullable<Parameters<typeof opsProblems>[0]['seasons']> = [];
+  if (!records.some((r) => r.id === legacy.id) && Date.parse(legacy.startsAt) < first) {
+    const endsAt = new Date(Math.min(Date.parse(legacy.endsAt), first)).toISOString();
+    out.push({ season: { ...legacy, endsAt }, missions: get(live, 'missions').season });
+  }
+  for (const r of records) out.push({ season: seasonConfigOf(r), missions: r.missions });
+  return out;
 }
 
 const get = <K extends ConfigKey>(live: Live, key: K): ConfigValue<K> => (live[key] ?? defaults(key)) as ConfigValue<K>;
@@ -80,13 +111,19 @@ const madrid = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hou
 const madridMidnight = (iso: string) => madrid.format(new Date(iso)) === '00:00:00';
 
 /** The checks every published state must pass (events and scanners counted from `at` on). */
-function holdsTogether(name: string, live: Live, at: number, own: Drafts) {
+function holdsTogether(name: string, live: Live, at: number, own: Drafts, records: SeasonRecordData[] = [], record?: unknown) {
   const season = get(live, 'season');
 
   test(`${name}: se sostiene entre claves (lo mismo que comprueba check-config en PRE)`, () => {
-    const all = { season, events: get(live, 'events'), gacha: get(live, 'gacha'), missions: get(live, 'missions'), content: get(live, 'content') };
+    const all = { season, events: get(live, 'events'), gacha: get(live, 'gacha'), missions: get(live, 'missions'), content: get(live, 'content'), seasons: seasonsOf(live, records) };
     expect(opsProblems(all, at)).toEqual([]);
   });
+
+  if (record !== undefined) {
+    test(`${name}: su temporada (temporada.json) vale con el laboratorio y el contenido de entonces`, () => {
+      expect(seasonRecordIssues(record, { labNodes: get(live, 'lab').nodes, anomalies: get(live, 'content').anomalies.map((a) => a.id) })).toEqual([]);
+    });
+  }
 
   test(`${name}: la temporada y los eventos que trae empiezan y acaban a medianoche de Madrid`, () => {
     const dates: string[] = [];
@@ -113,7 +150,7 @@ describe.each(launches)('ops/launch/$name', (stage) => {
       expect(configIssues(key, mergeDraft(key, stage.before[key] ?? defaults(key), draft)), key).toEqual([]);
     }
   });
-  holdsTogether(stage.name, stage.live, stage.at, stage.drafts);
+  holdsTogether(stage.name, stage.live, stage.at, stage.drafts, stage.records, stage.record);
 });
 
 describe.each(templates)('ops/plantillas/$name', (t) => {
@@ -123,8 +160,8 @@ describe.each(templates)('ops/plantillas/$name', (t) => {
       expect(configIssues(key, mergeDraft(key, defaults(key), draft)), key).toEqual([]);
     }
   });
-  const live = fold([t])[0]!.live;
-  holdsTogether(t.name, live, -Infinity, t.drafts);
+  const folded = fold([t])[0]!;
+  holdsTogether(t.name, folded.live, -Infinity, t.drafts, folded.records, t.record);
 });
 
 describe('el lanzamiento de la beta abierta (2026-11-10)', () => {

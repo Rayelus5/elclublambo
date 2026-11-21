@@ -14,6 +14,9 @@ import {
   parseConfig,
   PUBLISH_ORDER,
   ROLES,
+  normalizeSeasonRecord,
+  seasonConfigOf,
+  seasonRecordIssues,
   type Role,
   usernameSchema,
 } from '@galaxy/shared';
@@ -25,13 +28,14 @@ import { UsernameTakenError, findAccountByUsername, registerAccount } from './au
 import { AccountNotFoundError, issueResetCode } from './auth/recovery';
 import { revokeAllSessions, rolesOf } from './auth/sessions';
 import { encryptSecret, newTotpSecret } from './auth/totp';
-import { createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import { inTransaction } from './db/tx';
 import { credit, debit } from './economy/wallet';
 import { HttpError } from './errors';
 import type { Env } from './env';
 import { closeDue } from './season/close';
+import { cliConfig, seasonExtend, seasonImport, seasonList, seasonPatch, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
+import { createSeasonStore, seasonContext } from './season/records';
 import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
 import type { ShopGateway } from './shop/gateway';
@@ -55,13 +59,21 @@ const USAGE = [
   '  grant-cosmetics <usuario> --all|--shop --reason <motivo>',
   '  draft-config <clave> <campo[,campo…]> [--ids id,id…]',
   '  check-config <lote.json | ->',
-  '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
+  '  notice <texto> [--tone info|warning] [--days N] [--from <ISO>] --reason <motivo>',
   '  shop-reconcile [--days N]',
   '  shop-unblock <usuario> --reason <motivo>',
   '  bench-referee [--ticks N] [--players 1-4]',
+  '  season-list',
+  '  season-show <id>',
+  '  season-import <temporada.json | -> --reason <motivo>',
+  '  season-schedule <id> --reason <motivo>',
+  '  season-patch <id> <temporada.json | -> --reason <motivo>',
+  '  season-unschedule <id> --reason <motivo>',
+  '  season-extend <id> <fin ISO> --reason <motivo> [--move-next]',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
+const SEASON_MANAGED = 'Las temporadas ya no se publican así: son fichas (season-import y season-schedule, o Administración › Temporadas)';
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
 
 function randomPassword(length = 20): string {
@@ -278,7 +290,11 @@ async function publishConfig(args: string[], deps: CliDeps): Promise<number> {
     deps.out(`No se pudo leer el JSON de ${source}: ${(err as Error).message}`);
     return 1;
   }
-  const config = createConfigService(deps.db);
+  const config = await cliConfig(deps.db);
+  if ((key === 'season' || key === 'seasonRoute') && (await deps.db.selectFrom('galaxy.seasons').select('id').limit(1).executeTakeFirst())) {
+    deps.out(SEASON_MANAGED);
+    return 1;
+  }
   if (dryRun) return (await simulate(key, data, config, deps.out)) === null ? 1 : 0;
   if (!reason) return 1;
   const before = key === 'season' ? await seasonConfigs(config) : null;
@@ -288,6 +304,10 @@ async function publishConfig(args: string[], deps: CliDeps): Promise<number> {
     deps.out(`Publicado ${key} v${version}`);
     return 0;
   } catch (err) {
+    if (err instanceof HttpError && err.code === 'season_managed') {
+      deps.out(SEASON_MANAGED);
+      return 1;
+    }
     if (err instanceof HttpError && err.code === 'config_invalid') {
       const issues = (err.details?.issues ?? []) as { path: string; message: string }[];
       deps.out(`La configuración de ${key} no es válida:`);
@@ -302,7 +322,7 @@ async function publishConfig(args: string[], deps: CliDeps): Promise<number> {
  * A draft of `key` over what is live, without publishing: prints what does not validate, or which fields would change
  * and the version it would become. Returns the value it would leave live, or null when it does not validate.
  */
-async function simulate(key: ConfigKey, draft: unknown, config: ReturnType<typeof createConfigService>, out: CliDeps['out']): Promise<unknown> {
+async function simulate(key: ConfigKey, draft: unknown, config: Awaited<ReturnType<typeof cliConfig>>, out: CliDeps['out']): Promise<unknown> {
   const live = await config.getVersioned(key);
   const merged = mergeDraft(key, live.value, draft);
   const issues = configIssues(key, merged);
@@ -349,7 +369,7 @@ async function showConfig(args: string[], deps: CliDeps): Promise<number> {
     deps.out(`Clave desconocida: ${key}`);
     return 1;
   }
-  const { value, version } = await createConfigService(deps.db).getVersioned(key);
+  const { value, version } = await (await cliConfig(deps.db)).getVersioned(key);
   deps.out(JSON.stringify(args.includes('--data') ? value : { key, version, data: value }, null, 2));
   return 0;
 }
@@ -386,7 +406,7 @@ async function draftConfig(args: string[], deps: CliDeps): Promise<number> {
     return 1;
   }
   const ids = flag(args, '--ids')?.split(',').filter(Boolean);
-  const live = (await createConfigService(deps.db).get(key)) as Record<string, unknown>;
+  const live = (await (await cliConfig(deps.db)).get(key)) as Record<string, unknown>;
   const draft: Record<string, unknown> = {};
   try {
     for (const f of fields) draft[f] = draftFromDefaults(live[f], defaults[f], ids);
@@ -419,26 +439,57 @@ async function checkConfig(args: string[], deps: CliDeps): Promise<number> {
     deps.out('El lote debe ser un objeto { "<clave>": borrador }');
     return 1;
   }
-  const keys = Object.keys(batch);
+  const drafts = batch as Record<string, unknown>;
+  // A season record travels as `temporada` (plan «temporadas como fichas»): checked as a record, never published here.
+  const record = drafts['temporada'];
+  const keys = Object.keys(drafts).filter((k) => k !== 'temporada');
   const strays = keys.filter((k) => !isConfigKey(k));
   if (strays.length > 0) {
     deps.out(`Claves desconocidas: ${strays.join(', ')}`);
     return 1;
   }
-  const config = createConfigService(deps.db);
+  const managed = !!(await deps.db.selectFrom('galaxy.seasons').select('id').limit(1).executeTakeFirst());
+  const own = (k: string) => !!drafts[k] && typeof drafts[k] === 'object' && Object.hasOwn(drafts[k] as object, 'season');
+  if (managed && (keys.includes('season') || keys.includes('seasonRoute') || own('missions') || own('lab'))) {
+    deps.out(SEASON_MANAGED);
+    return 1;
+  }
+  const config = await cliConfig(deps.db);
   const ordered = [...PUBLISH_ORDER.filter((k) => keys.includes(k)), ...(keys as ConfigKey[]).filter((k) => !PUBLISH_ORDER.includes(k))];
   const after: Partial<Record<ConfigKey, unknown>> = {};
   let valid = true;
   for (const key of ordered) {
-    const value = await simulate(key, (batch as Record<string, unknown>)[key], config, deps.out);
+    const value = await simulate(key, drafts[key], config, deps.out);
     if (value === null) valid = false;
     else after[key] = value;
   }
+  let candidate: ReturnType<typeof normalizeSeasonRecord> | null = null;
+  if (record !== undefined) {
+    const issues = seasonRecordIssues(record, await seasonContext(config));
+    if (issues.length > 0) {
+      deps.out('La temporada no vale:');
+      for (const i of issues) deps.out(`  ${i.path || '(raíz)'}: ${i.message}`);
+      valid = false;
+    } else {
+      candidate = normalizeSeasonRecord(record);
+      deps.out(`Temporada ${candidate.id}: ${candidate.name}, del ${candidate.startsAt} al ${candidate.endsAt}`);
+    }
+  }
   if (!valid) return 1;
   const live = async <K extends 'season' | 'events' | 'gacha' | 'missions' | 'content'>(k: K): Promise<ConfigValue<K>> => (after[k] as ConfigValue<K> | undefined) ?? (await config.get(k));
-  const problems = opsProblems({ season: await live('season'), events: await live('events'), gacha: await live('gacha'), missions: await live('missions'), content: await live('content') }, Date.now());
+  // With seasons as records: the ones still to run (and the candidate, over its own draft or schedule) all count.
+  let seasons: { season: ConfigValue<'season'>; missions: ConfigValue<'missions'>['season'] }[] | undefined;
+  if (managed || candidate) {
+    const t = Date.now();
+    const rows = managed ? (await createSeasonStore(deps.db, { ttlMs: 0 }).list()).filter((r) => r.state === 'scheduled' && Date.parse(r.endsAt) > t && r.id !== candidate?.id) : [];
+    seasons = rows.map((r) => ({ season: seasonConfigOf(r), missions: r.missions }));
+    if (!managed) seasons.push({ season: await live('season'), missions: (await live('missions')).season });
+    if (candidate) seasons.push({ season: seasonConfigOf(candidate), missions: candidate.missions });
+  }
+  const problems = opsProblems({ season: await live('season'), events: await live('events'), gacha: await live('gacha'), missions: await live('missions'), content: await live('content'), seasons }, Date.now());
   for (const p of problems) deps.out(`Problema: ${p}`);
-  deps.out(problems.length === 0 ? `Se sostiene: ${ordered.join(', ')}` : `No se sostiene: ${problems.length} problema(s)`);
+  const checked = candidate ? [...ordered, 'temporada'] : ordered;
+  deps.out(problems.length === 0 ? `Se sostiene: ${checked.join(', ')}` : `No se sostiene: ${problems.length} problema(s)`);
   return problems.length === 0 ? 0 : 1;
 }
 
@@ -447,19 +498,33 @@ async function notice(args: string[], deps: CliDeps): Promise<number> {
   const reason = flag(args, '--reason');
   const tone = flag(args, '--tone') ?? 'info';
   const days = Number(flag(args, '--days') ?? '7');
-  const [text] = positional(args, ['--reason', '--tone', '--days']);
-  if (!text?.trim() || text.length > 200 || !reason || reason.length < 3 || (tone !== 'info' && tone !== 'warning') || !Number.isInteger(days) || days < 1 || days > 365) {
-    return usage(deps.out, 'Uso: notice <texto de 1 a 200 caracteres> [--tone info|warning] [--days 1-365] --reason <motivo>');
-  }
+  // --from (plan «temporadas como fichas»): a notice scheduled ahead, like the panel's (a season that starts at 00:00).
+  const fromFlag = flag(args, '--from');
   const now = new Date();
-  const { id } = await createNotice({ db: deps.db, config: createConfigService(deps.db), now: () => now }, CLI_ACTOR, {
+  const from = fromFlag ? new Date(fromFlag) : now;
+  const [text] = positional(args, ['--reason', '--tone', '--days', '--from']);
+  if (
+    !text?.trim() ||
+    text.length > 200 ||
+    !reason ||
+    reason.length < 3 ||
+    (tone !== 'info' && tone !== 'warning') ||
+    !Number.isInteger(days) ||
+    days < 1 ||
+    days > 365 ||
+    Number.isNaN(from.getTime()) ||
+    (fromFlag !== undefined && from.getTime() <= now.getTime())
+  ) {
+    return usage(deps.out, 'Uso: notice <texto de 1 a 200 caracteres> [--tone info|warning] [--days 1-365] [--from <ISO futuro>] --reason <motivo>');
+  }
+  const { id } = await createNotice({ db: deps.db, config: await cliConfig(deps.db), now: () => now }, CLI_ACTOR, {
     text: text.trim(),
     tone,
-    startsAt: now.toISOString(),
-    endsAt: new Date(now.getTime() + days * 86_400_000).toISOString(),
+    startsAt: from.toISOString(),
+    endsAt: new Date(from.getTime() + days * 86_400_000).toISOString(),
     reason,
   });
-  deps.out(`Aviso ${id} publicado durante ${days} días`);
+  deps.out(fromFlag ? `Aviso ${id} programado desde ${from.toISOString()} durante ${days} días` : `Aviso ${id} publicado durante ${days} días`);
   return 0;
 }
 
@@ -493,7 +558,7 @@ async function shopUnblock(args: string[], deps: CliDeps): Promise<number> {
 
 /** Nov plan C2: gives the November cosmetics to who already earned them (portraits, achievements, catalog, route). */
 async function cosmeticsBackfill(deps: CliDeps): Promise<number> {
-  const config = createConfigService(deps.db);
+  const config = await cliConfig(deps.db);
   const [content, achievements, catalog, seasonRoute, season] = await Promise.all([config.get('content'), config.get('achievements'), config.get('catalog'), config.get('seasonRoute'), config.get('season')]);
   const done = await backfillCosmetics(deps.db, { content, achievements: achievements.list, catalog: catalog.rewards, route: seasonRoute.steps, season: season.id });
   deps.out(`Retratos revisados en ${done.portraits} partidas · logros ${done.achievements} · catálogo ${done.catalog} · ruta ${done.route}`);
@@ -514,7 +579,7 @@ async function grantAllCosmetics(args: string[], deps: CliDeps): Promise<number>
     deps.out(`No existe la cuenta ${username}`);
     return 1;
   }
-  const config = createConfigService(deps.db);
+  const config = await cliConfig(deps.db);
   const [cosmetics, shop, achievements, missions, events, catalog, seasonRoute, season] = await Promise.all([
     config.get('cosmetics'),
     config.get('shop'),
@@ -571,5 +636,18 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'cosmetics-backfill') return cosmeticsBackfill(deps);
   if (command === 'grant-cosmetics') return grantAllCosmetics(args, deps);
   if (command === 'bench-referee') return benchRefereeCli(args, deps);
+  if (command === 'season-list') return seasonList(deps.db, deps.out);
+  if (command === 'season-show') return seasonShow(deps.db, positional(args, [])[0], deps.out);
+  if (command === 'season-import') return seasonImport(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
+  if (command === 'season-schedule') return seasonSchedule(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
+  if (command === 'season-patch') {
+    const [id, source] = positional(args, ['--reason']);
+    return seasonPatch(deps.db, id, source, flag(args, '--reason'), deps.out);
+  }
+  if (command === 'season-unschedule') return seasonUnschedule(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
+  if (command === 'season-extend') {
+    const [id, endsAt] = positional(args, ['--reason']).filter((a) => a !== '--move-next');
+    return seasonExtend(deps.db, id, endsAt, flag(args, '--reason'), args.includes('--move-next'), deps.out);
+  }
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

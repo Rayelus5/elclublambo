@@ -27,7 +27,7 @@ const player: AdminPlayer = {
   xp: 15000,
   banned: { until: '9999-12-31T00:00:00.000Z', permanent: true },
   muted: null,
-  leaderboardExcluded: false,
+  leaderboardExcluded: false, prizeEligible: true,
   clan: { tag: 'GX', name: 'Galácticos', role: 'leader' },
   wallet: { coins: 1200, dust: 30, signal: 2, material: 5, components: 1 },
   counts: { galaxies: 14, runs: 40, pulls: 30, listings: 2, trades: 1, messages: 9 },

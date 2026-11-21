@@ -340,14 +340,23 @@ Un id nunca se reutiliza ni cambia de significado:
 
 ### B8. Temporada
 
-**Un `season.id` nuevo:**
-- archiva la anterior (`closeDue`), con premios de la ruta viva;
-- reinicia la moneda de temporada (`season:<id>`), la ruta, la tienda, las misiones de temporada y la clasificación;
-- convierte en polvo la moneda sobrante, a `dustRate` de la ruta vigente.
+**Temporadas como fichas (21/11/2026).** Una temporada es una fila de `galaxy.seasons`, no claves de configuración. La ficha (`temporada.json` en una carpeta de `ops/launch/`; `seasonRecordSchema` en `packages/shared/src/progress/season-record.ts`) lleva:
+- `id`, `name`, `startsAt`, `endsAt`, a medianoche de Madrid;
+- `rules`: lo que era la clave `season` sin id, nombre ni fechas;
+- `route`: lo que era `seasonRoute` (moneda, pasos, tienda y premios de cierre);
+- `missions` y `lab`: lo que eran `missions.season` y `lab.season`.
+
+**Estados:** borrador (no cuenta), programada (abierta entre sus fechas) y cerrada (histórico). Las programadas y cerradas nunca se solapan. El servidor sigue leyendo `season`, `seasonRoute`, `missions.season` y `lab.season`, pero salen de la temporada abierta (o, entre dos, de la última que acabó). Esas claves y campos ya no se publican: el servidor y la CLI lo rechazan. Se operan con `season-list`, `season-show`, `season-import`, `season-schedule`, `season-unschedule` y `season-extend` (skill `galaxy-temporada`), y pronto desde Administración › Temporadas. El primer arranque con este código convirtió en fichas la temporada viva y las archivadas.
+
+**Al empezar una temporada nueva:**
+- la anterior se archiva sola al acabar (`closeDue`), con los premios de cierre de **su propia ficha**;
+- se reinician la moneda de temporada (`season:<id>`), la ruta, la tienda, las misiones de temporada y la clasificación;
+- la moneda sobrante pasa a polvo con el `dustRate` de la ruta de la temporada que se ve.
 
 **Otros campos:**
-- `season.anomaly` debe existir en `content.anomalies`. Una anomalía nueva es contenido (parte A).
-- `season.finish` solo admite `rift` (`SEASON_FINISHES`); un acabado nuevo es código y arte.
+- `rules.anomaly` debe existir en `content.anomalies`. Una anomalía nueva es contenido (parte A).
+- `rules.finish` solo admite `rift` (`SEASON_FINISHES`); un acabado nuevo es código y arte.
+- Cada evento tiene que caber en alguna temporada programada (`opsProblems`).
 
 **El sector de temporada:**
 - `sectors.season` (hoy `signal-rift`) es independiente de las fechas; `null` lo cierra.
@@ -363,7 +372,7 @@ Un id nunca se reutiliza ni cambia de significado:
 
 **Textos fijos:** «Temporada 1 · La Señal» en `codex/entries.ts` y «Beta Abierta» en `es.ts`.
 
-**El núcleo de temporada del laboratorio** (`lab.season`) es un segundo árbol, aparte del permanente (`lab.nodes`):
+**El núcleo de temporada del laboratorio** (el `lab` de la ficha; antes `lab.season`) es un segundo árbol, aparte del permanente (`lab.nodes`). El árbol permanente nuevo tiene que caber con el de cada temporada que aún corre:
 - Sus niveles se guardan por `season.id` (`galaxy.lab_season_nodes`). Con un id nuevo empieza vacío, y entre temporadas ni se ve ni da nada.
 - Solo admite efectos de partida: `stat` y `payout` (`lab_season_kind`). La refinería, la antena, la desintegración y la fusión son del permanente.
 - Los ids no se repiten entre los dos árboles, y cada `requires` apunta a su propio árbol.

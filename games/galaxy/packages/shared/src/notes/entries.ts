@@ -21,6 +21,18 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-46-temporadas-solas',
+    version: '1.46',
+    date: '2026-11-22',
+    title: 'Las temporadas empiezan y acaban solas',
+    summary: 'Cada temporada empieza en punto y, al acabar, te dice cómo quedaste',
+    items: [
+      { kind: 'nuevo', text: 'Cada temporada empieza en punto a las 00:00 y la anterior se cierra sola. Desde el primer minuto tus partidas ya dan esquirlas y cuentan para las misiones de la nueva' },
+      { kind: 'nuevo', text: 'Al acabar una temporada te llega un mensaje con tu puesto y tu tramo, y un botón para ir a recoger tus premios' },
+      { kind: 'nuevo', text: 'Si estás jugando cuando empieza una temporada, te avisamos al momento' },
+    ],
+  },
+  {
     id: 'v1-45-instalar-navegadores',
     version: '1.45',
     date: '2026-11-18',
