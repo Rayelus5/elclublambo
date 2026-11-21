@@ -1,10 +1,11 @@
 import { type AdminSeason, madridDayOf, madridMidnightOf, parseConfig, type SeasonIssue, seasonRecordIssues, SEASON_FINISHES } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { useConfigKeys } from '../../api/config';
+import { useConfigKey } from '../../api/config';
 import { useAdminSeasons, useSaveSeason, useScheduleSeason, useValidateSeason } from '../../api/seasons';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { DateField } from '../../ui/DateField';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
 import { PublishFields } from '../PublishFields';
@@ -85,7 +86,8 @@ function NumField({ id, label, value, min = 0, onChange, disabled }: { id: strin
 
 function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id: string | undefined; from: string | null }) {
   const navigate = useNavigate();
-  const keys = useConfigKeys();
+  // `content` never comes in the keys' list (too big): its own query, like the content editor's.
+  const content = useConfigKey('content');
   const save = useSaveSeason();
   const schedule = useScheduleSeason();
   const [draft, setDraft] = useState<Draft>(() => startFrom(list, id, from));
@@ -97,7 +99,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
   const readonly = !!own && own.state !== 'draft';
   const group = own ? groupOf(own, now) : 'draft';
 
-  const anomalies = ((keys.data?.find((k) => k.key === 'content')?.data.anomalies as { id: string; name: string }[] | undefined) ?? []).map((a) => ({ value: a.id, label: a.name }));
+  const anomalies = ((content.data?.data?.anomalies as { id: string; name: string }[] | undefined) ?? []).map((a) => ({ value: a.id, label: a.name }));
   const local = seasonRecordIssues(draft);
   const remote = useValidateSeason(draft, step === 'review' && !readonly);
   const issues = step === 'review' && remote.data ? remote.data.issues : local;
@@ -163,11 +165,11 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                 </div>
                 <div className="cf-field">
                   <label htmlFor="sw-start">{t.fields.start}</label>
-                  <input id="sw-start" type="date" value={day(draft.startsAt)} disabled={readonly} onChange={(e) => setDay('startsAt', e.target.value)} />
+                  {readonly ? <output id="sw-start">{madridDate(draft.startsAt)}</output> : <DateField id="sw-start" value={day(draft.startsAt)} onChange={(v) => setDay('startsAt', v)} />}
                 </div>
                 <div className="cf-field">
                   <label htmlFor="sw-end">{t.fields.end}</label>
-                  <input id="sw-end" type="date" value={day(draft.endsAt)} disabled={readonly} onChange={(e) => setDay('endsAt', e.target.value)} />
+                  {readonly ? <output id="sw-end">{madridDate(draft.endsAt)}</output> : <DateField id="sw-end" value={day(draft.endsAt)} onChange={(v) => setDay('endsAt', v)} />}
                   <small>{t.lastDay(madridDate(new Date(Date.parse(draft.endsAt) - DAY).toISOString()))}</small>
                 </div>
               </div>
@@ -320,7 +322,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
               </div>
               <div>
                 <dt>{t.facts.anomaly}</dt>
-                <dd>{draft.rules.anomaly ?? t.noAnomaly}</dd>
+                <dd>{draft.rules.anomaly ? (anomalies.find((a) => a.value === draft.rules.anomaly)?.label ?? draft.rules.anomaly) : t.noAnomaly}</dd>
               </div>
             </dl>
           ) : null}

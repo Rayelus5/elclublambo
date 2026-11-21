@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { useAdminSeasons, useDeleteSeason, useExtendSeason, useUnscheduleSeason } from '../../api/seasons';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { DateField } from '../../ui/DateField';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { PublishFields } from '../PublishFields';
@@ -88,7 +89,7 @@ function ActionDialog({ action, onClose }: { action: Action; onClose: (done?: st
       <p>{t.extendText}</p>
       <div className="cf-field">
         <label htmlFor="season-extend-day">{t.extendDay}</label>
-        <input id="season-extend-day" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+        <DateField id="season-extend-day" value={day} onChange={setDay} />
       </div>
       <label className="ev-toggle">
         <input type="checkbox" checked={moveNext} onChange={(e) => setMoveNext(e.target.checked)} />

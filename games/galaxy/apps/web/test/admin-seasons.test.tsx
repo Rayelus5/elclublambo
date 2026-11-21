@@ -1,6 +1,7 @@
 import { type AdminSeason, type AdminSeasonList, CONFIG_KEYS, type MeResponse, parseConfig } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { afterEach, expect, test, vi } from 'vitest';
 import { SeasonsScreen } from '../src/admin/seasons/SeasonsScreen';
 import { SeasonWizardScreen } from '../src/admin/seasons/SeasonWizard';
@@ -40,11 +41,14 @@ const S3 = season({ id: 'season-3', name: 'Temporada 3', state: 'draft', startsA
 
 function api(list: AdminSeasonList) {
   const calls: { path: string; body: unknown }[] = [];
-  const keys = CONFIG_KEYS.map((key) => ({ key, version: 1, data: parseConfig(key, {}), createdAt: null, author: null, note: null }));
+  // As the server sends them: `content` is too big for the list (lazy) and comes on its own.
+  const keys = CONFIG_KEYS.map((key) => (key === 'content' ? { key, version: 1, createdAt: null, author: null, note: null, lazy: true } : { key, version: 1, data: parseConfig(key, {}), createdAt: null, author: null, note: null }));
+  const content = { key: 'content', version: 1, data: { ...parseConfig('content', DEFAULT_CONTENT), anomalies: [{ id: 'contagion', name: 'Corrosión contagiosa', description: 'x' }] }, createdAt: null, author: null, note: null };
   mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
     'GET /galaxy/api/admin/seasons': () => jsonResponse(200, list),
     'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys),
+    'GET /galaxy/api/admin/config/content': () => jsonResponse(200, content),
     'POST /galaxy/api/admin/seasons/validate': () => jsonResponse(200, { ok: true, issues: [] }),
     'POST /galaxy/api/admin/seasons': (body) => {
       calls.push({ path: 'save', body });
@@ -109,6 +113,16 @@ test('guardar y programar: primero guarda el borrador, después lo programa con 
   await waitFor(() => expect(calls.map((c) => c.path)).toEqual(['save', 'schedule']));
   expect(calls[1]!.body).toEqual({ reason: 'Temporada 3 a su hora', password: 'mi-clave' });
   expect(await screen.findByText('Lista')).toBeInTheDocument();
+});
+
+test('una temporada programada se abre en el asistente y su anomalía sale con su nombre del contenido', async () => {
+  const user = userEvent.setup();
+  const S2p = season({ id: 'season-2', name: 'Temporada 2', state: 'scheduled', startsAt: midnight(1), endsAt: midnight(39), rules: { ...rules, anomaly: 'contagion' } });
+  api({ seasons: [S1, S2p], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-2', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  expect(await screen.findByText(t.readonly)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.anomaly) }));
+  expect(await screen.findByText('Corrosión contagiosa')).toBeInTheDocument();
 });
 
 test('una temporada programada o pasada se ve, pero no se cambia desde el asistente', async () => {
