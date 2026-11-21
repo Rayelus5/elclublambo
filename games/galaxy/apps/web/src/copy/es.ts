@@ -1594,7 +1594,7 @@ export const copy = {
         top: 'Filas de la clasificación',
         anomaly: 'Anomalía',
         finish: 'Acabado exclusivo',
-        finishChance: 'Probabilidad del acabado en el escáner, en %',
+        finishChance: 'Probabilidad del acabado en el escáner',
       },
       tierNames: ['Bronce', 'Plata', 'Oro', 'Platino', 'Estelar'],
       tierField: (name: string) => `Puntos para ${name}`,
