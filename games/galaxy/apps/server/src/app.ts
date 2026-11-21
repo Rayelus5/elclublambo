@@ -58,6 +58,7 @@ import { shopFlag } from './shop/service';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
 import { createSeasonStore, seasonAwareConfig, startSeasonImport } from './season/records';
+import { startSeasonJobs } from './season/jobs';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
@@ -251,6 +252,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     if (deps.jobs?.mail) {
       const stopMail = startMailJobs({ db: deps.db, config, now, live }, app.log);
       api.addHook('onClose', async () => stopMail());
+    }
+    // Seasons close and start on their own (plan «temporadas como fichas», PR 2).
+    if (deps.jobs?.seasons && seasons) {
+      const stopSeasons = startSeasonJobs({ db: deps.db, config, store: seasons, now, live }, app.log);
+      api.addHook('onClose', async () => stopSeasons());
     }
     registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });

@@ -15,6 +15,8 @@ export const MAIL_TYPE_LOOK: Record<MailType, { icon: IconName; tone: 'sky' | 's
   referral: { icon: 'addFriend', tone: 'terminal' },
   shop: { icon: 'store', tone: 'solar' },
   system: { icon: 'info', tone: 'ice' },
+  season: { icon: 'podium', tone: 'uv' },
+  tournament: { icon: 'trophy', tone: 'solar' },
 };
 
 export const mailTypeName = (type: MailType): string => copy.mailTypes[type].name;

@@ -408,6 +408,8 @@ export async function importSeasons(db: Kysely<DB>, base: ConfigService): Promis
           missions: JSON.stringify(p.missions),
           lab: JSON.stringify(p.lab),
           scheduled_at: p.state === 'scheduled' ? new Date() : null,
+          // Already running or over: never announced as if it had just started.
+          announced_at: new Date(),
         })
         .execute();
       const row = readSeasonRow({ id: p.id, name: p.name, starts_at: new Date(p.startsAt), ends_at: new Date(p.endsAt), state: p.state, rules: p.rules, route: p.route, missions: p.missions, lab: p.lab, version: 1, announced_at: null });
