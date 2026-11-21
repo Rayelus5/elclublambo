@@ -1,11 +1,12 @@
 import type { ShopProductView, ShopPurchaseView, ShopView } from '@galaxy/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useShop } from '../api/shop';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { BackLink } from '../ui/BackLink';
+import { Countdown } from '../ui/Countdown';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
@@ -29,23 +30,6 @@ const TABS: { tab: Tab; slug: string; icon: IconName }[] = [
   // Nov plan C5: the shop's cosmetics; the tab shows only while there is something in it.
   { tab: 'style', slug: 'estilo', icon: 'starOn' },
 ];
-
-/** The time left until `endsAt`, ticking each second while it is on screen. */
-function Countdown({ endsAt }: { endsAt: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const left = Math.max(0, Math.floor((Date.parse(endsAt) - now) / 1000));
-  const text = t.left(Math.floor(left / 86_400), Math.floor((left % 86_400) / 3600), Math.floor((left % 3600) / 60), left % 60);
-  return (
-    <span className="shop-tag time">
-      <Icon name="comet" />
-      <span>{t.endsIn(text)}</span>
-    </span>
-  );
-}
 
 function Featured({ product, firstPercent, reduced, onBuy }: { product: ShopProductView; firstPercent: number; reduced: boolean; onBuy: () => void }) {
   const why = blockText(product);

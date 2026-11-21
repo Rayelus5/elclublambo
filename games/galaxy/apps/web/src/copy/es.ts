@@ -3173,6 +3173,8 @@ export const copy = {
       dust: (n: number) => `${fmt(n)} de polvo estelar`,
       signal: (n: number) => (n === 1 ? '1 señal de galaxia' : `${fmt(n)} señales de galaxia`),
       eventSignal: (n: number) => (n === 1 ? '1 señal de evento' : `${fmt(n)} señales de evento`),
+      /** The season currency (season shop plan, PR 4), with its live name. */
+      season: (n: number, name: string) => `${fmt(n)} ${name}`,
       goTo: { scanner: 'Ir al Escáner', eventScanner: 'Ir al escáner de evento', refinery: 'Abrir la refinería', shop: 'Ir a la tienda' },
     },
   },
@@ -3705,7 +3707,6 @@ export const copy = {
     score: (n: number) => `${fmt(n)} puntos`,
     toNext: (n: number) => `Te faltan ${fmt(n)} para el siguiente escalón`,
     allReached: 'Has llegado al final de la ruta',
-    balanceOf: (name: string) => `Tus ${name}`,
     currencyHint: 'Las ganas con cada incursión que cuenta y en la ruta',
     routeTitle: 'Ruta de temporada',
     at: (n: number) => `${fmt(n)} puntos`,
@@ -3721,6 +3722,14 @@ export const copy = {
     shopTitle: 'Tienda de temporada',
     stock: (n: number, limit: number) => `${n} de ${limit}`,
     soldOut: 'Agotado',
+    // What you can pay and what not, the confirmation of an expensive purchase and what it brings (season shop plan, PR 4).
+    short: (n: number, currency: string) => `Te faltan ${fmt(n)} ${currency}`,
+    bought: (name: string) => `Comprado: ${name}`,
+    confirmTitle: (name: string) => `¿Comprar ${name}?`,
+    confirmBody: (price: number, left: number, currency: string) => `Cuesta ${fmt(price)} ${currency} y te quedarán ${fmt(left)}`,
+    confirmYes: (price: number, currency: string) => `Comprar por ${fmt(price)} ${currency}`,
+    confirmNo: 'Cancelar',
+    bigClosing: 'Premios de temporada',
     buyOf: (name: string, price: number, currency: string) => `Comprar ${name} por ${fmt(price)} ${currency}`,
     convertNote: (name: string) => `Al cerrar la temporada, las ${name} que te queden se convierten en polvo estelar`,
     closingTitle: (name: string) => `${name} ha terminado`,
@@ -4036,6 +4045,8 @@ export const copy = {
     gained: (what: string) => `Recogido: ${what}`,
     bigAchievement: 'Logro conseguido',
     bigSeason: 'Misión de temporada cumplida',
+    /** A piece collected or bought: its little card where it was collected, and its celebration (season shop plan, PR 4). */
+    piece: { title: 'Título nuevo', frame: 'Marco nuevo', avatar: 'Avatar nuevo', skin: 'Skin nueva' } as Record<'title' | 'frame' | 'avatar' | 'skin', string>,
     reward: {
       coins: (n: number) => `${fmt(n)} monedas`,
       dust: (n: number) => `${fmt(n)} de polvo`,
