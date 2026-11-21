@@ -1118,6 +1118,7 @@ export const copy = {
       bannedUntil: (d: string) => `Baneado hasta el ${d}`,
       muted: (d: string) => `Silenciado hasta el ${d}`,
       excluded: 'Fuera de la clasificación',
+      noPrizes: 'Sin premios por puesto',
       ok: 'Activo',
       staff: 'Equipo',
     },
@@ -1137,6 +1138,8 @@ export const copy = {
       unban: 'Levantar baneo',
       exclude: 'Sacar de la clasificación',
       include: 'Volver a la clasificación',
+      noPrizes: 'Quitar los premios por puesto',
+      prizes: 'Devolver los premios por puesto',
       revoke: 'Retirar',
       revokeOf: (name: string) => `Retirar ${name}`,
       delete: 'Eliminar',
@@ -2202,6 +2205,8 @@ export const copy = {
     },
     by: (name: string) => `Por ${name}`,
     achievement: 'Logro desbloqueado',
+    seasonStarted: (name: string) => `Empieza la ${name}`,
+    seasonDetail: 'Nueva ruta, nueva tienda y la clasificación a cero',
     // Offers on listings (2026-11-14).
     offer: {
       received: (name: string, amount: number, galaxy: string) => `${name} ofrece ${fmt(amount)} monedas por ${galaxy}`,
@@ -2874,6 +2879,7 @@ export const copy = {
     empty: 'Tu buzón está vacío. Aquí llegan las noticias y los regalos del equipo',
     pick: 'Elige un mensaje para leerlo',
     giftTitle: 'Regalo',
+    goSeason: 'Ver mis premios de temporada',
     claim: 'Recoger',
     claimed: 'Recogido',
     expires: (d: string) => `Caduca el ${d}`,
@@ -2912,7 +2918,9 @@ export const copy = {
     referral: { name: 'Referidos', hint: 'Los regalos por invitar y por entrar con un código' },
     shop: { name: 'Tienda', hint: 'Lo que pasa con una compra' },
     system: { name: 'Sistema', hint: 'Lo que el juego avisa por su cuenta' },
-  } as Record<'announcement' | 'gift' | 'compensation' | 'event' | 'reward' | 'personal' | 'referral' | 'shop' | 'system', { name: string; hint: string }>,
+    season: { name: 'Temporada', hint: 'Cómo acabaste una temporada y sus premios' },
+    tournament: { name: 'Torneo', hint: 'Cómo acabaste un torneo y sus premios' },
+  } as Record<'announcement' | 'gift' | 'compensation' | 'event' | 'reward' | 'personal' | 'referral' | 'shop' | 'system' | 'season' | 'tournament', { name: string; hint: string }>,
   // Gifts of every kind (mail v2, 2026-11-16): their words, the panel's picker and why one is big.
   gifts: {
     currency: {

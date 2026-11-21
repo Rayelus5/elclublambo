@@ -24,7 +24,7 @@ const player: AdminPlayer = {
   xp: 15000,
   banned: null,
   muted: null,
-  leaderboardExcluded: false,
+  leaderboardExcluded: false, prizeEligible: true,
   clan: null,
   wallet: { coins: 0, dust: 0, signal: 0, material: 0, components: 0 },
   counts: { galaxies: 0, runs: 0, pulls: 0, listings: 0, trades: 0, messages: 0 },

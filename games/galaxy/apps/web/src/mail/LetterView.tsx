@@ -1,5 +1,6 @@
 import type { MailContents, MailType } from '@galaxy/shared';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { copy } from '../copy/es';
 import { GiftTile } from '../gifts/GiftArt';
 import type { GiftCatalog } from '../gifts/words';
@@ -53,6 +54,12 @@ export function LetterView({
         <span>{t.expires(day(expiresAt))}</span>
       </p>
       <p className="letter-body">{body}</p>
+      {type === 'season' ? (
+        <Link to="/temporada" className="lip pill pill-solar letter-go">
+          <Icon name="podium" />
+          <span>{t.goSeason}</span>
+        </Link>
+      ) : null}
       {any ? (
         <section className={`gift${taken ? ' taken' : ''}`} aria-label={t.giftTitle}>
           <span className="gift-art" aria-hidden="true" style={giftUrl ? { backgroundImage: `url(${giftUrl})` } : undefined} />

@@ -164,7 +164,7 @@ export async function playerDetail(deps: AdminDeps, username: string): Promise<A
   const a = await accountOf(db, username);
   const account = await deps.config.get('account');
   const [row, xp, balances, roles, mute, clan, sessions, ips, station, lab, probes] = await Promise.all([
-    db.selectFrom('galaxy.accounts').select(['created_at', 'banned_until', 'leaderboard_excluded', 'deleted_at']).where('id', '=', a.id).executeTakeFirstOrThrow(),
+    db.selectFrom('galaxy.accounts').select(['created_at', 'banned_until', 'leaderboard_excluded', 'prize_eligible', 'deleted_at']).where('id', '=', a.id).executeTakeFirstOrThrow(),
     accountXp(db, a.id),
     db.selectFrom('galaxy.balances').select(['currency', 'amount']).where('account_id', '=', a.id).execute(),
     rolesOf(db, [a.id]),
@@ -203,6 +203,7 @@ export async function playerDetail(deps: AdminDeps, username: string): Promise<A
     banned: until && until > new Date() ? { until: until.toISOString(), permanent: until.getUTCFullYear() >= 9999 } : null,
     muted: mute ? { until: iso(mute.until)!, reason: mute.reason } : null,
     leaderboardExcluded: row.leaderboard_excluded,
+    prizeEligible: row.prize_eligible,
     clan: clan ? { tag: clan.tag, name: clan.name, role: clan.role } : null,
     wallet,
     counts: { galaxies: galaxies.n, runs: runs.n, pulls: pulls.n, listings: listings.n, trades: trades.n, messages: messages.n },
@@ -446,6 +447,16 @@ export async function unbanPlayer(deps: AdminDeps, actor: AuditActor, username: 
   });
   invalidateLeaderboard();
   return { unbanned: true };
+}
+
+/** Plan «temporadas como fichas»: whether the account can win prizes for its place (audited). */
+export async function setPrizeEligible(deps: AdminDeps, actor: AuditActor, username: string, eligible: boolean, reason: string): Promise<{ eligible: boolean }> {
+  const a = await accountOf(deps.db, username);
+  await inTransaction(deps.db, async (trx) => {
+    await trx.updateTable('galaxy.accounts').set({ prize_eligible: eligible }).where('id', '=', a.id).execute();
+    await writeAudit(trx, { actor, action: 'player.prizes', ...target(a.id), after: { eligible }, reason });
+  });
+  return { eligible };
 }
 
 export async function setLeaderboardExcluded(deps: AdminDeps, actor: AuditActor, username: string, excluded: boolean, reason: string): Promise<{ excluded: boolean }> {

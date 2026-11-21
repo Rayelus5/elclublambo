@@ -60,6 +60,8 @@ export const adminRenameSchema = z.object({ username: usernameSchema, reason, pa
 export const adminBanSchema = z.object({ minutes: z.number().int().min(1).max(525_600 * 10).nullable(), reason, password }).strict();
 export const adminReasonSchema = z.object({ reason }).strict();
 export const adminLeaderboardSchema = z.object({ excluded: z.boolean(), reason }).strict();
+/** Plan «temporadas como fichas»: whether the account can win prizes for its place (admins who play). */
+export const adminPrizesSchema = z.object({ eligible: z.boolean(), reason }).strict();
 export const adminUsernameParamSchema = z.object({ username: usernameSchema }).strict();
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -112,6 +114,8 @@ export interface AdminPlayer {
   banned: { until: string; permanent: boolean } | null;
   muted: { until: string; reason: string } | null;
   leaderboardExcluded: boolean;
+  /** Can win prizes for its place (season podium, tournaments); off, it ranks with a mark and the prize goes on. */
+  prizeEligible: boolean;
   clan: { tag: string; name: string; role: string } | null;
   wallet: Record<AdminCurrency, number>;
   counts: { galaxies: number; runs: number; pulls: number; listings: number; trades: number; messages: number };

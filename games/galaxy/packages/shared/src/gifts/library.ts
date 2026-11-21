@@ -10,7 +10,7 @@ import { giftListSchema, PACK_ARTS, packIdSchema } from './schema';
 export const MAIL_TYPES = ['announcement', 'gift', 'compensation', 'event', 'reward', 'personal'] as const;
 export type AdminMailType = (typeof MAIL_TYPES)[number];
 /** What the game sends on its own: a referral's gift, the shop's after-sale notes, anything else. */
-export const SYSTEM_MAIL_TYPES = ['referral', 'shop', 'system'] as const;
+export const SYSTEM_MAIL_TYPES = ['referral', 'shop', 'system', 'season', 'tournament'] as const;
 export type MailType = AdminMailType | (typeof SYSTEM_MAIL_TYPES)[number];
 
 const name = z.string().trim().min(1).max(40);
