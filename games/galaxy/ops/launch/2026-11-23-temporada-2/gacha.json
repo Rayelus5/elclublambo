@@ -8,6 +8,19 @@
       "currency": "signal"
     },
     {
+      "id": "primer-contacto",
+      "kind": "event",
+      "name": "Escáner de Temporada",
+      "pityGroup": "event-primer-contacto",
+      "currency": "signal:primer-contacto",
+      "featured": {
+        "trait": "phenomenon",
+        "value": "supernova"
+      },
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-23T13:00:00.000Z"
+    },
+    {
       "id": "rumbo-profundo",
       "kind": "event",
       "name": "Escáner de Rumbo profundo",

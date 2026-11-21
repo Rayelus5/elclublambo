@@ -1,0 +1,1441 @@
+{
+  "id": "season-2",
+  "name": "Temporada 2",
+  "startsAt": "2026-11-22T23:00:00.000Z",
+  "endsAt": "2026-12-30T23:00:00.000Z",
+  "rules": {
+    "points": {
+      "layer": 20,
+      "core": 100,
+      "extraction": 50
+    },
+    "tiers": [
+      2000,
+      8000,
+      22000,
+      55000,
+      135000
+    ],
+    "top": 100,
+    "capPerMinute": 20,
+    "anomaly": "iron-static",
+    "finish": "rift",
+    "finishChance": 0.02
+  },
+  "route": {
+    "currency": {
+      "name": "Esquirlas",
+      "perPoint": 0.25,
+      "dustRate": 2
+    },
+    "steps": [
+      {
+        "at": 300,
+        "reward": {
+          "coins": 300,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 700,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 40,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 1200,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 1,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 2000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-lumen-aurora"
+        }
+      },
+      {
+        "at": 2800,
+        "reward": {
+          "coins": 0,
+          "dust": 400,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 3800,
+        "reward": {
+          "coins": 800,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 4900,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 2,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 6000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-bastion-aurora"
+        }
+      },
+      {
+        "at": 7200,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 80,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 8000,
+        "reward": {
+          "coins": 0,
+          "dust": 800,
+          "signal": 0,
+          "shards": 0,
+          "title": "Explorador del vacío",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 9500,
+        "reward": {
+          "coins": 1200,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 10800,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 2,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 12000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-spark-aurora"
+        }
+      },
+      {
+        "at": 13800,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 120,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 15600,
+        "reward": {
+          "coins": 0,
+          "dust": 1200,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 17400,
+        "reward": {
+          "coins": 1800,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": "nebula",
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 19000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-sentinel-aurora"
+        }
+      },
+      {
+        "at": 20500,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 3,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 22000,
+        "reward": {
+          "coins": 0,
+          "dust": 1600,
+          "signal": 0,
+          "shards": 0,
+          "title": "Forjado en estática",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 24000,
+        "reward": {
+          "coins": 2500,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 26000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 160,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 28000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-anchor-aurora"
+        }
+      },
+      {
+        "at": 30000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 3,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 32500,
+        "reward": {
+          "coins": 0,
+          "dust": 2200,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 35500,
+        "reward": {
+          "coins": 3000,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 38000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-prism-aurora"
+        }
+      },
+      {
+        "at": 40500,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 4,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 43500,
+        "reward": {
+          "coins": 0,
+          "dust": 3000,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 46000,
+        "reward": {
+          "coins": 4000,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 49000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-comet-aurora"
+        }
+      },
+      {
+        "at": 51500,
+        "reward": {
+          "coins": 0,
+          "dust": 4000,
+          "signal": 5,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "at": 55000,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 5,
+          "shards": 0,
+          "title": "Leyenda de la Temporada 2",
+          "frame": null,
+          "avatar": null,
+          "skin": "skin-echo-aurora"
+        }
+      }
+    ],
+    "shop": [
+      {
+        "id": "signal",
+        "name": "Señal de galaxia",
+        "price": 40,
+        "limit": 30,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 1,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "id": "dust-bag",
+        "name": "Saco de polvo estelar",
+        "price": 80,
+        "limit": 10,
+        "reward": {
+          "coins": 0,
+          "dust": 300,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "id": "coin-bag",
+        "name": "Bolsa de monedas",
+        "price": 80,
+        "limit": 10,
+        "reward": {
+          "coins": 200,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "id": "title-transcriber",
+        "name": "Título Transcriptor",
+        "price": 600,
+        "limit": 1,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": "Transcriptor",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      },
+      {
+        "id": "frame-abyss",
+        "name": "Marco Abismo",
+        "price": 900,
+        "limit": 1,
+        "reward": {
+          "coins": 0,
+          "dust": 0,
+          "signal": 0,
+          "shards": 0,
+          "title": null,
+          "frame": "abyss",
+          "avatar": null,
+          "skin": null
+        }
+      }
+    ],
+    "closing": {
+      "tiers": [
+        {
+          "coins": 1000,
+          "dust": 300,
+          "signal": 2,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        },
+        {
+          "coins": 2500,
+          "dust": 800,
+          "signal": 4,
+          "shards": 0,
+          "title": null,
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        },
+        {
+          "coins": 5000,
+          "dust": 1500,
+          "signal": 7,
+          "shards": 0,
+          "title": "Oro de la Temporada 2",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        },
+        {
+          "coins": 8000,
+          "dust": 2500,
+          "signal": 10,
+          "shards": 0,
+          "title": "Platino de la Temporada 2",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        },
+        {
+          "coins": 12000,
+          "dust": 4000,
+          "signal": 15,
+          "shards": 0,
+          "title": "Estelar de la Temporada 2",
+          "frame": null,
+          "avatar": null,
+          "skin": null
+        }
+      ],
+      "podium": {
+        "coins": 0,
+        "dust": 5000,
+        "signal": 20,
+        "shards": 0,
+        "title": "Podio de la Temporada 2",
+        "frame": "crown",
+        "avatar": null,
+        "skin": null
+      },
+      "podiumSize": 3
+    }
+  },
+  "missions": [
+    {
+      "id": "s-runs70",
+      "name": "Juega 70 incursiones",
+      "stat": "runs",
+      "target": 70,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-runs200",
+      "name": "Juega 200 incursiones",
+      "stat": "runs",
+      "target": 200,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 6,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-boss55",
+      "name": "Purga 55 Núcleos",
+      "stat": "bossKills",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 4,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-boss160",
+      "name": "Purga 160 Núcleos",
+      "stat": "bossKills",
+      "target": 160,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 700
+      }
+    },
+    {
+      "id": "s-depth5",
+      "name": "Llega a la capa 5",
+      "stat": "depth",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 2,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-depth6",
+      "name": "Llega a la capa 6",
+      "stat": "depth",
+      "target": 6,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-extract40",
+      "name": "Extrae 40 veces",
+      "stat": "extractions",
+      "target": 40,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-extract110",
+      "name": "Extrae 110 veces",
+      "stat": "extractions",
+      "target": 110,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 6,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-group55",
+      "name": "Juega 55 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-revive55",
+      "name": "Reanima a 55 compañeros",
+      "stat": "revives",
+      "target": 55,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-legend7",
+      "name": "Consigue 7 legendarias",
+      "stat": "legendaries",
+      "target": 7,
+      "reward": {
+        "coins": 0,
+        "dust": 800,
+        "signal": 0,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-kills135k",
+      "name": "Elimina 135.000 enemigos",
+      "stat": "kills",
+      "target": 135000,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    }
+  ],
+  "lab": [
+    {
+      "id": "t2-assault",
+      "branch": "probe",
+      "name": "Asalto",
+      "effect": {
+        "kind": "stat",
+        "stat": "damage"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-rapid",
+      "branch": "probe",
+      "name": "Ráfaga",
+      "effect": {
+        "kind": "stat",
+        "stat": "cooldown"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-assault",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-sweep",
+      "branch": "probe",
+      "name": "Barrido",
+      "effect": {
+        "kind": "stat",
+        "stat": "area"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-assault",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-hunter",
+      "branch": "probe",
+      "name": "Cazador",
+      "effect": {
+        "kind": "stat",
+        "stat": "critDamage"
+      },
+      "per": 0.015,
+      "max": 3,
+      "requires": "t2-rapid",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-frenzy",
+      "branch": "probe",
+      "name": "Frenesí",
+      "effect": {
+        "kind": "stat",
+        "stat": "speed"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-sweep",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-volley",
+      "branch": "probe",
+      "name": "Andanada",
+      "effect": {
+        "kind": "stat",
+        "stat": "velocity"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-rapid",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-spark",
+      "branch": "probe",
+      "name": "Chispazo",
+      "effect": {
+        "kind": "stat",
+        "stat": "crit"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-sweep",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-predator",
+      "branch": "probe",
+      "name": "Depredador",
+      "effect": {
+        "kind": "stat",
+        "stat": "damage"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-hunter",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-overdrive",
+      "branch": "probe",
+      "name": "Desenfreno",
+      "effect": {
+        "kind": "stat",
+        "stat": "cooldown"
+      },
+      "per": 0.004,
+      "max": 3,
+      "requires": "t2-frenzy",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reach",
+      "branch": "probe",
+      "name": "Alcance",
+      "effect": {
+        "kind": "stat",
+        "stat": "duration"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-volley",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-shatter",
+      "branch": "probe",
+      "name": "Quiebre",
+      "effect": {
+        "kind": "stat",
+        "stat": "critDamage"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-spark",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-storm",
+      "branch": "probe",
+      "name": "Tormenta",
+      "effect": {
+        "kind": "stat",
+        "stat": "area"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-predator",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-shell",
+      "branch": "relics",
+      "name": "Caparazón",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-pulse",
+      "branch": "relics",
+      "name": "Latido",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-shell",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-wall",
+      "branch": "relics",
+      "name": "Muralla",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-shell",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reflex",
+      "branch": "relics",
+      "name": "Reflejos",
+      "effect": {
+        "kind": "stat",
+        "stat": "barrier"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-pulse",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-vigor",
+      "branch": "relics",
+      "name": "Vigor",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-wall",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-leech",
+      "branch": "relics",
+      "name": "Sorbo",
+      "effect": {
+        "kind": "stat",
+        "stat": "lifesteal"
+      },
+      "per": 0.002,
+      "max": 3,
+      "requires": "t2-pulse",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-bastion",
+      "branch": "relics",
+      "name": "Bastión",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-wall",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-aura",
+      "branch": "relics",
+      "name": "Aura",
+      "effect": {
+        "kind": "stat",
+        "stat": "elemental"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-reflex",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-endure",
+      "branch": "relics",
+      "name": "Aguante",
+      "effect": {
+        "kind": "stat",
+        "stat": "armor"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-vigor",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-ward",
+      "branch": "relics",
+      "name": "Guarda",
+      "effect": {
+        "kind": "stat",
+        "stat": "barrier"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-bastion",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-lucky",
+      "branch": "relics",
+      "name": "Talismán",
+      "effect": {
+        "kind": "stat",
+        "stat": "luck"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-leech",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-heart",
+      "branch": "relics",
+      "name": "Corazón de hierro",
+      "effect": {
+        "kind": "stat",
+        "stat": "maxHp"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-endure",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-harvest",
+      "branch": "extraction",
+      "name": "Cosecha",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": null,
+      "cost": {
+        "dust": 60,
+        "components": 5
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-gather",
+      "branch": "extraction",
+      "name": "Recolector",
+      "effect": {
+        "kind": "stat",
+        "stat": "pickup"
+      },
+      "per": 0.015,
+      "max": 3,
+      "requires": "t2-harvest",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-coins",
+      "branch": "extraction",
+      "name": "Diezmo",
+      "effect": {
+        "kind": "payout",
+        "currency": "coins"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-harvest",
+      "cost": {
+        "dust": 90,
+        "components": 8
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-salvage",
+      "branch": "extraction",
+      "name": "Hallazgo",
+      "effect": {
+        "kind": "payout",
+        "currency": "material"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-gather",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-wisdom",
+      "branch": "extraction",
+      "name": "Saber",
+      "effect": {
+        "kind": "stat",
+        "stat": "xp"
+      },
+      "per": 0.01,
+      "max": 3,
+      "requires": "t2-gather",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-fortune",
+      "branch": "extraction",
+      "name": "Fortuna de temporada",
+      "effect": {
+        "kind": "stat",
+        "stat": "luck"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-coins",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-hoard",
+      "branch": "extraction",
+      "name": "Acopio",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-coins",
+      "cost": {
+        "dust": 130,
+        "components": 11
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-tracker",
+      "branch": "extraction",
+      "name": "Rastreador",
+      "effect": {
+        "kind": "stat",
+        "stat": "pickup"
+      },
+      "per": 0.012,
+      "max": 3,
+      "requires": "t2-salvage",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-sage",
+      "branch": "extraction",
+      "name": "Lección",
+      "effect": {
+        "kind": "stat",
+        "stat": "xp"
+      },
+      "per": 0.008,
+      "max": 3,
+      "requires": "t2-wisdom",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-tithe",
+      "branch": "extraction",
+      "name": "Tributo",
+      "effect": {
+        "kind": "payout",
+        "currency": "coins"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-fortune",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-reap",
+      "branch": "extraction",
+      "name": "Siega",
+      "effect": {
+        "kind": "payout",
+        "currency": "dust"
+      },
+      "per": 0.006,
+      "max": 3,
+      "requires": "t2-hoard",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    },
+    {
+      "id": "t2-scrap",
+      "branch": "extraction",
+      "name": "Rebusca",
+      "effect": {
+        "kind": "payout",
+        "currency": "material"
+      },
+      "per": 0.005,
+      "max": 3,
+      "requires": "t2-tracker",
+      "cost": {
+        "dust": 180,
+        "components": 15
+      },
+      "growth": 1.5,
+      "falloff": 1,
+      "at": null
+    }
+  ]
+}

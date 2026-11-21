@@ -285,6 +285,42 @@ export interface SeasonArchiveTable {
   closed_at: Timestamp;
 }
 
+/**
+ * Seasons as records (plan «temporadas como fichas», 2026-11-21): past, current and upcoming seasons side by side.
+ * `state` draft (being prepared, invisible), scheduled (open while starts_at <= now < ends_at) or closed (archived).
+ * `rules`, `route`, `missions` and `lab` hold what the live keys `season` (minus id, name and dates), `seasonRoute`,
+ * `missions.season` and `lab.season` held.
+ */
+export interface SeasonsTable {
+  id: string;
+  name: string;
+  starts_at: ColumnType<Date, Date | string, Date | string>;
+  ends_at: ColumnType<Date, Date | string, Date | string>;
+  state: ColumnType<'draft' | 'scheduled' | 'closed', 'draft' | 'scheduled' | 'closed' | undefined, 'draft' | 'scheduled' | 'closed'>;
+  rules: ColumnType<unknown, string, string>;
+  route: ColumnType<unknown, string, string>;
+  missions: ColumnType<unknown, string | undefined, string>;
+  lab: ColumnType<unknown, string | undefined, string>;
+  version: ColumnType<number, number | undefined, number>;
+  announced_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  created_at: Timestamp;
+  created_by: string | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  updated_by: string | null;
+  scheduled_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  scheduled_by: string | null;
+}
+
+/** Every saved state of a season (append-only), with who and why. */
+export interface SeasonRevisionsTable {
+  season: string;
+  version: number;
+  data: ColumnType<unknown, string, never>;
+  created_at: Timestamp;
+  created_by: string | null;
+  note: string;
+}
+
 /** M7d-2: an account's final place in a closed season, with the rewards kept from that close. */
 export interface SeasonResultsTable {
   season: string;
@@ -1058,6 +1094,8 @@ export interface DB {
   'galaxy.season_route_claims': SeasonRouteClaimsTable;
   'galaxy.season_purchases': SeasonPurchasesTable;
   'galaxy.season_archive': SeasonArchiveTable;
+  'galaxy.seasons': SeasonsTable;
+  'galaxy.season_revisions': SeasonRevisionsTable;
   'galaxy.clan_event_progress': ClanEventProgressTable;
   'galaxy.redshift': RedshiftTable;
   'galaxy.tutorial': TutorialTable;

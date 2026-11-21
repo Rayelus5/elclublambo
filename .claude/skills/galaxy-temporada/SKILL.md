@@ -5,7 +5,11 @@ description: Preparar una temporada nueva de Galaxy Survivor y dejarla lista par
 
 # Temporada nueva
 
-Una temporada es configuración viva, no código: las claves `season`, `seasonRoute`, `missions` y `achievements`, a veces con `content` (una anomalía nueva) o `sectors` (el sector de temporada). Se prepara en una carpeta de `ops/launch/`, la valida un test y se publica en PRE con `galaxy-publicar-config`, tras el OK del propietario.
+Desde el 21/11/2026 una temporada es una **ficha** (`galaxy.seasons`, plan «temporadas como fichas»), no claves de configuración. La ficha lleva fechas, reglas (puntos, tramos, anomalía, acabado), ruta y tienda con su moneda y premios de cierre, misiones de temporada y árbol de laboratorio de temporada. Las fichas pasadas, la actual y las próximas conviven: la próxima se deja **programada** y empieza sola a su hora; la anterior se cierra y archiva sola con sus propios premios de cierre.
+
+Se prepara en una carpeta de `ops/launch/` con un `temporada.json`, la valida un test y se lleva a PRE con la CLI (`season-import` y `season-schedule`) o desde Administración › Temporadas, siempre tras el OK del propietario. Los logros (`achievements`), los eventos y escáneres, una anomalía nueva (`content`) o el sector de temporada (`sectors`) siguen siendo claves y se publican con `galaxy-publicar-config`.
+
+Las claves antiguas `season` y `seasonRoute`, y los campos `missions.season` y `lab.season`, ya no se publican: el servidor y la CLI lo rechazan.
 
 Antes de empezar, lee:
 - `games/galaxy/AGENTS.md`;
@@ -18,7 +22,7 @@ Con el acceso SSH a PRE de `docs/DEPLOY_PRE.md` (`<PRE>`; comandos para Git Bash
 ```
 ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js show-config season --data" > <tmp>/season.vivo.json
 ```
-Haz lo mismo con `seasonRoute`, `missions`, `achievements`, `events` y `content` (para ver qué anomalías hay en `content.anomalies`).
+Haz lo mismo con `seasonRoute`, `missions`, `achievements`, `events` y `content` (para ver qué anomalías hay en `content.anomalies`). `show-config season` y `seasonRoute` ya dan la temporada abierta de las fichas. Para ver todas las fichas: `season-list`, y una entera con `season-show <id>`.
 
 Si no puedes llegar a PRE o `show-config` todavía no existe allí (la CLI responde «Comando desconocido»), pide al propietario que exporte las claves desde el panel (`/admin/configuracion/<clave>`). No uses `psql` con contraseñas ni partas de los valores del código.
 
@@ -38,18 +42,20 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una o do
 
 ## 3. Prepara la carpeta
 
-1. Copia `games/galaxy/ops/plantillas/temporada/` (sin su `LEEME.md`) a `games/galaxy/ops/launch/<aaaa-mm-dd>-temporada-<n>/`. La fecha es la del día de publicación; el nombre, en minúsculas y con guiones.
-2. **`season.json`:** la clave completa con el id, nombre y fechas nuevos.
-3. **`seasonRoute.json`:** la ruta completa (moneda, pasos, tienda, cierre). Parte de la viva y ajústala.
-4. **`missions.json`:** `{ "season": [...] }` con las misiones nuevas. Las diarias y semanales se quedan como están si no mandas esos campos. Los ids no se repiten dentro de la clave.
-5. **`achievements.json`:** solo si cambian. La lista completa: lo vivo más lo nuevo, sin cambiar ids existentes.
-6. **Si hace falta:**
+1. Copia `games/galaxy/ops/plantillas/temporada/` (sin su `LEEME.md`) a `games/galaxy/ops/launch/<aaaa-mm-dd>-temporada-<n>/`. La fecha es la del día en que empieza la temporada; el nombre, en minúsculas y con guiones.
+2. **`temporada.json`:** la ficha completa (`seasonRecordSchema` en `packages/shared/src/progress/season-record.ts`):
+   - `id`, `name`, `startsAt`, `endsAt` (medianoche de Madrid; normalmente empieza justo cuando acaba la anterior);
+   - `rules`: lo que antes era `season` sin id, nombre ni fechas (`points`, `tiers`, `top`, `capPerMinute`, `anomaly`, `finish`, `finishChance`);
+   - `route`: moneda, pasos, tienda y premios de cierre (antes `seasonRoute`);
+   - `missions`: la lista de misiones de temporada (antes `missions.season`); sus ids no repiten los de las diarias ni semanales;
+   - `lab`: el árbol de laboratorio de temporada (antes `lab.season`), con ids nuevos de esa temporada.
+3. **`achievements.json`:** solo si cambian. La lista completa: lo vivo más lo nuevo, sin cambiar ids existentes.
+4. **Si hace falta:**
    - `content.json` con `{ "anomalies": [...] }`, partiendo de lo vivo;
-   - `events.json` y `gacha.json`, si se ajustan eventos.
-7. **`LEEME.md`:**
+   - `events.json` y `gacha.json`. Son listas completas: si se publican antes del cambio de temporada, conserva los eventos que aún corren (por ejemplo, el de la temporada que acaba hasta su fin). Cada evento cabe en alguna temporada programada.
+5. **`LEEME.md`:**
    - qué trae la temporada;
-   - orden de publicación: `content`, `season`, `seasonRoute`, `missions`, `achievements`, eventos;
-   - **cuándo publicar `season`:** en el momento del cambio o después del `endsAt` de la anterior, nunca antes;
+   - qué se publica como claves (con `galaxy-publicar-config`) y que la ficha se importa y se programa;
    - el texto del aviso.
 
 ## 4. Valida
@@ -57,16 +63,27 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una o do
 ```
 pnpm -C games/galaxy exec vitest run --project unit packages/shared/test/launch-config.test.ts
 ```
-Comprueba que todo vale sobre lo anterior, las fechas a medianoche de Madrid, los eventos dentro de la temporada, la anomalía existente y los ids de misión únicos. El test reconstruye lo vivo desde las carpetas; la comprobación contra lo vivo de verdad es `check-config`, en la skill de publicar.
+Comprueba que todo vale sobre lo anterior, que la ficha vale (fechas a medianoche de Madrid, anomalía existente, árbol de laboratorio dentro del presupuesto con el árbol permanente), los eventos dentro de alguna temporada y los ids de misión únicos. El test reconstruye lo vivo desde las carpetas; la comprobación contra lo vivo de verdad es `check-config` (acepta la ficha bajo `temporada`, la que pone `scripts/ops-bundle.mjs`).
 
 Si la temporada cambia de tema, revisa también los textos fijos: «Temporada 1 · La Señal» en `apps/web/src/codex/entries.ts`, PERKINS en `es.ts` y el sector de temporada (`sectors.season`). Eso es un PR de código aparte, con sus tests.
 
 ## 5. Entrega
 
 1. Rama `feature/galaxy-temporada-<n>` desde `develop` con la carpeta, PR con «Qué cambia» y «Pruebas», CI en verde y merge.
-2. Publica con la skill `galaxy-publicar-config` en el orden del `LEEME.md`.
+2. **En PRE, con el OK del propietario** (comandos para Git Bash, `<PRE>` de `docs/DEPLOY_PRE.md`):
+   ```
+   node games/galaxy/scripts/ops-bundle.mjs games/galaxy/ops/launch/<carpeta> | ssh <PRE> "docker exec -i elclub-pre-galaxy-1 node dist/cli.js check-config -"
+   node games/galaxy/scripts/ops-bundle.mjs games/galaxy/ops/launch/<carpeta> | ssh <PRE> "docker exec -i elclub-pre-galaxy-1 node dist/cli.js season-import - --reason '<motivo>'"
+   ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js season-schedule <id> --reason '<motivo>'"
+   ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js season-list"
+   ```
+   `season-import` la deja como borrador (se puede repetir para corregirla); `season-schedule` la programa. Se puede programar con días de antelación: empieza sola a su hora.
+3. Las claves de la carpeta (logros, eventos, escáneres, contenido) se publican con la skill `galaxy-publicar-config`.
 
 **Reglas que no se saltan:**
-- **`season` antes que `seasonRoute`:** el id nuevo archiva la temporada anterior (`closeDue`) con los premios de cierre de la ruta que esté viva en ese momento.
-- **Nunca antes del final de la anterior:** publicar `season` antes del `endsAt` de la anterior la cierra antes de tiempo. Hay que hacerlo justo al cambio y avisar al propietario de la hora.
-- **Moneda sobrante:** la que les quede a los jugadores pasa a polvo con el `dustRate` de la ruta vigente.
+- **Sin solapes:** dos temporadas programadas nunca se solapan; seguidas (el fin de una es el inicio de la otra) sí. Para alargar la actual y empujar la siguiente: `season-extend <id> <fin> --reason <motivo> --move-next`.
+- **Desprogramar:** `season-unschedule <id>` solo antes de que empiece.
+- **Corregir una programada o ya empezada:** `season-patch <id> - --reason <motivo>` con la ficha entera corregida (por la entrada estándar con `ops-bundle`). Nunca cambia el id ni, una vez empezada, el inicio.
+- **Ids nuevos siempre:** no se programa una temporada con el id de otra ya archivada, ni una cuyo final ya pasó.
+- **Cierre:** al acabar, la temporada se archiva sola con los premios de cierre de **su propia ficha**.
+- **Moneda sobrante:** la que les quede a los jugadores pasa a polvo con el `dustRate` de la ruta de la temporada que se ve.
