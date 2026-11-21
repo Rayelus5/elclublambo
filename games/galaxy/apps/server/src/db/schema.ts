@@ -15,6 +15,8 @@ export interface AccountsTable {
   ban_reason: string | null;
   /** M6a: left out of the season leaderboard by an admin. */
   leaderboard_excluded: Generated<boolean>;
+  /** Plan «temporadas como fichas», PR 2: can win prizes for its place (off: ranks with a mark, the prize goes on). */
+  prize_eligible: Generated<boolean>;
   /** M7a: the title and the frame the account shows (among its cosmetics). */
   title: ColumnType<string | null, string | null | undefined, string | null>;
   frame: ColumnType<string | null, string | null | undefined, string | null>;
@@ -283,6 +285,8 @@ export interface SeasonArchiveTable {
   ends_at: ColumnType<Date, Date | string, Date | string>;
   players: Generated<number>;
   closed_at: Timestamp;
+  /** What the season was, frozen at its close (SeasonStats); null for seasons closed before it existed. */
+  stats: ColumnType<unknown, string | null | undefined, never>;
 }
 
 /**

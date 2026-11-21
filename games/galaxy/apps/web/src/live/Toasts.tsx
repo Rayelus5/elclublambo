@@ -46,6 +46,8 @@ function toneOf(toast: LiveToast): NoticeTone {
   if (x.kind === 'trade') return x.event === 'cancelled' ? 'alert' : 'trade';
   if (x.kind === 'clan') return x.event === 'kicked' || x.event === 'rejected' ? 'alert' : 'clan';
   if (x.kind === 'offer') return x.event === 'accepted' ? 'sale' : x.event === 'received' ? 'trade' : 'alert';
+  // A season starting is good news, like a result.
+  if (x.kind === 'season') return 'result';
   return x.kind;
 }
 
@@ -167,6 +169,8 @@ function NoticeToast({ toast, notice }: { toast: LiveToast; notice: LiveNotice }
     }
     case 'achievement':
       return <Shell toast={toast} face={<IconFace name="trophy" />} title={n.achievement} detail={notice.name} actions={see('/misiones?pestana=logros', n.collect)} />;
+    case 'season':
+      return <Shell toast={toast} face={<IconFace name="podium" />} title={n.seasonStarted(notice.name)} detail={n.seasonDetail} actions={see('/temporada')} />;
     case 'offer': {
       const o = n.offer;
       const title = notice.event === 'received' ? o.received(notice.from?.username ?? '', notice.amount, notice.galaxy.name) : o[notice.event](notice.galaxy.name);
