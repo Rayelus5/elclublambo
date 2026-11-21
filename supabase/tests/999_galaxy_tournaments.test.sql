@@ -3,7 +3,7 @@
 -- an entry's sign-up and what was set once stay; a money prize is marked paid once; the retention keeps the inputs of
 -- the runs an entrant played for a tournament not yet finished.
 begin;
-select plan(13);
+select plan(14);
 
 insert into galaxy.accounts (id, username, password_hash) values ('00000000-0000-4000-8000-0000000009e1', 'pgtap_tournament', 'x');
 insert into galaxy.tournaments (id, slug, season_id, title, starts_at, ends_at, state, metric, prizes)
@@ -49,7 +49,9 @@ select ok((select galaxy.prune_retention() is not null), 'the retention runs');
 select is((select array_agg(run_id::text order by run_id) from galaxy.run_inputs where run_id::text like '00000000-0000-4000-8000-00000000e10%'),
   array['00000000-0000-4000-8000-00000000e101'], 'the run in the tournament keeps its inputs; the one before it does not');
 update galaxy.tournaments set state = 'finished' where id = '00000000-0000-4000-8000-00000000e003';
-select is((select (galaxy.prune_retention() ->> 'inputs')::int >= 1 and not exists (select 1 from galaxy.run_inputs where run_id = '00000000-0000-4000-8000-00000000e101')), true, 'once finished, they go too');
+-- Two statements: a query does not see what a function it calls deleted (its snapshot is the statement's).
+select ok((select (galaxy.prune_retention() ->> 'inputs')::int >= 1), 'once finished, the retention deletes them');
+select ok(not exists (select 1 from galaxy.run_inputs where run_id = '00000000-0000-4000-8000-00000000e101'), 'once finished, they go too');
 
 select * from finish();
 rollback;
