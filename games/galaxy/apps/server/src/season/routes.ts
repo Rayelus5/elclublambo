@@ -9,16 +9,23 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { accountNamed } from '../social/profiles';
 import { claimResult, closeDue, hallOfFame, seasonHistory } from './close';
+import { closeEndedSeasons, type SeasonStore } from './records';
 import { buyItem, claimStep, convertLeftovers, seasonConfigs, seasonScore, seasonView } from './service';
 
 // The season's routes (GDD §13.1; M7d-1): the route and shop, collecting a step and buying an item (both idempotent).
 
-export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB>; config: ConfigReader; now: () => Date }): void {
+export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB>; config: ConfigReader; now: () => Date; seasons?: SeasonStore | null }): void {
+  /** Archives what has ended: every season record past its end (plan «temporadas como fichas»), and the one shown. */
+  const closeEnded = async (c: Awaited<ReturnType<typeof seasonConfigs>>, now: Date) => {
+    if (deps.seasons) await closeEndedSeasons(deps.db, deps.seasons, c.minRunSeconds, now);
+    await closeDue(deps.db, c, now);
+  };
+
   api.get('/galaxy/api/season', async (req): Promise<SeasonView> => {
     const s = requireSession(req);
     const now = deps.now();
     const c = await seasonConfigs(deps.config);
-    await closeDue(deps.db, c, now);
+    await closeEnded(c, now);
     await convertLeftovers(deps.db, c, s.accountId, now);
     return seasonView(deps.db, c, s.accountId, await seasonScore(deps.db, c, s.accountId, now), now);
   });
@@ -56,7 +63,7 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
   api.get('/galaxy/api/hall-of-fame', async (req): Promise<HallOfFame> => {
     const s = requireSession(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'profiles', 120, 60);
-    await closeDue(deps.db, await seasonConfigs(deps.config), deps.now());
+    await closeEnded(await seasonConfigs(deps.config), deps.now());
     return hallOfFame(deps.db);
   });
 

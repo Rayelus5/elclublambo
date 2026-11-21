@@ -548,6 +548,13 @@ Ver §15.
   No hace falta publicar código nuevo.
 - **Contenido nuevo:** comportamientos, patrones de jefe o sprites inéditos llegan con una versión nueva del juego, que prepara Claude cuando el usuario la pide.
 - **Para la beta:** se entrega la temporada 1 completa y un catálogo suficiente para que la 2 pueda lanzarse remezclando si el contenido nuevo no está listo.
+- **Temporadas como fichas (21/11/2026) [U]:**
+  - Cada temporada es una ficha con sus fechas, reglas, ruta, tienda, premios de cierre, misiones y laboratorio de temporada.
+  - Las pasadas, la actual y las próximas conviven: la próxima se prepara y se **programa** con antelación, y empieza sola a su hora.
+  - La anterior se cierra y archiva sola con sus propios premios.
+  - Su histórico (clasificación, estadísticas y premios) queda para que los jugadores lo visiten.
+  - Los admins ven la próxima en vista previa.
+  - Se opera desde Administración › Temporadas y con la CLI (`season-*`, docs/CONTENIDO.md B8).
 
 ### 13.2 Eventos [D]
 

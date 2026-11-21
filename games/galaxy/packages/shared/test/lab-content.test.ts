@@ -3,14 +3,15 @@ import { expect, test } from 'vitest';
 import { DEFAULT_LAB_NODES, labCost, type LabNode, nodeTotal, parseConfig } from '../src/index';
 
 // The expanded Laboratorio (shop and lab plan, F2b), as ops/launch/2026-11-12-laboratorio/lab.json brings it and the
-// Season 2 template's core (ops/plantillas/temporada/lab.json): today's 16 nodes stay exactly as they are, the new
+// Season 2 template's core (ops/plantillas/temporada/temporada.json, its `lab`): today's 16 nodes stay exactly as they are, the new
 // ones hang from them a little weaker each level and dearer each ring, no node uses a stat that a percentage would
 // misname, the permanent tree takes an active player about six months and the season's about 80 % of a season.
 
 const OPS = new URL('../../../ops/', import.meta.url);
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, OPS), 'utf8'));
 const permanent = parseConfig('lab', read('launch/2026-11-12-laboratorio/lab.json')).nodes;
-const season = parseConfig('lab', { ...read('plantillas/temporada/lab.json'), nodes: permanent }).season;
+// The template's seasonal tree lives in its season record now (plan «temporadas como fichas», 2026-11-21).
+const season = parseConfig('lab', { season: read('plantillas/temporada/temporada.json').lab, nodes: permanent }).season;
 
 /** What reaching every level of the nodes costs. */
 function costOf(nodes: readonly LabNode[]): { dust: number; components: number } {

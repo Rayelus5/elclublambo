@@ -13,6 +13,12 @@ export interface OpsConfigs {
   gacha: ConfigValue<'gacha'>;
   missions: ConfigValue<'missions'>;
   content: ConfigValue<'content'>;
+  /**
+   * Seasons as records (plan «temporadas como fichas», 2026-11-21): every season that counts (the open one and the
+   * scheduled ones), each with its own missions. When given, they replace `season` and `missions.season`: an event
+   * must fit inside one of them, and each season's anomaly and mission ids are checked on their own.
+   */
+  seasons?: { season: ConfigValue<'season'>; missions: ConfigValue<'missions'>['season'] }[];
 }
 
 const WARNING_TEXT: { [C in EventWarning['code']]: (w: Extract<EventWarning, { code: C }>) => string } = {
@@ -30,8 +36,12 @@ export function opsProblems(c: OpsConfigs, now: number): string[] {
   const running = c.events.list.filter((e) => Date.parse(e.endsAt) > now);
   const open = c.gacha.banners.filter((b) => !b.endsAt || Date.parse(b.endsAt) > now);
   for (const w of eventWarnings(running, open)) out.push((WARNING_TEXT[w.code] as (x: EventWarning) => string)(w));
+  const seasons = c.seasons && c.seasons.length > 0 ? c.seasons : null;
+  const fits = (e: { startsAt: string; endsAt: string }, s: { startsAt: string; endsAt: string }) => Date.parse(e.startsAt) >= Date.parse(s.startsAt) && Date.parse(e.endsAt) <= Date.parse(s.endsAt);
   for (const e of running) {
-    if (Date.parse(e.startsAt) < Date.parse(c.season.startsAt) || Date.parse(e.endsAt) > Date.parse(c.season.endsAt)) {
+    if (seasons) {
+      if (!seasons.some((x) => fits(e, x.season))) out.push(`El evento ${e.id} no cabe en ninguna temporada`);
+    } else if (!fits(e, c.season)) {
       out.push(`El evento ${e.id} no cabe en la temporada ${c.season.id}`);
     }
   }
@@ -45,11 +55,30 @@ export function opsProblems(c: OpsConfigs, now: number): string[] {
     }
   }
   if (!c.gacha.banners.some((b) => b.id === 'deep-scan')) out.push('Falta el escáner profundo (deep-scan)');
-  const seen = new Set<string>();
-  for (const m of [...c.missions.daily.pool, ...c.missions.weekly.pool, ...c.missions.season]) {
-    if (seen.has(m.id)) out.push(`El id de misión ${m.id} está repetido`);
-    seen.add(m.id);
+  const dupes = (list: { id: string }[]): string[] => {
+    const seen = new Set<string>();
+    const found: string[] = [];
+    for (const m of list) {
+      if (seen.has(m.id)) found.push(m.id);
+      seen.add(m.id);
+    }
+    return found;
+  };
+  const shared = [...c.missions.daily.pool, ...c.missions.weekly.pool];
+  const exists = (anomaly: string) => c.content.anomalies.some((a) => a.id === anomaly);
+  if (!seasons) {
+    for (const id of dupes([...shared, ...c.missions.season])) out.push(`El id de misión ${id} está repetido`);
+    if (c.season.anomaly && !exists(c.season.anomaly)) out.push(`La anomalía ${c.season.anomaly} no existe en el contenido`);
+    return out;
   }
-  if (c.season.anomaly && !c.content.anomalies.some((a) => a.id === c.season.anomaly)) out.push(`La anomalía ${c.season.anomaly} no existe en el contenido`);
+  // Each season's missions only meet the daily and weekly ones, never another season's (they never run together).
+  for (const id of dupes(shared)) out.push(`El id de misión ${id} está repetido`);
+  for (const x of seasons) {
+    const own = new Set(dupes([...shared, ...x.missions]).filter((id) => x.missions.some((m) => m.id === id)));
+    for (const id of own) out.push(`El id de misión ${id} está repetido en la temporada ${x.season.id}`);
+  }
+  for (const x of seasons) {
+    if (x.season.anomaly && !exists(x.season.anomaly)) out.push(`La anomalía ${x.season.anomaly} de la temporada ${x.season.id} no existe en el contenido`);
+  }
   return out;
 }

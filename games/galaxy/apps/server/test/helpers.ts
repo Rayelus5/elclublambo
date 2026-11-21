@@ -129,13 +129,15 @@ export async function testApp(
      * default, would trip files that open many rooms). The rest of each key still comes from the database.
      */
     configOverrides?: Partial<Record<ConfigKey, Record<string, unknown>>>;
+    /** Seasons as records (plan «temporadas como fichas»): on, the live season comes from galaxy.seasons. */
+    seasons?: boolean;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
   const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
   const base = opts.config ?? (opts.configTtlMs === undefined && !opts.configOverrides ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
   const config = base && opts.configOverrides ? overridden(base, opts.configOverrides) : base;
-  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null, disk: opts.disk });
+  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null, disk: opts.disk, seasons: opts.seasons });
   opts.beforeReady?.(app);
   await app.ready();
   return {

@@ -75,7 +75,7 @@ const DEFAULT_BANNERS = [
 ];
 
 /** One node of a Laboratorio tree (`falloff` and `at` came with the seasonal core: older nodes get 1 and null). */
-const labNodeSchema = z
+export const labNodeSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9-]{1,32}$/),
     branch: z.enum(['probe', 'relics', 'station', 'extraction']),
