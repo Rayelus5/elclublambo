@@ -1,4 +1,4 @@
-import type { ClanList, ClanView, GachaView, Leaderboard, MeResponse, Profile } from '@galaxy/shared';
+import { type ClanList, type ClanView, DEFAULT_CLOSING_TIERS, DEFAULT_PODIUM, type GachaView, type Leaderboard, type MeResponse, type Profile } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -220,7 +220,7 @@ test('quien no es del clan puede unirse o pedirlo, y cancelar su solicitud', asy
 
 test('la pestaña Clanes de la clasificación enseña los clanes con su emblema, y el perfil dice el clan', async () => {
   const board: Leaderboard = {
-    season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-01T00:00:00.000Z', endsAt: new Date(Date.now() + 9 * 86_400_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
+    season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-01T00:00:00.000Z', endsAt: new Date(Date.now() + 9 * 86_400_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000], closing: { tiers: [...DEFAULT_CLOSING_TIERS], podium: DEFAULT_PODIUM, podiumSize: 3 } },
     tab: 'clans',
     rows: [],
     me: null,

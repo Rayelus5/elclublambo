@@ -2606,7 +2606,12 @@ export const copy = {
       team: 'Equipo',
       cores: 'Núcleos',
       time: 'Tiempo',
+      // The General tab's columns (2026-11-21).
+      runs: 'Partidas',
+      bestDepth: 'Mejor capa',
     },
+    /** Under a large podium's names in the General tab. */
+    podiumRuns: (runs: number, depth: number) => `${runs === 1 ? '1 partida' : `${fmt(runs)} partidas`}, mejor capa ${fmt(depth)}`,
     yourGroup: 'Tu mejor grupo',
     noGroups: 'Juega una partida en grupo para entrar en esta clasificación',
     podium: 'Podio',
@@ -2674,6 +2679,31 @@ export const copy = {
     shardsLabel: (n: number) => `+${fmt(n)} de moneda de temporada`,
     rankingTile: 'Temporada',
     route: 'Tienda de temporada',
+    // The leaderboard's season card (2026-11-21): the whole card leads to the season's route and shop.
+    seeRoute: 'Ver ruta y tienda',
+    seasonLeft: (d: number, h: number, m: number, s: number) =>
+      `Termina en ${d > 0 ? `${d} d ${h} h ${String(m).padStart(2, '0')} min` : `${h} h ${String(m).padStart(2, '0')} min ${String(s).padStart(2, '0')} s`}`,
+    seasonEnding: 'Termina ahora',
+    rankOf: (rank: number, total: number) => `Puesto ${fmt(rank)} de ${fmt(total)}`,
+    tierBar: (tier: string) => `Progreso hacia ${tier}`,
+    prizesTitle: 'Tramos y premios',
+    prizesHint: 'Al cerrar la temporada recibes el premio de tu tramo',
+    /** A closing prize in words, for screen readers (the chips beside it are drawn). */
+    prize: (r: { coins: number; dust: number; signal: number; shards: number } & PieceReward) => seasonReward(r, 'de moneda de temporada') || 'Sin premio',
+    noPrize: 'Sin premio',
+    podiumPrize: 'Premio del podio',
+    podiumTitle: 'Podio',
+    // The podium's size is the live `seasonRoute.closing.podiumSize`.
+    podiumWho: (n: number) => (n === 1 ? 'El primer puesto' : `Los ${fmt(n)} primeros`),
+    podiumTrophy: 'Trofeo',
+    podiumTrophyLabel: 'y un trofeo para tu estación',
+    /** The drawn chips of a prize's pieces. */
+    prizeChip: {
+      title: (title: string) => `Título ${title}`,
+      frame: (id: string) => `Marco ${pieceName('frame', id)}`,
+      avatar: (id: string) => `Avatar ${pieceName('avatar', id)}`,
+      skin: (id: string) => `Skin ${pieceName('skin', id)}`,
+    },
   },
   // The planetarium (GDD §10.5, §14.2; M4c-2).
   planetarium: {

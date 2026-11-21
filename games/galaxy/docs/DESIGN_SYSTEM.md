@@ -610,10 +610,17 @@ Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ra
 - **Pestañas:** General (puntos), Profundidad (la capa más honda de la temporada) y Purgas (los Núcleos). Clanes está desactivada con «Llega con los clanes».
 - **El podio:** el primero en el medio y más alto, el segundo a la izquierda y el tercero a la derecha. Cada escalón va en su metal (oro, plata, bronce) y cada nombre lleva a su perfil. En el código el orden es 1, 2, 3, para los lectores de pantalla.
 - **La tabla** sigue desde el cuarto, con puesto, jugador con su avatar, nivel y valor (las cifras alineadas a la derecha).
+  - En General lleva además «Partidas» y «Mejor capa» de cada jugador (y el podio, «31 partidas, mejor capa 9»). Si la columna principal se estrecha por debajo de 640 px, esas dos columnas se esconden (consulta de contenedor) y la tabla hace scroll dentro de su panel, nunca la página.
   - Tu fila va resaltada en Hielo con «Tú».
   - Fuera de la tabla, tu fila se fija debajo con el borde Hielo («Tu puesto»).
   - Los empates comparten puesto.
-- **Al lado:** la temporada (nombre, «Quedan 36 días» en Nova y los jugadores) y los tramos con su emblema y desde cuántos puntos. El tuyo lleva «Tu tramo».
+- **Al lado, la tarjeta de la temporada** (2026-11-21). Entera lleva a `/temporada`: un solo enlace, «Ver ruta y tienda» en píldora Solar al pie, cuyo `::after` cubre la tarjeta. Al pasar el ratón se levanta como un botón con labio, y con el teclado lleva el anillo Hielo (`:has(:focus-visible)`). Dentro no hay nada más que se pueda pulsar. Lleva:
+  - el nombre y la cuenta atrás en vivo en Nova («Termina en 9 d 22 h 15 min», con segundos el último día). Es un `<time>` y no una región viva, para que el lector de pantalla no la lea cada segundo;
+  - tu puesto («Puesto 37 de 412»), tus puntos y tu tramo con su emblema ×2, y la barra Solar desde tu tramo hasta el siguiente con «Te faltan 3600 puntos para Oro». Sin puntos, el emblema del primer tramo en gris; en Estelar, «Has alcanzado el tramo más alto»;
+  - «Tramos y premios»: cada tramo con su emblema ×1, desde cuántos puntos y lo que paga al cerrar en fichas de color (monedas Solar, polvo Hielo, señales Nova, moneda de temporada UV y piezas Terminal). Las fichas son decorativas: el lector de pantalla oye el premio en una frase. El tuyo lleva «Tu tramo»;
+  - el podio con cuántos puestos entran y su premio, con su trofeo;
+  - los jugadores de la temporada.
+- Los umbrales, los premios y el tamaño del podio vienen de la configuración viva: ningún texto los lleva escritos.
 
 **El perfil** (`/perfil/<nombre>`):
 - avatar grande, nombre, nivel y «Miembro desde noviembre de 2026»;

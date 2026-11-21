@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-48-clasificacion-temporada',
+    version: '1.48',
+    date: '2026-11-22',
+    title: 'La clasificación enseña más de tu temporada',
+    summary: 'Tu puesto, tu tramo y los premios de cierre a la vista, y un atajo a la ruta y la tienda',
+    items: [
+      { kind: 'mejora', text: 'El panel de la temporada lleva a su ruta y su tienda: púlsalo entero' },
+      { kind: 'mejora', text: 'Ves tu puesto, tu tramo y cuántos puntos te faltan para el siguiente, con su barra, y la cuenta atrás corre en vivo' },
+      { kind: 'mejora', text: 'Cada tramo dice lo que paga al cerrar la temporada, y el podio el suyo' },
+      { kind: 'mejora', text: 'La pestaña General enseña las partidas y la mejor capa de cada jugador' },
+    ],
+  },
+  {
     id: 'v1-47-tienda-de-temporada',
     version: '1.47',
     date: '2026-11-22',

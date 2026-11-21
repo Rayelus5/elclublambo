@@ -1954,8 +1954,9 @@
   .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
   .lb-tabs { margin: 0; max-width: 860px; }
-  .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; align-items: start; }
-  .lb-main { display: grid; gap: 16px; min-width: 0; }
+  .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 20px; align-items: start; }
+  /* The main column is a container: the General tab's extra columns go when it is narrow (2026-11-21). */
+  .lb-main { display: grid; gap: 16px; min-width: 0; container: lb-main / inline-size; }
   .lb-main > .podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .1), transparent 70%); }
   /* The leaderboard's podium has its avatars large (Podium `large`: 64 px for the first, 48 for the others), each box the
      size of its framed avatar (a quarter of the side round it) plus the metal's breath. */
@@ -1966,7 +1967,11 @@
   .lb-main > .podium li.place-1 .podium-step { block-size: 84px; font-size: 40px; }
   .lb-main > .podium li.place-2 .podium-step { block-size: 64px; font-size: 34px; }
   .lb-main > .podium li.place-3 .podium-step { block-size: 50px; font-size: 30px; }
+  .podium-runs { font-size: 12px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
   .lb-table, .lb-pinned table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  /* The solo tabs' table scrolls inside its panel, never the page. */
+  .lb-scroll { padding: 6px 0; overflow-x: auto; overscroll-behavior-x: contain; }
+  .lb-scroll > .lb-table { padding: 0; }
   .lb-table { padding: 6px 0; border-spacing: 0; }
   .lb-table th, .lb-table td, .lb-pinned td, .lb-pinned th { padding: 10px 16px; text-align: left; font-size: 15px; }
   .lb-table thead th { font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
@@ -1984,25 +1989,71 @@
   .lb-who a:hover { text-decoration: underline; }
   .lb-who a:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; border-radius: 6px; }
   .lb-level { inline-size: 90px; color: var(--color-ink-mute); }
+  .lb-table .lb-extra, .lb-pinned .lb-extra { inline-size: 110px; text-align: right; white-space: nowrap; color: var(--color-ink-soft); }
+  @container lb-main (max-width: 640px) { .lb-extra { display: none; } }
   .lb-value { text-align: right !important; font-weight: 700; }
+  /* Every column but the player's has its width, so the pinned row lines up under the table. */
+  .lb-scroll .lb-value, .lb-pinned .lb-value { inline-size: 150px; white-space: nowrap; }
   .lb-you { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--color-ice); color: var(--color-void); font-size: 12px; font-weight: 700; }
   tr.mine { background: color-mix(in srgb, var(--color-ice) 10%, transparent); box-shadow: inset 4px 0 0 var(--color-ice); }
-  .lb-pinned { padding: 4px 0; border: 2px solid color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  .lb-pinned { padding: 4px 0; border: 2px solid color-mix(in srgb, var(--color-ice) 45%, transparent); overflow-x: auto; }
   .lb-empty { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
   .lb-empty p { margin: 0; font-size: 17px; color: var(--color-ink-soft); }
   .lb-side { display: grid; gap: 16px; }
-  .lb-season { padding: 18px 20px; display: grid; gap: 4px; }
-  .lb-season h2 { margin: 0; font: 400 26px var(--font-display); }
-  .lb-season p { margin: 0; color: var(--color-ink-soft); }
-  .lb-ends { font-weight: 700; color: var(--color-nova) !important; }
-  .lb-tiers { padding: 18px 16px 12px; }
-  .lb-tiers h2 { margin: 0 4px 10px; font: 400 20px var(--font-display); }
-  .lb-tiers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .lb-tiers li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 10px 6px 6px; border-radius: 14px; }
-  .lb-tiers li span { display: grid; }
-  .lb-tiers li b { font-size: 16px; }
-  .lb-tiers li small { font-size: 13px; color: var(--color-ink-mute); }
-  .lb-tiers li[aria-current="true"] { background: rgb(255 255 255 / .06); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  /* The season card (2026-11-21): one link whose ::after covers the card, so the whole card leads to /temporada; it
+     lifts like a lip button on hover and wears the focus ring when its link has the keyboard. */
+  .lb-season { padding: 18px 18px 16px; display: grid; gap: 14px; cursor: pointer; }
+  .lb-season:hover { transform: translateY(-3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .32), inset 0 -3px 0 rgb(0 0 0 / .18), 0 calc(var(--lip-h, 6px) + 3px) 0 var(--lip-c, var(--color-panel-lip)), 0 20px 30px rgb(0 0 0 / .4); }
+  .lb-season:has(.lb-season-link:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 4px; }
+  .lb-season p { margin: 0; }
+  .lb-season-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+  .lb-season-head .lb-ends { grid-column: 1 / -1; }
+  .lb-season-go { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 50%; background: color-mix(in oklab, var(--color-solar) 16%, transparent); color: var(--color-solar); transition: translate .18s var(--ease-bounce), background-color .18s ease; }
+  .lb-season-go .ico { inline-size: 20px; block-size: 20px; }
+  .lb-season:hover .lb-season-go { translate: 3px 0; background-color: color-mix(in oklab, var(--color-solar) 28%, transparent); }
+  .lb-season h2 { margin: 0; font: 400 26px var(--font-display); line-height: 1.05; }
+  .lb-ends { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-nova); font-variant-numeric: tabular-nums; }
+  .lb-ends .ico { inline-size: 18px; block-size: 18px; flex: none; }
+  .lb-me { display: grid; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgb(255 255 255 / .045); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
+  .lb-standing { display: flex; align-items: center; gap: 14px; }
+  .lb-standing > div { display: grid; gap: 1px; min-inline-size: 0; }
+  .lb-standing-rank { font: 400 24px var(--font-display); line-height: 1.05; }
+  .lb-standing-points { font-size: 14px; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .lb-standing-tier { font-size: 18px; font-weight: 800; color: var(--color-solar); }
+  .lb-standing-ghost { display: inline-flex; opacity: .35; filter: grayscale(.7); }
+  .lb-next { display: grid; gap: 6px; font-size: 13px; color: var(--color-ink-soft); }
+  .lb-tier-bar { display: block; block-size: 10px; border-radius: 99px; background: rgb(255 255 255 / .08); overflow: hidden; }
+  .lb-tier-bar i { display: block; block-size: 100%; inline-size: calc(var(--share, 0) * 100%); min-inline-size: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+  .lb-prizes-block { display: grid; gap: 8px; }
+  .lb-prizes-block h3 { margin: 0; font: 400 20px var(--font-display); }
+  .lb-season .lb-prizes-hint { margin-block-start: -4px; font-size: 13px; color: var(--color-ink-mute); }
+  .lb-tier-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .lb-tier-list li, .lb-podium-prize { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 8px 10px 9px 8px; border-radius: 14px; background: rgb(255 255 255 / .03); }
+  .lb-tier-list li[aria-current="true"] { background: rgb(255 255 255 / .07); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  .lb-tier-name { display: grid; min-inline-size: 0; }
+  .lb-tier-name b { font-size: 16px; }
+  .lb-tier-name small { font-size: 13px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
+  /* What a tier pays at the close: chips in the reward colours of the season screen (coins Solar, dust Ice, signals
+     Nova, the season currency UV and pieces Terminal), under the name. */
+  .lb-prizes { grid-column: 2 / -1; min-inline-size: 0; }
+  .lb-prize-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .lb-prize { --k: var(--color-solar); display: inline-flex; align-items: center; gap: 4px; max-inline-size: 100%; box-sizing: border-box; padding: 2px 8px 2px 5px; border-radius: 99px; background: color-mix(in oklab, var(--k) 14%, transparent); color: color-mix(in oklab, var(--k) 55%, var(--color-ink)); font-size: 12px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .lb-prize .ico { inline-size: 14px; block-size: 14px; flex: none; color: var(--k); }
+  .lb-prize.k-dust { --k: var(--color-ice); }
+  .lb-prize.k-signal { --k: var(--color-nova); }
+  .lb-prize.k-shards { --k: var(--color-uv-soft); }
+  .lb-prize.k-cosmetic { --k: var(--color-terminal); }
+  .lb-prize.none { --k: var(--color-ink-mute); }
+  .lb-podium-prize { background: radial-gradient(90% 120% at 0% 0%, rgb(255 201 74 / .12), transparent 70%); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 30%, transparent); }
+  .lb-podium-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; color: var(--color-solar); }
+  .lb-podium-icon .ico { inline-size: 26px; block-size: 26px; }
+  .lb-season-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-block-start: 12px; border-block-start: 1px solid rgb(255 255 255 / .07); }
+  .lb-players { font-size: 13px; color: var(--color-ink-mute); }
+  .lb-season-link { color: inherit; text-decoration: none; outline: none; }
+  .lb-season-link::after { content: ''; position: absolute; inset: 0; border-radius: var(--r, 20px); }
+  .lb-season-link .pill { --lip-h: 3px; height: 40px; padding: 0 14px 0 16px; font-size: 15px; font-weight: 800; transition: transform .18s var(--ease-bounce); }
+  .lb-season-link .pill .ico { inline-size: 18px; block-size: 18px; transition: translate .18s var(--ease-bounce); }
+  .lb-season:hover .lb-season-link .pill .ico { translate: 3px 0; }
   /* The profile. */
   /* The head: a large avatar (96 px, 144 with its frame) beside the name, title, level bar, clan and since when. */
   .profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
@@ -2076,8 +2127,8 @@
   .me:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
   .me:hover b { text-decoration: underline; }
   .me-level { font-size: 12px; font-weight: 700; color: var(--color-terminal); }
-  @media (max-width: 1360px) { .lb-body { grid-template-columns: minmax(0, 1fr) 280px; } }
-  :where(:root[data-motion='reduced']) { .tier-art { animation: none; } .results-level.up b { animation: none; } }
+  @media (max-width: 1360px) { .lb-body { grid-template-columns: minmax(0, 1fr) 300px; } }
+  :where(:root[data-motion='reduced']) { .tier-art { animation: none; } .results-level.up b { animation: none; } .lb-season, .lb-season-link .pill .ico, .lb-season-go { transition: none; } .lb-season:hover { transform: none; } .lb-season:hover .lb-season-link .pill .ico, .lb-season:hover .lb-season-go { translate: none; } }
 
   /* ---------- Clanes (DESIGN_SYSTEM §8 duodecies) ---------- */
   /* A clan's emblem: the Aseprite strip of its six colours (32×32 each) at ×1 or ×2; the colour is the x position. */

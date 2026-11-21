@@ -1,4 +1,4 @@
-import type { CollectionPage, GachaView, Leaderboard, MeResponse } from '@galaxy/shared';
+import { type CollectionPage, DEFAULT_CLOSING_TIERS, DEFAULT_PODIUM, type GachaView, type Leaderboard, type MeResponse } from '@galaxy/shared';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -47,7 +47,7 @@ const page: CollectionPage = {
 };
 
 const board: Leaderboard = {
-  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-01T00:00:00.000Z', endsAt: new Date(Date.now() + 5 * 86_400_000 + 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
+  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-01T00:00:00.000Z', endsAt: new Date(Date.now() + 5 * 86_400_000 + 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000], closing: { tiers: [...DEFAULT_CLOSING_TIERS], podium: DEFAULT_PODIUM, podiumSize: 3 } },
   tab: 'general',
   rows: [
     { rank: 1, username: 'vega', level: 12, value: 9000 },

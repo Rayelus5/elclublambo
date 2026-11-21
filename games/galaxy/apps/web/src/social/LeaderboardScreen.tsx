@@ -1,4 +1,4 @@
-import { type ClanRow, type GroupRow, type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
+import { type ClanRow, type GroupRow, type LeaderRow, type LeaderTab } from '@galaxy/shared';
 import { Link, useSearchParams } from 'react-router';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
@@ -8,18 +8,23 @@ import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { ClanEmblem } from '../clans/ClanEmblem';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
-import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
+import { Podium } from './parts';
+import { SeasonCard } from './SeasonCard';
 import { HomeLink } from '../ui/BackLink';
 import { useContentNames } from '../api/content-names';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
-// view can be shared; the podium holds the top three and the table the rest; your row is marked, and pinned below
-// when it is out of the top; beside them, the season's name, the days left, the players and the tiers with yours.
+// view can be shared; the podium holds the top three and the table the rest (in General with each player's runs and
+// best layer, 2026-11-21), scrolling inside its own box; your row is marked, and pinned below when it is out of the
+// top; beside them, the season card (SeasonCard), which leads to the season's route and shop.
 
 const t = copy.social;
 const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes', groups: 'grupo' };
 const tabOf = (slug: string | null): LeaderTab =>
   slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : slug === 'clanes' ? 'clans' : slug === 'grupo' ? 'groups' : 'general';
+
+/** The General tab adds each player's runs and best layer; the columns hide when the table is narrow (app.css). */
+const hasExtra = (tab: LeaderTab) => tab === 'general';
 
 function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) {
   return (
@@ -31,8 +36,38 @@ function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) 
         {mine ? <span className="lb-you">{t.you}</span> : null}
       </th>
       <td className="lb-level">{fmt(r.level)}</td>
+      {hasExtra(tab) ? (
+        <>
+          <td className="lb-extra">{fmt(r.runs ?? 0)}</td>
+          <td className="lb-extra">{fmt(r.bestDepth ?? 0)}</td>
+        </>
+      ) : null}
       <td className="lb-value">{t.value[tab](r.value)}</td>
     </tr>
+  );
+}
+
+/** The solo tabs' column heads (only for screen readers in the pinned row, which sits under the table's). */
+function SoloHead({ tab, hidden = false }: { tab: LeaderTab; hidden?: boolean }) {
+  return (
+    <thead className={hidden ? 'sr-only' : undefined}>
+      <tr>
+        <th scope="col">{t.columns.rank}</th>
+        <th scope="col">{t.columns.player}</th>
+        <th scope="col">{t.columns.level}</th>
+        {hasExtra(tab) ? (
+          <>
+            <th scope="col" className="lb-extra">
+              {t.columns.runs}
+            </th>
+            <th scope="col" className="lb-extra">
+              {t.columns.bestDepth}
+            </th>
+          </>
+        ) : null}
+        <th scope="col">{t.columns.value[tab]}</th>
+      </tr>
+    </thead>
   );
 }
 
@@ -144,35 +179,11 @@ function ClanTable({ clans, mine }: { clans: ClanRow[]; mine: ClanRow | null }) 
   );
 }
 
-function Tiers({ tiers, score }: { tiers: number[]; score: number | null }) {
-  const mine = score === null ? null : tierOf(score, tiers);
-  return (
-    <section className="lip panel lb-tiers" aria-labelledby="lb-tiers-title">
-      <h2 id="lb-tiers-title">{t.tiersTitle}</h2>
-      <ul aria-label={t.tiersTitle}>
-        {[...SEASON_TIERS].reverse().map((tier) => {
-          const at = tiers[SEASON_TIERS.indexOf(tier)] ?? 0;
-          return (
-            <li key={tier} data-tier={tier} aria-current={tier === mine ? 'true' : undefined}>
-              <TierEmblem tier={tier} scale={1} />
-              <span>
-                <b>{t.tier[tier]}</b>
-                <small>{t.tierFrom(at)}</small>
-              </span>
-              {tier === mine ? <span className="lb-you">{t.yourTier}</span> : null}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 export function LeaderboardScreen() {
   const [params] = useSearchParams();
   const tab = tabOf(params.get('pestana'));
   const board = useLeaderboard(tab);
-  // The tiers go by the season's score, whatever the tab.
+  // The season card goes by the season's score and players, whatever the tab.
   const general = useLeaderboard('general');
   const v = board.data;
   const me = v?.me ?? null;
@@ -234,33 +245,21 @@ export function LeaderboardScreen() {
                 <>
                   <Podium rows={v.rows} tab={tab} me={me?.username} large />
                   {v.rows.length > 3 ? (
-                    <table className="lip panel lb-table" aria-label={t.leaderboard}>
-                      <thead>
-                        <tr>
-                          <th scope="col">{t.columns.rank}</th>
-                          <th scope="col">{t.columns.player}</th>
-                          <th scope="col">{t.columns.level}</th>
-                          <th scope="col">{t.columns.value[tab]}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {v.rows.slice(3).map((r) => (
-                          <Row key={r.username} r={r} tab={tab} mine={r.username === me?.username} />
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="lip panel lb-scroll">
+                      <table className="lb-table" aria-label={t.leaderboard}>
+                        <SoloHead tab={tab} />
+                        <tbody>
+                          {v.rows.slice(3).map((r) => (
+                            <Row key={r.username} r={r} tab={tab} mine={r.username === me?.username} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : null}
                   {me && !inTable ? (
                     <section className="lip panel lb-pinned" aria-label={t.yourRow}>
                       <table>
-                        <thead className="sr-only">
-                          <tr>
-                            <th scope="col">{t.columns.rank}</th>
-                            <th scope="col">{t.columns.player}</th>
-                            <th scope="col">{t.columns.level}</th>
-                            <th scope="col">{t.columns.value[tab]}</th>
-                          </tr>
-                        </thead>
+                        <SoloHead tab={tab} hidden />
                         <tbody>
                           <Row r={me} tab={tab} mine />
                         </tbody>
@@ -271,13 +270,8 @@ export function LeaderboardScreen() {
               )}
             </main>
             <aside className="lb-side">
-              <section className="lip panel lb-season" aria-labelledby="lb-season-title">
-                <h2 id="lb-season-title">{v.season.name}</h2>
-                <p className="lb-ends">{t.endsIn(daysLeft(v.season.endsAt))}</p>
-                {/* The season's players, whatever the tab (Purgas only counts those with a Core). */}
-                <p className="lb-players">{t.players(general.data?.total ?? v.total)}</p>
-              </section>
-              <Tiers tiers={v.season.tiers} score={general.data?.me?.value ?? null} />
+              {/* Your score and the season's players, whatever the tab (Purgas only counts those with a Core). */}
+              <SeasonCard season={v.season} me={general.data?.me ?? null} total={general.data?.total ?? v.total} />
             </aside>
           </div>
         )}
