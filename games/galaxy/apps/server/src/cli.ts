@@ -59,7 +59,7 @@ const USAGE = [
   '  grant-cosmetics <usuario> --all|--shop --reason <motivo>',
   '  draft-config <clave> <campo[,campo…]> [--ids id,id…]',
   '  check-config <lote.json | ->',
-  '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
+  '  notice <texto> [--tone info|warning] [--days N] [--from <ISO>] --reason <motivo>',
   '  shop-reconcile [--days N]',
   '  shop-unblock <usuario> --reason <motivo>',
   '  bench-referee [--ticks N] [--players 1-4]',
@@ -498,19 +498,33 @@ async function notice(args: string[], deps: CliDeps): Promise<number> {
   const reason = flag(args, '--reason');
   const tone = flag(args, '--tone') ?? 'info';
   const days = Number(flag(args, '--days') ?? '7');
-  const [text] = positional(args, ['--reason', '--tone', '--days']);
-  if (!text?.trim() || text.length > 200 || !reason || reason.length < 3 || (tone !== 'info' && tone !== 'warning') || !Number.isInteger(days) || days < 1 || days > 365) {
-    return usage(deps.out, 'Uso: notice <texto de 1 a 200 caracteres> [--tone info|warning] [--days 1-365] --reason <motivo>');
-  }
+  // --from (plan «temporadas como fichas»): a notice scheduled ahead, like the panel's (a season that starts at 00:00).
+  const fromFlag = flag(args, '--from');
   const now = new Date();
+  const from = fromFlag ? new Date(fromFlag) : now;
+  const [text] = positional(args, ['--reason', '--tone', '--days', '--from']);
+  if (
+    !text?.trim() ||
+    text.length > 200 ||
+    !reason ||
+    reason.length < 3 ||
+    (tone !== 'info' && tone !== 'warning') ||
+    !Number.isInteger(days) ||
+    days < 1 ||
+    days > 365 ||
+    Number.isNaN(from.getTime()) ||
+    (fromFlag !== undefined && from.getTime() <= now.getTime())
+  ) {
+    return usage(deps.out, 'Uso: notice <texto de 1 a 200 caracteres> [--tone info|warning] [--days 1-365] [--from <ISO futuro>] --reason <motivo>');
+  }
   const { id } = await createNotice({ db: deps.db, config: await cliConfig(deps.db), now: () => now }, CLI_ACTOR, {
     text: text.trim(),
     tone,
-    startsAt: now.toISOString(),
-    endsAt: new Date(now.getTime() + days * 86_400_000).toISOString(),
+    startsAt: from.toISOString(),
+    endsAt: new Date(from.getTime() + days * 86_400_000).toISOString(),
     reason,
   });
-  deps.out(`Aviso ${id} publicado durante ${days} días`);
+  deps.out(fromFlag ? `Aviso ${id} programado desde ${from.toISOString()} durante ${days} días` : `Aviso ${id} publicado durante ${days} días`);
   return 0;
 }
 

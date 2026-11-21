@@ -2,7 +2,7 @@
 
 Plan «torneo, Temporada 2, Mítica y referidos». La Temporada 1 (`season-1`) fue el torneo y acaba el 23/11 a las 00:00 (hora de Madrid). Justo después empieza la Temporada 2, más seria: 38 días, del 23/11 00:00 al 31/12 00:00 (el último día de juego es el 30/12). Acaba el 31/12 para que la Temporada 3 empiece en enero.
 
-**Estado: NO programada.** Desde el 21/11/2026 las temporadas son fichas (plan «temporadas como fichas»): la Temporada 2 es `temporada.json` (lo que eran `season.json`, `seasonRoute.json`, `missions.json` con `season` y `lab.json` con `season`). Se importa y se **programa** con el OK del propietario, y empieza sola el 23/11 a las 00:00. La Temporada 1 se archiva sola en ese mismo instante, con sus propios premios de cierre. Los logros, los eventos y los escáneres siguen siendo claves y se publican antes, el domingo 22/11.
+**Estado: PROGRAMADA el 21/11/2026 a las 23:59 de Madrid**, con el OK del propietario. La ficha `season-2` (v2) empieza sola el 23/11 a las 00:00, y la Temporada 1 se cierra sola en ese instante con sus premios. Ese mismo día se publicaron, con su OK, `achievements` v3, `events` v6 y `gacha` v6 (lo anterior, en `antes/`). Desde el 21/11/2026 las temporadas son fichas (plan «temporadas como fichas»): la Temporada 2 es `temporada.json` (lo que eran `season.json`, `seasonRoute.json`, `missions.json` con `season` y `lab.json` con `season`).
 
 ## Qué trae
 
@@ -283,6 +283,29 @@ El id y el inicio no cambian una vez empezada. El final se mueve con `season-ext
   - «Cuatro logros nuevos».
 
 **Nota para el propietario, el 31/12:** la Temporada 2 acaba el 31/12 a las 00:00. Con las temporadas como fichas, la Temporada 3 se puede dejar programada antes para que empiece justo entonces. Si no, el 31/12 no hay temporada abierta: no se suman puntos, no se ganan esquirlas, no hay evento y el núcleo de temporada del laboratorio no se ve.
+
+## Hecho el 21/11/2026
+
+`season-list` antes: `season-1` programada y abierta, del 13/11 00:00 al 23/11 00:00 (importada al desplegar el PR #251).
+
+`check-config` contra PRE, solo lectura:
+```
+Cambiaría achievements v2 → v3: list (+a-legend10 +a-boss300 +a-kills250k +a-extract100)
+Cambiaría events v5 → v6: list (+rumbo-profundo +escuadron-estelar)
+Cambiaría gacha v5 → v6: banners (+rumbo-profundo)
+Temporada season-2: Temporada 2, del 2026-11-22T23:00:00.000Z al 2026-12-30T23:00:00.000Z
+Se sostiene: achievements, events, gacha, temporada
+```
+
+Después:
+```
+Guardada como borrador: season-2  Temporada 2  borrador  23/11/2026 00:00 → 31/12/2026 00:00 (Madrid)  v1
+Programada: season-2  Temporada 2  programada  23/11/2026 00:00 → 31/12/2026 00:00 (Madrid)  v2
+Publicado achievements v3
+Publicado events v6
+Publicado gacha v6
+```
+Salud `{"ok":true,"db":"up"}` y sin errores en `docker logs`.
 
 ## Lo que no se puede deshacer
 
