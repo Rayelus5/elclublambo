@@ -125,6 +125,20 @@ test('una temporada programada se abre en el asistente y su anomalía sale con s
   expect(await screen.findByText('Corrosión contagiosa')).toBeInTheDocument();
 });
 
+test('los números del asistente usan el campo del panel (con decimales en español), no el del navegador', async () => {
+  const user = userEvent.setup();
+  api({ seasons: [S1, S2, S3], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.rules) }));
+  expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+  expect(screen.getByLabelText(t.fields.layer)).toHaveAttribute('inputmode', 'decimal');
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.anomaly) }));
+  expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+  // The default 0,02 shows as a percentage.
+  expect(screen.getByLabelText(t.fields.finishChance)).toHaveValue('2');
+});
+
 test('una temporada programada o pasada se ve, pero no se cambia desde el asistente', async () => {
   api({ seasons: [S1, S2], now: new Date().toISOString(), warnings: [] });
   renderAt('/admin/temporadas/season-1', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
