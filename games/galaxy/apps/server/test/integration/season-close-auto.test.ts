@@ -30,6 +30,7 @@ beforeAll(async () => {
   await scheduleSeason(app.db, OPEN, ctx, actor, 'Prueba');
 });
 afterAll(async () => {
+  await app.db.updateTable('galaxy.seasons').set({ state: 'draft' }).where('id', 'in', [ENDED, OPEN]).execute();
   await app.db.deleteFrom('galaxy.seasons').where('id', 'in', [ENDED, OPEN]).execute();
   await app.close();
 });
