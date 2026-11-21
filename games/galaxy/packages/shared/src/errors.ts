@@ -80,6 +80,13 @@ export const API_ERROR_CODES = [
   'planetarium_not_found',
   'profile_not_found',
   'season_closed',
+  // Seasons as records (plan «temporadas como fichas», 2026-11-21).
+  'season_managed',
+  'season_overlap',
+  'season_not_found',
+  'season_not_draft',
+  'season_started',
+  'season_invalid',
   'clan_full',
   'clan_name_taken',
   'clan_tag_taken',

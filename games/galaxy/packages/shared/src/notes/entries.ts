@@ -20,6 +20,32 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-47-tienda-de-temporada',
+    version: '1.47',
+    date: '2026-11-22',
+    title: 'La tienda de temporada luce lo que ganas',
+    summary: 'La pantalla de Temporada enseña tus recursos y lo que compras o recoges sube a la barra con su sonido',
+    items: [
+      { kind: 'mejora', text: 'Arriba tienes tus recursos como en Misiones, con tu moneda de temporada al final. Lo que compras en la tienda o recoges en la ruta sale volando hacia ellos con su sonido y las cifras suben' },
+      { kind: 'mejora', text: 'Los títulos, marcos, avatares y skins aparecen con su nombre donde los recoges, y los premios de cierre de temporada se celebran' },
+      { kind: 'nuevo', text: 'Recoger todo en la ruta de temporada, para llevarte de una vez cada escalón alcanzado' },
+      { kind: 'mejora', text: 'La tienda marca lo que puedes pagar, cuánto te falta para lo demás y lo agotado, y te pide confirmación antes de una compra que se lleva más de la mitad de tu moneda de temporada' },
+      { kind: 'mejora', text: 'El tiempo que le queda a la temporada se ve en vivo, hasta el último segundo' },
+    ],
+  },
+  {
+    id: 'v1-46-temporadas-solas',
+    version: '1.46',
+    date: '2026-11-22',
+    title: 'Las temporadas empiezan y acaban solas',
+    summary: 'Cada temporada empieza en punto y, al acabar, te dice cómo quedaste',
+    items: [
+      { kind: 'nuevo', text: 'Cada temporada empieza en punto a las 00:00 y la anterior se cierra sola. Desde el primer minuto tus partidas ya dan esquirlas y cuentan para las misiones de la nueva' },
+      { kind: 'nuevo', text: 'Al acabar una temporada te llega un mensaje con tu puesto y tu tramo, y un botón para ir a recoger tus premios' },
+      { kind: 'nuevo', text: 'Si estás jugando cuando empieza una temporada, te avisamos al momento' },
+    ],
+  },
+  {
     id: 'v1-45-instalar-navegadores',
     version: '1.45',
     date: '2026-11-18',

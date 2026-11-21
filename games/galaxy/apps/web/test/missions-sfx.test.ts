@@ -54,3 +54,12 @@ test('con todo silenciado no suena nada', () => {
   expect(count(() => playClaim({ coins: 2500, signal: 2 }, true))).toBe(0);
   setSettings({ muted: false });
 });
+
+test('las Esquirlas suenan a cristal y una pieza nueva brilla, cada una además del resto', () => {
+  const pop = count(() => playClaim({}));
+  expect(count(() => playClaim({ shards: 30 }))).toBeGreaterThan(pop);
+  expect(count(() => playClaim({ title: 'Pionero' }))).toBeGreaterThan(pop);
+  expect(count(() => playClaim({ skin: 'skin-lumen-aurora' }))).toBeGreaterThan(pop);
+  const coins = count(() => playClaim({ coins: 100 }));
+  expect(count(() => playClaim({ coins: 100, shards: 30, frame: 'abyss' }))).toBeGreaterThan(coins);
+});

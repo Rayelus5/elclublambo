@@ -57,6 +57,9 @@ import { registerShopRoutes } from './shop/routes';
 import { shopFlag } from './shop/service';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
+import { createSeasonStore, seasonAwareConfig, startSeasonImport } from './season/records';
+import { registerSeasonAdminRoutes } from './season/admin-routes';
+import { startSeasonJobs } from './season/jobs';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
@@ -80,7 +83,13 @@ export type AppDeps = {
   /** The server's disk for «Almacenamiento»: by default the root's (statfs); tests pass a fixed one. */
   disk?: () => Promise<Disk | null>;
   /** Background jobs that need the live config and socket (mail v2, P5: scheduled mail): only the production entry. */
-  jobs?: { mail?: boolean };
+  jobs?: { mail?: boolean; seasons?: boolean };
+  /**
+   * Seasons as records (plan «temporadas como fichas», 2026-11-21): the live `season`, `seasonRoute`, `missions.season`
+   * and `lab.season` come from galaxy.seasons and can no longer be published the old way. On in production; tests that
+   * check it turn it on (the rest keep reading the old keys, so their seasons never meet another file's records).
+   */
+  seasons?: boolean;
 };
 
 /**
@@ -141,11 +150,18 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   const now = deps.now ?? (() => new Date());
-  const config =
+  const baseConfig =
     deps.config ??
     createConfigService(deps.db, {
       onInvalid: (key, err) => app.log.error({ key, err: (err as Error).name }, 'config_invalid_stored_row'),
     });
+  const seasons = deps.seasons ? createSeasonStore(deps.db, { onInvalid: (id, err) => app.log.error({ season: id, err: (err as Error).name }, 'season_invalid_stored_row') }) : null;
+  const config = seasons ? seasonAwareConfig(baseConfig, seasons, now) : baseConfig;
+  // The first deploy turns what was live into records; tried until it works, never fatal.
+  if (seasons && deps.jobs?.seasons) {
+    const stopImport = startSeasonImport(deps.db, baseConfig, seasons, app.log);
+    app.addHook('onClose', async () => stopImport());
+  }
   // Plan phase 6: the co-op runs (their clock, logs and pay); tests reach it as app.galaxyCoop.
   const coop = new CoopService({ db: deps.db, config, now, log: app.log, autoRecover: process.env.NODE_ENV !== 'test' });
   app.decorate('galaxyCoop', coop);
@@ -232,11 +248,18 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerTutorialRoutes(api, { db: deps.db, config });
     registerSettingsRoutes(api, { db: deps.db });
     registerNotesRoutes(api, { db: deps.db, env: deps.env });
-    registerSeasonRoutes(api, { db: deps.db, config, now });
+    registerSeasonRoutes(api, { db: deps.db, config, now, seasons });
+    // The panel's «Temporadas» (plan «temporadas como fichas»).
+    registerSeasonAdminRoutes(api, { db: deps.db, config, env: deps.env, now, seasons });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
     if (deps.jobs?.mail) {
       const stopMail = startMailJobs({ db: deps.db, config, now, live }, app.log);
       api.addHook('onClose', async () => stopMail());
+    }
+    // Seasons close and start on their own (plan «temporadas como fichas», PR 2).
+    if (deps.jobs?.seasons && seasons) {
+      const stopSeasons = startSeasonJobs({ db: deps.db, config, store: seasons, now, live }, app.log);
+      api.addHook('onClose', async () => stopSeasons());
     }
     registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });

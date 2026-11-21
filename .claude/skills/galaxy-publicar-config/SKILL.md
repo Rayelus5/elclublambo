@@ -39,7 +39,7 @@ Las reglas están en la parte B de `games/galaxy/docs/CONTENIDO.md`. El acceso S
    ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js" | grep -E "check-config|draft-config"
    ```
    Si no salen, el código de las skills aún no está desplegado: **para**. Sin `check-config` no se publica.
-4. **El `LEEME.md` de la carpeta** dice el orden y, si hay `season`, la hora. Una temporada nueva solo se publica al acabar la anterior.
+4. **El `LEEME.md` de la carpeta** dice el orden. **Temporadas:** desde el 21/11/2026 son fichas (`temporada.json`), no claves: no se publican con `publish-config` (el servidor lo rechaza), se importan y se programan con `season-import` y `season-schedule` (skill `galaxy-temporada`), y empiezan solas a su hora. `check-config` sí comprueba la ficha junto al resto de la carpeta.
 
 ## 2. Comprueba contra lo vivo (solo lectura)
 
@@ -63,7 +63,7 @@ Las reglas están en la parte B de `games/galaxy/docs/CONTENIDO.md`. El acceso S
 Enseña al propietario, en un mensaje corto:
 - las claves en orden, con la línea de `check-config` de cada una;
 - el motivo que quedará en la auditoría;
-- si hay temporada, la hora a la que se publica y qué pasa (se archiva la anterior);
+- si hay temporada, sus fechas y que se programa (empieza sola; la anterior se archiva sola al acabar);
 - el texto del aviso, si lo hay.
 
 Después pregunta con AskUserQuestion:

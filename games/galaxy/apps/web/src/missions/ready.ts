@@ -5,7 +5,20 @@ import type { MissionsView } from '@galaxy/shared';
 export type MissionTab = 'daily' | 'weekly' | 'season' | 'events' | 'achievements';
 export const MISSION_TABS: MissionTab[] = ['daily', 'weekly', 'season', 'events', 'achievements'];
 
-export type Reward = { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; eventSignals?: number; title?: string | null; frame?: string | null };
+/** What a reward gives; the season's ones add their currency (`shards`), an avatar and a probe skin (season shop plan, PR 4). */
+export type Reward = {
+  coins?: number;
+  dust?: number;
+  signal?: number;
+  xp?: number;
+  points?: number;
+  eventSignals?: number;
+  shards?: number;
+  title?: string | null;
+  frame?: string | null;
+  avatar?: string | null;
+  skin?: string | null;
+};
 
 /** One reward ready to collect: how to claim it, its name and what it gives; `big` ones (achievements, the season's missions) celebrate. */
 export type ClaimTarget =
@@ -41,7 +54,7 @@ export function firstReadyTab(v: MissionsView): MissionTab | null {
   return MISSION_TABS.find((k) => ready[k] > 0) ?? null;
 }
 
-/** What several rewards add up to (title and frame are not summed: the last one kept). */
+/** What several rewards add up to (the pieces are not summed: the last one kept). */
 export function addRewards(a: Reward, b: Reward): Reward {
   const n = (x?: number) => x ?? 0;
   return {
@@ -51,7 +64,10 @@ export function addRewards(a: Reward, b: Reward): Reward {
     xp: n(a.xp) + n(b.xp),
     points: n(a.points) + n(b.points),
     eventSignals: n(a.eventSignals) + n(b.eventSignals),
+    shards: n(a.shards) + n(b.shards),
     title: b.title ?? a.title ?? null,
     frame: b.frame ?? a.frame ?? null,
+    avatar: b.avatar ?? a.avatar ?? null,
+    skin: b.skin ?? a.skin ?? null,
   };
 }

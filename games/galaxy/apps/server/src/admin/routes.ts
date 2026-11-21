@@ -5,6 +5,7 @@ import {
   adminGalaxyGrantSchema,
   adminGalaxyRevokeSchema,
   adminLeaderboardSchema,
+  adminPrizesSchema,
   adminPlayerListSchema,
   adminReasonSchema,
   adminRenameSchema,
@@ -38,6 +39,7 @@ import {
   revokeGalaxy,
   listPlayers,
   setLeaderboardExcluded,
+  setPrizeEligible,
   setXp,
   unbanPlayer,
 } from './players';
@@ -169,6 +171,14 @@ export function registerAdminRoutes(api: FastifyInstance, deps: AdminDeps & { en
     const body = adminLeaderboardSchema.parse(req.body);
     await guardTarget(deps.db, session, user(req), { self: false });
     return setLeaderboardExcluded(deps, actor, user(req), body.excluded, body.reason);
+  });
+
+  // Plan «temporadas como fichas»: admins who play can be left out of the prizes for their place (never by themselves).
+  api.post('/galaxy/api/admin/players/:username/prizes', async (req) => {
+    const { actor, session } = await actorOf(req, true);
+    const body = adminPrizesSchema.parse(req.body);
+    await guardTarget(deps.db, session, user(req), { self: false });
+    return setPrizeEligible(deps, actor, user(req), body.eligible, body.reason);
   });
 
   api.get('/galaxy/api/admin/audit', async (req, reply) => {

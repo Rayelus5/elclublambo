@@ -76,6 +76,20 @@ test('el material y los componentes se muestran donde se piden, el material abre
   expect(order).toEqual(['material', 'components', 'dust', 'coins', 'signal', 'event-signal']);
 });
 
+test('con la moneda de temporada, la barra suma su chip al final con su nombre, y sin ella no sale', async () => {
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, { ...gacha(), banners: [] }) });
+  const first = renderAt('/temporada', { '/temporada': <WalletBar wallet={wallet} season={{ name: 'Esquirlas', balance: 45 }} /> });
+  const chip = await screen.findByRole('img', { name: r.season(45, 'Esquirlas') });
+  expect(chip).toHaveClass('res', 'shards');
+  expect(chip.querySelector('svg')).not.toBeNull();
+  const order = [...document.querySelectorAll('.res')].map((el) => [...el.classList].find((c) => c !== 'res' && c !== 'res-link'));
+  expect(order).toEqual(['dust', 'coins', 'signal', 'shards']);
+  first.unmount();
+  renderAt('/', { '/': <WalletBar wallet={wallet} /> });
+  await screen.findByRole('link', { name: new RegExp(r.signal(3)) });
+  expect(document.querySelector('.res.shards')).toBeNull();
+});
+
 test('syncWallet pone el monedero nuevo en todas las vistas que lo llevan, sin crear las que no están', () => {
   const qc = new QueryClient();
   const old: Wallet = { coins: 1, dust: 1, signal: 1 };

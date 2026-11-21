@@ -8,6 +8,7 @@
       0.03
     ]
   },
+  "mythic": 0.0005,
   "standard": {
     "base": 0.01,
     "softStart": 2,
@@ -29,6 +30,7 @@
   },
   "costs": {
     "coins": 100,
+    "coinsFive": 475,
     "coinsTen": 900,
     "signals": 1
   },
@@ -59,7 +61,7 @@
         "value": "supernova"
       },
       "startsAt": "2026-11-09T23:00:00.000Z",
-      "endsAt": "2026-11-13T23:00:00.000Z"
+      "endsAt": "2026-11-23T13:00:00.000Z"
     }
   ],
   "leftoverDust": 50
