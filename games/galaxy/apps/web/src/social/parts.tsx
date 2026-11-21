@@ -26,6 +26,23 @@ export function nextTier(score: number, tiers: readonly number[]): { tier: Seaso
   return i < 0 ? null : { tier: SEASON_TIERS[i]!, points: tiers[i]! - score };
 }
 
+/**
+ * Where a score stands on the way to the next tier: the tier it reached (null under the first), the next one with the
+ * points it still needs, and the share of the way from the reached tier's threshold (0 without one) to the next's;
+ * at the top there is no next and the share is 1.
+ */
+export function tierProgress(
+  score: number,
+  tiers: readonly number[],
+): { tier: SeasonTier | null; next: { tier: SeasonTier; points: number } | null; from: number; to: number | null; share: number } {
+  const tier = tierOf(score, tiers);
+  const next = nextTier(score, tiers);
+  const from = tier ? tiers[SEASON_TIERS.indexOf(tier)]! : 0;
+  const to = next ? score + next.points : null;
+  const share = to === null ? 1 : to <= from ? 0 : Math.min(1, Math.max(0, (score - from) / (to - from)));
+  return { tier, next, from, to, share };
+}
+
 /** Whole days left: under a day it ends today, under two it ends tomorrow. */
 export function daysLeft(endsAt: string, now = Date.now()): number {
   return Math.max(0, Math.floor((Date.parse(endsAt) - now) / DAY));
@@ -52,6 +69,7 @@ export function Podium({ rows, tab, me, large = false }: { rows: LeaderRow[]; ta
           </Link>
           <span className="podium-level">{t.level(r.level)}</span>
           <span className="podium-value">{t.value[tab](r.value)}</span>
+          {large && r.runs !== undefined ? <span className="podium-runs">{t.podiumRuns(r.runs, r.bestDepth ?? 0)}</span> : null}
           <span className="podium-step" aria-hidden="true">
             {r.rank}
           </span>

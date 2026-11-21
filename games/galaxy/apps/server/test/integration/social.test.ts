@@ -177,19 +177,20 @@ describe('la clasificación de la temporada', () => {
 
   test('la general: por puntos, los empates comparten puesto y va antes quien llegó antes', async () => {
     const v = await board(ctx, a.cookie);
-    expect(v.season).toEqual({ id: s.id, name: s.name, startsAt: s.startsAt, endsAt: s.endsAt, tiers: [500, 2000, 6000, 15000, 30000] });
+    const closing = parseConfig('seasonRoute', {}).closing;
+    expect(v.season).toEqual({ id: s.id, name: s.name, startsAt: s.startsAt, endsAt: s.endsAt, tiers: [500, 2000, 6000, 15000, 30000], closing });
     expect(v.tab).toBe('general');
     expect(v.rows).toEqual([
-      { rank: 1, username: b.username, level: 1, value: 180, avatar: null, frame: null },
-      { rank: 2, username: c.username, level: 1, value: 175, avatar: null, frame: null },
-      { rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null },
+      { rank: 1, username: b.username, level: 1, value: 180, avatar: null, frame: null, runs: 1, bestDepth: 3 },
+      { rank: 2, username: c.username, level: 1, value: 175, avatar: null, frame: null, runs: 1, bestDepth: 5 },
+      { rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null, runs: 1, bestDepth: 5 },
     ]);
-    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null });
+    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null, runs: 1, bestDepth: 5 });
     expect(v.total).toBe(4);
   });
 
   test('tu fila sale aunque estés fuera del top, y sin puntos no hay fila', async () => {
-    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10, avatar: null, frame: null });
+    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10, avatar: null, frame: null, runs: 1, bestDepth: 1 });
     expect((await board(ctx, early.cookie)).me).toBeNull();
     expect((await board(ctx, cheat.cookie)).me).toBeNull();
   });
@@ -211,6 +212,9 @@ describe('la clasificación de la temporada', () => {
     // No Cores, no row.
     expect(purges.me).toBeNull();
     expect(purges.total).toBe(3);
+    // The runs and the best layer are the General tab's columns only.
+    expect(depth.rows[0]).not.toHaveProperty('runs');
+    expect(purges.rows[0]).not.toHaveProperty('bestDepth');
   });
 
   test('una pestaña que no existe no vale y sin sesión no hay clasificación', async () => {
@@ -340,6 +344,49 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
     expect((await board(ctx, solo!.cookie, 'groups')).myGroup).toBeNull();
     // The group records never reach the solo tabs.
     expect((await board(ctx, a!.cookie, 'depth')).me).toBeNull();
+  });
+});
+
+// The leaderboard shows more of the season (2026-11-21): each General row says how many runs counted and the best
+// layer among them, from the same aggregate (an adjustment is not a run), and the season brings what its close pays.
+describe('las partidas, la mejor capa y los premios de cierre', () => {
+  const closing = {
+    tiers: [{ coins: 100 }, { coins: 200 }, { coins: 300, dust: 50 }, { signal: 4 }, { signal: 9, title: 'Estelar de prueba' }],
+    podium: { signal: 7, frame: 'crown' },
+    podiumSize: 5,
+  };
+  const s = season();
+  const clock = at(s, 40);
+  let ctx: Ctx;
+  let many: Awaited<ReturnType<typeof player>>;
+  let gift: typeof many;
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s, sectors: NEUTRAL_SECTORS, seasonRoute: { closing } }) });
+    [many, gift] = [await player(ctx, 'lrm'), await player(ctx, 'lrg')];
+    // Three runs that count (layers 2, 6 and 4) and two that do not: a suspicious one and one before the season.
+    await scored(ctx, many.id, { depth: 2, bossKills: 0, outcome: 'died', when: at(s, 5) });
+    await scored(ctx, many.id, { depth: 6, bossKills: 1, outcome: 'extracted', when: at(s, 6) });
+    await scored(ctx, many.id, { depth: 4, bossKills: 0, outcome: 'died', when: at(s, 7) });
+    await scored(ctx, many.id, { depth: 40, bossKills: 9, outcome: 'extracted', when: at(s, 8), suspicious: true });
+    await scored(ctx, many.id, { depth: 30, bossKills: 9, outcome: 'extracted', when: at(s, -3) });
+    // Only points an admin gave: on the board, with no run and no layer.
+    await ctx.db.insertInto('galaxy.season_adjustments').values({ account_id: gift.id, season: s.id, points: 40 }).execute();
+    invalidateLeaderboard();
+  });
+  afterAll(() => ctx.close());
+
+  test('cada fila de la general dice sus partidas y su mejor capa; un ajuste no es una partida', async () => {
+    const v = await board(ctx, many.cookie);
+    expect(v.me).toMatchObject({ username: many.username, runs: 3, bestDepth: 6 });
+    expect(v.rows.find((r) => r.username === gift.username)).toMatchObject({ value: 40, runs: 0, bestDepth: 0 });
+    expect((await board(ctx, gift.cookie)).me).toMatchObject({ value: 40, runs: 0, bestDepth: 0 });
+  });
+
+  test('la temporada trae los premios de cierre de la configuración viva, en todas las pestañas', async () => {
+    const want = parseConfig('seasonRoute', { closing }).closing;
+    expect(want.podiumSize).toBe(5);
+    expect((await board(ctx, many.cookie)).season?.closing).toEqual(want);
+    expect((await board(ctx, many.cookie, 'groups')).season?.closing).toEqual(want);
   });
 });
 

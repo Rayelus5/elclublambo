@@ -1,4 +1,4 @@
-import type { BoostsView, Leaderboard, MeResponse, MissionsView, NewsPost, ReleaseNote, TitleNotice } from '@galaxy/shared';
+import { type BoostsView, DEFAULT_CLOSING_TIERS, DEFAULT_PODIUM, type Leaderboard, type MeResponse, type MissionsView, type NewsPost, type ReleaseNote, type TitleNotice } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -33,7 +33,7 @@ const boosts: BoostsView = {
 const anomaly = { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca' };
 const SEASON_END = '2026-12-07T23:00:00.000Z';
 const board: Leaderboard = {
-  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-09T23:00:00.000Z', endsAt: SEASON_END, tiers: [350, 1400, 4200, 10000, 20000] },
+  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-09T23:00:00.000Z', endsAt: SEASON_END, tiers: [350, 1400, 4200, 10000, 20000], closing: { tiers: [...DEFAULT_CLOSING_TIERS], podium: DEFAULT_PODIUM, podiumSize: 3 } },
   tab: 'general',
   rows: [],
   me: null,
