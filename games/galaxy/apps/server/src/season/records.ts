@@ -196,7 +196,13 @@ const LOCK = sql`select pg_advisory_xact_lock(hashtext('galaxy.seasons'))`;
  * The overlap check is deferred to the commit (so one transaction can extend a season and push the next); each change
  * runs it at its own end, inside the function, so a clash comes back as `season_overlap` wherever the transaction ends.
  */
-const CHECK_NOW = sql`set constraints galaxy.seasons_no_overlap immediate`;
+const CHECK_NOW = {
+  async execute(trx: Kysely<DB>): Promise<void> {
+    await sql`set constraints galaxy.seasons_no_overlap immediate`.execute(trx);
+    // Back to deferred for whatever else the same transaction does (a caller's own transaction, the tests').
+    await sql`set constraints galaxy.seasons_no_overlap deferred`.execute(trx);
+  },
+};
 
 /** What a record checks against: the live permanent lab tree and the content's anomalies. */
 export interface SeasonContext {

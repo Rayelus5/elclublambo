@@ -1,26 +1,30 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { type HallOfFame, parseConfig, PROBE_TEST, type SeasonView } from '@galaxy/shared';
+import { type HallOfFame, madridDayOf, madridMidnightOf, parseConfig, PROBE_TEST, type SeasonView } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { saveSeasonDraft, scheduleSeason } from '../../src/season/records';
 import { get, post, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // Seasons as records in the running server (plan «temporadas como fichas», 2026-11-21): the season a player sees is the
 // record open at that moment, with its own currency; one that ended while the next is open is archived on the first
-// read with its own closing prizes. A moment far ahead, so no run and no other file's season meets these windows.
+// read with its own closing prizes. No other file makes season records, and no run of theirs is ten days old.
 
 const tag = randomBytes(3).toString('hex');
 const ENDED = `te-${tag}`;
 const OPEN = `to-${tag}`;
-const NOW = new Date('2088-06-15T12:00:00.000Z');
+// Madrid midnights around today: one season that ended ten days ago and one open now (no other file makes records).
+const today = madridDayOf(new Date().toISOString());
+const dayOff = (n: number) => {
+  const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+  return madridMidnightOf(new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10));
+};
 const actor = { id: null, label: 'test' };
 const ctx = { labNodes: parseConfig('lab', {}).nodes, anomalies: ['contagion'] };
 let app: Awaited<ReturnType<typeof testApp>>;
 
 beforeAll(async () => {
-  app = await testApp({ seasons: true, now: () => NOW });
-  // Madrid's midnights in June are 22:00 UTC.
-  await saveSeasonDraft(app.db, { id: ENDED, name: 'Prueba acabada', startsAt: '2088-05-31T22:00:00.000Z', endsAt: '2088-06-09T22:00:00.000Z', rules: { anomaly: 'contagion', tiers: [100, 200, 300, 400, 500] }, route: { currency: { name: 'Polvillo', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
-  await saveSeasonDraft(app.db, { id: OPEN, name: 'Prueba abierta', startsAt: '2088-06-09T22:00:00.000Z', endsAt: '2088-06-30T22:00:00.000Z', rules: { anomaly: 'contagion' }, route: { currency: { name: 'Astillas', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
+  app = await testApp({ seasons: true });
+  await saveSeasonDraft(app.db, { id: ENDED, name: 'Prueba acabada', startsAt: dayOff(-20), endsAt: dayOff(-10), rules: { anomaly: 'contagion', tiers: [100, 200, 300, 400, 500] }, route: { currency: { name: 'Polvillo', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
+  await saveSeasonDraft(app.db, { id: OPEN, name: 'Prueba abierta', startsAt: dayOff(-10), endsAt: dayOff(20), rules: { anomaly: 'contagion' }, route: { currency: { name: 'Astillas', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
   await scheduleSeason(app.db, ENDED, ctx, actor, 'Prueba');
   await scheduleSeason(app.db, OPEN, ctx, actor, 'Prueba');
 });

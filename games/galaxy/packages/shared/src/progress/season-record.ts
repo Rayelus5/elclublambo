@@ -104,6 +104,22 @@ export function seasonRecordIssues(input: unknown, ctx: { labNodes?: ConfigValue
   return out;
 }
 
+/** The instant a Madrid day (yyyy-mm-dd) starts: 23:00Z the day before in winter, 22:00Z in summer. */
+export function madridMidnightOf(day: string): string {
+  const base = Date.parse(`${day}T00:00:00.000Z`);
+  for (const hours of [1, 2, 0]) {
+    const iso = new Date(base - hours * 3_600_000).toISOString();
+    if (isMadridMidnight(iso) && madridDayOf(iso) === day) return iso;
+  }
+  throw new RangeError(`not_a_day:${day}`);
+}
+
+const madridDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' });
+/** The Madrid day (yyyy-mm-dd) an instant falls on. */
+export function madridDayOf(iso: string): string {
+  return madridDay.format(new Date(iso));
+}
+
 type Dated = { state: SeasonState; startsAt: string; endsAt: string };
 
 /** The scheduled season open at `now` (starts_at <= now < ends_at), or null. Drafts never count. */

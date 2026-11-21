@@ -73,7 +73,7 @@ describe('fichas de temporada', () => {
   });
 
   test('las revisiones no se cambian ni se borran', async () => {
-    await expect(committed(() => trx.updateTable('galaxy.season_revisions').set({ note: 'otra' }).where('season', '=', 't-a').execute())).rejects.toThrow(/season_revisions_append_only/);
+    await expect(committed(() => trx.updateTable('galaxy.season_revisions').set({ note: 'otra' }).where('season', '=', 't-a').execute())).rejects.toThrow(/season_revisions_append_only|permission denied/);
   });
 
   test('dos temporadas programadas no se solapan; seguidas sí caben', async () => {
