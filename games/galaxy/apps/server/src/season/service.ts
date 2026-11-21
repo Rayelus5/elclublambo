@@ -53,7 +53,7 @@ export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: st
   const claimed = new Set(claims.map((x) => x.step));
   const count = new Map(bought.map((x) => [x.item, x.bought]));
   return {
-    season: { id, name: c.season.name, endsAt: c.season.endsAt, tiers: c.season.tiers },
+    season: { id, name: c.season.name, startsAt: c.season.startsAt, endsAt: c.season.endsAt, tiers: c.season.tiers },
     score,
     tier: seasonTier(score, c.season),
     currency: { name, balance: Number(balance?.amount ?? 0) },

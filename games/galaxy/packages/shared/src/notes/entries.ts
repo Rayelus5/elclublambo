@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-49-temporadas-pasadas',
+    version: '1.49',
+    date: '2026-11-22',
+    title: 'Consulta cómo acabó cada temporada pasada',
+    summary: 'La clasificación guarda el resultado final de cada temporada, con su podio, tu puesto y sus números',
+    items: [
+      { kind: 'nuevo', text: 'Elige una temporada pasada arriba en la clasificación y consulta cómo acabó: su podio, la clasificación final con tu puesto y el tramo de cada jugador' },
+      { kind: 'nuevo', text: 'Cada temporada pasada enseña sus números: jugadores, partidas, enemigos eliminados, Núcleos, extracciones, la capa más profunda, el sector y la sonda más jugados y cuántos llegaron a cada tramo' },
+      { kind: 'mejora', text: 'También ves lo que pagó cada tramo al cerrar y si subiste al podio' },
+      { kind: 'mejora', text: 'En Trofeos, cada temporada del salón de la fama y de tu historial lleva a su clasificación final' },
+    ],
+  },
+  {
     id: 'v1-48-clasificacion-temporada',
     version: '1.48',
     date: '2026-11-22',

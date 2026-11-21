@@ -2054,6 +2054,63 @@
   .lb-season-link .pill { --lip-h: 3px; height: 40px; padding: 0 14px 0 16px; font-size: 15px; font-weight: 800; transition: transform .18s var(--ease-bounce); }
   .lb-season-link .pill .ico { inline-size: 18px; block-size: 18px; transition: translate .18s var(--ease-bounce); }
   .lb-season:hover .lb-season-link .pill .ico { translate: 3px 0; }
+  /* Past seasons on the leaderboard (plan «temporadas como fichas», histórico, 2026-11-22; DESIGN_SYSTEM §8 undecies):
+     the season selector in the head, General alone among the tabs with a note on why, the past season's card (not a
+     link: it is over), the tier each player finished in, «Ver más», and the season's numbers with how many reached
+     each tier, a bar per tier in its metal. */
+  .lb-pick { flex: none; max-inline-size: min(300px, 36%); }
+  .lb-past-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+  .lb-past-tabs .lb-tabs { flex: 1 1 560px; }
+  .tabs button:disabled { cursor: not-allowed; opacity: .45; }
+  .tabs button:disabled:hover { color: var(--color-ink-mute); }
+  .lb-past-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; color: var(--color-ink-mute); }
+  .lb-past-note .ico { inline-size: 18px; block-size: 18px; flex: none; color: var(--color-ice); }
+  .lb-past { padding: 18px 18px 16px; display: grid; gap: 14px; }
+  .lb-past p { margin: 0; }
+  .lb-past-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+  .lb-past-head h2 { margin: 0; font: 400 26px var(--font-display); line-height: 1.05; overflow-wrap: anywhere; }
+  .lb-past-chip { padding: 3px 10px; border-radius: 99px; background: rgb(255 255 255 / .08); color: var(--color-ink-soft); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .lb-past-span { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .lb-past-span .ico { inline-size: 18px; block-size: 18px; flex: none; color: var(--color-ice); }
+  .lb-past .lb-prizes-hint { margin-block-start: -4px; font-size: 13px; color: var(--color-ink-mute); }
+  .lb-past-podium { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-solar); }
+  .lb-past-podium .ico { inline-size: 20px; block-size: 20px; flex: none; }
+  .lb-past-tier { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .lb-table .lb-past-tier-cell, .lb-pinned .lb-past-tier-cell { inline-size: 140px; padding-block: 4px; text-align: left; }
+  .lb-past-table thead th.lb-extra { text-align: left; }
+  .lb-more { justify-self: center; }
+  .lb-stats { padding: 18px; display: grid; gap: 14px; }
+  .lb-stats h2 { margin: 0; font: 400 22px var(--font-display); }
+  .lb-stats h3 { margin: 0 0 8px; font: 400 18px var(--font-display); }
+  .lb-stats .panel-note { margin: 0; }
+  .lb-stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .lb-stats-grid > div { display: grid; align-content: start; gap: 2px; min-inline-size: 0; padding: 10px 12px; border-radius: 14px; background: rgb(255 255 255 / .045); }
+  .lb-stats-grid > div.wide { grid-column: 1 / -1; }
+  .lb-stats-grid dt { font-size: 13px; color: var(--color-ink-mute); }
+  .lb-stats-grid dd { margin: 0; font: 400 22px var(--font-display); line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .lb-stats-grid > div.wide dd { font: 700 16px var(--font-sans); }
+  .lb-reached { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .lb-reached li { --bar: var(--color-solar); display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+  .lb-reached li[data-tier='bronze'] { --bar: var(--place-bronze); }
+  .lb-reached li[data-tier='silver'] { --bar: var(--place-silver); }
+  .lb-reached li[data-tier='gold'] { --bar: var(--place-gold); }
+  .lb-reached li[data-tier='platinum'] { --bar: var(--color-ice); }
+  .lb-reached li[data-tier='stellar'] { --bar: var(--color-uv-soft); }
+  .lb-reached .tier-art { grid-row: span 2; }
+  .lb-reached b { font-size: 15px; }
+  .lb-reached-n { font-size: 13px; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .lb-reached-bar { grid-column: 2 / -1; display: block; block-size: 6px; border-radius: 99px; background: rgb(255 255 255 / .07); overflow: hidden; }
+  .lb-reached-bar i { display: block; block-size: 100%; inline-size: calc(var(--share, 0) * 100%); border-radius: 99px; background: var(--bar); }
+  /* An admin's preview of a season (2026-11-22), on the leaderboard and on /temporada: a band with a dashed Ice edge,
+     the eye, whose preview it is and when that season opens, what the preview leaves out, and the way back to the
+     panel. Players never see it. */
+  .preview-band { --r: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; border: 2px dashed color-mix(in oklab, var(--color-ice) 45%, transparent); background: linear-gradient(90deg, color-mix(in oklab, var(--color-sky) 24%, var(--color-panel)), color-mix(in oklab, var(--color-panel) 94%, transparent)); }
+  .preview-band-icon { display: grid; place-items: center; flex: none; inline-size: 40px; block-size: 40px; border-radius: 12px; background: color-mix(in oklab, var(--color-ice) 16%, transparent); color: var(--color-ice); }
+  .preview-band-icon .ico { inline-size: 24px; block-size: 24px; }
+  .preview-band-text { display: grid; gap: 2px; flex: 1 1 280px; min-inline-size: 0; }
+  .preview-band-text b { font-size: 17px; overflow-wrap: anywhere; }
+  .preview-band-text span { font-size: 14px; color: var(--color-ink-soft); }
+  .preview-band > .pill { flex: none; }
   /* The profile. */
   /* The head: a large avatar (96 px, 144 with its frame) beside the name, title, level bar, clan and since when. */
   .profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
@@ -3096,6 +3153,12 @@
   .hall-podium li > span:last-child { color: var(--color-ink-soft); font-size: 14px; }
   .lb-hall { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; }
   .lb-hall .ico { inline-size: 18px; block-size: 18px; color: var(--color-solar); }
+  /* Each closed season leads to its final ranking (2026-11-22). */
+  .hall-results { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+  .hall-results .ico { inline-size: 18px; block-size: 18px; color: var(--color-solar); }
+  .season-history-link { color: var(--color-ink); text-decoration: none; justify-self: start; }
+  .season-history-link:hover { text-decoration: underline; }
+  .season-history-link:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; border-radius: 6px; }
   .profile-avatar.frame-crown { box-shadow: 0 0 0 4px var(--color-solar), 0 0 0 7px var(--color-uv), 0 0 22px 6px rgb(255 201 74 / .45); border-radius: 18px; }
   /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). Wider than the other lists: the route is a track. */
   /* «Tienda de temporada»: centred like «Ver clasificación completa», violet, no icon. */
@@ -3468,6 +3531,10 @@
   .ev-step-body > .panel-note { margin: -8px 0 0; }
   .ev-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgb(0 0 0 / .16); font-size: 14px; }
   .ev-quick > span { color: var(--color-ink-mute); font-weight: 700; }
+  /* The wizard's review: the saved season seen as players will (2026-11-22). */
+  .ev-as-player { display: grid; gap: 8px; margin-block-end: 14px; }
+  .ev-as-player h3 { margin: 0; font-size: 16px; }
+  .ev-as-player .panel-note { margin: 0; }
   .ev-duration { margin-inline-start: auto; color: var(--color-terminal); }
   .ev-rewards { display: grid; gap: 14px; }
   .ev-total { padding: 16px; }

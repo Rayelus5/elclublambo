@@ -20,7 +20,7 @@ afterEach(() => {
 
 const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, skin: null, ...x });
 const view: SeasonView = {
-  season: { id: 'season-1', name: 'Temporada 1', endsAt: new Date(Date.now() + 10 * 86_400_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
+  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-12T23:00:00.000Z', endsAt: new Date(Date.now() + 10 * 86_400_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
   score: 600,
   tier: 'bronze',
   currency: { name: 'Esquirlas', balance: 45 },

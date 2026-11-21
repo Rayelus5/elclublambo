@@ -1,10 +1,11 @@
 import type { SeasonResult, SeasonReward, SeasonView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { refreshPieces } from '../api/cosmetics';
 import { GACHA_KEY, useGacha } from '../api/economy';
-import { errorText } from '../auth/useMe';
+import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { piecesOf, useClaimFx } from '../missions/ClaimFx';
@@ -18,12 +19,16 @@ import { Dialog } from '../ui/Dialog';
 import { useWheelSideways } from '../ui/HScroll';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
+import { PreviewBanner } from './SeasonPreview';
 
 // The season (GDD §13.1; M7d-1, DESIGN_SYSTEM §8 novovicies): the score with its tier, the route climbed with it (a
 // track of steps, each collected once) and the shop that sells with the season currency. Since the season shop plan
 // (PR 4) it wears the wallet of Missions with the season currency at its end, and what is collected or bought is
 // heard and flies up to it (a piece pops where it was collected; the big ones and the closing prizes are celebrated),
-// with «Recoger todo» on the route, a confirmation before an expensive purchase and the time left ticking.
+// with «Recoger todo» on the route, a confirmation before an expensive purchase and the time left ticking. An admin's
+// /temporada?vista=<id> (the panel's «Temporadas», 2026-11-22) shows that season as players will meet it, under a
+// band that says so: nothing can be collected or bought (no request is ever sent), nothing flies, and neither the
+// countdown nor the admin's own closing prizes show. For players the parameter does nothing.
 
 const t = copy.season;
 export const SEASON_KEY = ['season'] as const;
@@ -94,17 +99,27 @@ function Closing({ r, onClaim, pending }: { r: SeasonResult; onClaim: () => void
 }
 
 export function SeasonScreen() {
-  const season = useQuery({ queryKey: SEASON_KEY, queryFn: () => api<SeasonView>('/season') });
+  const [params] = useSearchParams();
+  const wanted = params.get('vista') || null;
+  const viewer = useMe();
+  // Only an admin with TOTP previews; until the account is known, a preview in the address waits.
+  const preview = wanted && isAdmin(viewer.data) && viewer.data?.mfa ? wanted : null;
+  const season = useQuery({
+    queryKey: preview ? [...SEASON_KEY, 'preview', preview] : SEASON_KEY,
+    queryFn: () => api<SeasonView>(preview ? `/season?preview=${encodeURIComponent(preview)}` : '/season'),
+    enabled: !wanted || !viewer.isPending,
+  });
   const gacha = useGacha();
   const act = useSeasonAction();
   const reduced = useReducedMotion();
   const fx = useClaimFx(reduced);
+  const locked = preview !== null;
   const v = season.data;
   const track = useRef<HTMLOListElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
   /** A claim or a purchase running (with «Recoger todo», the whole run): every action waits. */
   const [working, setWorking] = useState(false);
-  const busy = working || act.isPending;
+  const busy = working || act.isPending || locked;
   /** What the route gave in this visit, said once; and the last thing bought. */
   const [gained, setGained] = useState<Reward | null>(null);
   const [bought, setBought] = useState<string | null>(null);
@@ -194,19 +209,20 @@ export function SeasonScreen() {
   const next = v?.steps.find((s) => !s.reached);
   const nextT = v?.season ? nextTier(v.score, v.season.tiers) : null;
   const ready = v ? v.steps.filter((s) => s.reached && !s.claimed) : [];
-  const closing = v?.closing ? <Closing r={v.closing} pending={busy} onClaim={() => void claimClosing(v.closing!)} /> : null;
+  const closing = v?.closing && !locked ? <Closing r={v.closing} pending={busy} onClaim={() => void claimClosing(v.closing!)} /> : null;
   return (
     <div className="screen-root missions-root">
       <div className="missions season-screen">
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{v?.season?.name ?? t.title}</h1>
-          {v?.season ? <Countdown endsAt={v.season.endsAt} className="season-left" /> : null}
+          {v?.season && !locked ? <Countdown endsAt={v.season.endsAt} className="season-left" /> : null}
           <div className="lip panel hud missions-wallet" data-wallet>
             <WalletBar wallet={gacha.data?.wallet} season={v?.season ? v.currency : undefined} />
           </div>
         </header>
-        {fx.view}
+        {locked ? null : fx.view}
+        {locked && v?.season ? <PreviewBanner name={v.season.name} startsAt={v.season.startsAt} endsAt={v.season.endsAt} hint={copy.season.preview.shopHint} /> : null}
         {big ? (
           <div className="claim-celebration">
             <Celebration key={big.key} title={big.title} subtitle={big.name} reduced={reduced} />
