@@ -35,7 +35,12 @@ export function opsProblems(c: OpsConfigs, now: number): string[] {
   const out: string[] = [];
   const running = c.events.list.filter((e) => Date.parse(e.endsAt) > now);
   const open = c.gacha.banners.filter((b) => !b.endsAt || Date.parse(b.endsAt) > now);
-  for (const w of eventWarnings(running, open)) out.push((WARNING_TEXT[w.code] as (x: EventWarning) => string)(w));
+  // A scanner kept open after its event (on purpose: the leftover signals still buy) is fine while its event is listed.
+  const listed = new Set(c.events.list.map((e) => e.id));
+  for (const w of eventWarnings(running, open)) {
+    if (w.code === 'scanner_without_event' && listed.has(open.find((b) => b.id === w.banner)?.currency.slice('signal:'.length) ?? '')) continue;
+    out.push((WARNING_TEXT[w.code] as (x: EventWarning) => string)(w));
+  }
   const seasons = c.seasons && c.seasons.length > 0 ? c.seasons : null;
   const fits = (e: { startsAt: string; endsAt: string }, s: { startsAt: string; endsAt: string }) => Date.parse(e.startsAt) >= Date.parse(s.startsAt) && Date.parse(e.endsAt) <= Date.parse(s.endsAt);
   for (const e of running) {
