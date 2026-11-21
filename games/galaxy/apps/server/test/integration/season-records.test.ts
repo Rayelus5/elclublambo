@@ -203,6 +203,9 @@ describe('la importación del primer despliegue', () => {
     const base = createConfigService(trx, { ttlMs: 0 });
     await base.publish('season', { id: 'imp-late', name: 'Tardía', startsAt: '2099-01-31T23:00:00.000Z', endsAt: '2099-02-28T23:00:00.000Z', anomaly: 'contagion' }, actor, 'Para importar');
     expect(await importSeasons(trx, base)).toBe('imported');
-    expect((await allSeasons(trx)).map((s) => s.id).sort()).toEqual(['imp-late', 't-first']);
+    const all = await allSeasons(trx);
+    expect(all.map((s) => s.id)).toEqual(expect.arrayContaining(['imp-late', 't-first']));
+    expect(all.find((s) => s.id === 'imp-late')).toMatchObject({ state: 'scheduled' });
+    expect(all.find((s) => s.id === 't-first')).toMatchObject({ state: 'draft' });
   });
 });

@@ -25,7 +25,8 @@ beforeAll(async () => {
   app = await testApp({ seasons: true });
   await saveSeasonDraft(app.db, { id: ENDED, name: 'Prueba acabada', startsAt: dayOff(-20), endsAt: dayOff(-10), rules: { anomaly: 'contagion', tiers: [100, 200, 300, 400, 500] }, route: { currency: { name: 'Polvillo', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
   await saveSeasonDraft(app.db, { id: OPEN, name: 'Prueba abierta', startsAt: dayOff(-10), endsAt: dayOff(20), rules: { anomaly: 'contagion' }, route: { currency: { name: 'Astillas', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Prueba');
-  await scheduleSeason(app.db, ENDED, ctx, actor, 'Prueba');
+  // A season scheduled back then that has ended since (scheduling one already over is refused, so it is set directly).
+  await app.db.updateTable('galaxy.seasons').set({ state: 'scheduled' }).where('id', '=', ENDED).execute();
   await scheduleSeason(app.db, OPEN, ctx, actor, 'Prueba');
 });
 afterAll(async () => {
