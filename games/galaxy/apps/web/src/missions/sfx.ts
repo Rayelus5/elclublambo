@@ -3,8 +3,9 @@ import { noise, tone } from '../audio/synth';
 import type { Reward } from './ready';
 
 // Collecting a reward (open beta) sounds like what it gives, one after another: the pop of collecting, coins clinking
-// in a cascade (more coins, more clinks), dust shimmering, a signal ringing like a bell, a blip for points or
-// experience, and a short fanfare for an achievement or a season mission. On the effects bus, synthesised.
+// in a cascade (more coins, more clinks), dust shimmering, a signal ringing like a bell, the season's shards chiming
+// like glass, a blip for points or experience, a sparkle for a new piece (title, frame, avatar, skin), and a short
+// fanfare for an achievement, a season mission or the season's closing prizes. On the effects bus, synthesised.
 
 export function playClaim(reward: Reward, big = false): void {
   const bus = sfxOut();
@@ -34,7 +35,21 @@ export function playClaim(reward: Reward, big = false): void {
     tone(ctx, out, at + 0.12, 3136, 3136, 0.6, 0.014, 'sine');
     at += 0.15;
   }
+  if ((reward.shards ?? 0) > 0) {
+    // Glass: a quick rising triad, high and bright, each note with a faint octave ringing over it.
+    [1760, 2217.5, 2637].forEach((hz, i) => {
+      tone(ctx, out, at + i * 0.06, hz, hz, 0.45, 0.03, 'sine');
+      tone(ctx, out, at + i * 0.06, hz * 2, hz * 2, 0.25, 0.008, 'sine');
+    });
+    at += 0.22;
+  }
   if ((reward.points ?? 0) + (reward.xp ?? 0) > 0) tone(ctx, out, at, 660, 990, 0.1, 0.03, 'triangle');
+  if (reward.title || reward.frame || reward.avatar || reward.skin) {
+    // A sparkle: twinkles falling from very high over a faint crackle.
+    noise(ctx, out, at, 0.5, 0.05, 9000);
+    [4186, 3520, 3951, 3136, 3520].forEach((hz, i) => tone(ctx, out, at + i * 0.05, hz, hz * 1.02, 0.16, 0.016, 'sine'));
+    at += 0.25;
+  }
   if (big) {
     [523.3, 659.3, 784, 1046.5].forEach((hz, i) => tone(ctx, out, at + 0.05 + i * 0.09, hz, hz, 0.5, 0.045, 'triangle'));
     [523.3, 659.3, 784].forEach((hz) => tone(ctx, out, at + 0.45, hz, hz, 1, 0.03, 'sine'));

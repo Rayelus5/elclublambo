@@ -6,7 +6,7 @@ import { afterEach, expect, test } from 'vitest';
 // flight is never hidden behind it: what was computed before the finish is not kept.
 afterEach(() => invalidateLeaderboard());
 
-const row = (accountId: string): Ranked => ({ accountId, username: accountId, value: 10, rank: 1, xp: 0 });
+const row = (accountId: string): Ranked => ({ accountId, username: accountId, value: 10, rank: 1, xp: 0, runs: 1, bestDepth: 1 });
 
 test('una lectura en curso cuando se invalida no se queda en la caché', async () => {
   let release: (rows: Ranked[]) => void = () => undefined;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { type Tier, TIERS } from '../gacha/types';
 import type { ClanColor, ClanEmblem } from '../clans/rules';
 import type { SeasonTier } from '../progress/season';
+import type { SeasonReward } from '../progress/season-route';
 import type { PublicGalaxy } from './planetarium';
 
 // The social API (GDD §14.1, §14.2, §12.1; M5a): the season leaderboard with its tabs, public profiles and public
@@ -18,6 +19,13 @@ export interface LeaderRow extends PlayerLook {
   level: number;
   /** The tab's value: the score, the deepest layer or the Cores purged in the season. */
   value: number;
+  /**
+   * The General tab only (2026-11-21), from the same aggregate as the score: the season's runs that counted (finished,
+   * not suspicious, long enough; group runs too) and the deepest layer among them. Points an admin, a mission or a gift
+   * added are not runs: a player with only those has 0 and 0. Absent in the other tabs.
+   */
+  runs?: number;
+  bestDepth?: number;
 }
 
 /** A clan in the Clanes tab (M5b-1): the season points of its current members, added up. */
@@ -51,6 +59,18 @@ export interface SeasonInfo {
   endsAt: string;
   /** The score of each tier, Bronce to Estelar. */
   tiers: number[];
+  /** What the season's close pays (the live `seasonRoute.closing`), so the leaderboard can show it. */
+  closing: SeasonClosing;
+}
+
+/**
+ * The prizes of a season's close (GDD §13.1): each player gets their tier's reward (Bronce to Estelar), and the first
+ * `podiumSize` places get the podium's on top (with a trophy for the station).
+ */
+export interface SeasonClosing {
+  tiers: SeasonReward[];
+  podium: SeasonReward;
+  podiumSize: number;
 }
 
 export interface Leaderboard {

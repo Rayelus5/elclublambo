@@ -33,6 +33,7 @@ export * from './api/planetarium';
 export * from './progress/account';
 export * from './progress/season';
 export * from './progress/season-record';
+export * from './api/seasons';
 export * from './api/social';
 export * from './api/cosmetics';
 export * from './clans/rules';

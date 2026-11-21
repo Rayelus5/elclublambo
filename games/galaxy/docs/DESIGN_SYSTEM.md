@@ -610,10 +610,17 @@ Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ra
 - **Pestañas:** General (puntos), Profundidad (la capa más honda de la temporada) y Purgas (los Núcleos). Clanes está desactivada con «Llega con los clanes».
 - **El podio:** el primero en el medio y más alto, el segundo a la izquierda y el tercero a la derecha. Cada escalón va en su metal (oro, plata, bronce) y cada nombre lleva a su perfil. En el código el orden es 1, 2, 3, para los lectores de pantalla.
 - **La tabla** sigue desde el cuarto, con puesto, jugador con su avatar, nivel y valor (las cifras alineadas a la derecha).
+  - En General lleva además «Partidas» y «Mejor capa» de cada jugador (y el podio, «31 partidas, mejor capa 9»). Si la columna principal se estrecha por debajo de 640 px, esas dos columnas se esconden (consulta de contenedor) y la tabla hace scroll dentro de su panel, nunca la página.
   - Tu fila va resaltada en Hielo con «Tú».
   - Fuera de la tabla, tu fila se fija debajo con el borde Hielo («Tu puesto»).
   - Los empates comparten puesto.
-- **Al lado:** la temporada (nombre, «Quedan 36 días» en Nova y los jugadores) y los tramos con su emblema y desde cuántos puntos. El tuyo lleva «Tu tramo».
+- **Al lado, la tarjeta de la temporada** (2026-11-21). Entera lleva a `/temporada`: un solo enlace, «Ver ruta y tienda» en píldora Solar al pie, cuyo `::after` cubre la tarjeta. Al pasar el ratón se levanta como un botón con labio, y con el teclado lleva el anillo Hielo (`:has(:focus-visible)`). Dentro no hay nada más que se pueda pulsar. Lleva:
+  - el nombre y la cuenta atrás en vivo en Nova («Termina en 9 d 22 h 15 min», con segundos el último día). Es un `<time>` y no una región viva, para que el lector de pantalla no la lea cada segundo;
+  - tu puesto («Puesto 37 de 412»), tus puntos y tu tramo con su emblema ×2, y la barra Solar desde tu tramo hasta el siguiente con «Te faltan 3600 puntos para Oro». Sin puntos, el emblema del primer tramo en gris; en Estelar, «Has alcanzado el tramo más alto»;
+  - «Tramos y premios»: cada tramo con su emblema ×1, desde cuántos puntos y lo que paga al cerrar en fichas de color (monedas Solar, polvo Hielo, señales Nova, moneda de temporada UV y piezas Terminal). Las fichas son decorativas: el lector de pantalla oye el premio en una frase. El tuyo lleva «Tu tramo»;
+  - el podio con cuántos puestos entran y su premio, con su trofeo;
+  - los jugadores de la temporada.
+- Los umbrales, los premios y el tamaño del podio vienen de la configuración viva: ningún texto los lleva escritos.
 
 **El perfil** (`/perfil/<nombre>`):
 - avatar grande, nombre, nivel y «Miembro desde noviembre de 2026»;
@@ -1265,13 +1272,16 @@ Una tarjeta lista para recoger lleva un borde Solar, y una ya recogida se atenú
 ## 8 novovicies. Temporada: ruta y tienda
 
 **`/temporada`** es más ancha que las otras listas (hasta 1240 px), porque la ruta es una pista.
-- **Arriba, dos tarjetas:**
-  - la puntuación, grande, con el emblema de su tramo (o el del siguiente, atenuado), una barra Solar hasta el siguiente tramo y lo que falta para el siguiente escalón;
-  - la moneda de temporada, con su esquirla violeta y un halo.
+- **Cabecera, como la de Misiones:** el nombre de la temporada, el tiempo que queda en vivo y la barra de recursos con la moneda de temporada al final (su esquirla violeta). Lo que se recoge o se compra vuela desde su botón hasta su chip, con su sonido, y la cifra sube; una pieza (título, marco, avatar o skin) sale como una tarjeta Terminal con su nombre, y lo grande se celebra.
+- **La puntuación**, en una tarjeta a lo ancho: el emblema de su tramo (o el del siguiente, atenuado), los puntos y, a la derecha, una barra Solar hasta el siguiente tramo y lo que falta para el siguiente escalón.
 - **La ruta:** una pista horizontal que se desplaza dentro de su sección, nunca la página. Lleva botones de anterior y siguiente, sus bordes se difuminan donde queda más por ver, y abre en el siguiente escalón por recoger.
   - Cada escalón es un nodo numerado sobre una línea que se pinta Solar hasta donde llega la puntuación. Debajo van el icono de su premio en su color (monedas Solar, polvo hielo, señales Nova, esquirlas violeta, cosméticos Terminal), el premio y sus puntos.
   - El estado se lee: «Faltan N puntos», «Recoger» Solar con borde y halo si está listo, o «Recogido» Terminal, atenuado.
-- **La tienda:** una fila de artículos con su icono, su premio, «n de m» comprados y el botón con el precio en esquirlas. El botón está apagado si no llega o está agotado. Al pie, el aviso de que lo que sobra pasa a polvo.
+  - Con dos o más escalones listos, «Recoger todo» los recoge uno tras otro.
+- **La tienda:** una fila de artículos con su icono, su premio, «n de m» comprados y el botón con el precio en esquirlas.
+  - Lo que puedes pagar lleva un borde Solar; lo que no, un candado con «Te faltan N»; lo agotado se atenúa y dice «Agotado».
+  - Una compra que se lleva más de la mitad de lo que tienes pide confirmación.
+  - Al pie, el aviso de que lo que sobra pasa a polvo.
 
 ## 8 tricies. Cierre de temporada, Trofeos y salón de la fama
 

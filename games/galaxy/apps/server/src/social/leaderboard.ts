@@ -1,4 +1,4 @@
-import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type GroupRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, seasonOpen } from '@galaxy/shared';
+import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type GroupRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, type SeasonInfo, seasonOpen } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -10,7 +10,8 @@ import type { DB } from '../db/schema';
 // Equal values share a competition rank. Among them, whoever got there first comes first: the last run that scored,
 // or the first that reached the deepest layer. Then the name decides. Banned accounts are left out, and so are runs
 // shorter than the account's minimum. The whole ranking is kept 30 s per season and tab (one aggregate shared by the
-// reads meanwhile), and every finished run clears it.
+// reads meanwhile), and every finished run clears it. The same aggregate counts each player's runs and their deepest
+// layer, which the General tab shows beside the score (2026-11-21); its season brings what the close pays.
 
 export type SocialDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
 
@@ -20,6 +21,9 @@ export interface Ranked {
   value: number;
   rank: number;
   xp: number;
+  /** The season's runs that counted for this tab (an adjustment is not one) and the deepest layer among them. */
+  runs: number;
+  bestDepth: number;
 }
 
 const TTL_MS = 30_000;
@@ -73,10 +77,11 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, m
   const soloOnly = tab === 'general' ? sql`` : sql`and r.coop_run_id is null`;
   const value =
     tab === 'general' ? sql`sum(r.pts)` : tab === 'depth' ? sql`max(r.depth)` : sql`sum(r.boss_kills)`;
-  // The season's runs, and in General the points an admin added or took away this season (M6d-4; depth 0, no cores).
+  // The season's runs, and in General the points an admin added or took away this season (M6d-4; depth 0, no cores,
+  // and not a run: `counted` 0).
   const adjustments =
     tab === 'general'
-      ? sql`union all select s.account_id, s.points, 0, 0, s.created_at from galaxy.season_adjustments s where s.season = ${cfg.id}`
+      ? sql`union all select s.account_id, s.points, 0, 0, s.created_at, 0 from galaxy.season_adjustments s where s.season = ${cfg.id}`
       : sql``;
   const reached =
     tab === 'general'
@@ -84,11 +89,12 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, m
       : tab === 'depth'
         ? sql`(array_agg(r.finished_at order by r.depth desc, r.finished_at asc))[1]`
         : sql`max(r.finished_at) filter (where r.boss_kills > 0)`;
-  const { rows } = await sql<{ id: string; username: string; value: number; xp: string }>`
-    select t.id, t.username, t.value, t.xp from (
-      select a.id, a.username, (${value})::int as value, ${reached} as reached, coalesce(max(x.xp), 0) as xp
+  const { rows } = await sql<{ id: string; username: string; value: number; xp: string; runs: number; best_depth: number }>`
+    select t.id, t.username, t.value, t.xp, t.runs, t.best_depth from (
+      select a.id, a.username, (${value})::int as value, ${reached} as reached, coalesce(max(x.xp), 0) as xp,
+        sum(r.counted)::int as runs, coalesce(max(r.depth), 0)::int as best_depth
       from (
-        select r.account_id, ${points} as pts, r.depth, r.boss_kills, r.finished_at
+        select r.account_id, ${points} as pts, r.depth, r.boss_kills, r.finished_at, 1 as counted
         from galaxy.runs r
         where r.finished_at >= ${new Date(cfg.startsAt)} and r.finished_at < ${new Date(cfg.endsAt)}
           and not r.suspicious
@@ -107,7 +113,7 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, m
   const out: Ranked[] = [];
   rows.forEach((r, i) => {
     const prev = out[i - 1];
-    out.push({ accountId: r.id, username: r.username, value: r.value, rank: prev && prev.value === r.value ? prev.rank : i + 1, xp: Number(r.xp) });
+    out.push({ accountId: r.id, username: r.username, value: r.value, rank: prev && prev.value === r.value ? prev.rank : i + 1, xp: Number(r.xp), runs: r.runs, bestDepth: r.best_depth });
   });
   return out;
 }
@@ -211,13 +217,15 @@ export async function clanRanking(db: Kysely<DB>, season: SeasonConfig, account:
 
 export const clanRow = (c: RankedClan): ClanRow => ({ rank: c.rank ?? 0, tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, members: c.members, value: c.value });
 
-const row = (r: Ranked, account: AccountConfig, looks: Map<string, { avatar: string | null; frame: string | null }> = new Map()): LeaderRow => ({
+const row = (r: Ranked, account: AccountConfig, looks: Map<string, { avatar: string | null; frame: string | null }>, tab: SoloTab): LeaderRow => ({
   rank: r.rank,
   username: r.username,
   level: levelOf(r.xp, account).level,
   value: r.value,
   avatar: looks.get(r.accountId)?.avatar ?? null,
   frame: looks.get(r.accountId)?.frame ?? null,
+  // Only the General tab shows them (2026-11-21).
+  ...(tab === 'general' ? { runs: r.runs, bestDepth: r.bestDepth } : {}),
 });
 
 /** The avatar and frame of the accounts shown (Nov plan C2), read fresh: the ranking itself is cached. */
@@ -228,9 +236,10 @@ async function looksOf(db: SocialDeps['db'], ids: string[]): Promise<Map<string,
 }
 
 export async function leaderboard(deps: SocialDeps, viewerId: string, tab: LeaderTab): Promise<Leaderboard> {
-  const [cfg, account] = await Promise.all([deps.config.get('season'), deps.config.get('account')]);
+  const [cfg, account, route] = await Promise.all([deps.config.get('season'), deps.config.get('account'), deps.config.get('seasonRoute')]);
   if (!seasonOpen(cfg, deps.now())) return { season: null, tab, rows: [], me: null, total: 0 };
-  const info = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers] };
+  const { tiers, podium, podiumSize } = route.closing;
+  const info: SeasonInfo = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers], closing: { tiers: [...tiers], podium, podiumSize } };
   if (tab === 'clans') {
     const clans = (await clanRanking(deps.db, cfg, account, deps.now())).filter((c) => c.rank !== null);
     const own = await deps.db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', viewerId).executeTakeFirst();
@@ -249,8 +258,8 @@ export async function leaderboard(deps: SocialDeps, viewerId: string, tab: Leade
   return {
     season: info,
     tab,
-    rows: top.map((r) => row(r, account, looks)),
-    me: mine ? row(mine, account, looks) : null,
+    rows: top.map((r) => row(r, account, looks, tab)),
+    me: mine ? row(mine, account, looks, tab) : null,
     total: ranked.length,
   };
 }

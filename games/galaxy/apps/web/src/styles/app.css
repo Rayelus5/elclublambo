@@ -386,6 +386,8 @@
   .res.signal { color: var(--color-nova); }
   .res.event-signal { position: relative; color: var(--color-uv-soft); }
   .res.event-signal .ico { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-uv) 70%, transparent)); }
+  .res.shards { color: var(--color-uv-soft); }
+  .res.shards .ico { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-uv-soft) 60%, transparent)); }
   .res.event-signal::after { content: ''; position: absolute; inset-block-start: 6px; inset-inline-start: 22px; inline-size: 8px; block-size: 8px; background: var(--color-solar); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
   /* With the event ticket (and Discord) the home's bar needs about 1840 px: up to 1859 px its shortcuts keep only their icon. */
   @media (max-width: 1859px) {
@@ -1952,8 +1954,9 @@
   .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
   .lb-tabs { margin: 0; max-width: 860px; }
-  .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; align-items: start; }
-  .lb-main { display: grid; gap: 16px; min-width: 0; }
+  .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 20px; align-items: start; }
+  /* The main column is a container: the General tab's extra columns go when it is narrow (2026-11-21). */
+  .lb-main { display: grid; gap: 16px; min-width: 0; container: lb-main / inline-size; }
   .lb-main > .podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .1), transparent 70%); }
   /* The leaderboard's podium has its avatars large (Podium `large`: 64 px for the first, 48 for the others), each box the
      size of its framed avatar (a quarter of the side round it) plus the metal's breath. */
@@ -1964,7 +1967,11 @@
   .lb-main > .podium li.place-1 .podium-step { block-size: 84px; font-size: 40px; }
   .lb-main > .podium li.place-2 .podium-step { block-size: 64px; font-size: 34px; }
   .lb-main > .podium li.place-3 .podium-step { block-size: 50px; font-size: 30px; }
+  .podium-runs { font-size: 12px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
   .lb-table, .lb-pinned table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  /* The solo tabs' table scrolls inside its panel, never the page. */
+  .lb-scroll { padding: 6px 0; overflow-x: auto; overscroll-behavior-x: contain; }
+  .lb-scroll > .lb-table { padding: 0; }
   .lb-table { padding: 6px 0; border-spacing: 0; }
   .lb-table th, .lb-table td, .lb-pinned td, .lb-pinned th { padding: 10px 16px; text-align: left; font-size: 15px; }
   .lb-table thead th { font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
@@ -1982,25 +1989,71 @@
   .lb-who a:hover { text-decoration: underline; }
   .lb-who a:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; border-radius: 6px; }
   .lb-level { inline-size: 90px; color: var(--color-ink-mute); }
+  .lb-table .lb-extra, .lb-pinned .lb-extra { inline-size: 110px; text-align: right; white-space: nowrap; color: var(--color-ink-soft); }
+  @container lb-main (max-width: 640px) { .lb-extra { display: none; } }
   .lb-value { text-align: right !important; font-weight: 700; }
+  /* Every column but the player's has its width, so the pinned row lines up under the table. */
+  .lb-scroll .lb-value, .lb-pinned .lb-value { inline-size: 150px; white-space: nowrap; }
   .lb-you { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--color-ice); color: var(--color-void); font-size: 12px; font-weight: 700; }
   tr.mine { background: color-mix(in srgb, var(--color-ice) 10%, transparent); box-shadow: inset 4px 0 0 var(--color-ice); }
-  .lb-pinned { padding: 4px 0; border: 2px solid color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  .lb-pinned { padding: 4px 0; border: 2px solid color-mix(in srgb, var(--color-ice) 45%, transparent); overflow-x: auto; }
   .lb-empty { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
   .lb-empty p { margin: 0; font-size: 17px; color: var(--color-ink-soft); }
   .lb-side { display: grid; gap: 16px; }
-  .lb-season { padding: 18px 20px; display: grid; gap: 4px; }
-  .lb-season h2 { margin: 0; font: 400 26px var(--font-display); }
-  .lb-season p { margin: 0; color: var(--color-ink-soft); }
-  .lb-ends { font-weight: 700; color: var(--color-nova) !important; }
-  .lb-tiers { padding: 18px 16px 12px; }
-  .lb-tiers h2 { margin: 0 4px 10px; font: 400 20px var(--font-display); }
-  .lb-tiers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .lb-tiers li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 10px 6px 6px; border-radius: 14px; }
-  .lb-tiers li span { display: grid; }
-  .lb-tiers li b { font-size: 16px; }
-  .lb-tiers li small { font-size: 13px; color: var(--color-ink-mute); }
-  .lb-tiers li[aria-current="true"] { background: rgb(255 255 255 / .06); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  /* The season card (2026-11-21): one link whose ::after covers the card, so the whole card leads to /temporada; it
+     lifts like a lip button on hover and wears the focus ring when its link has the keyboard. */
+  .lb-season { padding: 18px 18px 16px; display: grid; gap: 14px; cursor: pointer; }
+  .lb-season:hover { transform: translateY(-3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .32), inset 0 -3px 0 rgb(0 0 0 / .18), 0 calc(var(--lip-h, 6px) + 3px) 0 var(--lip-c, var(--color-panel-lip)), 0 20px 30px rgb(0 0 0 / .4); }
+  .lb-season:has(.lb-season-link:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 4px; }
+  .lb-season p { margin: 0; }
+  .lb-season-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+  .lb-season-head .lb-ends { grid-column: 1 / -1; }
+  .lb-season-go { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 50%; background: color-mix(in oklab, var(--color-solar) 16%, transparent); color: var(--color-solar); transition: translate .18s var(--ease-bounce), background-color .18s ease; }
+  .lb-season-go .ico { inline-size: 20px; block-size: 20px; }
+  .lb-season:hover .lb-season-go { translate: 3px 0; background-color: color-mix(in oklab, var(--color-solar) 28%, transparent); }
+  .lb-season h2 { margin: 0; font: 400 26px var(--font-display); line-height: 1.05; }
+  .lb-ends { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-nova); font-variant-numeric: tabular-nums; }
+  .lb-ends .ico { inline-size: 18px; block-size: 18px; flex: none; }
+  .lb-me { display: grid; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgb(255 255 255 / .045); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
+  .lb-standing { display: flex; align-items: center; gap: 14px; }
+  .lb-standing > div { display: grid; gap: 1px; min-inline-size: 0; }
+  .lb-standing-rank { font: 400 24px var(--font-display); line-height: 1.05; }
+  .lb-standing-points { font-size: 14px; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .lb-standing-tier { font-size: 18px; font-weight: 800; color: var(--color-solar); }
+  .lb-standing-ghost { display: inline-flex; opacity: .35; filter: grayscale(.7); }
+  .lb-next { display: grid; gap: 6px; font-size: 13px; color: var(--color-ink-soft); }
+  .lb-tier-bar { display: block; block-size: 10px; border-radius: 99px; background: rgb(255 255 255 / .08); overflow: hidden; }
+  .lb-tier-bar i { display: block; block-size: 100%; inline-size: calc(var(--share, 0) * 100%); min-inline-size: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+  .lb-prizes-block { display: grid; gap: 8px; }
+  .lb-prizes-block h3 { margin: 0; font: 400 20px var(--font-display); }
+  .lb-season .lb-prizes-hint { margin-block-start: -4px; font-size: 13px; color: var(--color-ink-mute); }
+  .lb-tier-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .lb-tier-list li, .lb-podium-prize { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 8px 10px 9px 8px; border-radius: 14px; background: rgb(255 255 255 / .03); }
+  .lb-tier-list li[aria-current="true"] { background: rgb(255 255 255 / .07); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  .lb-tier-name { display: grid; min-inline-size: 0; }
+  .lb-tier-name b { font-size: 16px; }
+  .lb-tier-name small { font-size: 13px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
+  /* What a tier pays at the close: chips in the reward colours of the season screen (coins Solar, dust Ice, signals
+     Nova, the season currency UV and pieces Terminal), under the name. */
+  .lb-prizes { grid-column: 2 / -1; min-inline-size: 0; }
+  .lb-prize-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .lb-prize { --k: var(--color-solar); display: inline-flex; align-items: center; gap: 4px; max-inline-size: 100%; box-sizing: border-box; padding: 2px 8px 2px 5px; border-radius: 99px; background: color-mix(in oklab, var(--k) 14%, transparent); color: color-mix(in oklab, var(--k) 55%, var(--color-ink)); font-size: 12px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .lb-prize .ico { inline-size: 14px; block-size: 14px; flex: none; color: var(--k); }
+  .lb-prize.k-dust { --k: var(--color-ice); }
+  .lb-prize.k-signal { --k: var(--color-nova); }
+  .lb-prize.k-shards { --k: var(--color-uv-soft); }
+  .lb-prize.k-cosmetic { --k: var(--color-terminal); }
+  .lb-prize.none { --k: var(--color-ink-mute); }
+  .lb-podium-prize { background: radial-gradient(90% 120% at 0% 0%, rgb(255 201 74 / .12), transparent 70%); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 30%, transparent); }
+  .lb-podium-icon { display: grid; place-items: center; inline-size: 32px; block-size: 32px; color: var(--color-solar); }
+  .lb-podium-icon .ico { inline-size: 26px; block-size: 26px; }
+  .lb-season-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-block-start: 12px; border-block-start: 1px solid rgb(255 255 255 / .07); }
+  .lb-players { font-size: 13px; color: var(--color-ink-mute); }
+  .lb-season-link { color: inherit; text-decoration: none; outline: none; }
+  .lb-season-link::after { content: ''; position: absolute; inset: 0; border-radius: var(--r, 20px); }
+  .lb-season-link .pill { --lip-h: 3px; height: 40px; padding: 0 14px 0 16px; font-size: 15px; font-weight: 800; transition: transform .18s var(--ease-bounce); }
+  .lb-season-link .pill .ico { inline-size: 18px; block-size: 18px; transition: translate .18s var(--ease-bounce); }
+  .lb-season:hover .lb-season-link .pill .ico { translate: 3px 0; }
   /* The profile. */
   /* The head: a large avatar (96 px, 144 with its frame) beside the name, title, level bar, clan and since when. */
   .profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
@@ -2074,8 +2127,8 @@
   .me:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
   .me:hover b { text-decoration: underline; }
   .me-level { font-size: 12px; font-weight: 700; color: var(--color-terminal); }
-  @media (max-width: 1360px) { .lb-body { grid-template-columns: minmax(0, 1fr) 280px; } }
-  :where(:root[data-motion='reduced']) { .tier-art { animation: none; } .results-level.up b { animation: none; } }
+  @media (max-width: 1360px) { .lb-body { grid-template-columns: minmax(0, 1fr) 300px; } }
+  :where(:root[data-motion='reduced']) { .tier-art { animation: none; } .results-level.up b { animation: none; } .lb-season, .lb-season-link .pill .ico, .lb-season-go { transition: none; } .lb-season:hover { transform: none; } .lb-season:hover .lb-season-link .pill .ico, .lb-season:hover .lb-season-go { translate: none; } }
 
   /* ---------- Clanes (DESIGN_SYSTEM §8 duodecies) ---------- */
   /* A clan's emblem: the Aseprite strip of its six colours (32×32 each) at ×1 or ×2; the colour is the x position. */
@@ -3469,11 +3522,16 @@
   :where(:root[data-motion='reduced']) { .briefing-keys i, .briefing-probe .shot, .briefing-gems i, .briefing-card, .briefing-dash .k-shift, .briefing-dash .core, .briefing-dash .ghost { animation: none; } }
   /* The season's anomaly: a tag with its name, and «Más información» opening what it does. */
   .missions.season-screen { inline-size: min(100% - 48px, 1240px); gap: 20px; }
-  .season-left { margin-inline-start: auto; color: var(--color-ink-soft); font-weight: 600; }
-  .season-hero, .season-route, .season-shop, .season-track { min-inline-size: 0; }
-  .season-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; }
-  .season-score, .season-wallet { --r: 20px; display: flex; align-items: center; gap: 18px; padding: 18px 22px; }
-  .season-score > div, .season-wallet > div { display: grid; gap: 4px; min-inline-size: 0; flex: 1; }
+  /* The header of Missions (season shop plan, PR 4): the name, the time left ticking beside it, and the wallet with
+     the season currency at its end, where what is collected or bought flies. */
+  .season-screen .collection-bar h1 { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .season-left { flex: none; display: inline-flex; align-items: center; gap: 6px; block-size: 32px; padding: 0 12px; border-radius: 99px; background: rgb(0 0 0 / .35); color: var(--color-ice); font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .season-left .ico { inline-size: 16px; block-size: 16px; }
+  .season-route, .season-shop, .season-track, .season-score { min-inline-size: 0; }
+  /* The score on one line: the emblem, the points and the tier, then the way to the next tier and step. */
+  .season-score { --r: 20px; display: flex; align-items: center; gap: 18px 24px; padding: 18px 22px; }
+  .season-score-now { display: grid; gap: 4px; flex: none; }
+  .season-score-next { display: grid; gap: 4px; flex: 1; min-inline-size: 0; max-inline-size: 640px; margin-inline-start: auto; }
   .season-score b { font: 400 36px/1 var(--font-display); }
   .season-score span { color: var(--color-ink-soft); font-weight: 600; }
   .season-tier-next { opacity: .35; filter: grayscale(.6); }
@@ -3481,15 +3539,17 @@
   .season-tier-bar i { display: block; block-size: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
   .season-score .season-next { color: var(--color-ink); font-size: 14px; }
   .season-score .season-next-step { color: var(--color-solar); font-size: 14px; }
-  .season-wallet { flex-wrap: wrap; background-image: radial-gradient(circle at 12% 30%, color-mix(in oklab, var(--color-uv) 30%, transparent), transparent 60%); }
-  .season-wallet > .ico { inline-size: 48px; block-size: 48px; color: var(--color-uv-soft); filter: drop-shadow(0 0 10px color-mix(in oklab, var(--color-uv-soft) 60%, transparent)); }
-  .season-wallet b { font: 400 34px/1 var(--font-display); }
-  .season-wallet span { color: var(--color-ink-soft); font-weight: 600; }
-  .season-wallet p { margin: 0; flex-basis: 100%; font-size: 14px; color: var(--color-ink-mute); }
   .season-route h2, .season-shop h2 { margin: 0; font: 400 24px var(--font-display); }
-  .season-shop h2 { margin-block-end: 12px; }
-  .season-route-head { display: flex; align-items: center; gap: 10px; margin-block-end: 6px; }
-  .season-route-head > span { margin-inline-end: auto; color: var(--color-ink-mute); font-weight: 600; }
+  .season-route-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-block-end: 6px; }
+  .season-route-head > span { color: var(--color-ink-mute); font-weight: 600; }
+  .season-route-head > span, .season-route-head > .season-gained { margin-inline-end: auto; }
+  .season-route-head > span:has(+ .season-gained) { margin-inline-end: 0; }
+  .season-gained { padding: 5px 12px; font-size: 14px; }
+  .season-claim-all { display: inline-flex; align-items: center; gap: 6px; }
+  .season-claim-all .ico { inline-size: 16px; block-size: 16px; }
+  .season-shop-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-block-end: 12px; }
+  .season-shop-head > p:not(.season-gained) { margin: 0; color: var(--color-ink-mute); font-size: 14px; }
+  .season-shop-head > .season-gained { align-self: center; }
   .season-route-head .iconbtn { --lip-h: 3px; width: 40px; height: 40px; }
   .season-route-head .iconbtn.flip .ico { transform: scaleX(-1); }
   .season-route-head .iconbtn:disabled { opacity: .35; cursor: default; }
@@ -3525,6 +3585,11 @@
   .season-shop li b { font-size: 16px; margin-block-start: 4px; }
   .season-shop li > span { color: var(--color-ink-soft); font-size: 14px; }
   .season-shop li.sold { opacity: .55; }
+  /* What you can pay stands out (a Solar edge), what you cannot says what you lack, what is sold out fades. */
+  .season-shop li.affordable { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 45%, transparent), 0 var(--lip-h, 6px) 0 var(--color-panel-lip); }
+  .season-shop li.short .season-reward-icon { filter: grayscale(.5); opacity: .7; }
+  .season-shop .season-short { display: inline-flex; align-items: center; gap: 6px; color: var(--color-ink-mute); font-size: 13px; font-weight: 700; }
+  .season-shop .season-short .ico { inline-size: 14px; block-size: 14px; }
   .season-shop .season-stock { color: var(--color-ink-mute); font-size: 13px; }
   .season-shop button { margin-block-start: auto; align-self: stretch; justify-content: center; display: inline-flex; align-items: center; gap: 6px; }
   .season-shop button .ico { inline-size: 16px; block-size: 16px; }
@@ -3534,7 +3599,7 @@
   .results-shards { display: inline-flex; align-items: center; gap: 4px; }
   .results-shards .ico { margin: 0; vertical-align: 0; }
   :where(:root[data-motion='reduced']) { .season-track li.ready .season-node { animation: none; } .season-track ol { scroll-behavior: auto; } }
-  @media (max-width: 900px) { .season-hero { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 900px) { .season-score { flex-wrap: wrap; } .season-score-next { flex-basis: 100%; margin-inline-start: 0; } }
   /* First steps and the Guía (DESIGN_SYSTEM §8 octovicies). */
   .first-steps { --r: 18px; display: grid; gap: 10px; padding: 14px 18px; inline-size: min(560px, 100%); }
   .first-steps-head { display: flex; align-items: center; gap: 12px; }
@@ -3763,6 +3828,21 @@
   .claim-chip.dust { color: var(--color-uv-soft, #b39dff); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 60%, transparent); }
   .claim-chip.signal { color: var(--color-nova); box-shadow: 0 0 12px color-mix(in srgb, var(--color-nova) 60%, transparent); }
   .claim-chip.event-signal { color: var(--color-uv-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 70%, transparent); }
+  /* The season currency: its violet shard (DESIGN_SYSTEM §8 novovicies), in the wallet and in flight. */
+  .claim-chip.shards { color: var(--color-uv-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv-soft) 65%, transparent); }
+  /* A piece collected (title, frame, avatar, skin) has nowhere to fly: a little Terminal card pops over the button
+     with its name, rises a little and fades. */
+  .claim-piece { position: fixed; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; padding: 6px 12px 7px 8px; border-radius: 12px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px var(--color-terminal), 0 0 18px color-mix(in srgb, var(--color-terminal) 45%, transparent), 0 4px 0 var(--color-panel-lip); white-space: nowrap; translate: -50% -50%; animation: piece-pop 1.8s cubic-bezier(.34, 1.56, .64, 1) both; }
+  .claim-piece .ico { grid-row: 1 / 3; inline-size: 22px; block-size: 22px; color: var(--color-terminal); }
+  .claim-piece small { font-size: 11.5px; font-weight: 700; color: var(--color-terminal); line-height: 1.1; }
+  .claim-piece b { font-size: 14px; font-weight: 700; color: var(--color-ink); line-height: 1.2; }
+  @keyframes piece-pop {
+    0% { transform: translateY(0) scale(.4); opacity: 0; }
+    14% { transform: translateY(-46px) scale(1.08); opacity: 1; }
+    24% { transform: translateY(-52px) scale(1); }
+    78% { transform: translateY(-60px) scale(1); opacity: 1; }
+    100% { transform: translateY(-74px) scale(.96); opacity: 0; }
+  }
   @keyframes chip-fly {
     0% { transform: translate(0, 0) scale(.4); opacity: 0; }
     15% { transform: translate(0, -28px) scale(1.15); opacity: 1; }

@@ -30,6 +30,8 @@ import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { ContentScreen } from './admin/content/ContentScreen';
 import { PackLibraryScreen } from './admin/mail/PackLibraryScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
+import { SeasonsScreen } from './admin/seasons/SeasonsScreen';
+import { SeasonWizardScreen } from './admin/seasons/SeasonWizard';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
 import { Alerts, Commerce } from './admin/ModMarket';
@@ -169,6 +171,8 @@ export function App() {
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
             <Route path="eventos" element={<EventsScreen />} />
             <Route path="eventos/:id" element={<EventWizardScreen />} />
+            <Route path="temporadas" element={<SeasonsScreen />} />
+            <Route path="temporadas/:id" element={<SeasonWizardScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="referidos" element={<ReferralsScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
