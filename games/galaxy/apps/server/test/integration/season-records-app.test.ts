@@ -30,6 +30,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   // Records never meet another file: they go (their archive stays, under ids nobody else uses).
+  await app.db.updateTable('galaxy.seasons').set({ state: 'draft' }).where('id', 'in', [ENDED, OPEN]).execute();
   await app.db.deleteFrom('galaxy.seasons').where('id', 'in', [ENDED, OPEN]).execute();
   await app.close();
 });

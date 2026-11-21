@@ -5,7 +5,7 @@ import type { AuditActor } from '../audit';
 import { type ConfigService, createConfigService } from '../config/service';
 import type { DB } from '../db/schema';
 import { HttpError } from '../errors';
-import { allSeasons, createSeasonStore, extendSeason, saveSeasonDraft, scheduleSeason, seasonAwareConfig, seasonContext, type SeasonRow, unscheduleSeason } from './records';
+import { allSeasons, createSeasonStore, extendSeason, patchScheduledSeason, saveSeasonDraft, scheduleSeason, seasonAwareConfig, seasonContext, type SeasonRow, unscheduleSeason } from './records';
 
 // The container CLI's season commands (plan «temporadas como fichas», 2026-11-21; docs/CONTENIDO.md B): seasons are
 // records now, prepared as drafts and scheduled; they start and end on their own. The panel's «Temporadas» does the
@@ -118,6 +118,28 @@ export async function seasonSchedule(db: Kysely<DB>, id: string | undefined, rea
     const s = await scheduleSeason(db, id, await seasonContext(await cliConfig(db)), CLI_ACTOR, reason);
     out(`Programada: ${line(s, false)}`);
     if (Date.parse(s.startsAt) <= Date.now()) out('Ojo: su inicio ya pasó, así que está abierta desde ahora');
+    return 0;
+  } catch (err) {
+    return printIssues(err, out);
+  }
+}
+
+/** `season-patch <id> <archivo.json | -> --reason <motivo>`: fixes a scheduled season in place (its id and, once started, its start stay). */
+export async function seasonPatch(db: Kysely<DB>, id: string | undefined, source: string | undefined, reason: string | undefined, out: Out): Promise<number> {
+  if (!id || !source || !reason || reason.length < 3) {
+    out('Uso: season-patch <id> <temporada.json | -> --reason <motivo de 3 caracteres o más>');
+    return 1;
+  }
+  let input: unknown;
+  try {
+    input = readRecord(source);
+  } catch (err) {
+    out(`No se pudo leer el JSON de ${source}: ${(err as Error).message}`);
+    return 1;
+  }
+  try {
+    const s = await patchScheduledSeason(db, id, input, await seasonContext(await cliConfig(db)), CLI_ACTOR, reason, new Date());
+    out(`Corregida: ${line(s, currentSeason([s], Date.now()) !== null)}`);
     return 0;
   } catch (err) {
     return printIssues(err, out);

@@ -261,6 +261,12 @@ ssh -o BatchMode=yes root@192.168.1.103 "docker exec elclub-pre-galaxy-1 node di
 
 **Para desprogramarla antes de las 00:00:** `season-unschedule season-2 --reason '<motivo>'`.
 
+**Para corregirla ya empezada** (un precio, un premio o una misión mal puestos): corrige `temporada.json` y
+```
+node games/galaxy/scripts/ops-bundle.mjs games/galaxy/ops/launch/2026-11-23-temporada-2 | ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js season-patch season-2 - --reason '<motivo>'"
+```
+El id y el inicio no cambian una vez empezada. El final se mueve con `season-extend`.
+
 **Lo programa el propietario en Admin › Comunicación**, porque la CLI solo publica avisos desde ya:
 - **Cuándo:** el 7/12 a las 00:00, durante 7 días.
 - **Texto:** «Vuelve el Escuadrón estelar: metas en grupo y de clan hasta el 30 de diciembre, con el Eco de coral para quien llegue al final».

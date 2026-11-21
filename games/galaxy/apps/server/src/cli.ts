@@ -34,7 +34,7 @@ import { credit, debit } from './economy/wallet';
 import { HttpError } from './errors';
 import type { Env } from './env';
 import { closeDue } from './season/close';
-import { cliConfig, seasonExtend, seasonImport, seasonList, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
+import { cliConfig, seasonExtend, seasonImport, seasonList, seasonPatch, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
 import { createSeasonStore, seasonContext } from './season/records';
 import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
@@ -67,6 +67,7 @@ const USAGE = [
   '  season-show <id>',
   '  season-import <temporada.json | -> --reason <motivo>',
   '  season-schedule <id> --reason <motivo>',
+  '  season-patch <id> <temporada.json | -> --reason <motivo>',
   '  season-unschedule <id> --reason <motivo>',
   '  season-extend <id> <fin ISO> --reason <motivo> [--move-next]',
 ].join('\n');
@@ -290,6 +291,10 @@ async function publishConfig(args: string[], deps: CliDeps): Promise<number> {
     return 1;
   }
   const config = await cliConfig(deps.db);
+  if ((key === 'season' || key === 'seasonRoute') && (await deps.db.selectFrom('galaxy.seasons').select('id').limit(1).executeTakeFirst())) {
+    deps.out(SEASON_MANAGED);
+    return 1;
+  }
   if (dryRun) return (await simulate(key, data, config, deps.out)) === null ? 1 : 0;
   if (!reason) return 1;
   const before = key === 'season' ? await seasonConfigs(config) : null;
@@ -621,6 +626,10 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'season-show') return seasonShow(deps.db, positional(args, [])[0], deps.out);
   if (command === 'season-import') return seasonImport(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
   if (command === 'season-schedule') return seasonSchedule(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
+  if (command === 'season-patch') {
+    const [id, source] = positional(args, ['--reason']);
+    return seasonPatch(deps.db, id, source, flag(args, '--reason'), deps.out);
+  }
   if (command === 'season-unschedule') return seasonUnschedule(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
   if (command === 'season-extend') {
     const [id, endsAt] = positional(args, ['--reason']).filter((a) => a !== '--move-next');
