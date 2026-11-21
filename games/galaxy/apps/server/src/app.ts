@@ -59,6 +59,9 @@ import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
 import { createSeasonStore, seasonAwareConfig, startSeasonImport } from './season/records';
 import { startSeasonJobs } from './season/jobs';
+import { startTournamentJobs } from './tournaments/jobs';
+import { REPLAY_WORKER_URL, workerReplayer } from './tournaments/replayer';
+import { registerTournamentRoutes } from './tournaments/routes';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
@@ -82,7 +85,7 @@ export type AppDeps = {
   /** The server's disk for «Almacenamiento»: by default the root's (statfs); tests pass a fixed one. */
   disk?: () => Promise<Disk | null>;
   /** Background jobs that need the live config and socket (mail v2, P5: scheduled mail): only the production entry. */
-  jobs?: { mail?: boolean; seasons?: boolean };
+  jobs?: { mail?: boolean; seasons?: boolean; tournaments?: boolean };
   /**
    * Seasons as records (plan «temporadas como fichas», 2026-11-21): the live `season`, `seasonRoute`, `missions.season`
    * and `lab.season` come from galaxy.seasons and can no longer be published the old way. On in production; tests that
@@ -257,6 +260,14 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     if (deps.jobs?.seasons && seasons) {
       const stopSeasons = startSeasonJobs({ db: deps.db, config, store: seasons, now, live }, app.log);
       api.addHook('onClose', async () => stopSeasons());
+    }
+    // Tournaments (plan «temporadas como fichas», part 5): their routes, and their job with the review's replays in a
+    // worker thread (only the production entry).
+    registerTournamentRoutes(api, { db: deps.db, config, now, live, trustCfIp: deps.env.TRUST_CF_IP });
+    if (deps.jobs?.tournaments) {
+      const replayer = workerReplayer({ url: REPLAY_WORKER_URL(), onError: (err) => app.log.error({ err: { name: (err as Error).name } }, 'replay_worker_failed') });
+      const stopTournaments = startTournamentJobs({ db: deps.db, config, now, live, replayer }, app.log);
+      api.addHook('onClose', async () => stopTournaments());
     }
     registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });

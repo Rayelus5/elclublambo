@@ -31,6 +31,14 @@ export type LiveNotice =
    */
   | { kind: 'offer'; event: OfferNoticeEvent; offer: string; galaxy: { id: string; name: string; tier: Tier }; amount: number; from: NoticePlayer | null }
   /** A season started (plan «temporadas como fichas»): told once to everyone online, so the client reads it again. */
-  | { kind: 'season'; event: 'started'; id: string; name: string };
+  | { kind: 'season'; event: 'started'; id: string; name: string }
+  /**
+   * A tournament I am in (plan «temporadas como fichas», part 5): it started (my runs count), it ended (its review
+   * begins), its results are out (my prizes wait on its page) or it was cancelled (my fee is back). Its page is
+   * `tournamentPath(slug)`.
+   */
+  | { kind: 'tournament'; event: TournamentNoticeEvent; id: string; slug: string; title: string };
+
+export type TournamentNoticeEvent = 'started' | 'ended' | 'finished' | 'cancelled';
 
 export type OfferNoticeEvent = 'received' | 'accepted' | 'rejected' | 'outbid' | 'expired' | 'closed';

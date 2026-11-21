@@ -28,7 +28,7 @@ function liveFor(deps: MailDeps, accountId: string) {
   return deps.db
     .selectFrom('galaxy.mailbox_receipts as r')
     .innerJoin('galaxy.mailbox_messages as m', 'm.id', 'r.message_id')
-    .select(['m.id', 'm.title', 'm.body', 'm.type', 'm.gifts', 'm.created_at', 'm.expires_at', 'r.read_at', 'r.claimed_at', 'r.archived_at', 'r.granted'])
+    .select(['m.id', 'm.title', 'm.body', 'm.type', 'm.gifts', 'm.link', 'm.created_at', 'm.expires_at', 'r.read_at', 'r.claimed_at', 'r.archived_at', 'r.granted'])
     .where('r.account_id', '=', accountId)
     .where('r.deleted_at', 'is', null)
     .where('m.withdrawn_at', 'is', null)
@@ -82,6 +82,7 @@ export async function myMailbox(deps: MailDeps, accountId: string, q: { box?: 'i
       read: r.read_at !== null,
       claimed,
       archived: r.archived_at !== null,
+      link: r.link,
     };
   });
   const last = shown[shown.length - 1];

@@ -765,6 +765,8 @@ export interface MailboxMessagesTable {
   scheduled_at: ColumnType<Date | null, Date | string | null | undefined, never>;
   sent_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
   big: ColumnType<boolean, boolean | undefined, never>;
+  /** Tournaments (plan «temporadas como fichas», part 5): the in-game page a system message's button opens. */
+  link: ColumnType<string | null, string | null | undefined, never>;
 }
 
 /** A message's receipt by an account (M6d-1): read, and its gift claimed once; mail v2: archived, deleted, what it gave. */
@@ -820,6 +822,88 @@ export interface MediaAssetsTable {
   sha256: string;
   data: Buffer;
   created_by: string | null;
+  created_at: Timestamp;
+}
+
+type Stamp = ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+
+/**
+ * Tournaments (plan «temporadas como fichas», part 5; GDD §13.3): a competition inside a season with its own ranking.
+ * `filters`, `entry`, `prizes` and `participation` hold the record's fields as TournamentRecord has them.
+ */
+export interface TournamentsTable {
+  id: Generated<string>;
+  slug: string;
+  season_id: string;
+  title: string;
+  summary: ColumnType<string, string | undefined, string>;
+  rules: ColumnType<string, string | undefined, string>;
+  banner_media: ColumnType<string | null, string | null | undefined, string | null>;
+  details_media: ColumnType<string | null, string | null | undefined, string | null>;
+  starts_at: ColumnType<Date, Date | string, Date | string>;
+  ends_at: ColumnType<Date, Date | string, Date | string>;
+  state: ColumnType<'draft' | 'scheduled' | 'running' | 'review' | 'finished' | 'cancelled', 'draft' | undefined, 'draft' | 'scheduled' | 'running' | 'review' | 'finished' | 'cancelled'>;
+  exclusive: ColumnType<boolean, boolean | undefined, boolean>;
+  metric: string;
+  filters: ColumnType<unknown, string, string>;
+  entry: ColumnType<unknown, string | null, string | null>;
+  prizes: ColumnType<unknown, string, string>;
+  participation: ColumnType<unknown, string | null, string | null>;
+  review_hours: ColumnType<number, number | undefined, number>;
+  max_entrants: ColumnType<number | null, number | null | undefined, number | null>;
+  version: ColumnType<number, number | undefined, number>;
+  created_at: Timestamp;
+  created_by: string | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  updated_by: string | null;
+  scheduled_at: Stamp;
+  scheduled_by: ColumnType<string | null, string | null | undefined, string | null>;
+  published_at: Stamp;
+  cancelled_at: Stamp;
+}
+
+/** Who signed up for a tournament, their fee and refund, a disqualification and the frozen result with its collection. */
+export interface TournamentEntriesTable {
+  tournament_id: string;
+  account_id: string;
+  joined_at: ColumnType<Date, Date | string | undefined, never>;
+  left_at: Stamp;
+  entry_key: ColumnType<string, string, never>;
+  /** What the entry cost ({ currency, amount }; null: free). */
+  fee: ColumnType<unknown, string | null | undefined, never>;
+  refunded_at: Stamp;
+  disqualified: ColumnType<boolean, boolean | undefined, boolean>;
+  disqualified_reason: ColumnType<string | null, string | null | undefined, string | null>;
+  final_rank: ColumnType<number | null, number | null | undefined, number | null>;
+  final_score: ColumnType<string | null, number | null | undefined, number | null>;
+  final_runs: ColumnType<number | null, number | null | undefined, number | null>;
+  rewards: ColumnType<unknown, string | null | undefined, string | null>;
+  eligible: ColumnType<boolean | null, boolean | null | undefined, boolean | null>;
+  claimed_at: Stamp;
+}
+
+/** The review's replay of one run of a tournament, and an admin's decision on one that could not be checked. */
+export interface TournamentChecksTable {
+  tournament_id: string;
+  run_id: string;
+  status: ColumnType<'pending' | 'ok' | 'mismatch' | 'error' | 'unverifiable', 'pending' | undefined, 'ok' | 'mismatch' | 'error' | 'unverifiable'>;
+  detail: ColumnType<unknown, string | null | undefined, string | null>;
+  decision: ColumnType<'accept' | 'discard' | null, never, 'accept' | 'discard'>;
+  decided_by: ColumnType<string | null, never, string | null>;
+  decided_at: ColumnType<Date | null, never, Date | string>;
+  checked_at: Stamp;
+  created_at: Timestamp;
+}
+
+/** A money prize owed by a tournament, and when an admin marked it paid (once). */
+export interface TournamentCashTable {
+  tournament_id: string;
+  account_id: string;
+  rank: number;
+  amount_eur: ColumnType<string, number | string, never>;
+  note: ColumnType<string, string | undefined, never>;
+  paid_at: Stamp;
+  paid_by: ColumnType<string | null, string | null | undefined, string | null>;
   created_at: Timestamp;
 }
 
@@ -1143,4 +1227,8 @@ export interface DB {
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
   'galaxy.antenna': AntennaTable;
+  'galaxy.tournaments': TournamentsTable;
+  'galaxy.tournament_entries': TournamentEntriesTable;
+  'galaxy.tournament_checks': TournamentChecksTable;
+  'galaxy.tournament_cash': TournamentCashTable;
 }

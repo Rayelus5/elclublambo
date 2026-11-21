@@ -562,6 +562,59 @@ Ver §15.
 - Pueden traer un gachapón de evento, misiones, multiplicadores y eventos de clan.
 - Se crean y programan desde el panel de admin.
 
+### 13.3 Torneos [U+D]
+
+Competiciones dentro de una temporada, cada una con **su propia clasificación** (plan «temporadas como fichas», parte 5). Las prepara un admin; las puntuaciones las calcula siempre el servidor a partir de las partidas.
+
+**Cómo se gana [U].** El admin elige la medida:
+
+| Medida | Qué cuenta |
+|---|---|
+| `points` | Los puntos de temporada de cada partida (la fórmula de su temporada), sumados |
+| `best_run` | Los puntos de la mejor partida |
+| `kills` / `cores` | Enemigos y Núcleos, sumados |
+| `runs` / `extractions` | Partidas y extracciones, contadas |
+| `depth` | La capa más honda |
+| `season_points` | Los puntos de las partidas desde el **inicio de la temporada** hasta el fin del torneo. Inscribirse solo da derecho a optar |
+
+- **Nunca cuentan** misiones ni ajustes, solo partidas.
+- **Filtros opcionales:** sector, sonda, modo (solo, en grupo o ambos) y nivel mínimo para inscribirse.
+- **Desempate:** quien llegó antes y después el nombre. Cada puesto es de uno solo.
+
+**Qué partidas cuentan [U].**
+- Las terminadas en `[max(inscripción, inicio), fin)`, salvo en `season_points`.
+- No sospechosas, de al menos `account.minRunSeconds`, de cuentas no expulsadas ni fuera de la clasificación.
+- **Inscripción** hasta el último momento. **Salir** borra la puntuación y no se puede volver.
+
+**Inscripción [U+D].**
+- **Exclusivo** por defecto: nadie está en dos exclusivos cuyas fechas se solapan. El servidor lo asegura con un candado por cuenta, también con dos inscripciones a la vez. Uno no exclusivo admite estar en otros.
+- **Entrada opcional** en monedas, polvo o señales. Salir no la devuelve; cancelar el torneo la devuelve a todos los que pagaron (también a quien salió, no a quien fue descalificado), una vez.
+- **Una entrada nunca va con un premio en dinero [U].**
+- Nivel mínimo y cupo opcionales.
+
+**La ficha [D].**
+- Dura **28 días como mucho** y cabe en su temporada, que tiene que estar programada.
+- Los tramos de premios empiezan en el puesto 1, van en orden y no se solapan. Cada uno da regalos (los del buzón, `Gift`) y, aparte, dinero opcional.
+- **Premio de participación** opcional: a quien jugó al menos `minRuns` partidas que cuentan.
+- Nada que acabe con la temporada o con un evento puede ser premio (sus puntos, su moneda, las señales de un evento): los premios no caducan.
+- **Programar** pide la contraseña. Con premios por encima de `mailLimits`, o con dinero, solo un superadmin.
+
+**Ciclo [U+D].** Un proceso por minuto: programado → en curso (aviso a los inscritos) → en revisión al acabar → terminado.
+
+**Revisión antes de pagar [U].**
+- Al acabar se congela la clasificación. El servidor resimula en un hilo aparte, de una en una, las partidas en solitario que dan los puestos con premio: en `best_run` y `depth` la mejor; en el resto, todas. Las de grupo ya las arbitra el servidor.
+- **No coincide** (huella, ticks, enemigos, capa, nivel, Núcleos o desenlace): la partida pasa a sospechosa (`replay_mismatch`) y se recalcula. Las partidas de quien sube a un puesto con premio también se comprueban.
+- **No se puede comprobar** (sin entradas, otra versión de la simulación, contenido que ya no se lee): espera la decisión de un admin, aceptarla o descartarla (descartada deja de contar en ese torneo).
+- Un admin puede **descalificar** con motivo.
+- **Los resultados se publican** cuando pasan `reviewHours` (24 por defecto) y no queda nada pendiente, o con «Publicar ya» si no queda nada pendiente.
+
+**Premios [U].**
+- Al publicar se congelan el puesto, la puntuación y los premios de cada inscrito. Quien no puede ganar premios («puede ganar premios» apagado) conserva su puesto con una marca y su premio pasa al siguiente.
+- Cada ganador recibe un **aviso en el buzón** con un botón a la página del torneo, donde **recoge** sus premios. No caducan.
+- **El dinero no se paga en el juego:** queda en «Premios en metálico pendientes» y un admin lo marca como pagado (auditado).
+
+**Retención.** Las entradas grabadas de las partidas de los inscritos en un torneo sin terminar no se borran a los 30 días.
+
 ---
 
 ## 14. Social
