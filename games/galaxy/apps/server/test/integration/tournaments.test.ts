@@ -413,7 +413,7 @@ describe('la revisión y los resultados', () => {
     // Nothing publishes while a run waits for a decision: not the job, not «Publicar ya».
     expect(r.canPublish).toBe(false);
     expect((await tick(w.at(60))).finished).not.toContain(t.id);
-    const early = await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/publish`, { reason: 'Ya', password: admin.password }, { cookie: admin.cookie });
+    const early = await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/publish`, { reason: 'Publicar ya', password: admin.password }, { cookie: admin.cookie });
     expect(early.json()).toMatchObject({ error: 'tournament_pending', pending: 1 });
     expect((await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/${honestRun}/decide`, { decision: 'accept', reason: 'Bien', password: admin.password }, { cookie: admin.cookie })).json().error).toBe('tournament_check_decided');
 
