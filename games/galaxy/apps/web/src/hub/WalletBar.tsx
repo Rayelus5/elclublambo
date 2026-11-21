@@ -79,9 +79,20 @@ export function eventTickets(wallet: Wallet | undefined, currencies: readonly st
  * event signals (open beta) have their own ticket, the same but purple, only while an event scanner is open (what is
  * left when it closes becomes star dust). Where components are spent (the Hangar's probe levels, M4b-1) they join,
  * and in the station material too (it opens the refinery that turns it into components). Each chip leads where its
- * resource is used: the signals to the Escáner, the event ones to its event tab.
+ * resource is used: the signals to the Escáner, the event ones to its event tab. On the season screen the season
+ * currency joins at the end (season shop plan, PR 4), with its live name and its violet shard, counting up the same.
  */
-export function WalletBar({ wallet, components = false, material }: { wallet: Wallet | undefined; components?: boolean; material?: { onOpen: () => void } }) {
+export function WalletBar({
+  wallet,
+  components = false,
+  material,
+  season,
+}: {
+  wallet: Wallet | undefined;
+  components?: boolean;
+  material?: { onOpen: () => void };
+  season?: { name: string; balance: number };
+}) {
   const gacha = useGacha().data;
   const eventCurrencies = (gacha?.banners ?? []).filter((b) => b.kind === 'event').map((b) => b.currency);
   // Coins, dust and components lead to their tab of the resource shop while it is open for this account (shop and lab
@@ -116,6 +127,7 @@ export function WalletBar({ wallet, components = false, material }: { wallet: Wa
       {eventCurrencies.length > 0 ? (
         <Resource kind="event-signal" icon="ticket" amount={events} label={r.eventSignal(events)} lead={{ to: '/escaner?tipo=evento', label: r.goTo.eventScanner }} />
       ) : null}
+      {season ? <Resource kind="shards" icon="shard" amount={season.balance} label={r.season(season.balance, season.name)} /> : null}
     </>
   );
 }

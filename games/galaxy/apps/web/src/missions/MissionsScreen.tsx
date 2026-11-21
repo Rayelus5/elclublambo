@@ -188,7 +188,7 @@ export function MissionsScreen() {
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{t.title}</h1>
-          <div className="lip panel hud missions-wallet">
+          <div className="lip panel hud missions-wallet" data-wallet>
             <WalletBar wallet={gacha.data?.wallet} />
           </div>
         </header>
