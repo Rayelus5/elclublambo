@@ -51,6 +51,8 @@ let app: Awaited<ReturnType<typeof testApp>>;
 type Staff = { cookie: string; password: string; id: string };
 let admin: Staff;
 let superadmin: Staff;
+/** Who prepares the tournaments the other tests need (each admin has its own limit of changes a minute). */
+let organizer: Staff;
 const slugs: string[] = [];
 
 async function staff(role: 'admin' | 'superadmin'): Promise<Staff> {
@@ -70,6 +72,7 @@ beforeAll(async () => {
   await scheduleSeason(app.db, SEASON, ctx, actor, 'Prueba');
   admin = await staff('admin');
   superadmin = await staff('superadmin');
+  organizer = await staff('admin');
 });
 
 afterAll(async () => {
@@ -100,7 +103,7 @@ function record(n: number, over: Partial<TournamentRecordInput> = {}): Tournamen
 }
 
 /** A tournament prepared and scheduled through the panel (a superadmin when its prizes need one). */
-async function scheduled(rec: TournamentRecordInput, by: Staff = admin): Promise<AdminTournament> {
+async function scheduled(rec: TournamentRecordInput, by: Staff = organizer): Promise<AdminTournament> {
   const made = await post(app.app, '/galaxy/api/admin/tournaments', { record: rec, reason: 'Torneo de prueba' }, { cookie: by.cookie });
   expect(made.statusCode, made.body).toBe(201);
   const t = made.json() as AdminTournament;
