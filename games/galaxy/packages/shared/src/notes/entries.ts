@@ -7,9 +7,9 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
-    id: 'v1-46-tienda-de-temporada',
-    version: '1.46',
-    date: '2026-11-21',
+    id: 'v1-47-tienda-de-temporada',
+    version: '1.47',
+    date: '2026-11-22',
     title: 'La tienda de temporada luce lo que ganas',
     summary: 'La pantalla de Temporada enseña tus recursos y lo que compras o recoges sube a la barra con su sonido',
     items: [
