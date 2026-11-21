@@ -9,7 +9,12 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { accountNamed } from '../social/profiles';
 import { claimResult, closeDue, hallOfFame, seasonHistory } from './close';
-import { closeEndedSeasons, type SeasonStore } from './records';
+import { allSeasons, closeEndedSeasons, type SeasonStore, seasonConfigsOf } from './records';
+import { requireAdmin } from '../auth/guards';
+import { HttpError } from '../errors';
+import { z } from 'zod';
+
+const previewQuerySchema = z.object({ preview: z.string().regex(/^[a-z0-9-]{1,32}$/).optional() });
 import { buyItem, claimStep, convertLeftovers, seasonConfigs, seasonScore, seasonView } from './service';
 
 // The season's routes (GDD §13.1; M7d-1): the route and shop, collecting a step and buying an item (both idempotent).
@@ -25,6 +30,16 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
     const s = requireSession(req);
     const now = deps.now();
     const c = await seasonConfigs(deps.config);
+    // An admin's preview of another season (the panel's «Temporadas»): read-only, with no progress of their own, as it
+    // will look once it opens.
+    const { preview } = previewQuerySchema.parse(req.query);
+    if (preview) {
+      requireAdmin(req);
+      const row = (await allSeasons(deps.db)).find((x) => x.id === preview);
+      if (!row) throw new HttpError(404, 'season_not_found');
+      const at = new Date(Math.min(Math.max(now.getTime(), Date.parse(row.startsAt)), Date.parse(row.endsAt) - 1));
+      return seasonView(deps.db, seasonConfigsOf(row, c.minRunSeconds), s.accountId, 0, at);
+    }
     await closeEnded(c, now);
     await convertLeftovers(deps.db, c, s.accountId, now);
     return seasonView(deps.db, c, s.accountId, await seasonScore(deps.db, c, s.accountId, now), now);

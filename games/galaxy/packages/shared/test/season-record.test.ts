@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { configSchemas, isMadridMidnight, parseConfig, seasonConfigOf, seasonRecordIssues, seasonRecordSchema, shownSeason, currentSeason } from '../src';
+import { configSchemas, currentSeason, isMadridMidnight, madridDayOf, madridMidnightOf, parseConfig, seasonCalendarWarnings, seasonConfigOf, seasonRecordIssues, seasonRecordSchema, shownSeason } from '../src';
 
 // Seasons as records (plan «temporadas como fichas», 2026-11-21): a season is a row with its dates, rules, route,
 // missions and lab tree; the season a moment belongs to is the scheduled one open then, or between seasons the last
@@ -88,4 +88,24 @@ test('isMadridMidnight: las 00:00 de Madrid en invierno son las 23:00 UTC del d�
 
 test('el esquema de la temporada sigue siendo el de la clave season', () => {
   expect(configSchemas.season.safeParse({ ...T2.rules, id: T2.id, name: T2.name, startsAt: T2.startsAt, endsAt: T2.endsAt }).success).toBe(true);
+});
+
+describe('el calendario de temporadas en el panel', () => {
+  test('el día de Madrid y su medianoche, en invierno y en verano', () => {
+    expect(madridMidnightOf('2026-11-23')).toBe('2026-11-22T23:00:00.000Z');
+    expect(madridMidnightOf('2027-07-01')).toBe('2027-06-30T22:00:00.000Z');
+    expect(madridDayOf('2026-11-22T23:00:00.000Z')).toBe('2026-11-23');
+    expect(() => madridMidnightOf('no-es-un-dia')).toThrow();
+  });
+
+  test('avisa de los días sin temporada por delante y de que no hay otra programada cuando la actual acaba pronto', () => {
+    const now = Date.parse('2026-12-20T12:00:00.000Z');
+    const s2 = { id: 'season-2', state: 'scheduled' as const, startsAt: '2026-11-22T23:00:00.000Z', endsAt: '2026-12-30T23:00:00.000Z' };
+    expect(seasonCalendarWarnings([s2], now)).toEqual([{ kind: 'nothing_next', after: 'season-2', endsAt: s2.endsAt }]);
+    const s3 = { id: 'season-3', state: 'scheduled' as const, startsAt: '2027-01-01T23:00:00.000Z', endsAt: '2027-02-28T23:00:00.000Z' };
+    expect(seasonCalendarWarnings([s2, s3], now)).toEqual([{ kind: 'gap', after: 'season-2', before: 'season-3', from: s2.endsAt, to: s3.startsAt }]);
+    expect(seasonCalendarWarnings([s2, { ...s3, startsAt: s2.endsAt }], now)).toEqual([]);
+    // A draft does not count.
+    expect(seasonCalendarWarnings([s2, { ...s3, startsAt: s2.endsAt, state: 'draft' as const }], now)).toEqual([{ kind: 'nothing_next', after: 'season-2', endsAt: s2.endsAt }]);
+  });
 });
