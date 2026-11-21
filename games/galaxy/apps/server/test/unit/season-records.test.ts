@@ -57,10 +57,13 @@ describe('el lector de configuración con temporadas como fichas', () => {
   test('ya no se publican la temporada, su ruta ni las misiones o el laboratorio de temporada a la antigua', async () => {
     const config = seasonAwareConfig(base, store([S1, S2]), at('2026-11-25T12:00:00.000Z'));
     const actor = { id: null, label: 'test' };
-    for (const [key, data] of [['season', {}], ['seasonRoute', {}], ['missions', { season: [] }], ['lab', { season: [] }]] as const) {
+    for (const [key, data] of [['season', {}], ['seasonRoute', {}], ['missions', { season: [] }], ['lab', { season: S2.missions.length ? [{ id: 'x' }] : [{ id: 'x' }] }]] as const) {
       await expect(config.publish(key, data, actor, 'motivo')).rejects.toMatchObject({ code: 'season_managed' } satisfies Partial<HttpError>);
       await expect(config.publishMany([{ key, data }], actor, 'motivo')).rejects.toMatchObject({ code: 'season_managed' });
     }
+    // A rollback copy (show-config --data) carries the season's own missions or tree as they are: those are let through.
+    await expect(config.publish('missions', { daily: { count: 3 }, season: S2.missions }, actor, 'Vuelta atrás')).resolves.toEqual({ version: 0 });
+    await expect(config.publish('lab', { season: [] }, actor, 'Vuelta atrás')).resolves.toEqual({ version: 0 });
     // The daily missions and the permanent lab tree keep being published as before.
     await expect(config.publish('missions', { daily: { count: 3 } }, actor, 'motivo')).resolves.toEqual({ version: 0 });
   });

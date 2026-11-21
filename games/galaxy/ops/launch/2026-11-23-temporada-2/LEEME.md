@@ -209,8 +209,12 @@ Quien completa todo en la Temporada 2 gana unas 108 señales de galaxia en 38 d�
 **Con temporadas como fichas ya no hay que esperar a medianoche:**
 - **La ficha** (`temporada.json`) se programa el domingo 22/11 y empieza sola el 23/11 a las 00:00. La Temporada 1 se archiva sola con sus premios de cierre en ese instante (en la primera lectura después).
 - **Desde las 00:00 en punto** las partidas dan esquirlas de la Temporada 2 y cuentan para sus misiones: ya no hay minutos perdidos.
-- **`events`** es una lista completa de tres: `primer-torneo` tal como está vivo, que acaba a las 00:00, `rumbo-profundo` y `escuadron-estelar`. Se puede publicar el domingo sin tocar el torneo. Los eventos futuros no se ven hasta que empiezan.
-- **`gacha`** quita el escáner de la Beta Abierta, cerrado desde el 13/11, y deja el de Rumbo profundo, que no abre hasta su fecha.
+- **`events`** es una lista completa de cuatro, copiada de lo vivo el 21/11 (v5) más lo nuevo:
+  - `primer-torneo`, tal como está vivo, que acaba a las 00:00;
+  - `primer-contacto` (la Beta Abierta), terminado el 13/11; se queda mientras su escáner siga abierto;
+  - `rumbo-profundo` y `escuadron-estelar`.
+  Se puede publicar el domingo sin tocar el torneo. Los eventos futuros no se ven hasta que empiezan.
+- **`gacha`** es la lista viva (v5) más el escáner de Rumbo profundo, que no abre hasta su fecha. Conserva el «Escáner de Temporada» (`primer-contacto`) tal como se alargó en el panel, hasta el 23/11 a las 14:00 de Madrid, para que nadie pierda sus señales antes de tiempo. Cuando cierre, se pueden quitar los dos (evento y escáner) en otra publicación.
 - **`achievements`** son de por vida: los 4 nuevos se ven desde que se publican.
 
 **Antes de nada, el código:** el PR «temporadas como fichas» tiene que estar desplegado en PRE, y `season-list` tiene que enseñar la Temporada 1 importada con sus fechas reales (del 12/11 23:00Z al 22/11 23:00Z, que se cambiaron en el panel).
@@ -221,7 +225,7 @@ Quien completa todo en la Temporada 2 gana unas 108 señales de galaxia en 38 d�
 ```
 ssh -o BatchMode=yes root@192.168.1.103 "docker exec elclub-pre-galaxy-1 node dist/cli.js season-list"
 ```
-2. Antes de publicar, actualiza `events.json` con el `primer-torneo` vivo: si cambió en el panel, copia aquí el vivo. Después guarda lo vivo, para volver atrás:
+2. Antes de publicar, comprueba que `primer-torneo`, `primer-contacto` y su escáner siguen como en `events.json` y `gacha.json` (se copiaron de lo vivo el 21/11). Si cambiaron en el panel, copia aquí lo vivo. Después guarda lo vivo, para volver atrás:
 ```
 for k in achievements events gacha; do
   ssh -o BatchMode=yes root@192.168.1.103 "docker exec elclub-pre-galaxy-1 node dist/cli.js show-config $k --data" > games/galaxy/ops/launch/2026-11-23-temporada-2/antes/$k.json
@@ -239,8 +243,8 @@ ssh -o BatchMode=yes root@192.168.1.103 "docker exec elclub-pre-galaxy-1 node di
 5. Con el mismo OK, publica las claves en este orden, parando en el primer fallo:
 ```
 ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config achievements - --reason 'Cuatro logros nuevos para la Temporada 2'" < games/galaxy/ops/launch/2026-11-23-temporada-2/achievements.json
-ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config events - --reason 'Rumbo profundo y vuelta del Escuadrón estelar tras el Primer torneo, sale la Beta Abierta ya terminada'" < games/galaxy/ops/launch/2026-11-23-temporada-2/events.json
-ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config gacha - --reason 'Escáner de Rumbo profundo con púlsares destacados, sale el de la Beta Abierta ya cerrado'" < games/galaxy/ops/launch/2026-11-23-temporada-2/gacha.json
+ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config events - --reason 'Rumbo profundo y vuelta del Escuadrón estelar tras el Primer torneo'" < games/galaxy/ops/launch/2026-11-23-temporada-2/events.json
+ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config gacha - --reason 'Escáner de Rumbo profundo con púlsares destacados'" < games/galaxy/ops/launch/2026-11-23-temporada-2/gacha.json
 ```
 6. El aviso, el 23/11 a partir de las 00:00, durante 7 días. La CLI solo publica avisos desde ya; si se quiere justo a las 00:00, que lo programe el propietario en Admin › Comunicación con el mismo texto:
 ```
@@ -256,6 +260,12 @@ ssh -o BatchMode=yes root@192.168.1.103 "docker exec elclub-pre-galaxy-1 node di
    - en cuanto alguien abre la temporada o el salón de la fama, la Temporada 1 queda cerrada y archivada.
 
 **Para desprogramarla antes de las 00:00:** `season-unschedule season-2 --reason '<motivo>'`.
+
+**Para corregirla ya empezada** (un precio, un premio o una misión mal puestos): corrige `temporada.json` y
+```
+node games/galaxy/scripts/ops-bundle.mjs games/galaxy/ops/launch/2026-11-23-temporada-2 | ssh -o BatchMode=yes root@192.168.1.103 "docker exec -i elclub-pre-galaxy-1 node dist/cli.js season-patch season-2 - --reason '<motivo>'"
+```
+El id y el inicio no cambian una vez empezada. El final se mueve con `season-extend`.
 
 **Lo programa el propietario en Admin › Comunicación**, porque la CLI solo publica avisos desde ya:
 - **Cuándo:** el 7/12 a las 00:00, durante 7 días.

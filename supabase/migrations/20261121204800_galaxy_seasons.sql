@@ -63,6 +63,24 @@ create trigger season_revisions_no_truncate
   before truncate on galaxy.season_revisions
   for each statement execute function galaxy.forbid_season_revision_change();
 
+-- A scheduled or closed season is history: only a draft is ever deleted (its revisions go with it).
+create function galaxy.forbid_season_delete()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.state <> 'draft' then
+    raise exception 'seasons_keep_history';
+  end if;
+  return old;
+end;
+$$;
+revoke all on function galaxy.forbid_season_delete() from public, anon, authenticated, service_role;
+create trigger seasons_keep_history
+  before delete on galaxy.seasons
+  for each row execute function galaxy.forbid_season_delete();
+
 alter table galaxy.seasons enable row level security;
 alter table galaxy.season_revisions enable row level security;
 create policy galaxy_api_all on galaxy.seasons for all to galaxy_api using (true) with check (true);

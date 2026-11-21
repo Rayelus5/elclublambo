@@ -54,6 +54,15 @@ describe('opsProblems', () => {
     expect(opsProblems({ ...c, gacha }, NOW)).toEqual(['El escáner perdido se paga con señales de un evento que no está en la lista']);
   });
 
+  test('un escáner que sigue abierto después de su evento (alargado a propósito) no es un problema si su evento sigue en la lista', () => {
+    const c = defaults();
+    const ended = event('beta', '2026-11-09T23:00:00.000Z', '2026-11-13T23:00:00.000Z');
+    const gacha = configSchemas.gacha.parse({ ...c.gacha, banners: [DEEP, scanner('beta', '2026-11-09T23:00:00.000Z', '2026-11-23T13:00:00.000Z')] });
+    expect(opsProblems({ ...c, events: { list: [ended] }, gacha }, NOW)).toEqual([]);
+    // Without its event in the list, its signals have nothing behind them.
+    expect(opsProblems({ ...c, events: { list: [] }, gacha }, NOW)).toEqual(['El escáner beta se paga con señales de un evento que no está en la lista']);
+  });
+
   test('lo que ya terminó no cuenta', () => {
     const c = defaults();
     const e = event('pasado', '2026-11-01T23:00:00.000Z', '2026-11-05T23:00:00.000Z');

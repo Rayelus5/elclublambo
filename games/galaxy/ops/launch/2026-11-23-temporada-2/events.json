@@ -200,6 +200,148 @@
       ]
     },
     {
+      "id": "primer-contacto",
+      "name": "Beta Abierta",
+      "description": "Arranca la Beta Abierta: juega, purga y explora para ganar señales del escáner de Primer contacto, con supernovas destacadas",
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-13T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "pc-runs",
+          "name": "Juega 5 incursiones",
+          "stat": "runs",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 300,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 3,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-boss",
+          "name": "Purga 5 Núcleos",
+          "stat": "bossKills",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 150,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-extract",
+          "name": "Extrae 5 veces",
+          "stat": "extractions",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 400,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-group",
+          "name": "Juega 3 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 3,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 1,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-depth",
+          "name": "Llega a la capa 4",
+          "stat": "depth",
+          "target": 4,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 300,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 5,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-pulls",
+          "name": "Haz 20 escaneos",
+          "stat": "pulls",
+          "target": 20,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        },
+        {
+          "id": "pc-kills",
+          "name": "Elimina 100.000 enemigos",
+          "stat": "kills",
+          "target": 100000,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 2,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 6,
+            "title": null,
+            "frame": null,
+            "avatar": null,
+            "skin": null
+          }
+        }
+      ]
+    },
+    {
       "id": "rumbo-profundo",
       "name": "Rumbo profundo",
       "description": "Dos semanas de metas duras para ti. Ganas señales del escáner de Rumbo profundo, con púlsares destacados, y el avatar Primer contacto si llegas al final",

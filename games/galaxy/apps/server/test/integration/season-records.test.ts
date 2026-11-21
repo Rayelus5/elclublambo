@@ -8,7 +8,7 @@ import { runCli } from '../../src/cli';
 import { createConfigService } from '../../src/config/service';
 import { createDb } from '../../src/db';
 import type { DB } from '../../src/db/schema';
-import { allSeasons, extendSeason, importSeasons, saveSeasonDraft, scheduleSeason, type SeasonContext, unscheduleSeason } from '../../src/season/records';
+import { allSeasons, extendSeason, importSeasons, patchScheduledSeason, saveSeasonDraft, scheduleSeason, type SeasonContext, unscheduleSeason } from '../../src/season/records';
 import { testEnv } from '../helpers';
 
 // Seasons as records (plan «temporadas como fichas», 2026-11-21): saved as drafts, scheduled, moved; never two at once;
@@ -38,7 +38,8 @@ const B = record('t-b', '2091-02-28T23:00:00.000Z', '2091-03-31T22:00:00.000Z');
 beforeAll(async () => {
   db = createDb(testEnv().DATABASE_URL, { max: 1 });
   trx = await db.startTransaction().execute();
-  // Each test sees only its own seasons.
+  // Each test sees only its own seasons (only drafts can be deleted).
+  await trx.updateTable('galaxy.seasons').set({ state: 'draft' }).execute();
   await trx.deleteFrom('galaxy.seasons').execute();
 });
 afterAll(async () => {
@@ -132,8 +133,38 @@ describe('la CLI de temporadas', () => {
   });
 });
 
+describe('corregir una temporada programada (season-patch)', () => {
+  test('se corrige su ruta y su nombre con revisión y auditoría; una ya empezada no cambia su inicio ni su id', async () => {
+    const S = record('t-patch', '2096-01-31T23:00:00.000Z', '2096-02-28T23:00:00.000Z');
+    await committed(() => saveSeasonDraft(trx, S, ctx, actor, 'Prepara'));
+    await committed(() => scheduleSeason(trx, 't-patch', ctx, actor, 'Programa'));
+    const started = new Date('2096-02-10T00:00:00.000Z');
+    const fixed = await committed(() => patchScheduledSeason(trx, 't-patch', { ...S, name: 'Corregida', route: { currency: { name: 'Fichas', perPoint: 1, dustRate: 1 } } }, ctx, actor, 'Precio mal puesto', started));
+    expect(fixed).toMatchObject({ name: 'Corregida', state: 'scheduled', version: 3 });
+    expect(fixed.route.currency.name).toBe('Fichas');
+    await expect(committed(() => patchScheduledSeason(trx, 't-patch', { ...S, startsAt: '2096-02-01T23:00:00.000Z' }, ctx, actor, 'Mueve', started))).rejects.toMatchObject({ code: 'season_started' });
+    await expect(committed(() => patchScheduledSeason(trx, 't-patch', { ...S, id: 't-otra' }, ctx, actor, 'Otro id', started))).rejects.toMatchObject({ code: 'season_invalid' });
+    const r = await cli(['season-patch', 't-patch', file('p.json', { ...S, name: 'Desde la CLI' }), '--reason', 'Otra corrección']);
+    expect(r.code, r.out).toBe(0);
+  });
+
+  test('no se programa una temporada que ya acabó ni con el id de una archivada; no se alarga una que ya acabó', async () => {
+    await committed(() => saveSeasonDraft(trx, record('t-past', '2020-01-31T23:00:00.000Z', '2020-02-29T23:00:00.000Z'), ctx, actor, 'Pasada'));
+    await expect(committed(() => scheduleSeason(trx, 't-past', ctx, actor, 'Programa'))).rejects.toMatchObject({ code: 'season_invalid' });
+    await trx.insertInto('galaxy.season_archive').values({ season: 't-used', name: 'Usada', starts_at: '2019-01-01T00:00:00.000Z', ends_at: '2019-02-01T00:00:00.000Z' }).execute();
+    await committed(() => saveSeasonDraft(trx, record('t-used', '2097-01-31T23:00:00.000Z', '2097-02-28T23:00:00.000Z'), ctx, actor, 'Repite id'));
+    await expect(committed(() => scheduleSeason(trx, 't-used', ctx, actor, 'Programa'))).rejects.toMatchObject({ code: 'season_invalid' });
+    await expect(committed(() => extendSeason(trx, 't-a', '2091-04-30T22:00:00.000Z', { moveNext: false }, actor, 'Tarde', new Date('2091-03-20T00:00:00.000Z')))).rejects.toMatchObject({ code: 'season_invalid' });
+  });
+
+  test('una temporada programada o cerrada no se borra (solo los borradores)', async () => {
+    await expect(committed(() => trx.deleteFrom('galaxy.seasons').where('id', '=', 't-a').execute())).rejects.toThrow(/seasons_keep_history|permission denied/);
+  });
+});
+
 describe('la importación del primer despliegue', () => {
   test('la temporada viva pasa a ficha programada con su ruta, sus misiones y su árbol; una archivada, a cerrada', async () => {
+    await trx.updateTable('galaxy.seasons').set({ state: 'draft' }).execute();
     await trx.deleteFrom('galaxy.seasons').execute();
     const base = createConfigService(trx, { ttlMs: 0 });
     const live = { id: 'imp-live', name: 'Viva', startsAt: '2094-01-31T23:00:00.000Z', endsAt: '2094-02-28T23:00:00.000Z', anomaly: 'contagion' };
@@ -152,5 +183,26 @@ describe('la importación del primer despliegue', () => {
     // Closed early: its end is cut at its close, so it does not overlap the live one.
     expect(all.find((s) => s.id === 'imp-old')).toMatchObject({ state: 'closed', endsAt: '2094-01-20T00:00:00.000Z' });
     expect(await importSeasons(trx, base)).toBe('present');
+  });
+
+  test('la temporada viva entra programada con sus fechas aunque ya estuviera en el archivo', async () => {
+    await trx.updateTable('galaxy.seasons').set({ state: 'draft' }).execute();
+    await trx.deleteFrom('galaxy.seasons').execute();
+    const base = createConfigService(trx, { ttlMs: 0 });
+    const live = { id: 'imp-arch', name: 'Archivada viva', startsAt: '2098-01-31T23:00:00.000Z', endsAt: '2098-02-28T23:00:00.000Z', anomaly: 'contagion' };
+    await base.publish('season', live, actor, 'Para importar');
+    await trx.insertInto('galaxy.season_archive').values({ season: 'imp-arch', name: 'Archivada viva', starts_at: live.startsAt, ends_at: live.endsAt, closed_at: new Date('2098-02-05T00:00:00.000Z') }).execute();
+    expect(await importSeasons(trx, base)).toBe('imported');
+    expect((await allSeasons(trx)).find((s) => s.id === 'imp-arch')).toMatchObject({ state: 'scheduled', endsAt: live.endsAt });
+  });
+
+  test('si ya hay otras fichas (un borrador o una importada a mano) pero no la viva, la importa igual', async () => {
+    await trx.updateTable('galaxy.seasons').set({ state: 'draft' }).execute();
+    await trx.deleteFrom('galaxy.seasons').execute();
+    await committed(() => saveSeasonDraft(trx, record('t-first', '2099-03-31T22:00:00.000Z', '2099-04-30T22:00:00.000Z'), ctx, actor, 'Antes que la importación'));
+    const base = createConfigService(trx, { ttlMs: 0 });
+    await base.publish('season', { id: 'imp-late', name: 'Tardía', startsAt: '2099-01-31T23:00:00.000Z', endsAt: '2099-02-28T23:00:00.000Z', anomaly: 'contagion' }, actor, 'Para importar');
+    expect(await importSeasons(trx, base)).toBe('imported');
+    expect((await allSeasons(trx)).map((s) => s.id).sort()).toEqual(['imp-late', 't-first']);
   });
 });

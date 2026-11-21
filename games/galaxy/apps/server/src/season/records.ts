@@ -101,10 +101,19 @@ function overlay<K extends ConfigKey>(key: K, value: ConfigValue<K>, row: Season
 }
 const SEASON_KEYS = new Set<string>(['season', 'seasonRoute', 'missions', 'lab']);
 
-/** Publishing the old way is over: the season and its route, and the season's own missions and lab tree. */
-function refuseSeasonFields(key: ConfigKey, data: unknown): void {
-  const own = !!data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'season');
-  if (key === 'season' || key === 'seasonRoute' || ((key === 'missions' || key === 'lab') && own)) throw new HttpError(409, 'season_managed');
+/**
+ * Publishing the old way is over: the season and its route, and the season's own missions and lab tree. A copy of what
+ * is live (a rollback saved with show-config --data, a version loaded in the panel) carries the season's missions or
+ * tree exactly as the record has them: that field is dropped and the rest publishes.
+ */
+function withoutSeasonFields(key: ConfigKey, data: unknown, row: SeasonRow | null): unknown {
+  if (key === 'season' || key === 'seasonRoute') throw new HttpError(409, 'season_managed');
+  if ((key !== 'missions' && key !== 'lab') || !data || typeof data !== 'object' || !Object.prototype.hasOwnProperty.call(data, 'season')) return data;
+  const { season, ...rest } = data as Record<string, unknown>;
+  const current = key === 'missions' ? (row?.missions ?? []) : (row?.lab ?? []);
+  const normalized = key === 'missions' ? (() => { try { return missionsOf(season); } catch { return null; } })() : labTree.safeParse(season).data ?? null;
+  if (JSON.stringify(normalized) !== JSON.stringify(current)) throw new HttpError(409, 'season_managed');
+  return rest;
 }
 
 /**
@@ -154,16 +163,19 @@ export function seasonAwareConfig(base: ConfigService, store: SeasonStore, now: 
       });
     },
     async publish(key, data, actor, reason, opts) {
-      refuseSeasonFields(key, data);
-      await checkLab(key, data);
-      return base.publish(key, data, actor, reason, opts);
+      const rest = withoutSeasonFields(key, data, await shown());
+      await checkLab(key, rest);
+      return base.publish(key, rest as never, actor, reason, opts);
     },
     async publishMany(items, actor, reason) {
-      for (const { key, data } of items) {
-        refuseSeasonFields(key, data);
-        await checkLab(key, data);
+      const row = await shown();
+      const cleaned = [];
+      for (const it of items) {
+        const rest = withoutSeasonFields(it.key, it.data, row);
+        await checkLab(it.key, rest);
+        cleaned.push({ ...it, data: rest });
       }
-      return base.publishMany(items, actor, reason);
+      return base.publishMany(cleaned, actor, reason);
     },
   };
 }
@@ -181,8 +193,26 @@ export async function closeEndedSeasons(db: Kysely<DB>, store: SeasonStore, minR
   let changed = false;
   for (const row of await store.list()) {
     if (row.state !== 'scheduled' || Date.parse(row.endsAt) > now.getTime()) continue;
-    await closeDue(db, seasonConfigsOf(row, minRunSeconds), now);
-    const done = await db.updateTable('galaxy.seasons').set({ state: 'closed', updated_at: now }).where('id', '=', row.id).where('state', '=', 'scheduled').returning('id').executeTakeFirst();
+    // The list may be up to 10 s old: the row is read again (an end moved meanwhile keeps it open).
+    const fresh = await db.selectFrom('galaxy.seasons').select(ROW_FIELDS).where('id', '=', row.id).where('state', '=', 'scheduled').where('ends_at', '<=', now).executeTakeFirst();
+    if (!fresh) {
+      changed = true;
+      continue;
+    }
+    const current = readSeasonRow(fresh);
+    await closeDue(db, seasonConfigsOf(current, minRunSeconds), now);
+    const done = await inTransaction(db, async (trx) => {
+      const up = await trx
+        .updateTable('galaxy.seasons')
+        .set({ state: 'closed', version: current.version + 1, updated_at: now })
+        .where('id', '=', current.id)
+        .where('state', '=', 'scheduled')
+        .where('ends_at', '<=', now)
+        .returning('id')
+        .executeTakeFirst();
+      if (up) await revise(trx, { ...current, state: 'closed' }, current.version + 1, CLOSE_ACTOR, 'Cerrada al acabar');
+      return !!up;
+    });
     if (done) changed = true;
   }
   if (changed) store.invalidate();
@@ -192,6 +222,7 @@ export async function closeEndedSeasons(db: Kysely<DB>, store: SeasonStore, minR
 // Changing seasons (the CLI now, the panel's «Temporadas» next): one writer at a time, every change a revision.
 
 const LOCK = sql`select pg_advisory_xact_lock(hashtext('galaxy.seasons'))`;
+const CLOSE_ACTOR: AuditActor = { id: null, label: 'cierre' };
 /**
  * The overlap check is deferred to the commit (so one transaction can extend a season and push the next); each change
  * runs it at its own end, inside the function, so a clash comes back as `season_overlap` wherever the transaction ends.
@@ -275,12 +306,44 @@ export async function scheduleSeason(db: Kysely<DB>, id: string, ctx: SeasonCont
     const r = await rowFor(trx, id);
     if (r.state !== 'draft') throw new HttpError(409, 'season_not_draft');
     const issues = seasonRecordIssues({ id: r.id, name: r.name, startsAt: r.startsAt, endsAt: r.endsAt, rules: r.rules, route: r.route, missions: r.missions, lab: r.lab }, ctx);
+    if (Date.parse(r.endsAt) <= Date.now()) issues.push({ path: 'endsAt', message: 'season_end_past' });
+    if (await trx.selectFrom('galaxy.season_archive').select('season').where('season', '=', r.id).executeTakeFirst()) issues.push({ path: 'id', message: 'season_id_used' });
     if (issues.length > 0) throw new HttpError(400, 'season_invalid', { issues });
     const version = r.version + 1;
     await trx.updateTable('galaxy.seasons').set({ state: 'scheduled', version, scheduled_at: sql`now()`, scheduled_by: actor.id, updated_at: sql`now()`, updated_by: actor.id }).where('id', '=', id).execute();
     await CHECK_NOW.execute(trx);
     await revise(trx, { ...r, state: 'scheduled' }, version, actor, reason);
     await writeAudit(trx, { actor, action: 'season.scheduled', targetType: 'season', targetId: id, after: { startsAt: r.startsAt, endsAt: r.endsAt }, reason });
+    return rowFor(trx, id);
+  }).catch(seasonDbError);
+}
+
+/**
+ * Fixes a scheduled season in place (a wrong price, reward or mission found once it is running): the whole record,
+ * checked like a schedule. Its id never changes, nor its start once it has started (its end moves with extendSeason).
+ * A version, a revision and an audit entry, like every change.
+ */
+export async function patchScheduledSeason(db: Kysely<DB>, id: string, input: unknown, ctx: SeasonContext, actor: AuditActor, reason: string, now: Date): Promise<SeasonRow> {
+  const issues = seasonRecordIssues(input, ctx);
+  if (issues.length > 0) throw new HttpError(400, 'season_invalid', { issues });
+  const r = normalizeSeasonRecord(input);
+  if (r.id !== id) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'id', message: 'season_id_fixed' }] });
+  return inTransaction(db, async (trx) => {
+    await LOCK.execute(trx);
+    const old = await rowFor(trx, id);
+    if (old.state !== 'scheduled') throw new HttpError(409, 'season_not_draft');
+    const started = Date.parse(old.startsAt) <= now.getTime();
+    if (started && r.startsAt !== old.startsAt) throw new HttpError(409, 'season_started');
+    if (Date.parse(r.endsAt) <= now.getTime()) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'endsAt', message: 'season_end_past' }] });
+    const version = old.version + 1;
+    await trx
+      .updateTable('galaxy.seasons')
+      .set({ name: r.name, starts_at: r.startsAt, ends_at: r.endsAt, rules: JSON.stringify(r.rules), route: JSON.stringify(r.route), missions: JSON.stringify(r.missions), lab: JSON.stringify(r.lab), version, updated_at: sql`now()`, updated_by: actor.id })
+      .where('id', '=', id)
+      .execute();
+    await CHECK_NOW.execute(trx);
+    await revise(trx, { ...r, state: 'scheduled' }, version, actor, reason);
+    await writeAudit(trx, { actor, action: 'season.patched', targetType: 'season', targetId: id, before: snapshot(old), after: snapshot({ ...r, state: 'scheduled' }), reason });
     return rowFor(trx, id);
   }).catch(seasonDbError);
 }
@@ -310,6 +373,7 @@ export async function extendSeason(db: Kysely<DB>, id: string, endsAt: string, o
     await LOCK.execute(trx);
     const r = await rowFor(trx, id);
     if (r.state !== 'scheduled') throw new HttpError(409, 'season_not_draft');
+    if (Date.parse(r.endsAt) <= now.getTime()) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'endsAt', message: 'season_ended' }] });
     const check = seasonRecordIssues({ id: r.id, name: r.name, startsAt: r.startsAt, endsAt, rules: r.rules, route: r.route, missions: r.missions, lab: r.lab }).filter((i) => i.path === 'endsAt' || i.message === 'season_dates');
     if (Date.parse(endsAt) <= now.getTime()) check.push({ path: 'endsAt', message: 'season_end_past' });
     if (check.length > 0) throw new HttpError(400, 'season_invalid', { issues: check });
@@ -363,8 +427,10 @@ export async function importSeasons(db: Kysely<DB>, base: ConfigService): Promis
   return inTransaction(db, async (trx) => {
     await sql`select pg_advisory_xact_lock(hashtext('galaxy.seasons:import'))`.execute(trx);
     await LOCK.execute(trx);
-    if (await trx.selectFrom('galaxy.seasons').select('id').limit(1).executeTakeFirst()) return 'present' as const;
+    // Done once the live season is a record (other records, a draft made first, do not count).
+    if (await trx.selectFrom('galaxy.seasons').select('id').where('id', '=', season.id).executeTakeFirst()) return 'present' as const;
     if (!(await trx.selectFrom('galaxy.game_config_versions').select('version').where('key', '=', 'season').limit(1).executeTakeFirst())) return 'nothing' as const;
+    const existing = await trx.selectFrom('galaxy.seasons').select(['id', 'state', 'starts_at', 'ends_at']).execute();
     const archive = await trx.selectFrom('galaxy.season_archive').select(['season', 'name', 'starts_at', 'ends_at', 'closed_at']).orderBy('starts_at').execute();
     const versions = await trx.selectFrom('galaxy.game_config_versions').select(['data', 'created_at']).where('key', '=', 'season').orderBy('version').execute();
     const { id: _i, name: _n, startsAt: _s, endsAt: _e, ...liveRules } = season;
@@ -385,15 +451,17 @@ export async function importSeasons(db: Kysely<DB>, base: ConfigService): Promis
       if (end <= a.starts_at.getTime()) continue;
       planned.push({ id: a.season, name: a.name, startsAt: a.starts_at.toISOString(), endsAt: new Date(end).toISOString(), state: 'closed', rules, route: {}, missions: [], lab: [] });
     }
-    const liveArchived = archive.find((a) => a.season === season.id);
-    const liveEnd = liveArchived ? Math.min(Date.parse(season.endsAt), liveArchived.closed_at.getTime()) : Date.parse(season.endsAt);
-    if (liveEnd > Date.parse(season.startsAt)) {
-      planned.push({ id: season.id, name: season.name, startsAt: season.startsAt, endsAt: new Date(liveEnd).toISOString(), state: liveArchived ? 'closed' : 'scheduled', rules: liveRules, route, missions: missions.season, lab: lab.season });
+    // The live season keeps its dates and stays scheduled, even if it was archived before (its close then does nothing
+    // more): it is what players are playing now.
+    if (Date.parse(season.endsAt) > Date.parse(season.startsAt)) {
+      planned.push({ id: season.id, name: season.name, startsAt: season.startsAt, endsAt: season.endsAt, state: 'scheduled', rules: liveRules, route, missions: missions.season, lab: lab.season });
     }
     // The live season first: an archived one that overlaps it is the one left out.
     const kept: Planned[] = [];
-    const overlaps = (x: Planned, y: Planned) => Date.parse(x.startsAt) < Date.parse(y.endsAt) && Date.parse(y.startsAt) < Date.parse(x.endsAt);
-    for (const p of [...planned].reverse()) if (!kept.some((k) => overlaps(k, p))) kept.push(p);
+    const overlaps = (x: { startsAt: string; endsAt: string }, y: { startsAt: string; endsAt: string }) => Date.parse(x.startsAt) < Date.parse(y.endsAt) && Date.parse(y.startsAt) < Date.parse(x.endsAt);
+    const counted = existing.filter((e) => e.state !== 'draft').map((e) => ({ startsAt: e.starts_at.toISOString(), endsAt: e.ends_at.toISOString() }));
+    const taken = new Set(existing.map((e) => e.id));
+    for (const p of [...planned].reverse()) if (!taken.has(p.id) && !counted.some((k) => overlaps(k, p)) && !kept.some((k) => overlaps(k, p))) kept.push(p);
     for (const p of kept) {
       await trx
         .insertInto('galaxy.seasons')
