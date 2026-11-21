@@ -58,6 +58,7 @@ import { shopFlag } from './shop/service';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
 import { createSeasonStore, seasonAwareConfig, startSeasonImport } from './season/records';
+import { registerSeasonAdminRoutes } from './season/admin-routes';
 import { startSeasonJobs } from './season/jobs';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -248,6 +249,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerSettingsRoutes(api, { db: deps.db });
     registerNotesRoutes(api, { db: deps.db, env: deps.env });
     registerSeasonRoutes(api, { db: deps.db, config, now, seasons });
+    // The panel's «Temporadas» (plan «temporadas como fichas»).
+    registerSeasonAdminRoutes(api, { db: deps.db, config, env: deps.env, now, seasons });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now, live });
     if (deps.jobs?.mail) {
       const stopMail = startMailJobs({ db: deps.db, config, now, live }, app.log);
