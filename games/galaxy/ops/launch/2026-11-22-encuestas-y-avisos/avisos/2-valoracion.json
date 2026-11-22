@@ -1,0 +1,18 @@
+{
+  "record": {
+    "kind": "review",
+    "title": "Valora Galaxy Survivor",
+    "body": "Tu opinión nos ayuda a decidir qué mejorar en las próximas versiones",
+    "questions": [
+      { "type": "stars", "id": "nota", "prompt": "¿Cuántas estrellas le das?" },
+      { "type": "text", "id": "porque", "prompt": "Cuéntanos por qué", "placeholder": "Escribe aquí", "required": false, "maxLength": 500 }
+    ],
+    "imageMedia": null,
+    "link": null,
+    "audience": { "kind": "segment", "minLevel": 3 },
+    "startsAt": "2026-11-22T15:00:00.000Z",
+    "endsAt": "2026-12-13T23:00:00.000Z",
+    "priority": 0,
+    "reward": []
+  }
+}

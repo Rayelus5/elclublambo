@@ -36,6 +36,7 @@ import type { Env } from './env';
 import { closeDue } from './season/close';
 import { cliConfig, seasonExtend, seasonImport, seasonList, seasonPatch, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
 import { tournamentCheck, tournamentDecide, tournamentDraft, tournamentList, tournamentShow } from './tournaments/cli';
+import { popupDraft, popupList } from './popups/cli';
 import { createSeasonStore, seasonContext } from './season/records';
 import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
@@ -75,6 +76,8 @@ const USAGE = [
   '  tournament-show <slug>',
   '  tournament-draft <torneo.json | -> --reason <motivo>',
   '  tournament-decide <slug> <id de la partida> accept|discard --reason <motivo>',
+  '  popup-list',
+  '  popup-draft <campaña.json | -> --reason <motivo>',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -672,5 +675,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
     const [slug, runId, decision] = positional(args, ['--reason']);
     return tournamentDecide(deps.db, slug, runId, decision, flag(args, '--reason'), deps.out);
   }
+  if (command === 'popup-list') return popupList(deps.db, deps.out);
+  if (command === 'popup-draft') return popupDraft(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

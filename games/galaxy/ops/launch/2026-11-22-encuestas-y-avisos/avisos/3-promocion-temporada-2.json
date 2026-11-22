@@ -1,0 +1,15 @@
+{
+  "record": {
+    "kind": "promotion",
+    "title": "La Temporada 2 ya está aquí",
+    "body": "Tienes 38 días, hasta el 30 de diciembre, para subir de tramo y llevarte las 8 skins Aurora de la ruta. Llega con la anomalía Estática férrea, con enemigos más duros que sueltan más datos, el núcleo de temporada del laboratorio y el evento Rumbo profundo. Todos empezáis de cero en la clasificación, así que este es tu momento",
+    "questions": [],
+    "link": { "kind": "route", "to": "/temporada", "label": "Ver la temporada" },
+    "audience": { "kind": "segment", "minLevel": 3 },
+    "startsAt": "2026-11-22T23:00:00.000Z",
+    "endsAt": "2026-11-29T23:00:00.000Z",
+    "priority": 2,
+    "reward": []
+  },
+  "image": "temporada-2.png"
+}
