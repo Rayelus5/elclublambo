@@ -32,7 +32,7 @@ import { PackLibraryScreen } from './admin/mail/PackLibraryScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
 import { SeasonsScreen } from './admin/seasons/SeasonsScreen';
 import { SeasonWizardScreen } from './admin/seasons/SeasonWizard';
-import { TournamentsScreen } from './admin/tournaments/TournamentsScreen';
+import { TournamentsScreen as AdminTournamentsScreen } from './admin/tournaments/TournamentsScreen';
 import { TournamentPage } from './admin/tournaments/TournamentPage';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
@@ -69,6 +69,8 @@ import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
 import { TrophiesScreen } from './season/TrophiesScreen';
+import { TournamentScreen } from './tournaments/TournamentScreen';
+import { TournamentsScreen } from './tournaments/TournamentsScreen';
 import { SettingsScreen } from './hub/SettingsScreen';
 import { ShopScreen } from './shop/ShopScreen';
 import { ShopAdminScreen } from './admin/shop/ShopAdminScreen';
@@ -149,6 +151,8 @@ export function App() {
         <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
         <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
         <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
+        <Route path="/torneos" element={<SignedIn><TournamentsScreen /></SignedIn>} />
+        <Route path="/torneos/:slug" element={<SignedIn><TournamentScreen /></SignedIn>} />
         <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
         <Route path="/misiones" element={<SignedIn><MissionsScreen /></SignedIn>} />
@@ -175,7 +179,7 @@ export function App() {
             <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="temporadas" element={<SeasonsScreen />} />
             <Route path="temporadas/:id" element={<SeasonWizardScreen />} />
-            <Route path="torneos" element={<TournamentsScreen />} />
+            <Route path="torneos" element={<AdminTournamentsScreen />} />
             <Route path="torneos/:id" element={<TournamentPage />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="referidos" element={<ReferralsScreen />} />

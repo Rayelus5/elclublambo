@@ -7,9 +7,11 @@ import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { emitTour } from '../tour/bus';
 import { useReducedMotion } from '../ui/motion';
+import { RunLine } from '../tournaments/RunLine';
 
 // The results of a run (GDD §5.1, §11.3 bis): how it ended, what each layer paid at its depth, the half without
-// extraction and the daily tiers — nothing is cut without saying so — and what reached the wallet.
+// extraction and the daily tiers — nothing is cut without saying so — and what reached the wallet; and, since the
+// tournaments (plan «temporadas como fichas», part 5), what the run added in each one I am in.
 
 /** A number that counts up once (instant with reduced motion). */
 function useCountUp(target: number, ms = 900): number {
@@ -112,6 +114,8 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         ) : null}
       </section>
       ) : null}
+      {/* What the run added in my tournaments (plan «temporadas como fichas», part 5). */}
+      <RunLine skip={r.test === true} />
       {r.test ? null : (
       <section className="lip panel results-loot" aria-label={copy.results.loot} data-tour="loot">
         <h2>{copy.results.loot}</h2>
