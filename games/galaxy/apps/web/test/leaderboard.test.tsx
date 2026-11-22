@@ -250,3 +250,18 @@ test('el progreso hacia el siguiente tramo va desde el tramo que tienes', () => 
   expect(tierProgress(0, tiers)).toEqual({ tier: null, next: { tier: 'bronze', points: 500 }, from: 0, to: 500, share: 0 });
   expect(tierProgress(31000, tiers)).toEqual({ tier: 'stellar', next: null, from: 30000, to: null, share: 1 });
 });
+
+test('los premios de cierre enseñan sus regalos y, después del podio, los premios por puestos', async () => {
+  const galaxy = { kind: 'galaxy', tier: 'legendary', finish: 'normal', trait: null, count: 1 } as const;
+  const withPlaces = { ...closing, tierGifts: [[], [], [], [], [galaxy]], podiumGifts: [], places: [{ from: 1, to: 1, gifts: [galaxy] }, { from: 2, to: 5, gifts: [{ kind: 'currency', currency: 'coins', amount: 5000 } as const] }] };
+  mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board({ season: { ...season, closing: withPlaces } })) });
+  renderAt('/clasificacion', screens);
+  const tiers = await screen.findByRole('list', { name: t.tiersTitle });
+  const stellar = within(tiers).getByText(t.tier.stellar).closest('li')!;
+  expect(within(stellar).getByText('Galaxia legendaria')).toBeInTheDocument();
+  const places = screen.getByRole('group', { name: t.placesLabel });
+  const first = within(places).getByText(t.placeRange(1, 1)).closest('li')!;
+  expect(first).toHaveTextContent('Galaxia legendaria');
+  const rest = within(places).getByText(t.placeRange(2, 5)).closest('li')!;
+  expect(within(rest).getByText(fmt(5000))).toBeInTheDocument();
+});

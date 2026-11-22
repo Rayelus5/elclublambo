@@ -3,34 +3,37 @@ import { type CSSProperties, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
-import type { Reward } from './ready';
+import type { Reward, RewardCard } from './ready';
 
 // The reward flying to the wallet (open beta): from the «Recoger» pressed, a few chips of each currency it gives arc
 // up to that currency in the wallet, one after another; the wallet then counts up. Any wallet marked `data-wallet` is
 // a target (Missions and the season screen, season shop plan PR 4), the season currency flies as its shard, and a
 // piece (title, frame, avatar, skin) has nowhere to fly: it pops where it was collected as a little card with its
-// name and fades. Nothing with reduced motion.
+// name and fades. A season's gifts of any kind (plan «temporadas como fichas», PR 4) pop the same way: a galaxy in its
+// tier's colour, a probe, a resource the wallet does not show. Nothing with reduced motion.
 
 type Kind = 'coins' | 'dust' | 'signal' | 'event-signal' | 'shards';
 type Chip = { id: number; kind: Kind; x: number; y: number; dx: number; dy: number; delay: number };
-type PieceKind = 'title' | 'frame' | 'avatar' | 'skin';
-type Piece = { id: number; kind: PieceKind; name: string; x: number; y: number; delay: number };
+type PieceKind = RewardCard['kind'];
+type Piece = { id: number; kind: PieceKind; name: string; tier?: string; x: number; y: number; delay: number };
 
 const ICON: Record<Kind, IconName> = { coins: 'coin', dust: 'dust', signal: 'ticket', 'event-signal': 'ticket', shards: 'shard' };
-const PIECE_ICON: Record<PieceKind, IconName> = { title: 'starOn', frame: 'trophy', avatar: 'trophy', skin: 'probe' };
+const PIECE_ICON: Record<PieceKind, IconName> = { title: 'starOn', frame: 'trophy', avatar: 'trophy', skin: 'probe', galaxy: 'comet', probe: 'probe', resource: 'cube' };
+/** The cards worth a celebration: a piece, a galaxy, a probe (a resource is not). */
+export const BIG_CARDS: ReadonlySet<PieceKind> = new Set(['title', 'frame', 'avatar', 'skin', 'galaxy', 'probe']);
 const FLIGHT_MS = 900;
 const PIECE_MS = 1800;
 const PIECE_GAP_MS = 260;
 let next = 0;
 
-/** The pieces a reward gives, each with its name as the player reads it. */
-export function piecesOf(reward: Reward): { kind: PieceKind; name: string }[] {
-  const out: { kind: PieceKind; name: string }[] = [];
+/** The pieces a reward gives, each with its name as the player reads it, then its other cards (a season's gifts). */
+export function piecesOf(reward: Reward): RewardCard[] {
+  const out: RewardCard[] = [];
   if (reward.title) out.push({ kind: 'title', name: reward.title });
   if (reward.frame) out.push({ kind: 'frame', name: pieceName('frame', reward.frame) });
   if (reward.avatar) out.push({ kind: 'avatar', name: pieceName('avatar', reward.avatar) });
   if (reward.skin) out.push({ kind: 'skin', name: pieceName('skin', reward.skin) });
-  return out;
+  return [...out, ...(reward.cards ?? [])];
 }
 
 /**
@@ -91,7 +94,7 @@ export function useClaimFx(reduced: boolean) {
               </span>
             ))}
             {pieces.map((p) => (
-              <span key={p.id} className={`claim-piece ${p.kind}`} style={{ left: `${p.x}px`, top: `${p.y}px`, animationDelay: `${p.delay}ms` }}>
+              <span key={p.id} className={`claim-piece ${p.kind}`} data-tier={p.tier} style={{ left: `${p.x}px`, top: `${p.y}px`, animationDelay: `${p.delay}ms` }}>
                 <Icon name={PIECE_ICON[p.kind]} />
                 <small>{copy.missions.piece[p.kind]}</small>
                 <b>{p.name}</b>

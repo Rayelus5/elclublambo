@@ -3,8 +3,11 @@ import {
   type ConfigValue,
   configSchemas,
   labNodeSchema,
+  type MailLimits,
   normalizeSeasonRecord,
   parseConfig,
+  seasonBigGifts,
+  type SeasonGiftContext,
   type SeasonRecordData,
   seasonConfigOf,
   seasonRecordIssues,
@@ -235,15 +238,40 @@ const CHECK_NOW = {
   },
 };
 
-/** What a record checks against: the live permanent lab tree and the content's anomalies. */
+/**
+ * What a record checks against: the live permanent lab tree and the content's anomalies; and, for its gifts (PR 4),
+ * the live pieces, probes and events, and the limits that make a gift big (absent: not checked).
+ */
 export interface SeasonContext {
   labNodes: ConfigValue<'lab'>['nodes'];
   anomalies: readonly string[];
+  gifts?: SeasonGiftContext;
+  limits?: MailLimits;
 }
 
 export async function seasonContext(config: ConfigService): Promise<SeasonContext> {
-  const [lab, content] = await Promise.all([config.get('lab'), config.get('content')]);
-  return { labNodes: lab.nodes, anomalies: content.anomalies.map((a) => a.id) };
+  const [lab, content, cosmetics, events, limits] = await Promise.all([config.get('lab'), config.get('content'), config.get('cosmetics'), config.get('events'), config.get('mailLimits')]);
+  return {
+    labNodes: lab.nodes,
+    anomalies: content.anomalies.map((a) => a.id),
+    gifts: { cosmetics, probes: content.probes.map((p) => p.id), events: events.list.map((e) => ({ id: e.id, endsAt: e.endsAt })) },
+    limits,
+  };
+}
+
+/** Who schedules or changes a season: from the panel, whether they are a superadmin (the CLI is the owner's). */
+export interface SeasonRights {
+  superadmin?: boolean;
+}
+
+/**
+ * A season whose gifts are big (past the mail's limits, `seasonBigGifts`) only a superadmin schedules or changes, like
+ * a big message (403 season_needs_superadmin, with why).
+ */
+function requireRights(route: ConfigValue<'seasonRoute'>, ctx: SeasonContext, rights: SeasonRights): void {
+  if (rights.superadmin !== false || !ctx.limits || !ctx.gifts) return;
+  const big = seasonBigGifts(route, ctx.limits, ctx.gifts.cosmetics);
+  if (big.length > 0) throw new HttpError(403, 'season_needs_superadmin', { reasons: [...new Set(big.flatMap((b) => b.reasons))], big });
 }
 
 /** Postgres's exclusion and check violations, as the API's codes (the overlap is checked at commit: it is deferred). */
@@ -299,8 +327,11 @@ export async function saveSeasonDraft(db: Kysely<DB>, input: unknown, ctx: Seaso
   }).catch(seasonDbError);
 }
 
-/** A draft becomes scheduled: it counts from its start on its own. Re-checked against what is live now. */
-export async function scheduleSeason(db: Kysely<DB>, id: string, ctx: SeasonContext, actor: AuditActor, reason: string): Promise<SeasonRow> {
+/**
+ * A draft becomes scheduled: it counts from its start on its own. Re-checked against what is live now, and, with big
+ * gifts, only by a superadmin (checked on the row locked, so a draft saved meanwhile cannot slip through).
+ */
+export async function scheduleSeason(db: Kysely<DB>, id: string, ctx: SeasonContext, actor: AuditActor, reason: string, rights: SeasonRights = {}): Promise<SeasonRow> {
   return inTransaction(db, async (trx) => {
     await LOCK.execute(trx);
     const r = await rowFor(trx, id);
@@ -309,6 +340,7 @@ export async function scheduleSeason(db: Kysely<DB>, id: string, ctx: SeasonCont
     if (Date.parse(r.endsAt) <= Date.now()) issues.push({ path: 'endsAt', message: 'season_end_past' });
     if (await trx.selectFrom('galaxy.season_archive').select('season').where('season', '=', r.id).executeTakeFirst()) issues.push({ path: 'id', message: 'season_id_used' });
     if (issues.length > 0) throw new HttpError(400, 'season_invalid', { issues });
+    requireRights(r.route, ctx, rights);
     const version = r.version + 1;
     await trx.updateTable('galaxy.seasons').set({ state: 'scheduled', version, scheduled_at: sql`now()`, scheduled_by: actor.id, updated_at: sql`now()`, updated_by: actor.id }).where('id', '=', id).execute();
     await CHECK_NOW.execute(trx);
@@ -323,11 +355,12 @@ export async function scheduleSeason(db: Kysely<DB>, id: string, ctx: SeasonCont
  * checked like a schedule. Its id never changes, nor its start once it has started (its end moves with extendSeason).
  * A version, a revision and an audit entry, like every change.
  */
-export async function patchScheduledSeason(db: Kysely<DB>, id: string, input: unknown, ctx: SeasonContext, actor: AuditActor, reason: string, now: Date): Promise<SeasonRow> {
+export async function patchScheduledSeason(db: Kysely<DB>, id: string, input: unknown, ctx: SeasonContext, actor: AuditActor, reason: string, now: Date, rights: SeasonRights = {}): Promise<SeasonRow> {
   const issues = seasonRecordIssues(input, ctx);
   if (issues.length > 0) throw new HttpError(400, 'season_invalid', { issues });
   const r = normalizeSeasonRecord(input);
   if (r.id !== id) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'id', message: 'season_id_fixed' }] });
+  requireRights(r.route, ctx, rights);
   return inTransaction(db, async (trx) => {
     await LOCK.execute(trx);
     const old = await rowFor(trx, id);

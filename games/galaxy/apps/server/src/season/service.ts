@@ -1,17 +1,20 @@
-import { type ConfigValue, type SeasonConfig, type SeasonReward, type SeasonView, seasonCurrency, seasonOpen, seasonTier } from '@galaxy/shared';
+import { type ConfigValue, type Gift, type SeasonConfig, type SeasonReward, type SeasonView, seasonCurrency, seasonOpen, seasonTier } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { ranking } from '../social/leaderboard';
+import { grantGifts } from '../gifts/grant';
+import { invalidateLeaderboard, ranking } from '../social/leaderboard';
 import { pendingResult } from './close';
 import { grantCosmetics } from '../cosmetics/service';
 
 // The season route and shop (GDD §11.1, §13.1; M7d-1). The score is the General leaderboard's (runs that count plus
 // the points of missions, achievements and admins), read before any transaction: the ranking reads with its own
 // connection. Each step pays once; the shop sells up to each item's limit; once a season has closed, what is left of
-// its currency becomes dust.
+// its currency becomes dust. Since PR 4 of «temporadas como fichas» a step or an item also pays its gifts of any kind,
+// under the same guard (the step's claim row, the item's counter), keyed by the operation and with galaxies seeded by
+// the season, the step or purchase and the account: never by the client's key.
 
 export type RouteConfig = ConfigValue<'seasonRoute'>;
 export interface SeasonConfigs {
@@ -40,6 +43,14 @@ async function payReward(trx: Kysely<DB>, accountId: string, seasonId: string, r
   await grantCosmetics(trx, accountId, reward);
 }
 
+/** A step's or an item's gifts, inside its guarded transaction (the season is open: its own currency is paid). */
+async function payGifts(trx: Kysely<DB>, accountId: string, seasonId: string, gifts: readonly Gift[], ctx: { key: string; seedKey: string; reason: string; ref: unknown; auditAction: string }): Promise<void> {
+  if (gifts.length === 0) return;
+  const { seasonTouched } = await grantGifts(trx, accountId, gifts, { ...ctx, key: `${ctx.key}:gifts`, actor: { id: accountId, label: 'temporada' }, season: { id: seasonId, open: true } });
+  // A record never gives season points (they would pay steps that pay points), but a ranking cached is cheap to drop.
+  if (seasonTouched) invalidateLeaderboard();
+}
+
 export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: string, score: number, now: Date): Promise<SeasonView> {
   const name = c.route.currency.name;
   const closing = await pendingResult(db, accountId);
@@ -57,8 +68,8 @@ export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: st
     score,
     tier: seasonTier(score, c.season),
     currency: { name, balance: Number(balance?.amount ?? 0) },
-    steps: c.route.steps.map((s) => ({ at: s.at, reward: s.reward, reached: score >= s.at, claimed: claimed.has(s.at) })),
-    shop: c.route.shop.map((i) => ({ id: i.id, name: i.name, price: i.price, limit: i.limit, bought: count.get(i.id) ?? 0, reward: i.reward })),
+    steps: c.route.steps.map((s) => ({ at: s.at, reward: s.reward, gifts: s.gifts, reached: score >= s.at, claimed: claimed.has(s.at) })),
+    shop: c.route.shop.map((i) => ({ id: i.id, name: i.name, price: i.price, limit: i.limit, bought: count.get(i.id) ?? 0, reward: i.reward, gifts: i.gifts })),
     closing,
   };
 }
@@ -76,7 +87,9 @@ export async function claimStep(trx: Kysely<DB>, c: SeasonConfigs, accountId: st
     .returning('step')
     .executeTakeFirst();
   if (!won) throw new HttpError(409, 'already_claimed');
-  await payReward(trx, accountId, c.season.id, step.reward, 'season_route', { season: c.season.id, step: at }, key);
+  const ref = { season: c.season.id, step: at };
+  await payReward(trx, accountId, c.season.id, step.reward, 'season_route', ref, key);
+  await payGifts(trx, accountId, c.season.id, step.gifts, { key, seedKey: `season:${c.season.id}:step:${at}:${accountId}`, reason: 'season_route', ref, auditAction: 'season.route' });
 }
 
 /** Buys one of a shop item with the season currency, up to its limit. */
@@ -96,8 +109,11 @@ export async function buyItem(trx: Kysely<DB>, c: SeasonConfigs, accountId: stri
     .returning('bought')
     .executeTakeFirst();
   if (!one) throw new HttpError(409, 'season_item_sold_out');
-  await debit(trx, accountId, seasonCurrency(id), item.price, 'season_shop', { season: id, item: item.id }, key);
-  await payReward(trx, accountId, id, item.reward, 'season_shop', { season: id, item: item.id }, key);
+  const ref = { season: id, item: item.id };
+  await debit(trx, accountId, seasonCurrency(id), item.price, 'season_shop', ref, key);
+  await payReward(trx, accountId, id, item.reward, 'season_shop', ref, key);
+  // The purchase's number (its counter after this one) tells each one's galaxies apart.
+  await payGifts(trx, accountId, id, item.gifts, { key, seedKey: `season:${id}:shop:${item.id}:${one.bought}:${accountId}`, reason: 'season_shop', ref, auditAction: 'season.shop' });
 }
 
 /**

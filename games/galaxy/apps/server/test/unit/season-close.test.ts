@@ -1,4 +1,4 @@
-import { parseConfig } from '@galaxy/shared';
+import { EMPTY_SEASON_REWARD, parseConfig } from '@galaxy/shared';
 import { describe, expect, test } from 'vitest';
 import { closingMail, podiumOf, rewardsFor } from '../../src/season/close';
 
@@ -24,9 +24,24 @@ describe('el podio', () => {
 
 test('el premio del podio solo va a quien está en él; el del tramo, a todos', () => {
   const closing = parseConfig('seasonRoute', {}).closing;
-  expect(rewardsFor(true, 'gold', closing)).toEqual([closing.tiers[2], closing.podium]);
-  expect(rewardsFor(false, 'gold', closing)).toEqual([closing.tiers[2]]);
+  expect(rewardsFor(true, 'gold', closing)).toEqual([{ ...closing.tiers[2], gifts: [] }, { ...closing.podium, gifts: [] }]);
+  expect(rewardsFor(false, 'gold', closing)).toEqual([{ ...closing.tiers[2], gifts: [] }]);
   expect(rewardsFor(false, null, closing)).toEqual([]);
+});
+
+test('cada premio guarda sus regalos, y el puesto con premio suma el de su rango (PR 4)', () => {
+  const probe = { kind: 'probe', probe: 'bastion' } as const;
+  const galaxy = { kind: 'galaxy', tier: 'epic', finish: 'normal', trait: null, count: 1 } as const;
+  const closing = parseConfig('seasonRoute', {
+    closing: { tierGifts: [[], [], [galaxy], [], []], podiumGifts: [probe], places: [{ from: 1, to: 1, gifts: [galaxy] }, { from: 2, to: 5, gifts: [probe] }] },
+  }).closing;
+  expect(rewardsFor(true, 'gold', closing, 1)).toEqual([
+    { ...closing.tiers[2], gifts: [galaxy] },
+    { ...closing.podium, gifts: [probe] },
+    { ...EMPTY_SEASON_REWARD, gifts: [galaxy], place: { from: 1, to: 1 } },
+  ]);
+  expect(rewardsFor(false, null, closing, 4)).toEqual([{ ...EMPTY_SEASON_REWARD, gifts: [probe], place: { from: 2, to: 5 } }]);
+  expect(rewardsFor(false, null, closing, 6)).toEqual([]);
 });
 
 test('el aviso de cierre dice el puesto, el tramo y los puntos, y si hay premios que recoger', () => {

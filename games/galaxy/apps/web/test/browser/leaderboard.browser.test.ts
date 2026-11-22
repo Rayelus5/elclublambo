@@ -30,7 +30,18 @@ const board = (tab: Leaderboard['tab']): Leaderboard => ({
     startsAt: '2026-11-23T00:00:00.000Z',
     endsAt: new Date(Date.now() + 23 * 86_400_000 + 5 * 3_600_000).toISOString(),
     tiers: [500, 2000, 6000, 15000, 30000],
-    closing: { tiers: [...DEFAULT_CLOSING_TIERS], podium: DEFAULT_PODIUM, podiumSize: 3 },
+    // Gifts of any kind and prizes by place too (plan «temporadas como fichas», PR 4).
+    closing: {
+      tiers: [...DEFAULT_CLOSING_TIERS],
+      podium: DEFAULT_PODIUM,
+      podiumSize: 3,
+      tierGifts: [[], [], [], [{ kind: 'galaxy', tier: 'epic', finish: 'holo', trait: null, count: 1 }], [{ kind: 'galaxy', tier: 'legendary', finish: 'normal', trait: null, count: 1 }]],
+      podiumGifts: [{ kind: 'probe', probe: 'bastion' }],
+      places: [
+        { from: 1, to: 1, gifts: [{ kind: 'galaxy', tier: 'mythic', finish: 'prismatic', trait: null, count: 1 }, { kind: 'cosmetic', piece: 'skin', id: 'skin-lumen-aurora' }] },
+        { from: 2, to: 10, gifts: [{ kind: 'currency', currency: 'coins', amount: 20_000 }, { kind: 'currency', currency: 'signal', amount: 10 }] },
+      ],
+    },
   },
   tab,
   rows,
@@ -45,6 +56,8 @@ function mount(path: string) {
       // No past seasons here (season-history.browser.test.ts has them) and no session to read.
       if (url.endsWith('/seasons/history')) return new Response(JSON.stringify({ seasons: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
       if (url.endsWith('/auth/me')) return new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401, headers: { 'content-type': 'application/json' } });
+      // The gifts' names: the built-in catalog and content stand in.
+      if (url.endsWith('/content') || url.endsWith('/profile/cosmetics')) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } });
       return new Response(JSON.stringify(board(url.endsWith('depth') ? 'depth' : 'general')), { status: 200, headers: { 'content-type': 'application/json' } });
     }),
   );
@@ -79,6 +92,8 @@ for (const [w, h] of [
     const card = document.querySelector<HTMLElement>('.lb-season')!;
     expect(card.getBoundingClientRect().right).toBeLessThanOrEqual(w);
     expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth + 1);
+    // The prizes by place come after the podium, range by range.
+    expect(card.querySelectorAll('.lb-place-list li')).toHaveLength(2);
     const panel = document.querySelector<HTMLElement>('.lb-scroll')!;
     expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth + 1);
     // At these widths the General table has room for its runs and best layer.

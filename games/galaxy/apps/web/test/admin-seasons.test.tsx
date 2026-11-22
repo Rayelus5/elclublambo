@@ -1,4 +1,4 @@
-import { type AdminSeason, type AdminSeasonList, CONFIG_KEYS, type MeResponse, parseConfig } from '@galaxy/shared';
+import { type AdminSeason, type AdminSeasonList, CONFIG_KEYS, type MeResponse, parseConfig, seasonRecordIssues } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
@@ -39,17 +39,21 @@ const S1 = season({ id: 'season-1', name: 'Temporada 1', state: 'closed', starts
 const S2 = season({ id: 'season-2', name: 'Temporada 2', state: 'scheduled', open: true, startsAt: midnight(-10), endsAt: midnight(5) });
 const S3 = season({ id: 'season-3', name: 'Temporada 3', state: 'draft', startsAt: midnight(8), endsAt: midnight(40) });
 
-function api(list: AdminSeasonList) {
+function api(list: AdminSeasonList, me: MeResponse = admin) {
   const calls: { path: string; body: unknown }[] = [];
   // As the server sends them: `content` is too big for the list (lazy) and comes on its own.
   const keys = CONFIG_KEYS.map((key) => (key === 'content' ? { key, version: 1, createdAt: null, author: null, note: null, lazy: true } : { key, version: 1, data: parseConfig(key, {}), createdAt: null, author: null, note: null }));
   const content = { key: 'content', version: 1, data: { ...parseConfig('content', DEFAULT_CONTENT), anomalies: [{ id: 'contagion', name: 'Corrosión contagiosa', description: 'x' }] }, createdAt: null, author: null, note: null };
   mockApi({
-    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
     'GET /galaxy/api/admin/seasons': () => jsonResponse(200, list),
     'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys),
     'GET /galaxy/api/admin/config/content': () => jsonResponse(200, content),
-    'POST /galaxy/api/admin/seasons/validate': () => jsonResponse(200, { ok: true, issues: [] }),
+    // As the server checks it (here without what is live: the record's own checks).
+    'POST /galaxy/api/admin/seasons/validate': (body) => {
+      const issues = seasonRecordIssues((body as { record: unknown }).record);
+      return jsonResponse(200, { ok: issues.length === 0, issues, big: [] });
+    },
     'POST /galaxy/api/admin/seasons': (body) => {
       calls.push({ path: 'save', body });
       return jsonResponse(201, { ...S3, ...(body as { record: object }).record, state: 'draft' });
@@ -181,4 +185,146 @@ test('la revisión del asistente lleva a verla como jugador; una nueva, primero 
   const fresh = screen.getByRole('region', { name: t.asPlayerTitle });
   expect(within(fresh).queryByRole('link')).toBeNull();
   expect(fresh).toHaveTextContent(t.asPlayerSaveFirst);
+});
+
+// The editors of what a season pays (plan «temporadas como fichas», PR 4): every prize with the mail's gift picker, an
+// old reward shown as its gifts (each part can be taken out), the closing prizes by place, live checks, and a season
+// with big prizes only a superadmin schedules. All with the panel's own controls, never the browser's.
+const small = (over: Partial<AdminSeason> = {}) =>
+  season({ id: 'season-3', name: 'Temporada 3', state: 'draft', startsAt: midnight(8), endsAt: midnight(40), route: parseConfig('seasonRoute', { steps: [{ at: 100, reward: { coins: 300 } }], shop: [] }), ...over });
+const toContent = async (user: ReturnType<typeof userEvent.setup>) => {
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.content) }));
+};
+const saveWith = async (user: ReturnType<typeof userEvent.setup>, reason: string) => {
+  await user.type(screen.getByLabelText(copy.admin.fields.reason), reason);
+  await user.click(screen.getByRole('button', { name: t.saveDraft }));
+};
+type Saved = { record: AdminSeason };
+
+test('la ruta: lo de antes sale como regalos, se añade una sonda con el selector y se quita lo que sobra', async () => {
+  const user = userEvent.setup();
+  const calls = api({ seasons: [S2, small()], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  const step = within(screen.getByRole('list', { name: t.route.listLabel })).getAllByRole('listitem')[0]!;
+  expect(within(step).getByText('300 monedas')).toBeInTheDocument();
+  await user.click(within(step).getByRole('button', { name: t.gifts.addTo(t.route.step(1)) }));
+  const dialog = screen.getByRole('dialog', { name: t.gifts.title(t.route.step(1)) });
+  await user.click(within(dialog).getByRole('tab', { name: copy.gifts.tabs.probes }));
+  await user.click(within(dialog).getByRole('button', { name: copy.gifts.addOf(copy.gifts.probe('Bastión')) }));
+  await user.click(within(dialog).getByRole('button', { name: t.gifts.done }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(within(step).getByText('Sonda Bastión')).toBeInTheDocument();
+  await user.click(within(step).getByRole('button', { name: t.gifts.remove('300 monedas') }));
+  expect(within(step).queryByText('300 monedas')).toBeNull();
+  await saveWith(user, 'Ruta con sonda');
+  await vi.waitFor(() => expect(calls).toHaveLength(1));
+  expect((calls[0]!.body as Saved).record.route.steps).toEqual([{ at: 100, reward: { coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, skin: null }, gifts: [{ kind: 'probe', probe: 'bastion' }] }]);
+});
+
+test('un escalón nuevo va después del último, y los escalones se ordenan solos por sus puntos', async () => {
+  const user = userEvent.setup();
+  const calls = api({ seasons: [S2, small()], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  await user.click(screen.getByRole('button', { name: t.route.add }));
+  const list = screen.getByRole('list', { name: t.route.listLabel });
+  const second = within(list).getAllByLabelText(t.route.at)[1]!;
+  expect(second).toHaveValue('200');
+  // A step that gives nothing says so where it is.
+  expect(within(list).getByText(t.issueText.season_reward_empty!)).toBeInTheDocument();
+  await user.clear(second);
+  await user.type(second, '50');
+  await user.tab();
+  expect(within(list).getAllByLabelText(t.route.at).map((i) => (i as HTMLInputElement).value)).toEqual(['50', '100']);
+  // No native number fields anywhere in the step.
+  expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+  expect(calls).toHaveLength(0);
+});
+
+test('la tienda: un artículo nuevo con su nombre, su precio y una galaxia', async () => {
+  const user = userEvent.setup();
+  const calls = api({ seasons: [S2, small()], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  await user.click(screen.getByRole('radio', { name: t.contentTabs.shop }));
+  await user.click(screen.getByRole('button', { name: t.shop.add }));
+  const item = within(screen.getByRole('list', { name: t.shop.listLabel })).getAllByRole('listitem')[0]!;
+  await user.type(within(item).getByLabelText(t.shop.name), 'Galaxia de temporada');
+  const price = within(item).getByLabelText(t.shop.price);
+  await user.clear(price);
+  await user.type(price, '250');
+  await user.click(within(item).getByRole('button', { name: t.gifts.addTo('Galaxia de temporada') }));
+  const dialog = screen.getByRole('dialog');
+  await user.click(within(dialog).getByRole('tab', { name: copy.gifts.tabs.galaxies }));
+  await user.click(within(dialog).getByRole('button', { name: copy.gifts.add }));
+  await user.click(within(dialog).getByRole('button', { name: t.gifts.done }));
+  await saveWith(user, 'Tienda con galaxia');
+  await vi.waitFor(() => expect(calls).toHaveLength(1));
+  expect((calls[0]!.body as Saved).record.route.shop).toEqual([
+    { id: 'articulo-1', name: 'Galaxia de temporada', price: 250, limit: 1, reward: { coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, skin: null }, gifts: [{ kind: 'galaxy', tier: 'epic', finish: 'normal', trait: null, count: 1 }] },
+  ]);
+});
+
+test('los premios de cierre por puestos: un rango vacío o solapado se avisa en su sitio', async () => {
+  const user = userEvent.setup();
+  api({ seasons: [S2, small()], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  await user.click(screen.getByRole('radio', { name: t.contentTabs.closing }));
+  // Every tier, Estelar first, with its old prize shown as gifts.
+  expect(screen.getByRole('heading', { name: t.closing.tier('Estelar') })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: t.closing.add }));
+  await user.click(screen.getByRole('button', { name: t.closing.add }));
+  const places = screen.getByRole('region', { name: t.closing.placesTitle });
+  expect(within(places).getAllByText(t.issueText.prize_empty!)).toHaveLength(2);
+  const from = within(places).getAllByLabelText(t.closing.from)[1]!;
+  expect(from).toHaveValue('2');
+  await user.clear(from);
+  await user.type(from, '1');
+  expect(await within(places).findByText(t.issueText.prizes_overlap!)).toBeInTheDocument();
+  // The issues list says where each one is, and leads there.
+  expect(screen.getAllByText(t.closing.place(1, 1), { selector: '.sw-where' }).length).toBeGreaterThan(0);
+});
+
+test('copiar una temporada lleva su moneda propia en los premios a la nueva', async () => {
+  const user = userEvent.setup();
+  const own = { ...S2, route: parseConfig('seasonRoute', { shop: [{ id: 'chispa', name: 'Chispa', price: 1, limit: 1, gifts: [{ kind: 'currency', currency: 'season:season-2', amount: 5 }] }] }) };
+  const calls = api({ seasons: [S1, own], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/nueva?desde=season-2', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await saveWith(user, 'Copia de la 2');
+  await vi.waitFor(() => expect(calls).toHaveLength(1));
+  expect((calls[0]!.body as Saved).record.route.shop[0]!.gifts).toEqual([{ kind: 'currency', currency: 'season:season-3', amount: 5 }]);
+});
+
+test('las misiones se editan con el formulario del panel y el laboratorio se ve en solo lectura', async () => {
+  const user = userEvent.setup();
+  const lab = [{ id: 't-hull', branch: 'probe', name: 'Casco de temporada', effect: { kind: 'stat', stat: 'maxHp' }, per: 0.02, max: 5, cost: { dust: 10, components: 0 }, requires: null, growth: 1 }];
+  api({ seasons: [S2, small({ lab: lab as AdminSeason['lab'] })], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  await user.click(screen.getByRole('radio', { name: t.contentTabs.missions }));
+  expect(screen.getByText(t.missionsEmpty)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Añadir misión' })).toBeInTheDocument();
+  await user.click(screen.getByRole('radio', { name: t.contentTabs.lab }));
+  expect(screen.getByText(t.labReadonly)).toBeInTheDocument();
+  expect(screen.getByText(t.labNode('Casco de temporada', 5))).toBeInTheDocument();
+});
+
+test('con premios grandes avisa por qué, y solo un superadmin la programa', async () => {
+  const user = userEvent.setup();
+  const big = small({ route: parseConfig('seasonRoute', { steps: [{ at: 100, gifts: [{ kind: 'probe', probe: 'bastion' }] }], shop: [] }) });
+  api({ seasons: [S2, big], now: new Date().toISOString(), warnings: [] }, { ...admin, roles: ['admin'] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.review) }));
+  const note = await screen.findByRole('region', { name: t.big.title });
+  expect(note).toHaveTextContent(t.big.needs);
+  expect(note).toHaveTextContent(t.route.step(1));
+  expect(note).toHaveTextContent(copy.gifts.big.reasons.probe);
+  await user.type(screen.getAllByLabelText(copy.admin.fields.reason).at(-1)!, 'Con una sonda');
+  await user.type(screen.getByLabelText(copy.admin.fields.password), 'mi-clave');
+  expect(screen.getByRole('button', { name: t.scheduleNow })).toBeDisabled();
 });

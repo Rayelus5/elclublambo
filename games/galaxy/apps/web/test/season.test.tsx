@@ -1,4 +1,4 @@
-import type { SeasonView } from '@galaxy/shared';
+import { EMPTY_SEASON_REWARD, type Gift, type SeasonView } from '@galaxy/shared';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -44,7 +44,10 @@ test('la ruta deja recoger lo alcanzado, la tienda compra lo que da la moneda y 
   renderAt('/temporada', { '/temporada': <SeasonScreen /> });
   expect(await screen.findByRole('heading', { level: 1, name: 'Temporada 1' })).toBeInTheDocument();
   expect(screen.getByText(copy.season.toNext(200))).toBeInTheDocument();
-  expect(screen.getByText('30 Esquirlas, el título Pionero')).toBeInTheDocument();
+  // Each prize drawn as the gifts it gives, its old reward too.
+  const step = within(screen.getByRole('list', { name: copy.season.routeTitle })).getAllByRole('listitem').find((li) => li.className === 'ready')!;
+  expect(within(step).getByText('30 Esquirlas')).toBeInTheDocument();
+  expect(within(step).getByText('Título «Pionero»')).toBeInTheDocument();
   // A step not reached yet says what it lacks instead of offering a dead button.
   expect(screen.queryByRole('button', { name: copy.season.claimOf(800) })).toBeNull();
   expect(screen.getByText(copy.season.left(200))).toBeInTheDocument();
@@ -71,7 +74,11 @@ test('al cerrar una temporada enseña el puesto y sus premios para recogerlos un
   renderAt('/temporada', { '/temporada': <SeasonScreen /> });
   expect(await screen.findByRole('heading', { name: copy.season.closingTitle('Temporada 0') })).toBeInTheDocument();
   expect(screen.getByText(copy.season.closingPlace(2, 7000))).toBeInTheDocument();
-  expect(screen.getByText(`${fmt(3000)} monedas; el título Podio de temporada, el marco Corona`)).toBeInTheDocument();
+  // Each prize says what it is for: the tier's, then the podium's.
+  expect(within(screen.getByRole('region', { name: copy.season.closingFor.tier('Oro') })).getByText(`${fmt(3000)} monedas`)).toBeInTheDocument();
+  const podium = screen.getByRole('region', { name: copy.season.closingFor.podium });
+  expect(within(podium).getByText('Título «Podio de temporada»')).toBeInTheDocument();
+  expect(within(podium).getByText('Marco Corona')).toBeInTheDocument();
   expect(screen.getByText(copy.season.closingTrophy)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: copy.season.closingClaim }));
   await vi.waitFor(() => expect(screen.queryByRole('button', { name: copy.season.closingClaim })).toBeNull());
@@ -191,7 +198,7 @@ test('recoger un escalón con una pieza suena, vuela y lo celebra', async () => 
   expect(fx.burst).toHaveBeenCalledWith(from, expect.objectContaining({ shards: 30, title: 'Pionero' }));
   const party = await screen.findByText(copy.missions.piece.title);
   expect(party.closest('.celebrate')).toHaveTextContent('Pionero');
-  expect(await screen.findByText(copy.missions.gained('30 Esquirlas, el título Pionero'))).toBeInTheDocument();
+  expect(await screen.findByText(copy.missions.gained('30 Esquirlas, título «Pionero»'))).toBeInTheDocument();
 });
 
 test('Recoger todo recoge cada escalón listo de la ruta, en orden', async () => {
@@ -225,4 +232,63 @@ test('recoger los premios de cierre suena, vuela y lo celebra con el nombre de l
   await vi.waitFor(() => expect(playClaim).toHaveBeenCalledWith(expect.objectContaining({ coins: 3000, dust: 200, title: 'Oro de temporada' }), true));
   expect(fx.burst).toHaveBeenCalledWith(from, expect.objectContaining({ coins: 3000, dust: 200 }));
   expect((await screen.findByText(t.bigClosing)).closest('.celebrate')).toHaveTextContent('Temporada 0');
+});
+
+// Prizes of every kind (plan «temporadas como fichas», PR 4): galaxies, probes and pieces drawn with their art; collected,
+// they pop as cards and are celebrated; the close says what each prize is for, its range of places included.
+const galaxy: Gift = { kind: 'galaxy', tier: 'epic', finish: 'normal', trait: null, count: 1 };
+const probe: Gift = { kind: 'probe', probe: 'bastion' };
+
+test('un escalón con una galaxia y una sonda las dibuja, y al recogerlo salen como tarjetas y se celebra', async () => {
+  const gifted: SeasonView = { ...view, steps: [view.steps[0]!, { at: 500, reward: r({}), gifts: [galaxy, probe], reached: true, claimed: false }, view.steps[2]!] };
+  mockApi({
+    'GET /galaxy/api/season': () => jsonResponse(200, gifted),
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gachaView),
+    'POST /galaxy/api/season/route/500/claim': () => jsonResponse(200, withRoute(gifted, 500)),
+  });
+  renderAt('/temporada', { '/temporada': <SeasonScreen /> });
+  const claim = await screen.findByRole('button', { name: t.claimOf(500) });
+  const step = claim.closest('li')!;
+  expect(within(step).getByText('Galaxia épica')).toBeInTheDocument();
+  expect(within(step).getByText('Sonda Bastión')).toBeInTheDocument();
+  expect(step.querySelector('.gift-ico.galaxy[data-tier="epic"]')).not.toBeNull();
+  const from = boxed(claim, 555);
+  await userEvent.click(claim);
+  const cards = [{ kind: 'galaxy', name: 'Galaxia épica', tier: 'epic' }, { kind: 'probe', name: 'Bastión' }];
+  await vi.waitFor(() => expect(playClaim).toHaveBeenCalledWith(expect.objectContaining({ cards }), true));
+  expect(fx.burst).toHaveBeenCalledWith(from, expect.objectContaining({ cards }));
+  expect((await screen.findByText(copy.missions.piece.probe)).closest('.celebrate')).toHaveTextContent('Bastión');
+  expect(await screen.findByText(copy.missions.gained('Galaxia épica, sonda Bastión'))).toBeInTheDocument();
+});
+
+test('un artículo de la tienda puede dar una galaxia', async () => {
+  const shop: SeasonView = { ...view, shop: [{ id: 'gx', name: 'Galaxia de temporada', price: 20, limit: 2, bought: 0, reward: r({}), gifts: [galaxy] }] };
+  mockApi({ 'GET /galaxy/api/season': () => jsonResponse(200, shop), 'GET /galaxy/api/gacha': () => jsonResponse(200, gachaView) });
+  renderAt('/temporada', { '/temporada': <SeasonScreen /> });
+  const card = (await screen.findByText('Galaxia de temporada', { selector: 'b' })).closest('li')!;
+  expect(within(card).getByText('Galaxia épica')).toBeInTheDocument();
+});
+
+test('los premios de cierre por puestos dicen su rango y se recogen con lo demás', async () => {
+  const closing = {
+    season: 'season-0',
+    name: 'Temporada 0',
+    endsAt: '2026-10-31T00:00:00.000Z',
+    rank: 1,
+    score: 9000,
+    tier: 'gold' as const,
+    podium: false,
+    rewards: [{ ...r({ coins: 3000 }), gifts: [] }, { ...EMPTY_SEASON_REWARD, gifts: [galaxy], place: { from: 1, to: 1 } }],
+    claimed: false,
+  };
+  mockApi({
+    'GET /galaxy/api/season': () => jsonResponse(200, { ...view, closing }),
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gachaView),
+    'POST /galaxy/api/season/results/season-0/claim': () => jsonResponse(200, view),
+  });
+  renderAt('/temporada', { '/temporada': <SeasonScreen /> });
+  const place = await screen.findByRole('region', { name: copy.season.closingFor.place(1, 1) });
+  expect(within(place).getByText('Galaxia épica')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: t.closingClaim }));
+  await vi.waitFor(() => expect(playClaim).toHaveBeenCalledWith(expect.objectContaining({ coins: 3000, cards: [{ kind: 'galaxy', name: 'Galaxia épica', tier: 'epic' }] }), true));
 });

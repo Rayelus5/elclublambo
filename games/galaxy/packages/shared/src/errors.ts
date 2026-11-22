@@ -87,6 +87,7 @@ export const API_ERROR_CODES = [
   'season_not_draft',
   'season_started',
   'season_invalid',
+  'season_needs_superadmin',
   'clan_full',
   'clan_name_taken',
   'clan_tag_taken',

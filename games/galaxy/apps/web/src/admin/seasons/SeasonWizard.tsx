@@ -1,13 +1,18 @@
-import { type AdminSeason, madridDayOf, madridMidnightOf, parseConfig, type SeasonIssue, seasonRecordIssues, SEASON_FINISHES } from '@galaxy/shared';
-import { useState } from 'react';
+import { type AdminSeason, madridDayOf, madridMidnightOf, parseConfig, retargetSeasonGifts, seasonBigGifts, type SeasonIssue, seasonRecordIssues, SEASON_FINISHES } from '@galaxy/shared';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useConfigKey } from '../../api/config';
 import { useAdminSeasons, useSaveSeason, useScheduleSeason, useValidateSeason } from '../../api/seasons';
-import { errorText } from '../../auth/useMe';
+import { errorText, useMe } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { useGiftCatalog } from '../../gifts/useGiftCatalog';
+import { bigReasonText, type GiftCatalog } from '../../gifts/words';
 import { DateField } from '../../ui/DateField';
 import { Icon } from '../../ui/Icon';
+import { Segmented } from '../../ui/Segmented';
 import { Select } from '../../ui/Select';
+import { useSettled } from '../../ui/useSettled';
+import { ClosingEditor, LabSummary, MissionsEditor, RouteEditor, ShopEditor } from './ContentEditors';
 import { NumberInput } from '../forms/ConfigForm';
 import { fmtNumber, scaleOf, tidy } from '../forms/format';
 import { type Unit, UNIT_SUFFIX } from '../forms/labels';
@@ -17,8 +22,11 @@ import { AsPlayerLinks, groupOf, madridDate, seasonDays } from './SeasonsScreen'
 // The season wizard (plan «temporadas como fichas», 2026-11-21): a season in five steps (its name and dates, its points
 // and tiers with a live example, its route, shop, prizes, missions and lab, its anomaly and finish, and a review with
 // the server's checks), then saved as a draft or saved and scheduled (it opens on its own at its date). A copy of a
-// season starts where it ended, with the same length. The route, shop and prizes are copied or imported for now. The
-// review leads to the saved season's shop and leaderboard as players will see them (2026-11-22).
+// season starts where it ended, with the same length. The review leads to the saved season's shop and leaderboard as
+// players will see them (2026-11-22). Since PR 4 the step «Ruta, tienda y misiones» edits all of it, tab by tab: the
+// route's steps, the shop and its currency, the closing prizes (by tier, podium and ranges of places), the missions,
+// and the seasonal lab tree read-only; every prize with the mail's gift picker. The server checks the draft as it
+// changes (its gifts against what is live) and says which prizes are big: then only a superadmin schedules it.
 
 const t = copy.admin.seasons;
 type Step = 'data' | 'rules' | 'content' | 'anomaly' | 'review';
@@ -26,6 +34,9 @@ const STEPS: Step[] = ['data', 'rules', 'content', 'anomaly', 'review'];
 const DAY = 86_400_000;
 
 type Draft = Pick<AdminSeason, 'id' | 'name' | 'startsAt' | 'endsAt' | 'rules' | 'route' | 'missions' | 'lab'>;
+type Tab = 'route' | 'shop' | 'closing' | 'missions' | 'lab';
+const TABS: Tab[] = ['route', 'shop', 'closing', 'missions', 'lab'];
+const SEASON_ID = /^[a-z0-9-]{1,32}$/;
 
 const recordOf = (s: Draft): Draft => ({ id: s.id, name: s.name, startsAt: s.startsAt, endsAt: s.endsAt, rules: s.rules, route: s.route, missions: s.missions, lab: s.lab });
 
@@ -62,7 +73,45 @@ function startFrom(list: AdminSeason[], id: string | undefined, from: string | n
   if (!source) return fresh();
   const days = Math.max(1, seasonDays(source));
   const startsAt = source.state === 'draft' ? source.startsAt : source.endsAt;
-  return { ...recordOf(structuredClone(source)), ...nextOf(source.id, source.name, new Set(list.map((s) => s.id))), startsAt, endsAt: shiftDay(startsAt, days) };
+  const next = nextOf(source.id, source.name, new Set(list.map((s) => s.id)));
+  const copied = recordOf(structuredClone(source));
+  // Its own currency in the gifts becomes the new season's.
+  return { ...copied, ...next, route: retargetSeasonGifts(copied.route, next.id), startsAt, endsAt: shiftDay(startsAt, days) };
+}
+
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/** Which tab of «Ruta, tienda y misiones» an issue belongs to. */
+function tabOf(i: SeasonIssue): Tab {
+  if (i.path.startsWith('route.steps')) return 'route';
+  if (i.path.startsWith('route.closing')) return 'closing';
+  if (i.path.startsWith('missions')) return 'missions';
+  if (i.path.startsWith('lab')) return 'lab';
+  return 'shop';
+}
+
+/** The gift catalog for a season's prizes: its own currency, checked as of its start (or, for the close, its end). */
+function seasonCatalog(base: GiftCatalog, d: Draft, open: boolean): GiftCatalog {
+  return {
+    ...base,
+    season: { id: d.id, open: open && SEASON_ID.test(d.id), currencyName: d.route.currency.name, endsAt: d.endsAt },
+    live: { ...base.live, season: { id: d.id, open }, now: new Date(open ? d.startsAt : d.endsAt) },
+  };
+}
+
+/** Where in the season a path is: a step, an item, a tier, the podium, a range of places, the missions. */
+function whereOf(path: string, d: Draft): string | null {
+  const [a, b, c, n] = path.split('.');
+  if (a === 'missions') return t.facts.missions;
+  if (a !== 'route') return null;
+  if (b === 'steps' && c !== undefined) return t.route.step(Number(c) + 1);
+  if (b === 'shop' && c !== undefined) return t.shop.item(d.route.shop[Number(c)]?.name ?? '', Number(c) + 1);
+  if (b === 'currency') return t.shop.currencyTitle;
+  if (b !== 'closing') return null;
+  if ((c === 'tiers' || c === 'tierGifts') && n !== undefined) return t.closing.tier(t.tierNames[Number(n)] ?? '');
+  if (c === 'podium' || c === 'podiumGifts' || c === 'podiumSize') return t.closing.podium;
+  const place = c === 'places' && n !== undefined ? d.route.closing.places[Number(n)] : undefined;
+  return place ? t.closing.place(place.from, place.to) : null;
 }
 
 /** Which step an issue belongs to (by its path). */
@@ -76,6 +125,11 @@ function stepOf(i: SeasonIssue): Step {
 function issueText(i: SeasonIssue): string {
   if (i.message.startsWith('season_overlap:')) return t.overlapWith(i.message.slice('season_overlap:'.length));
   if (i.message.startsWith('mission_duplicate:')) return t.duplicateMission(i.message.slice('mission_duplicate:'.length));
+  // A gift's problem, as the mail says it.
+  if (i.message.startsWith('gift_')) {
+    const said = (copy.gifts.issues as Record<string, string>)[i.message.slice('gift_'.length)];
+    if (said) return said;
+  }
   return t.issueText[i.message] ?? `${i.path ? `${i.path} ` : ''}${i.message}`;
 }
 
@@ -108,16 +162,31 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
   const [reason, setReason] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [copyFrom, setCopyFrom] = useState(list.find((s) => s.id === from)?.id ?? list.filter((s) => s.state !== 'draft').at(-1)?.id ?? '');
+  const [tab, setTab] = useState<Tab>('route');
   const own = id ? list.find((s) => s.id === id) : undefined;
   const readonly = !!own && own.state !== 'draft';
   const group = own ? groupOf(own, now) : 'draft';
+  const superadmin = !!useMe().data?.roles.includes('superadmin');
+  const base = useGiftCatalog().catalog;
+  const catalogs = useMemo(() => (base ? { open: seasonCatalog(base, draft, true), closed: seasonCatalog(base, draft, false) } : null), [base, draft]);
 
   const anomalies = ((content.data?.data?.anomalies as { id: string; name: string }[] | undefined) ?? []).map((a) => ({ value: a.id, label: a.name }));
   const local = seasonRecordIssues(draft);
-  const remote = useValidateSeason(draft, step === 'review' && !readonly);
-  const issues = step === 'review' && remote.data ? remote.data.issues : local;
+  // The server's checks (its gifts against what is live, overlaps) while the prizes or the review are open, once the
+  // draft has been still for a moment; the local ones meanwhile.
+  const checked = step === 'content' || step === 'review';
+  const settled = useSettled(draft, 600);
+  const fresh = settled === draft;
+  const remote = useValidateSeason(settled, checked && !readonly);
+  const issues = checked && fresh && remote.data ? remote.data.issues : local;
+  const big = useMemo(() => (base ? seasonBigGifts(draft.route, base.limits, base.cosmetics) : []), [base, draft.route]);
   const byStep = Object.fromEntries(STEPS.map((s) => [s, issues.filter((i) => stepOf(i) === s).length])) as Record<Step, number>;
-  const valid = issues.length === 0 && (step !== 'review' || remote.data?.ok === true);
+  const byTab = Object.fromEntries(TABS.map((k) => [k, issues.filter((i) => stepOf(i) === 'content' && tabOf(i) === k).length])) as Record<Tab, number>;
+  const valid = issues.length === 0 && (step !== 'review' || (fresh && remote.data?.ok === true));
+  const go = (i: SeasonIssue) => {
+    setStep(stepOf(i));
+    if (stepOf(i) === 'content') setTab(tabOf(i));
+  };
   const idx = STEPS.indexOf(step);
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const setRules = (patch: Partial<Draft['rules']>) => setDraft((d) => ({ ...d, rules: { ...d.rules, ...patch } }));
@@ -173,7 +242,19 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                 </div>
                 <div className="cf-field">
                   <label htmlFor="sw-id">{t.fields.id}</label>
-                  <input id="sw-id" type="text" maxLength={32} value={draft.id} disabled={readonly || !!own} aria-describedby="sw-id-hint" onChange={(e) => set({ id: e.target.value.toLowerCase() })} />
+                  <input
+                    id="sw-id"
+                    type="text"
+                    maxLength={32}
+                    value={draft.id}
+                    disabled={readonly || !!own}
+                    aria-describedby="sw-id-hint"
+                    onChange={(e) => {
+                      const next = e.target.value.toLowerCase();
+                      // The season's own currency in its prizes follows its id.
+                      setDraft((d) => ({ ...d, id: next, route: retargetSeasonGifts(d.route, next) }));
+                    }}
+                  />
                   <small id="sw-id-hint">{t.fields.idHint}</small>
                 </div>
                 <div className="cf-field">
@@ -225,6 +306,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
           ) : null}
           {step === 'content' ? (
             <>
+              {readonly ? (
               <dl className="ev-facts">
                 <div>
                   <dt>{t.facts.route}</dt>
@@ -249,6 +331,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                   <dd>{t.labSummary(draft.lab.length)}</dd>
                 </div>
               </dl>
+              ) : null}
               {readonly ? null : (
                 <>
                   <p className="panel-note">{t.contentNote}</p>
@@ -262,7 +345,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                       onClick={() => {
                         const s = list.find((x) => x.id === copyFrom);
                         if (!s) return;
-                        set({ route: structuredClone(s.route), missions: structuredClone(s.missions), lab: structuredClone(s.lab) });
+                        set({ route: retargetSeasonGifts(structuredClone(s.route), draft.id), missions: structuredClone(s.missions), lab: structuredClone(s.lab) });
                         setNote(t.copied(s.name));
                       }}
                     >
@@ -283,7 +366,13 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                             const data = JSON.parse(await file.text()) as Partial<Draft> & { temporada?: Partial<Draft> };
                             const r = data.temporada ?? data;
                             if (!r.route && !r.missions && !r.lab && !r.rules) throw new Error('empty');
-                            setDraft((d) => ({ ...d, ...(r.rules ? { rules: { ...d.rules, ...r.rules } } : {}), ...(r.route ? { route: parseConfig('seasonRoute', r.route) } : {}), ...(r.missions ? { missions: r.missions } : {}), ...(r.lab ? { lab: r.lab } : {}) }));
+                            setDraft((d) => ({
+                              ...d,
+                              ...(r.rules ? { rules: { ...d.rules, ...r.rules } } : {}),
+                              ...(r.route ? { route: retargetSeasonGifts(parseConfig('seasonRoute', r.route), d.id) } : {}),
+                              ...(r.missions ? { missions: r.missions } : {}),
+                              ...(r.lab ? { lab: r.lab } : {}),
+                            }));
                             setNote(t.imported);
                           } catch {
                             setNote(t.importBad);
@@ -300,6 +389,23 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                   ) : null}
                 </>
               )}
+            </>
+          ) : null}
+          {step === 'content' && !readonly ? (
+            <>
+              <Segmented<Tab>
+                aria-label={t.contentTabsLabel}
+                className="sw-tabs"
+                value={tab}
+                options={TABS.map((k) => ({ value: k, label: byTab[k] ? `${t.contentTabs[k]} (${byTab[k]})` : t.contentTabs[k] }))}
+                onChange={setTab}
+              />
+              <p className="panel-note">{t.contentHints[tab]}</p>
+              {tab === 'route' ? <RouteEditor draft={draft} onRoute={(route) => set({ route })} catalog={catalogs?.open ?? null} issues={issues} say={issueText} /> : null}
+              {tab === 'shop' ? <ShopEditor draft={draft} onRoute={(route) => set({ route })} catalog={catalogs?.open ?? null} issues={issues} say={issueText} /> : null}
+              {tab === 'closing' ? <ClosingEditor draft={draft} onRoute={(route) => set({ route })} catalog={catalogs?.closed ?? null} issues={issues} say={issueText} /> : null}
+              {tab === 'missions' ? <MissionsEditor draft={draft} onMissions={(missions) => set({ missions })} issues={issues} /> : null}
+              {tab === 'lab' ? <LabSummary draft={draft} /> : null}
             </>
           ) : null}
           {step === 'anomaly' ? (
@@ -372,21 +478,42 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
         <aside className="lip panel cf-aside" aria-live="polite">
           <section aria-label={t.issuesTitle}>
             <h2>{t.issuesTitle}</h2>
-            {step === 'review' && remote.isFetching ? <p className="panel-note">{t.checking}</p> : null}
+            {checked && (remote.isFetching || !fresh) && !readonly ? <p className="panel-note">{t.checking}</p> : null}
             {issues.length === 0 ? (
               <p className="panel-note">{t.noIssues}</p>
             ) : (
               <ul className="admin-issues">
-                {issues.map((i) => (
-                  <li key={i.path + i.message}>
-                    <button type="button" className="cf-link" onClick={() => setStep(stepOf(i))}>
-                      {issueText(i)}
-                    </button>
-                  </li>
-                ))}
+                {issues.map((i) => {
+                  const where = whereOf(i.path, draft);
+                  return (
+                    <li key={i.path + i.message}>
+                      <button type="button" className="cf-link" onClick={() => go(i)}>
+                        {where ? <b className="sw-where">{where}</b> : null}
+                        <span>{issueText(i)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
+          {big.length > 0 && catalogs ? (
+            <section className={`gift-big${superadmin ? ' ok' : ' bad'}`} aria-label={t.big.title}>
+              <p className="gift-big-head">
+                <Icon name={superadmin ? 'shield' : 'lock'} />
+                <b>{t.big.title}</b>
+                <span>{superadmin ? t.big.you : t.big.needs}</span>
+              </p>
+              <ul>
+                {big.map((b) => (
+                  <li key={b.path}>
+                    <b className="sw-where">{whereOf(b.path, draft) ?? b.path}</b>
+                    <span>{b.reasons.map((r, k) => (k === 0 ? bigReasonText(r, catalogs.open) : lower(bigReasonText(r, catalogs.open)))).join(', ')}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {readonly ? null : (
             <>
               <form
@@ -412,7 +539,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                   <p className="panel-note">{t.scheduleHint}</p>
                   <PublishFields
                     busy={save.isPending || schedule.isPending}
-                    disabled={!valid}
+                    disabled={!valid || (big.length > 0 && !superadmin)}
                     error={schedule.error ?? save.error}
                     label={t.scheduleNow}
                     onPublish={(r, password) => doSave((pw, why) => schedule.mutate({ id: draft.id, reason: why, password: pw }, { onSuccess: () => finished(t.done.scheduled(draft.name)) }), password, r)}

@@ -7,6 +7,20 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-51-premios-de-temporada',
+    version: '1.51',
+    date: '2026-11-22',
+    title: 'Los premios de temporada pueden ser galaxias, skins o sondas',
+    summary: 'La ruta, la tienda y el cierre de la temporada dan premios de cualquier tipo, y el cierre premia también por puestos',
+    items: [
+      { kind: 'nuevo', text: 'Los escalones de la ruta, los artículos de la tienda y los premios de cierre pueden darte galaxias, skins, sondas y más, no solo monedas y títulos' },
+      { kind: 'nuevo', text: 'El cierre de la temporada también puede premiar por puestos, además de por tramo y en el podio. Lo ves en la clasificación, debajo del podio' },
+      { kind: 'mejora', text: 'Cada premio se ve con su dibujo: la galaxia con el color de su rareza, la sonda volando y cada pieza tal cual' },
+      { kind: 'mejora', text: 'Al recoger una galaxia o una sonda sale su tarjeta donde la recoges, con su sonido, y se celebra' },
+      { kind: 'mejora', text: 'Los premios de cierre dicen de dónde sale cada uno: tu tramo, el podio o tu puesto' },
+    ],
+  },
+  {
     id: 'v1-50-torneos',
     version: '1.50',
     date: '2026-11-22',

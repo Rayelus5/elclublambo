@@ -346,6 +346,36 @@ Un id nunca se reutiliza ni cambia de significado:
 - `route`: lo que era `seasonRoute` (moneda, pasos, tienda y premios de cierre);
 - `missions` y `lab`: lo que eran `missions.season` y `lab.season`.
 
+**Premios de cualquier tipo (PR 4, 22/11/2026).** Cada escalón (`route.steps[]`), cada artículo (`route.shop[]`) y cada premio de cierre lleva, junto a su `reward` de siempre (que sigue valiendo y pagándose), una lista `gifts` con los regalos del buzón (`giftSchema`: moneda, pieza, galaxia, sonda, experiencia). Por defecto `[]`, así que un `temporada.json` antiguo se lee igual:
+- `steps[]: { at, reward?, gifts? }` y `shop[]: { id, name, price, limit, reward?, gifts? }`. Si solo da regalos, `reward` se puede omitir.
+- `closing.tierGifts`: cinco listas, de Bronce a Estelar, que se suman a `closing.tiers`. `closing.podiumGifts` se suma a `closing.podium`.
+- `closing.places: [{ from, to, gifts }]`: premios por puestos, en rangos que empiezan en el 1, van en orden y no se solapan (`prizes_start`, `prizes_order`, `prizes_overlap`, `prize_range`, `prize_empty`). Los puestos cuentan solo entre quienes pueden ganar premios (`accounts.prize_eligible`): quien no puede conserva su puesto y el premio pasa al siguiente, igual que el podio. Se suman al premio del tramo y al del podio.
+
+```json
+"route": {
+  "steps": [{ "at": 2000, "reward": { "title": "Leyenda de la Temporada 3" }, "gifts": [{ "kind": "galaxy", "tier": "epic", "finish": "holo", "count": 1 }] }],
+  "shop": [{ "id": "galaxia", "name": "Galaxia de temporada", "price": 600, "limit": 2, "gifts": [{ "kind": "galaxy", "tier": "rare", "finish": "normal" }] }],
+  "closing": {
+    "podiumGifts": [{ "kind": "probe", "probe": "bastion" }],
+    "places": [
+      { "from": 1, "to": 1, "gifts": [{ "kind": "galaxy", "tier": "mythic", "finish": "prismatic" }] },
+      { "from": 2, "to": 10, "gifts": [{ "kind": "currency", "currency": "coins", "amount": 20000 }] }
+    ]
+  }
+}
+```
+
+**Qué regalos caben:**
+- La ruta y la tienda pueden dar la moneda de **su** temporada (`season:<id>`), nunca la de otra (`season_gift_other`; copiar o importar una temporada en el panel la cambia sola) ni puntos de temporada (`season_gift_points`).
+- Los premios de cierre se recogen con la temporada cerrada: ni moneda ni puntos de temporada (`season_gift_closed`).
+- Cada lista da como mucho 20 regalos y 10 galaxias (`season_gift_galaxies`). Un escalón o un artículo que no da nada es un error (`season_reward_empty`).
+- Contra lo vivo, cada regalo se comprueba como en el buzón (`gift_<código>`: pieza o sonda que no existe, galaxia imposible, evento cerrado): la ruta y la tienda a la fecha de inicio; el cierre, a la de fin.
+- **Regalos grandes:** cada escalón, artículo (por todas las veces que se puede comprar) y premio se pesa con `mailLimits` (`seasonBigGifts`): la ruta, la tienda y los tramos llegan a todos; el podio a sus puestos; un rango a tantos como tiene. Si alguno pasa los límites, solo un superadmin programa la temporada desde el panel (`season_needs_superadmin`). La CLI es del propietario y no lo pide.
+
+**Cómo se pagan:** con `grantGifts`, dentro de la guarda de siempre (la fila del escalón recogido, el contador de compras, `season_results.claimed_at`), con claves que salen de la operación y galaxias con semilla del servidor: `season:<id>:step:<at>:<cuenta>`, `season:<id>:shop:<artículo>:<n.º de compra>:<cuenta>` y `season:<id>:close:<cuenta>`. Al cerrar, cada resultado guarda sus premios congelados en `season_results.rewards` (la recompensa de siempre más sus `gifts`, y `place` en los de un rango).
+
+**En el panel** (Temporadas › paso «Ruta, tienda y misiones»): pestañas Ruta, Tienda (con su moneda), Premios de cierre (por tramo, podio y puestos), Misiones y Laboratorio (este último, de momento, solo se ve: se copia o se importa con lo demás). Cada premio se elige con el selector de regalos del buzón, packs incluidos (se copian dentro), y acepta un título propio de texto libre. Lo de antes se ve como regalos y cada parte se puede quitar.
+
 **Estados:** borrador (no cuenta), programada (abierta entre sus fechas) y cerrada (histórico). Las programadas y cerradas nunca se solapan. El servidor sigue leyendo `season`, `seasonRoute`, `missions.season` y `lab.season`, pero salen de la temporada abierta (o, entre dos, de la última que acabó). Esas claves y campos ya no se publican: el servidor y la CLI lo rechazan. Se operan con `season-list`, `season-show`, `season-import`, `season-schedule`, `season-unschedule` y `season-extend` (skill `galaxy-temporada`), y pronto desde Administración › Temporadas. El primer arranque con este código convirtió en fichas la temporada viva y las archivadas.
 
 **Al empezar una temporada nueva:**

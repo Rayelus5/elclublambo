@@ -1,4 +1,4 @@
-import { DEFAULT_ROUTE, DEFAULT_SHOP, type SeasonView } from '@galaxy/shared';
+import { DEFAULT_ROUTE, DEFAULT_SHOP, type Gift, type SeasonView } from '@galaxy/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -15,13 +15,21 @@ import '../../src/styles/app.css';
 // VITE_SEASON_SHOTS=1 (apps/web/test/browser/__shots__/).
 
 const score = 2300;
+const EPIC: Gift = { kind: 'galaxy', tier: 'epic', finish: 'holo', trait: null, count: 1 };
+const GIFTS: Record<number, Gift[]> = {
+  2000: [{ kind: 'probe', probe: 'bastion' }, EPIC],
+  9000: [{ kind: 'galaxy', tier: 'legendary', finish: 'normal', trait: null, count: 2 }],
+  30000: [{ kind: 'galaxy', tier: 'mythic', finish: 'prismatic', trait: null, count: 1 }, { kind: 'cosmetic', piece: 'skin', id: 'skin-lumen-aurora' }],
+};
 const view: SeasonView = {
   season: { id: 'season-2', name: 'Temporada 2', startsAt: '2026-11-22T23:00:00.000Z', endsAt: new Date(Date.now() + 26 * 86_400_000 + 5 * 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
   score,
   tier: 'silver',
   currency: { name: 'Esquirlas', balance: 470 },
-  steps: DEFAULT_ROUTE.map((s, i) => ({ at: s.at, reward: s.reward, reached: s.at <= score, claimed: i < 4 })),
-  shop: DEFAULT_SHOP.map((i) => ({ id: i.id, name: i.name, price: i.price, limit: i.limit, bought: i.id === 'coin-bag' ? i.limit : i.id === 'signal' ? 3 : 0, reward: i.reward })),
+  // Gifts of any kind next to the old rewards (plan «temporadas como fichas», PR 4): a probe and galaxies on the route,
+  // a galaxy in the shop.
+  steps: DEFAULT_ROUTE.map((s, i) => ({ at: s.at, reward: s.reward, gifts: GIFTS[s.at] ?? [], reached: s.at <= score, claimed: i < 4 })),
+  shop: DEFAULT_SHOP.map((i) => ({ id: i.id, name: i.name, price: i.price, limit: i.limit, bought: i.id === 'coin-bag' ? i.limit : i.id === 'signal' ? 3 : 0, reward: i.reward, gifts: i.id === 'frame-abyss' ? [EPIC] : [] })),
   closing: null,
 };
 const gacha = { banners: [], costs: { coins: 100, coinsFive: 475, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 18_450, dust: 2310, signal: 7 } };
@@ -40,6 +48,8 @@ async function mount(w: number, h: number) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
+      // The gifts' names: the built-in catalog and content stand in.
+      if (url.endsWith('/content') || url.endsWith('/profile/cosmetics')) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } });
       const claimed = /\/season\/route\/(\d+)\/claim$/.exec(url);
       const body = url.endsWith('/gacha')
         ? gacha

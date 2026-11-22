@@ -1,7 +1,9 @@
-import { type LeaderRow, type SeasonClosing, type SeasonInfo, type SeasonReward, SEASON_TIERS, type SeasonTier } from '@galaxy/shared';
+import { EMPTY_SEASON_REWARD, type Gift, type LeaderRow, rewardGivesAnything, type SeasonClosing, type SeasonInfo, type SeasonReward, SEASON_TIERS, type SeasonTier } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { copy, fmt } from '../copy/es';
+import { currencyLook, giftWords } from '../gifts/words';
+import { type GiftView, useGiftView } from '../season/gifts';
 import { seasonSpan } from '../season/SeasonPreview';
 import { Icon, type IconName } from '../ui/Icon';
 import { TierEmblem, tierProgress } from './parts';
@@ -14,10 +16,27 @@ import { SeasonCountdown } from './SeasonCountdown';
 // hears a short link, not the whole card. Every number comes from the server: the thresholds, the prizes and the
 // podium's size are live config. An admin's preview of a season still to come (2026-11-22) shows its days instead of
 // the countdown and leads to that season's shop preview. A past season's card (PastSeason.tsx) shows the same prizes.
+// Since PR 4 of «temporadas como fichas» a prize also shows its gifts of any kind (a galaxy in its tier's colour, a
+// probe, a piece), and the close's prizes by place come after the podium, range by range.
 
 const t = copy.social;
 
-type Chip = { key: string; icon: IconName; text: string; kind: 'coins' | 'dust' | 'signal' | 'shards' | 'cosmetic' };
+type Chip = { key: string; icon: IconName; text: string; kind: 'coins' | 'dust' | 'signal' | 'shards' | 'cosmetic' | 'galaxy'; tier?: string };
+
+const PIECE_ICON: Record<'title' | 'frame' | 'avatar' | 'skin', IconName> = { title: 'trophy', frame: 'star', avatar: 'starOn', skin: 'probe' };
+
+/** A gift as a drawn chip: a currency with its amount, the rest with its words. */
+function giftChip(g: Gift, i: number, view: GiftView): Chip {
+  const key = `g${i}`;
+  if (g.kind === 'currency') {
+    const look = currencyLook(g.currency, view);
+    const kind = g.currency === 'coins' ? 'coins' : g.currency === 'dust' ? 'dust' : g.currency.startsWith('signal') ? 'signal' : g.currency.startsWith('season:') ? 'shards' : 'cosmetic';
+    return { key, icon: look.icon, text: fmt(g.amount), kind };
+  }
+  if (g.kind === 'galaxy') return { key, icon: 'comet', text: giftWords(g, view), kind: 'galaxy', tier: g.tier };
+  if (g.kind === 'cosmetic') return { key, icon: PIECE_ICON[g.piece], text: giftWords(g, view), kind: 'cosmetic' };
+  return { key, icon: g.kind === 'probe' ? 'probe' : g.kind === 'xp' ? 'up' : 'podium', text: giftWords(g, view), kind: 'cosmetic' };
+}
 
 /** A prize as drawn chips: each currency with its amount, then each piece with its name. */
 function chipsOf(r: SeasonReward): Chip[] {
@@ -33,19 +52,20 @@ function chipsOf(r: SeasonReward): Chip[] {
   return out;
 }
 
-/** A closing prize: the chips drawn, and the same in words for screen readers. */
-function Prizes({ reward, trophy = false }: { reward: SeasonReward; trophy?: boolean }) {
-  const chips = chipsOf(reward);
+/** A closing prize: its old reward's chips and its gifts', drawn, and the same in words for screen readers. */
+function Prizes({ reward, gifts = [], trophy = false, view }: { reward: SeasonReward; gifts?: readonly Gift[]; trophy?: boolean; view: GiftView }) {
+  const chips = [...chipsOf(reward), ...gifts.map((g, i) => giftChip(g, i, view))];
+  const words = [rewardGivesAnything(reward) ? t.prize(reward) : '', ...gifts.map((g) => giftWords(g, view))].filter(Boolean).join(', ') || t.noPrize;
   return (
     <span className="lb-prizes">
       <span className="sr-only">
-        {t.prize(reward)}
+        {words}
         {trophy ? `, ${t.podiumTrophyLabel}` : ''}
       </span>
       <span className="lb-prize-chips" aria-hidden="true">
         {chips.length === 0 && !trophy ? <span className="lb-prize none">{t.noPrize}</span> : null}
         {chips.map((c) => (
-          <span key={c.key} className={`lb-prize k-${c.kind}`}>
+          <span key={c.key} className={`lb-prize k-${c.kind}`} data-tier={c.tier}>
             <Icon name={c.icon} />
             {c.text}
           </span>
@@ -62,10 +82,12 @@ function Prizes({ reward, trophy = false }: { reward: SeasonReward; trophy?: boo
 }
 
 /**
- * «Tramos y premios»: every tier, Estelar first, with its threshold and what the close pays it (`mine` marked), and the
- * podium's prize with how many places it reaches.
+ * «Tramos y premios»: every tier, Estelar first, with its threshold and what the close pays it (`mine` marked), the
+ * podium's prize with how many places it reaches, and the prizes by place, range by range.
  */
 export function ClosingPrizes({ tiers, closing, mine, title, hint }: { tiers: readonly number[]; closing: SeasonClosing; mine: SeasonTier | null; title: string; hint: string }) {
+  const places = closing.places ?? [];
+  const view = useGiftView([...(closing.tierGifts ?? []).flat(), ...(closing.podiumGifts ?? []), ...places.flatMap((p) => p.gifts)], { id: '', currencyName: '' });
   return (
     <div className="lb-prizes-block">
       <h3>{title}</h3>
@@ -83,7 +105,7 @@ export function ClosingPrizes({ tiers, closing, mine, title, hint }: { tiers: re
                 {at !== undefined ? <small>{t.tierFrom(at)}</small> : null}
               </span>
               {x === mine ? <span className="lb-you">{t.yourTier}</span> : null}
-              {reward ? <Prizes reward={reward} /> : null}
+              {reward ? <Prizes reward={reward} gifts={closing.tierGifts?.[i]} view={view} /> : null}
             </li>
           );
         })}
@@ -97,7 +119,20 @@ export function ClosingPrizes({ tiers, closing, mine, title, hint }: { tiers: re
             <b>{t.podiumTitle}</b>
             <small>{t.podiumWho(closing.podiumSize)}</small>
           </span>
-          <Prizes reward={closing.podium} trophy />
+          <Prizes reward={closing.podium} gifts={closing.podiumGifts} trophy view={view} />
+        </div>
+      ) : null}
+      {places.length > 0 ? (
+        <div className="lb-places" role="group" aria-label={t.placesLabel}>
+          <h4>{t.placesTitle}</h4>
+          <ul className="lb-place-list">
+            {places.map((p) => (
+              <li key={p.from}>
+                <b className="lb-place-range">{t.placeRange(p.from, p.to)}</b>
+                <Prizes reward={EMPTY_SEASON_REWARD} gifts={p.gifts} view={view} />
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </div>

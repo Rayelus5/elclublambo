@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { type ConfigValue, configSchemas, labNodeSchema, parseConfig } from '../config/registry';
+import type { CosmeticsConfig } from '../cosmetics/catalog';
+import { giftIssues } from '../gifts/rules';
 import { missionSchema } from './missions';
 import type { SeasonConfig } from './season';
-import { seasonRouteSchema } from './season-route';
+import { rewardGivesAnything, seasonCurrency, seasonGiftLists, seasonRouteSchema } from './season-route';
 
 // Seasons as records (plan «temporadas como fichas», 2026-11-21; GDD §13.1). A season stops being the single live key
 // `season` (with `seasonRoute`, `missions.season` and `lab.season`) and becomes a record with all of it: its dates, its
@@ -58,6 +60,20 @@ export const seasonRecordSchema = z
       if (seen.has(m.id)) ctx.addIssue({ code: 'custom', path: ['missions'], message: `mission_duplicate:${m.id}` });
       seen.add(m.id);
     }
+    // What a season's gifts may give (PR 4): while it is open, its own currency but never another season's nor season
+    // points (points that pay steps that pay points); at its close, nothing seasonal (it is collected once it is over).
+    const own = seasonCurrency(r.id);
+    for (const list of seasonGiftLists(r.route)) {
+      list.gifts.forEach((g, i) => {
+        const path = [...list.path.split('.'), i];
+        const seasonal = g.kind === 'seasonPoints' || (g.kind === 'currency' && g.currency.startsWith('season:'));
+        if (!list.open && seasonal) ctx.addIssue({ code: 'custom', path, message: 'season_gift_closed' });
+        // Collected whenever, once the season is over: an event's signals would be worthless by then.
+        else if (!list.open && g.kind === 'currency' && g.currency.startsWith('signal:')) ctx.addIssue({ code: 'custom', path, message: 'season_gift_event' });
+        else if (list.open && g.kind === 'seasonPoints') ctx.addIssue({ code: 'custom', path, message: 'season_gift_points' });
+        else if (list.open && g.kind === 'currency' && g.currency.startsWith('season:') && g.currency !== own) ctx.addIssue({ code: 'custom', path, message: 'season_gift_other' });
+      });
+    }
   });
 export type SeasonRecordInput = z.input<typeof seasonRecordSchema>;
 
@@ -85,16 +101,42 @@ export function normalizeSeasonRecord(input: unknown): SeasonRecordData {
   return { id: r.id, name: r.name, startsAt: r.startsAt, endsAt: r.endsAt, rules, route: r.route as ConfigValue<'seasonRoute'>, missions: r.missions, lab: r.lab };
 }
 
+/** What a season's gifts are checked against (the mail's checks): the live pieces, probes and events. */
+export interface SeasonGiftContext {
+  cosmetics: CosmeticsConfig;
+  probes: readonly string[];
+  events: readonly { id: string; endsAt: string }[];
+}
+
 /**
  * Everything that keeps a record from being saved or scheduled, as `{ path, message }` like `configIssues`. With the
  * live permanent lab tree, its seasonal tree must fit the same budget the key `lab` checks over both trees; with the
- * content's anomalies, its anomaly must be one of them.
+ * content's anomalies, its anomaly must be one of them; with what is live for gifts, each gift is checked like the
+ * mail's (`gift_<code>`): those paid while it is open as of its last moment (an event's signals must last as long), the
+ * closing prizes as of its end.
  */
-export function seasonRecordIssues(input: unknown, ctx: { labNodes?: ConfigValue<'lab'>['nodes']; anomalies?: readonly string[] } = {}): { path: string; message: string }[] {
+export function seasonRecordIssues(input: unknown, ctx: { labNodes?: ConfigValue<'lab'>['nodes']; anomalies?: readonly string[]; gifts?: SeasonGiftContext } = {}): { path: string; message: string }[] {
   const parsed = seasonRecordSchema.safeParse(input);
   if (!parsed.success) return parsed.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
   const out: { path: string; message: string }[] = [];
   const r = parsed.data;
+  // A step or an item that gives nothing (neither its old reward nor a gift) is a slip.
+  r.route.steps.forEach((x, i) => {
+    if (x.gifts.length === 0 && !rewardGivesAnything(x.reward)) out.push({ path: `route.steps.${i}`, message: 'season_reward_empty' });
+  });
+  r.route.shop.forEach((x, i) => {
+    if (x.gifts.length === 0 && !rewardGivesAnything(x.reward)) out.push({ path: `route.shop.${i}`, message: 'season_reward_empty' });
+  });
+  if (ctx.gifts) {
+    const g = ctx.gifts;
+    for (const list of seasonGiftLists(r.route)) {
+      if (list.gifts.length === 0) continue;
+      // Steps and items are paid until the season's last moment; closing prizes, from its end on.
+      const live = { ...g, season: { id: r.id, open: list.open }, now: new Date(list.open ? Date.parse(r.endsAt) - 1 : Date.parse(r.endsAt)) };
+      // What is seasonal was checked by the schema.
+      for (const issue of giftIssues(list.gifts, live)) if (issue.code !== 'season_closed') out.push({ path: `${list.path}.${issue.index}`, message: `gift_${issue.code}` });
+    }
+  }
   if (ctx.labNodes) {
     const lab = configSchemas.lab.safeParse({ nodes: ctx.labNodes, season: r.lab });
     if (!lab.success) for (const i of lab.error.issues) out.push({ path: 'lab', message: i.message });
