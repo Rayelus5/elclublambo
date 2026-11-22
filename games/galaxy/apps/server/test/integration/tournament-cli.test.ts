@@ -81,7 +81,7 @@ describe('la CLI de torneos', () => {
     const bad = await cli(['tournament-draft', file('c.json', record({ slug: 'tc-mal', prizes: [{ from: 2, to: 3, gifts: [{ kind: 'currency', currency: 'coins', amount: 10 }] }] })), '--reason', 'Mal']);
     expect(bad.code).toBe(1);
     expect(bad.out).toContain('prizes.0.from: prizes_start');
-    const outside = await cli(['tournament-draft', file('d.json', record({ slug: 'tc-fuera', endsAt: '2088-03-05T23:00:00.000Z' })), '--reason', 'Fuera']);
+    const outside = await cli(['tournament-draft', file('d.json', record({ slug: 'tc-fuera', endsAt: '2088-03-02T23:00:00.000Z' })), '--reason', 'Fuera']);
     expect(outside.code).toBe(1);
     expect(outside.out).toContain('tournament_outside_season');
     expect((await cli(['tournament-show', 'tc-mal'])).code).toBe(1);
