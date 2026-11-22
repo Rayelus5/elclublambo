@@ -204,6 +204,9 @@ for (const [w, h] of [
     await expect.poll(() => document.querySelector('#tw-title'), { timeout: 8000 }).not.toBeNull();
     noSideways(w);
     await shot('paso-datos', w);
+    document.querySelector('.atn-images')!.scrollIntoView();
+    noSideways(w);
+    await shot('paso-datos-imagenes', w);
     for (const [step, name] of [
       [t.steps.dates, 'fechas'],
       [t.steps.metric, 'como-se-gana'],
@@ -217,11 +220,11 @@ for (const [w, h] of [
       await shot(`paso-${name}`, w);
     }
     // A prize's gifts in the mail's own picker.
-    await userEvent.click(button(new RegExp(`^${t.chooseGifts}`)));
-    await expect.poll(() => document.querySelector('.atn-gift-dialog .gift-picker'), { timeout: 5000 }).not.toBeNull();
+    await userEvent.click(button(new RegExp(`^${copy.admin.giftsField.choose}`)));
+    await expect.poll(() => document.querySelector('.admin-gifts-dialog .gift-picker'), { timeout: 5000 }).not.toBeNull();
     noSideways(w);
     await shot('regalos', w);
-    await userEvent.click(button(new RegExp(`^${t.giftsDone}$`)));
+    await userEvent.click(button(new RegExp(`^${copy.admin.giftsField.done}$`)));
     await userEvent.click(button(new RegExp(`^\\d?${t.steps.review}`)));
     await expect.poll(() => document.querySelector('.atn-card')).not.toBeNull();
     window.scrollTo(0, 0);

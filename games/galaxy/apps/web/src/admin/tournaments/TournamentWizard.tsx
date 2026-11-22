@@ -34,9 +34,9 @@ import { useSettled } from '../../ui/useSettled';
 import { duration } from '../events/shared';
 import { NumberInput } from '../forms/ConfigForm';
 import { fromLocalInput, toLocalInput } from '../forms/format';
-import { MediaDrop } from '../MediaDrop';
+import { GiftsField } from '../GiftsField';
+import { ImageField } from '../ImageField';
 import { PublishFields } from '../PublishFields';
-import { GiftsField } from './GiftsField';
 import { PlayerCard, PrizeTable } from './Preview';
 import {
   BANNER,
@@ -109,35 +109,6 @@ function NumberField({ label, value, unit, onChange, hint }: { label: string; va
       <NumberInput id={id} value={value} info={{ label, unit }} onChange={(v) => onChange(v ?? 0)} />
       {hint ? <small className="cf-hint">{hint}</small> : null}
     </div>
-  );
-}
-
-/** An uploaded image for the card or the page: the ones uploaded already, or a new one; previewed at its place. */
-function ImageField({ label, hint, value, assets, banner, onChange }: { label: string; hint: string; value: string | null; assets: readonly MediaAsset[]; banner: boolean; onChange: (id: string | null) => void }) {
-  const ids = useId();
-  const chosen = value ? assets.find((a) => a.id === value) : undefined;
-  // The card crops anything that is not 8:3.
-  const off = banner && chosen && Math.abs(chosen.width / chosen.height - BANNER.width / BANNER.height) > 0.05;
-  const pick = (key: string, id: string | null, src: string | null, name: string) => (
-    <label key={key} className={`news-pick${value === id ? ' on' : ''}`}>
-      <input type="radio" name={`${ids}-img`} checked={value === id} onChange={() => onChange(id)} />
-      {src ? <img src={src} alt="" loading="lazy" draggable={false} /> : <span className="news-pick-none" aria-hidden="true" />}
-      <span>{name}</span>
-    </label>
-  );
-  return (
-    <fieldset className="news-picker atn-image">
-      <legend>{label}</legend>
-      <div className={`atn-image-preview${banner ? ' banner' : ''}`}>
-        {value ? <img src={mediaUrl(value)} alt="" draggable={false} /> : <span className="atn-card-sky" aria-hidden="true" />}
-      </div>
-      <p className={off ? 'cf-hint atn-warn' : 'cf-hint'}>{off ? t.fields.bannerOff(chosen.width, chosen.height) : hint}</p>
-      <div className="news-picks atn-picks" role="presentation">
-        {pick('none', null, null, t.fields.noImage)}
-        {assets.map((a) => pick(a.id, a.id, mediaUrl(a.id), a.name))}
-      </div>
-      <MediaDrop hint={hint} onUploaded={onChange} />
-    </fieldset>
   );
 }
 
@@ -699,11 +670,11 @@ function DataStep({ record, issues, assets, set, onTitle, onSlug }: { record: To
       <h3 className="atn-subhead">{t.imagesTitle}</h3>
       <div className="atn-images">
         <div>
-          <ImageField label={t.fields.banner} hint={t.fields.bannerHint(BANNER.width, BANNER.height)} value={record.bannerMedia} assets={assets} banner onChange={(bannerMedia) => set({ bannerMedia })} />
+          <ImageField label={t.fields.banner} hint={t.fields.bannerHint(BANNER.width, BANNER.height)} value={record.bannerMedia} assets={assets} aspect="8:3" offHint={t.fields.bannerOff} onChange={(bannerMedia) => set({ bannerMedia })} />
           <Problems issues={issues} path="bannerMedia" />
         </div>
         <div>
-          <ImageField label={t.fields.details} hint={t.fields.detailsHint} value={record.detailsMedia} assets={assets} banner={false} onChange={(detailsMedia) => set({ detailsMedia })} />
+          <ImageField label={t.fields.details} hint={t.fields.detailsHint} value={record.detailsMedia} assets={assets} aspect="16:9" onChange={(detailsMedia) => set({ detailsMedia })} />
           <Problems issues={issues} path="detailsMedia" />
         </div>
       </div>

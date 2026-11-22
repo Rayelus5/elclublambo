@@ -45,6 +45,8 @@ export function tinyContent(over?: (c: Content) => void): Content {
   c.stillness = { ...c.stillness, warn: 0, hurt: 0 };
   // No in-run events either (2026-11-16): run-events.test.ts turns them on.
   c.events = { ...c.events, slots: [] };
+  // Nothing on the ground expires (2026-11-22) unless a test asks: core.test.ts «objetos que caducan» turns it on.
+  c.pickups = { lifeSeconds: 0, fadeSeconds: 0 };
   c.weapons.find((w) => w.id === 'pulse')!.levels.forEach((l) => (l.cooldown = 0.9));
   over?.(c);
   return contentSchema.parse(c);

@@ -1,8 +1,8 @@
 import { mediaUrl, type TournamentRecord, type TournamentState } from '@galaxy/shared';
 import { type GiftCatalog, giftWords } from '../../gifts/words';
 import { Icon } from '../../ui/Icon';
+import { GiftLine } from '../GiftsField';
 import { euros, feeWords, shortDay, t, until } from './shared';
-import { GiftLine } from './GiftsField';
 
 // A tournament as players will see it (plan «temporadas como fichas», part 5: «la tarjeta y la página como las verá el
 // jugador»): its card in the list (banner, state, dates and countdown, measure, sign-up, the first place's prize) and,

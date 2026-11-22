@@ -483,6 +483,13 @@ const shape = z
       .strict()
       .default(D.stillness),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
+    // Loose items that expire (2026-11-22): data fragments and repair kits go after `lifeSeconds` (0: never), with a
+    // warning in the last `fadeSeconds`. Content published before gets the code's.
+    pickups: z
+      .object({ lifeSeconds: z.number().min(0).max(3600), fadeSeconds: z.number().min(0).max(60) })
+      .strict()
+      .refine((p) => p.lifeSeconds === 0 || p.fadeSeconds <= p.lifeSeconds, 'pickups_fade')
+      .default(D.pickups),
     anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z
       .object({

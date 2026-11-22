@@ -31,7 +31,7 @@ export {
   type Scale,
 } from './systems/enemies';
 export { aliveCap, curseOf, direct, holdLife, layerCrowd, layerSeconds, levelFactor, lifeGrowth, relocate, scaleAt, spawnRate, swarmWeight, teamLevel, truceGrowth } from './systems/director';
-export { dropPickup } from './systems/pickups';
+export { despawns, dropPickup, pickupLeft } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
 export { satelliteSignalsUpTo, type SatelliteState, type WorldEventPlan, type WorldState, worldSchedule } from './systems/world-events';
 export { coopFactor, playersIn } from './systems/coop';

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { cameraFor, wheelSteps, zoomSteps } from '../src/arena/stage/camera';
+import { cameraFor, inView, wheelSteps, zoomSteps } from '../src/arena/stage/camera';
 
 // The arena camera (GDD §17.2, DESIGN_SYSTEM §8 quater): whole-number zoom for crisp pixels, about 340 units of
 // height whatever the monitor, and never more than 21:9 of width — wider screens get side bars, not more view.
@@ -63,4 +63,15 @@ test('con SHIFT pulsado (el dash) la rueda va de lado y sigue acercando', () => 
   expect(wheelSteps(0, { deltaY: 0, deltaX: -100, shiftKey: true, deltaMode: 0 }).steps).toBe(1);
   expect(wheelSteps(0, { deltaY: 0, deltaX: -100, shiftKey: false, deltaMode: 0 }).steps).toBe(0);
   expect(wheelSteps(0, { deltaY: 100, deltaMode: 0 }).steps).toBe(-1);
+});
+
+// Thousands of loose items may lie on the ground (2026-11-22): only those near the view get a sprite.
+test('un punto está a la vista si cae dentro del campo visible más un margen', () => {
+  const c = cameraFor(1920, 1080, { x: 100, y: -50 }, 0);
+  expect(inView(c, 100, -50, 0)).toBe(true);
+  expect(inView(c, 100 + 320, -50 + 180, 0)).toBe(true);
+  expect(inView(c, 100 + 321, -50, 0)).toBe(false);
+  expect(inView(c, 100 + 336, -50, 16)).toBe(true);
+  expect(inView(c, 100 + 337, -50, 16)).toBe(false);
+  expect(inView(c, 100, -50 - 197, 16)).toBe(false);
 });

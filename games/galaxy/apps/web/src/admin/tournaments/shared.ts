@@ -10,6 +10,7 @@ import {
 } from '@galaxy/shared';
 import { copy } from '../../copy/es';
 import { fmtNumber } from '../forms/format';
+import { IMAGE_SIZES } from '../ImageField';
 
 // What the tournaments' list, wizard and review panel share (plan «temporadas como fichas», part 5; GDD §13.3): the
 // groups of the list, the season a tournament falls in, a new record and a copy of one, which step each problem
@@ -19,7 +20,7 @@ export const t = copy.admin.tournaments;
 const DAY = 86_400_000;
 
 /** The banner's recommended size (the card's 8:3 strip; plan part 4). */
-export const BANNER = { width: 1600, height: 600 } as const;
+export const BANNER = IMAGE_SIZES['8:3'];
 
 /** The list's groups, the ones that need an admin first. */
 export const GROUPS: readonly TournamentState[] = ['running', 'review', 'scheduled', 'draft', 'finished', 'cancelled'];

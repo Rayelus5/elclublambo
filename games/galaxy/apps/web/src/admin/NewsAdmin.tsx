@@ -23,6 +23,7 @@ import { DateField } from '../ui/DateField';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { Select } from '../ui/Select';
+import { LinkField } from './LinkField';
 import { MediaDrop } from './MediaDrop';
 import { formatBytes } from './StorageScreen';
 
@@ -87,6 +88,19 @@ function draftOf(p: AdminNewsPost): Draft {
   };
 }
 
+/** The draft's link as the field shows it (as typed). */
+function typedLink(d: Draft): NewsLink | null {
+  if (d.linkKind === 'route') return { kind: 'route', to: d.route, label: d.label };
+  if (d.linkKind === 'url') return { kind: 'url', href: d.url, label: d.label };
+  return null;
+}
+
+/** What a change of the link field writes in the draft (the other kind's values stay). */
+function draftLink(link: NewsLink | null): Partial<Draft> {
+  if (!link) return { linkKind: 'none' };
+  return link.kind === 'route' ? { linkKind: 'route', route: link.to, label: link.label } : { linkKind: 'url', url: link.href, label: link.label };
+}
+
 function linkOf(d: Draft): NewsLink | null {
   const label = d.label.trim();
   if (d.linkKind === 'route') return { kind: 'route', to: d.route, label };
@@ -145,11 +159,11 @@ function Editor({ draft: initial, assets, data, onClose }: { draft: Draft; asset
   const missing = problem(d);
   const card = shownAs({ id: d.id ?? 'preview', kind: d.kind, section: d.section, featured: d.featured, title: d.title.trim() || t.previewTitle, body: d.body.trim(), image: d.image, link: d.linkKind === 'none' ? null : { ...linkOf(d)!, label: d.label.trim() || t.previewCta } as NewsLink, updatedAt: '' }, data);
   const hero = d.section === 'destacado' || d.featured;
-  const text = (k: 'title' | 'label' | 'url' | 'reason', max: number, hint?: string) => (
+  const text = (k: 'title' | 'reason', max: number, hint?: string) => (
     <div className="field">
       <label htmlFor={`${ids}-${k}`}>{t.fields[k]}</label>
       <div className="control">
-        <input id={`${ids}-${k}`} type={k === 'url' ? 'url' : 'text'} inputMode={k === 'url' ? 'url' : undefined} autoComplete="off" maxLength={max} value={d[k]} placeholder={k === 'url' ? 'https://' : undefined} onChange={(e) => set({ [k]: e.target.value })} aria-describedby={hint ? `${ids}-${k}-hint` : undefined} />
+        <input id={`${ids}-${k}`} type="text" autoComplete="off" maxLength={max} value={d[k]} onChange={(e) => set({ [k]: e.target.value })} aria-describedby={hint ? `${ids}-${k}-hint` : undefined} />
       </div>
       {hint ? (
         <p className="hint" id={`${ids}-${k}-hint`}>
@@ -199,27 +213,7 @@ function Editor({ draft: initial, assets, data, onClose }: { draft: Draft; asset
             </>
           ) : null}
           <ImagePicker value={d.image} assets={assets} onChange={(image) => set({ image })} />
-          <fieldset className="news-link">
-            <legend>{t.fields.link}</legend>
-            <div className="news-link-kinds" role="radiogroup" aria-label={t.fields.link}>
-              {(['none', 'route', 'url'] as const).map((k) => (
-                <label key={k} className={`news-link-kind${d.linkKind === k ? ' on' : ''}`}>
-                  <input type="radio" name={`${ids}-link`} checked={d.linkKind === k} onChange={() => set({ linkKind: k })} />
-                  <span>{t.linkKinds[k]}</span>
-                </label>
-              ))}
-            </div>
-            {d.linkKind === 'route' ? (
-              <div className="field">
-                <label id={`${ids}-route-label`}>{t.fields.route}</label>
-                <div className="control">
-                  <Select<NewsRoute> aria-labelledby={`${ids}-route-label`} block value={d.route} options={NEWS_ROUTES.map((r) => ({ value: r, label: t.routes[r] }))} onChange={(route) => set({ route })} />
-                </div>
-              </div>
-            ) : null}
-            {d.linkKind === 'url' ? text('url', 300, t.urlHint) : null}
-            {d.linkKind !== 'none' ? text('label', 32, t.labelHint) : null}
-          </fieldset>
+          <LinkField legend={t.fields.link} value={typedLink(d)} onChange={(link) => set(draftLink(link))} />
           <div className="notes-editor-row news-dates">
             {(['startsAt', 'endsAt'] as const).map((k) => (
               <div className="field" key={k}>
