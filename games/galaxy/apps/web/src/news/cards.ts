@@ -39,7 +39,8 @@ export interface BoardCard {
   seenKey: string;
 }
 
-function target(link: NewsLink | null): Pick<BoardCard, 'href' | 'external' | 'cta'> {
+/** Where a link leads: inside the game (a path) or out (a URL, opened in a new tab), and its words. The popups of «Encuestas y avisos» share it. */
+export function linkTarget(link: NewsLink | null): Pick<BoardCard, 'href' | 'external' | 'cta'> {
   if (!link) return { href: null, external: false, cta: '' };
   return link.kind === 'url' ? { href: link.href, external: true, cta: link.label } : { href: link.to, external: false, cta: link.label };
 }
@@ -56,7 +57,7 @@ export type AutoData = ReturnType<typeof useAutoData>;
 
 /** A card as the players see it (null: an auto card with nothing to say now). */
 export function boardCard(p: Pick<NewsPost, 'id' | 'kind' | 'section' | 'featured' | 'title' | 'body' | 'image' | 'link' | 'updatedAt'>, data: AutoData): BoardCard | null {
-  const base = { id: p.id, kind: p.kind, section: p.section, featured: p.featured, image: imageUrl(p.image), ...target(p.link) };
+  const base = { id: p.id, kind: p.kind, section: p.section, featured: p.featured, image: imageUrl(p.image), ...linkTarget(p.link) };
   switch (p.kind) {
     case 'custom':
       return { ...base, title: p.title, body: p.body, lines: [], badge: null, seenKey: `p:${p.id}:${p.updatedAt}` };

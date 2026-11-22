@@ -4449,6 +4449,33 @@ export const copy = {
       cta: { collect: 'Recoger premios', join: 'Inscríbete', see: 'Ver torneo', results: 'Ver resultados' },
     },
   },
+  // «Encuestas y avisos» (plan 2026-11-22, part A): the popup an admin publishes for the title screen. A survey, a
+  // review, a form (one question per screen) or a promotion with its image and «Ver más».
+  popups: {
+    later: 'Más tarde',
+    send: 'Enviar',
+    next: 'Siguiente',
+    previous: 'Anterior',
+    close: 'Cerrar',
+    /** A form's progress, over its questions. */
+    step: (i: number, n: number) => `${fmt(i)} de ${fmt(n)}`,
+    /** What a scale's ends mean, for screen readers (the words under the first and the last). */
+    ends: (min: number, low: string, max: number, high: string) =>
+      [low ? `${fmt(min)} es ${low}` : '', high ? `${fmt(max)} es ${high}` : ''].filter(Boolean).join(' y '),
+    stars: (n: number) => (n === 1 ? '1 estrella' : `${fmt(n)} estrellas`),
+    multiHint: 'Puedes elegir varias',
+    optional: 'Opcional',
+    placeholder: 'Escribe aquí',
+    count: (n: number, max: number) => `${fmt(n)} de ${fmt(max)}`,
+    countLabel: (n: number, max: number) => `${fmt(n)} de ${fmt(max)} caracteres`,
+    subject: { enemy: 'Enemigo', boss: 'Núcleo', probe: 'Sonda', sector: 'Sector' },
+    rewardLead: 'Al enviarla recibes',
+    rewardMore: (n: number) => `y ${fmt(n)} más`,
+    thanks: 'Gracias por contestar',
+    rewardIn: 'Tu premio ya está en tu cuenta',
+    more: 'Ver más',
+    opensOutside: 'Se abre en otra pestaña',
+  },
   settings: {
     title: 'Ajustes',
     back: 'Volver',

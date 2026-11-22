@@ -9,6 +9,7 @@ import { useCollection, useGacha } from '../api/economy';
 import { ME_KEY } from '../auth/useMe';
 import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
 import { backdropSeeds, shuffledLaps } from '../scene/backdrop-seeds';
+import { PopupHost } from '../popups/PopupHost';
 import { Logo, MaintenanceNotice } from '../shell/AuthLayout';
 import { SeasonSummary } from '../social/SeasonSummary';
 import { TournamentsHubPanel } from '../tournaments/HubPanel';
@@ -64,6 +65,8 @@ export function TitleScreen({ me }: { me: MeResponse }) {
           <TournamentsHubPanel />
         </div>
       </div>
+      {/* A campaign of «Encuestas y avisos», when nothing else is asking for the player (only here, never in a run). */}
+      <PopupHost />
     </div>
   );
 }
