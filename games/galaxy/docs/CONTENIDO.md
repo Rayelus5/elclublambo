@@ -513,6 +513,24 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 - **El dinero** se paga fuera del juego. Escribe al ganador por el buzón y márcalo como pagado.
 - **Los premios** son regalos del buzón (B10), pero sin nada de temporada ni de evento: se recogen sin fecha.
 
+### B12. Encuestas y avisos
+
+**Qué es.** Una campaña es una fila de `galaxy.popup_campaigns`, no una clave de configuración (GDD §16.5). Sale al abrir el juego, en la pantalla de título. La ficha es `popupRecordSchema` (`packages/shared/src/popups/record.ts`) y sus problemas, `popupIssues`, con el texto en `es.ts` (`popupIssues`). Hay cuatro tipos: Encuesta, Valoración, Formulario y Promoción.
+
+**Quién la publica.** Cualquier admin, desde Administración › Encuestas y avisos (`/admin/encuestas`): el asistente la guarda como borrador y la publica con motivo y contraseña. Si el premio pasa de `mailLimits`, solo un superadmin (`popup_needs_superadmin`). No hay CLI ni carpeta de `ops/launch/`.
+
+**Límites que pone el código** (constantes de `record.ts`, no del panel):
+- dura `POPUP_MAX_DAYS` días como mucho y lleva hasta `POPUP_MAX_QUESTIONS` preguntas;
+- cada jugador ve `POPUPS_PER_DAY` al día entre todas, la de más prioridad, y «Más tarde» la trae de vuelta otro día hasta `POPUP_MAX_SHOWS` veces;
+- una promoción no lleva preguntas ni premio y necesita su imagen para publicarse.
+
+**Operarla:**
+- **Antes de que empiece** y mientras nadie la vea, «Volver a borrador» la deja cambiar. Después solo se puede «Terminar ya»: quien la tenga abierta aún puede enviarla un rato (`POPUP_ANSWER_GRACE_MS`).
+- **El premio** son regalos del buzón (B10) que no caducan. Solo lo cobran las cuentas que ya existían al publicarla; ni quien la publica ni el equipo.
+- **Las cuentas nuevas** también la ven mientras dure, salvo que el público sea un segmento con fechas de alta.
+- **Los resultados** se leen en su página (`/admin/encuestas/<id>/resultados`). Los textos, con el nombre de quien los escribió, solo los ven los admins. «Exportar CSV» baja una fila por respuesta.
+- **Nunca se prueba con cuentas nuevas en PRE.** Se prueba con un segmento de nombres del equipo, con el OK del propietario.
+
 ## C. Entrega y publicación
 
 1. **Rama** `feature/galaxy-<slug>` (o `fix/`, `docs/`) desde `develop`. Commits en español, del estilo `feat(galaxy): …`, con sus trailers.

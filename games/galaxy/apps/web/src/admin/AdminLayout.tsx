@@ -42,6 +42,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/torneos">{t.sections.tournaments}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/encuestas">{t.sections.popups}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
                 </li>
                 <li>

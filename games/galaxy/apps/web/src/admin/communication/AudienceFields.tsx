@@ -35,10 +35,12 @@ export interface AudienceFieldsProps {
   onChange: (value: AudienceValue) => void;
   /** `useAudienceReach(value)`, for the reach line (the form needs it too: the count, the send button). */
   reach: AudienceReach;
+  /** Under a segment's fields: the mail's own by default (a popup's newcomers see it too). */
+  segmentHint?: string;
 }
 
 /** The audience's fields and its live reach line; controlled (`value` and `onChange`), with the reach from the parent. */
-export function AudienceFields({ value, onChange, reach }: AudienceFieldsProps) {
+export function AudienceFields({ value, onChange, reach, segmentHint = t.segmentHint }: AudienceFieldsProps) {
   const ids = useId();
   const set = (k: Exclude<keyof AudienceValue, 'kind'>, v: string) => onChange({ ...value, [k]: v });
   const field = (k: 'minLevel' | 'maxLevel' | 'joinedFrom' | 'joinedTo', date = false) => (
@@ -83,7 +85,7 @@ export function AudienceFields({ value, onChange, reach }: AudienceFieldsProps) 
           {field('maxLevel')}
           {field('joinedFrom', true)}
           {field('joinedTo', true)}
-          <p className="hint comms-wide">{t.segmentHint}</p>
+          <p className="hint comms-wide">{segmentHint}</p>
         </div>
       ) : null}
       <p className={`comms-reach${reach.problem ? ' bad' : ''}`} aria-live="polite">
