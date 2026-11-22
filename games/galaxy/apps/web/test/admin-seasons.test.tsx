@@ -67,6 +67,17 @@ function api(list: AdminSeasonList, me: MeResponse = admin, check: (record: unkn
       calls.push({ path: 'delete', body });
       return new Response(null, { status: 204 });
     },
+    // Moving the open season's end, refused for what the new dates would break.
+    'POST /galaxy/api/admin/seasons/season-2/extend': (body) => {
+      calls.push({ path: 'extend', body });
+      return jsonResponse(400, {
+        error: 'season_invalid',
+        issues: [
+          { path: 'endsAt', message: 'season_cuts_tournament' },
+          { path: 'route.steps.0.gifts.0', message: 'gift_event_closed' },
+        ],
+      });
+    },
   });
   return calls;
 }
@@ -82,6 +93,22 @@ test('el calendario agrupa las temporadas (abierta, borradores y pasadas) y avis
   expect(screen.getByText(/no habrá ninguna temporada abierta/)).toBeInTheDocument();
   // «Nueva temporada» copies the last one that counts.
   expect(screen.getByRole('link', { name: t.create })).toHaveAttribute('href', '/admin/temporadas/nueva?desde=season-2');
+});
+
+test('mover el final dice en palabras lo que las fechas nuevas romperían', async () => {
+  const user = userEvent.setup();
+  const calls = api({ seasons: [S2, S3], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas', { '/admin/temporadas': <SeasonsScreen /> });
+  const open = await screen.findByRole('region', { name: t.groups.open });
+  await user.click(within(open).getByRole('button', { name: t.actions.extend }));
+  const dialog = screen.getByRole('dialog');
+  await user.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Una semana menos');
+  await user.type(within(dialog).getByLabelText(copy.admin.fields.password), 'clave');
+  await user.click(within(dialog).getByRole('button', { name: t.actions.extend }));
+  await waitFor(() => expect(calls.map((c) => c.path)).toEqual(['extend']));
+  expect(await within(dialog).findByText(t.issueText.season_cuts_tournament!)).toBeInTheDocument();
+  expect(within(dialog).getByText(copy.gifts.issues.event_closed)).toBeInTheDocument();
+  expect(within(dialog).queryByText('season_cuts_tournament')).not.toBeInTheDocument();
 });
 
 test('un borrador se borra con un motivo', async () => {

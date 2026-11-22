@@ -5,14 +5,19 @@ import { copy } from '../copy/es';
 
 const t = copy.admin.config;
 
+type ServerIssue = { key?: string; path: string; message: string };
+
 /** The issues the server found in a publish it refused (config_invalid), if any. */
-function serverIssues(error: unknown): { key?: string; path: string; message: string }[] {
+function serverIssues(error: unknown): ServerIssue[] {
   const issues = error instanceof ApiError ? error.details.issues : undefined;
-  return Array.isArray(issues) ? (issues as { key?: string; path: string; message: string }[]) : [];
+  return Array.isArray(issues) ? (issues as ServerIssue[]) : [];
 }
 
-/** Reason and the admin's password, then publish (DESIGN_SYSTEM §8 septendecies). */
-export function PublishFields({ busy, disabled, error, label = t.publish, onPublish }: { busy: boolean; disabled: boolean; error: unknown; label?: string; onPublish: (reason: string, password: string) => void }) {
+/**
+ * Reason and the admin's password, then publish (DESIGN_SYSTEM §8 septendecies). `say`: the refused issues in words (a
+ * season's, when moving its end); without it they show as their path and code.
+ */
+export function PublishFields({ busy, disabled, error, label = t.publish, say, onPublish }: { busy: boolean; disabled: boolean; error: unknown; label?: string; say?: (i: ServerIssue) => string; onPublish: (reason: string, password: string) => void }) {
   const id = useId();
   const [reason, setReason] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +49,13 @@ export function PublishFields({ busy, disabled, error, label = t.publish, onPubl
             <ul className="admin-issues">
               {serverIssues(error).map((i) => (
                 <li key={`${i.key ?? ''}:${i.path}:${i.message}`}>
-                  <code>{[i.key, i.path].filter(Boolean).join('.') || '·'}</code> {i.message}
+                  {say ? (
+                    say(i)
+                  ) : (
+                    <>
+                      <code>{[i.key, i.path].filter(Boolean).join('.') || '·'}</code> {i.message}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

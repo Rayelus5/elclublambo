@@ -16,6 +16,7 @@ import {
 } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { runCli } from '../../src/cli';
 import { credit } from '../../src/economy/wallet';
 import { scheduleSeason, saveSeasonDraft } from '../../src/season/records';
 import { tournamentTick } from '../../src/tournaments/jobs';
@@ -24,7 +25,7 @@ import { scoringOf, scoringSeason, tournamentById } from '../../src/tournaments/
 import { inlineReplayer, type Replayer } from '../../src/tournaments/replayer';
 import { finishTournament, processNextCheck } from '../../src/tournaments/review';
 import { computeTournamentRanking } from '../../src/tournaments/scoring';
-import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, testEnv, totpNow, uniqueName } from '../helpers';
 import { playedRun } from '../replay-fixture';
 
 // Tournaments (plan «temporadas como fichas», part 5; GDD §13.3) against the real database: preparing and scheduling one,
@@ -598,7 +599,7 @@ describe('la revisión, a fondo (revisión del PR, 2026-11-22)', () => {
     expect(await checkOf(t.id, run.id)).toMatchObject({ status: 'error', attempts: 3, detail: { reason: 'worker_failed' } });
   });
 
-  test('un admin no decide sobre su propia partida, ni sobre la de otro del equipo; un superadmin, sí', async () => {
+  test('un admin no acepta su propia partida ni decide la de otro del equipo; un superadmin, sí', async () => {
     const w = windowOf(20);
     const t = await scheduled(record(20, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
     const playing = await staff('admin');
@@ -608,9 +609,82 @@ describe('la revisión, a fondo (revisión del PR, 2026-11-22)', () => {
     await tick(w.at(49));
     expect((await checkOf(t.id, run.id))?.status).toBe('unverifiable');
     const decide = (by: Staff) => post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/${run.id}/decide`, { decision: 'accept', reason: 'Vista a mano', password: by.password }, { cookie: by.cookie });
-    expect((await decide(playing)).json().error).toBe('self_target');
+    expect((await decide(playing)).json().error).toBe('tournament_self_accept');
     expect((await decide(admin)).json().error).toBe('staff_target');
     expect((await decide(superadmin)).statusCode).toBe(200);
+  });
+
+  test('tu propia partida sí la puedes descartar, una a una o en bloque; en bloque, aceptar se salta las tuyas', async () => {
+    const w = windowOf(11);
+    const t = await scheduled(record(11, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const mine = await staff('admin');
+    const myName = (await app.db.selectFrom('galaxy.accounts').select('username').where('id', '=', mine.id).executeTakeFirstOrThrow()).username;
+    expect((await join(mine.cookie, t.id)).statusCode).toBe(200);
+    // A sum: both runs back the prize place, and neither can be checked.
+    const [one, two] = [await realRun(mine.id, w.at(2), 5, { inputs: false }), await realRun(mine.id, w.at(3), 4, { inputs: false })];
+    await tick(w.at(1));
+    await tick(w.at(49));
+    expect([(await checkOf(t.id, one.id))?.status, (await checkOf(t.id, two.id))?.status]).toEqual(['unverifiable', 'unverifiable']);
+    const many = (decision: 'accept' | 'discard') => post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/decide-many`, { decision, filter: { username: myName }, reason: 'Las mías', password: mine.password }, { cookie: mine.cookie });
+    const accepted = (await many('accept')).json() as TournamentDecideManyResult;
+    expect(accepted.decided).toBe(0);
+    expect(accepted.skipped.map((x) => x.why)).toEqual(['tournament_self_accept', 'tournament_self_accept']);
+    const own = await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/${one.id}/decide`, { decision: 'discard', reason: 'Mejor que no cuente', password: mine.password }, { cookie: mine.cookie });
+    expect(own.statusCode, own.body).toBe(200);
+    expect(await checkOf(t.id, one.id)).toMatchObject({ decision: 'discard' });
+    const discarded = (await many('discard')).json() as TournamentDecideManyResult;
+    expect(discarded).toMatchObject({ decided: 1, skipped: [] });
+    expect(await checkOf(t.id, two.id)).toMatchObject({ decision: 'discard' });
+  });
+
+  test('la partida de un superadmin la decide otro superadmin; un admin no, y él mismo no la acepta', async () => {
+    const w = windowOf(13);
+    const t = await scheduled(record(13, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const owner = await staff('superadmin');
+    expect((await join(owner.cookie, t.id)).statusCode).toBe(200);
+    const run = await realRun(owner.id, w.at(2), 5, { inputs: false });
+    await tick(w.at(1));
+    await tick(w.at(49));
+    expect((await checkOf(t.id, run.id))?.status).toBe('unverifiable');
+    const decide = (by: Staff, decision: 'accept' | 'discard') => post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/${run.id}/decide`, { decision, reason: 'Vista a mano', password: by.password }, { cookie: by.cookie });
+    expect((await decide(admin, 'accept')).json().error).toBe('staff_target');
+    expect((await decide(admin, 'discard')).json().error).toBe('staff_target');
+    expect((await decide(owner, 'accept')).json().error).toBe('tournament_self_accept');
+    const ok = await decide(superadmin, 'accept');
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((ok.json() as AdminTournamentReview).canPublish).toBe(true);
+    expect((await tick(w.at(50))).finished).toContain(t.id);
+  });
+
+  test('la consola del servidor decide la partida que nadie puede decidir en el panel, con su auditoría', async () => {
+    const w = windowOf(15);
+    const t = await scheduled(record(15, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    expect((await join(superadmin.cookie, t.id)).statusCode).toBe(200);
+    const run = await realRun(superadmin.id, w.at(2), 5, { inputs: false });
+    await tick(w.at(1));
+    await tick(w.at(49));
+    expect((await checkOf(t.id, run.id))?.status).toBe('unverifiable');
+    const slug = (await tournamentById(app.db, t.id)).record.slug;
+    const cli = async (argv: string[]) => {
+      const lines: string[] = [];
+      const code = await runCli(argv, { db: app.db, env: testEnv(), out: (x) => lines.push(x) });
+      return { code, out: lines.join('\n') };
+    };
+    expect((await cli(['tournament-decide', slug, run.id, 'quizá', '--reason', 'Vista a mano'])).out).toContain('Uso: tournament-decide');
+    expect((await cli(['tournament-decide', slug, run.id, 'accept'])).out).toContain('Uso: tournament-decide');
+    const unknown = await cli(['tournament-decide', 'tc-no-existe', run.id, 'accept', '--reason', 'Vista a mano']);
+    expect(unknown.code).toBe(1);
+    expect(unknown.out).toContain('No hay ningún torneo tc-no-existe');
+    const done = await cli(['tournament-decide', slug, run.id, 'accept', '--reason', 'Vista a mano por la consola']);
+    expect(done.code, done.out).toBe(0);
+    expect(done.out).toContain('aceptada');
+    expect(await checkOf(t.id, run.id)).toMatchObject({ decision: 'accept' });
+    const audit = await app.db.selectFrom('galaxy.admin_audit_log').select(['actor_label', 'reason', 'after']).where('target_id', '=', t.id).where('action', '=', 'tournament.check_decided').execute();
+    expect(audit).toEqual([{ actor_label: 'cli', reason: 'Vista a mano por la consola', after: { run: run.id, status: 'unverifiable', decision: 'accept' } }]);
+    const again = await cli(['tournament-decide', slug, run.id, 'discard', '--reason', 'Otra vez']);
+    expect(again.code).toBe(1);
+    expect(again.out).toContain('ya está decidida');
+    expect((await tick(w.at(50))).finished).toContain(t.id);
   });
 
   test('decidir en bloque las que no se pueden comprobar, por motivo o por jugador, saltando las que el admin no puede decidir', async () => {

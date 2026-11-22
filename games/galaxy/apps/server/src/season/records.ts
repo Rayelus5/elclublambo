@@ -13,6 +13,7 @@ import {
   seasonRecordIssues,
   type SeasonState,
   shownSeason,
+  tournamentFitsSeason,
 } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
@@ -396,31 +397,72 @@ export async function unscheduleSeason(db: Kysely<DB>, id: string, actor: AuditA
   });
 }
 
+type Issue = { path: string; message: string };
+const issueKey = (i: Issue) => `${i.path}\u0000${i.message}`;
+
+/** The issues of `after` that `before` did not have (same path and message): what a change breaks. */
+export function introducedIssues(before: readonly Issue[], after: readonly Issue[]): Issue[] {
+  const had = new Set(before.map(issueKey));
+  return after.filter((i) => !had.has(issueKey(i)));
+}
+
+/** A row as the record it was saved from (what seasonRecordIssues checks). */
+const recordOf = (r: SeasonRecordData) => ({ id: r.id, name: r.name, startsAt: r.startsAt, endsAt: r.endsAt, rules: r.rules, route: r.route, missions: r.missions, lab: r.lab });
+
+/** The tournaments that count (sign-up open, running or in review) and would no longer fit their season's new dates. */
+async function cutTournaments(trx: Kysely<DB>, seasons: readonly { id: string; startsAt: string; endsAt: string }[]): Promise<number> {
+  const rows = await trx
+    .selectFrom('galaxy.tournaments')
+    .select(['season_id', 'starts_at', 'ends_at'])
+    .where('season_id', 'in', seasons.map((s) => s.id))
+    .where('state', 'in', ['scheduled', 'running', 'review'])
+    .execute();
+  return rows.filter((t) => {
+    const s = seasons.find((x) => x.id === t.season_id)!;
+    return !tournamentFitsSeason({ startsAt: new Date(t.starts_at).toISOString(), endsAt: new Date(t.ends_at).toISOString() }, s);
+  }).length;
+}
+
 /**
  * Moves a scheduled season's end (never before now, always at a Madrid midnight). With `moveNext`, the scheduled season
  * that started where this one ended starts at the new end too (both in one transaction: the overlap check waits for the
- * commit).
+ * commit). Refused when the new dates break what held (checked against `ctx`, what is live): a gift checked at the end
+ * (an event's signals that would not last until it), or a tournament of either season left outside its dates
+ * (`season_cuts_tournament`). What already failed before the move does not hold it back.
  */
-export async function extendSeason(db: Kysely<DB>, id: string, endsAt: string, opts: { moveNext: boolean }, actor: AuditActor, reason: string, now: Date): Promise<SeasonRow> {
+export async function extendSeason(db: Kysely<DB>, id: string, endsAt: string, opts: { moveNext: boolean }, ctx: SeasonContext, actor: AuditActor, reason: string, now: Date): Promise<SeasonRow> {
   return inTransaction(db, async (trx) => {
     await LOCK.execute(trx);
     const r = await rowFor(trx, id);
     if (r.state !== 'scheduled') throw new HttpError(409, 'season_not_draft');
     if (Date.parse(r.endsAt) <= now.getTime()) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'endsAt', message: 'season_ended' }] });
-    const check = seasonRecordIssues({ id: r.id, name: r.name, startsAt: r.startsAt, endsAt, rules: r.rules, route: r.route, missions: r.missions, lab: r.lab }).filter((i) => i.path === 'endsAt' || i.message === 'season_dates');
+    const moved = { ...recordOf(r), endsAt };
+    const check = seasonRecordIssues(moved).filter((i) => i.path === 'endsAt' || i.message === 'season_dates');
     if (Date.parse(endsAt) <= now.getTime()) check.push({ path: 'endsAt', message: 'season_end_past' });
+    const add = (issues: Issue[]) => {
+      for (const i of issues) if (!check.some((c) => issueKey(c) === issueKey(i))) check.push(i);
+    };
+    add(introducedIssues(seasonRecordIssues(recordOf(r), ctx), seasonRecordIssues(moved, ctx)));
+    const dates = [{ id: r.id, startsAt: r.startsAt, endsAt }];
+    let n: SeasonRow | null = null;
+    if (opts.moveNext) {
+      const next = await trx.selectFrom('galaxy.seasons').select('id').where('state', '=', 'scheduled').where('starts_at', '=', new Date(r.endsAt)).forUpdate().executeTakeFirst();
+      if (next) {
+        n = await rowFor(trx, next.id);
+        if (Date.parse(endsAt) >= Date.parse(n.endsAt)) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'endsAt', message: 'season_swallows_next' }] });
+        // The next season's own record, before and after its new start (its issues under `next.`).
+        add(introducedIssues(seasonRecordIssues(recordOf(n), ctx), seasonRecordIssues({ ...recordOf(n), startsAt: endsAt }, ctx)).map((i) => ({ path: `next.${i.path}`, message: i.message })));
+        dates.push({ id: n.id, startsAt: endsAt, endsAt: n.endsAt });
+      }
+    }
+    if ((await cutTournaments(trx, dates)) > 0) check.push({ path: 'endsAt', message: 'season_cuts_tournament' });
     if (check.length > 0) throw new HttpError(400, 'season_invalid', { issues: check });
     const version = r.version + 1;
     await trx.updateTable('galaxy.seasons').set({ ends_at: endsAt, version, updated_at: sql`now()`, updated_by: actor.id }).where('id', '=', id).execute();
     await revise(trx, { ...r, endsAt, state: r.state }, version, actor, reason);
-    if (opts.moveNext) {
-      const next = await trx.selectFrom('galaxy.seasons').select('id').where('state', '=', 'scheduled').where('starts_at', '=', new Date(r.endsAt)).forUpdate().executeTakeFirst();
-      if (next) {
-        const n = await rowFor(trx, next.id);
-        if (Date.parse(endsAt) >= Date.parse(n.endsAt)) throw new HttpError(400, 'season_invalid', { issues: [{ path: 'endsAt', message: 'season_swallows_next' }] });
-        await trx.updateTable('galaxy.seasons').set({ starts_at: endsAt, version: n.version + 1, updated_at: sql`now()`, updated_by: actor.id }).where('id', '=', n.id).execute();
-        await revise(trx, { ...n, startsAt: endsAt }, n.version + 1, actor, reason);
-      }
+    if (n) {
+      await trx.updateTable('galaxy.seasons').set({ starts_at: endsAt, version: n.version + 1, updated_at: sql`now()`, updated_by: actor.id }).where('id', '=', n.id).execute();
+      await revise(trx, { ...n, startsAt: endsAt }, n.version + 1, actor, reason);
     }
     await CHECK_NOW.execute(trx);
     await writeAudit(trx, { actor, action: 'season.extended', targetType: 'season', targetId: id, before: { endsAt: r.endsAt }, after: { endsAt, moveNext: opts.moveNext }, reason });

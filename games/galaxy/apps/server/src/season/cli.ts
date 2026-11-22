@@ -168,7 +168,7 @@ export async function seasonExtend(db: Kysely<DB>, id: string | undefined, endsA
     return 1;
   }
   try {
-    const s = await extendSeason(db, id, new Date(endsAt).toISOString(), { moveNext }, CLI_ACTOR, reason, new Date());
+    const s = await extendSeason(db, id, new Date(endsAt).toISOString(), { moveNext }, await seasonContext(await cliConfig(db)), CLI_ACTOR, reason, new Date());
     out(`Nuevo fin: ${line(s, false)}`);
     return 0;
   } catch (err) {

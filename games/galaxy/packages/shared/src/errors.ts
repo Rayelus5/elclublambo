@@ -241,6 +241,7 @@ export const API_ERROR_CODES = [
   'tournament_not_review',
   'tournament_check_not_found',
   'tournament_check_decided',
+  'tournament_self_accept',
   'tournament_needs_superadmin',
   'tournament_cash_not_found',
   'tournament_cash_paid',

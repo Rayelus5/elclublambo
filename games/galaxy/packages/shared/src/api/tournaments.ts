@@ -286,10 +286,13 @@ export interface AdminTournamentReview {
   cash: AdminTournamentCash[];
 }
 
-/** POST …/:id/checks/decide-many: the review as it is after, how many it decided and which it left (and why). */
+/**
+ * POST …/:id/checks/decide-many: the review as it is after, how many it decided and which it left, and why: the admin's
+ * own runs when accepting (`tournament_self_accept`), staff's they may not decide (`staff_target`).
+ */
 export interface TournamentDecideManyResult extends AdminTournamentReview {
   decided: number;
-  skipped: { runId: string; username: string; why: 'self_target' | 'staff_target' }[];
+  skipped: { runId: string; username: string; why: 'tournament_self_accept' | 'staff_target' }[];
 }
 
 const reason = z.string().trim().min(3).max(500);

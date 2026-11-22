@@ -1,7 +1,7 @@
 import { parseConfig, seasonConfigOf } from '@galaxy/shared';
 import { describe, expect, test } from 'vitest';
 import { HttpError } from '../../src/errors';
-import { type SeasonRow, type SeasonStore, seasonAwareConfig } from '../../src/season/records';
+import { introducedIssues, type SeasonRow, type SeasonStore, seasonAwareConfig } from '../../src/season/records';
 import { fixedConfig } from '../helpers';
 
 // Seasons as records (plan «temporadas como fichas», 2026-11-21): the live config keeps being read as before, but
@@ -77,5 +77,15 @@ describe('el lector de configuración con temporadas como fichas', () => {
     expect(parseConfig('lab', { nodes: big }).nodes).toHaveLength(lab.nodes.length + 1);
     await expect(config.publish('lab', { nodes: big }, { id: null, label: 'test' }, 'motivo')).rejects.toMatchObject({ code: 'config_invalid' });
     await expect(config.publish('lab', { nodes: lab.nodes }, { id: null, label: 'test' }, 'motivo')).resolves.toEqual({ version: 0 });
+  });
+});
+
+describe('lo que rompe mover el final de una temporada', () => {
+  test('solo cuenta lo nuevo: lo que ya fallaba en el mismo sitio y por lo mismo no frena el cambio', () => {
+    const before = [{ path: 'route.steps.0.gifts.0', message: 'gift_event_closed' }];
+    const after = [...before, { path: 'route.steps.1.gifts.0', message: 'gift_event_closed' }, { path: 'route.steps.0.gifts.0', message: 'gift_probe_unknown' }];
+    expect(introducedIssues(before, after)).toEqual([after[1], after[2]]);
+    expect(introducedIssues(after, before)).toEqual([]);
+    expect(introducedIssues([], before)).toEqual(before);
   });
 });

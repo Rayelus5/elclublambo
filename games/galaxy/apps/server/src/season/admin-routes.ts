@@ -119,7 +119,7 @@ export function registerSeasonAdminRoutes(api: FastifyInstance, deps: { db: Kyse
     const { endsAt, moveNext, reason, password } = seasonExtendBodySchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     await confirmPassword(deps.db, admin, password);
-    const s = await extendSeason(deps.db, id, endsAt, { moveNext }, actorOf(req, admin), reason, deps.now());
+    const s = await extendSeason(deps.db, id, endsAt, { moveNext }, await seasonContext(deps.config), actorOf(req, admin), reason, deps.now());
     changed();
     return toAdmin(s, deps.now().getTime());
   });
