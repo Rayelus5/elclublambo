@@ -67,6 +67,20 @@ test('qué refresca cada aviso', () => {
     ['clans', 'mine'],
     ['clans', 'view', 'NEB'],
   ]);
+  // A tournament (plan «temporadas como fichas», part 5): its page and list; the results, the mailbox; a cancel, the wallet.
+  const cup = { kind: 'tournament', id: 't1', slug: 'copa-de-invierno', title: 'Copa de invierno' } as const;
+  expect(keys({ ...cup, event: 'started' })).toEqual([[JSON.stringify(['tournaments']), true]]);
+  expect(keys({ ...cup, event: 'finished' })).toEqual([[JSON.stringify(['tournaments']), true], [JSON.stringify(MAILBOX_KEY), true]]);
+  expect(keys({ ...cup, event: 'cancelled' })).toEqual([[JSON.stringify(['tournaments']), true], [JSON.stringify(GACHA_KEY), false]]);
+});
+
+test('un torneo que empieza lo dice con su nombre y lleva a su página', async () => {
+  const { ws } = await connect();
+  act(() => ws.push({ type: 'notice', notice: { kind: 'tournament', event: 'started', id: 't1', slug: 'copa-de-invierno', title: 'Copa de invierno' } }));
+  const toast = (await screen.findByText(t.tournament.started('Copa de invierno'))).closest('li')!;
+  expect(within(toast).getByText(t.tournamentDetail.started)).toBeTruthy();
+  await userEvent.click(within(toast).getByRole('button', { name: t.see }));
+  expect(locationOf(screen.getByTestId('location'))).toMatchObject({ pathname: '/torneos/copa-de-invierno' });
 });
 
 test('un trueque propuesto sale arriba con quién y su botón, suena, y la lista de trueques se vuelve a pedir aunque no se vea', async () => {

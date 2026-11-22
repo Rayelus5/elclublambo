@@ -39,6 +39,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/temporadas">{t.sections.seasons}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/torneos">{t.sections.tournaments}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
                 </li>
                 <li>

@@ -15,6 +15,9 @@ import { syncWallet } from '../api/wallet';
 
 export type Refresh = { key: QueryKey; hidden?: true };
 
+/** The prefix of every tournament query (the list and each page). */
+export const TOURNAMENTS_KEY = ['tournaments'] as const;
+
 export function refreshFor(n: LiveNotice): Refresh[] {
   switch (n.kind) {
     case 'trade':
@@ -38,6 +41,10 @@ export function refreshFor(n: LiveNotice): Refresh[] {
     case 'season':
       // A new season: its route and shop, its ranking, its missions, the run's conditions (anomaly) and the lab's tree.
       return [{ key: ['season'], hidden: true }, { key: LEADERBOARD_KEY }, { key: MISSIONS_KEY }, { key: ['boosts'] }, { key: ['lab'] }, { key: GACHA_KEY }];
+    case 'tournament':
+      // Its page and the list (plan «temporadas como fichas», part 5: every tournament query starts with
+      // 'tournaments'); the results bring the winners' mail, a cancel the fee back to the wallet.
+      return [{ key: TOURNAMENTS_KEY, hidden: true }, ...(n.event === 'finished' ? [{ key: MAILBOX_KEY, hidden: true } as const] : []), ...(n.event === 'cancelled' ? [{ key: GACHA_KEY }] : [])];
   }
 }
 

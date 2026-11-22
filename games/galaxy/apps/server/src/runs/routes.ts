@@ -40,6 +40,7 @@ import { creditRunExtras } from './extras';
 import { labSeasonId } from '../lab/levels';
 import type { SoloFeeds } from './solo-feeds';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import { invalidateTournamentRankings } from '../tournaments/scoring';
 import type { DraftService } from '../config/drafts';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -240,6 +241,8 @@ export function registerRunRoutes(
     );
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();
+    // And the tournaments its player is in (plan «temporadas como fichas», part 5).
+    invalidateTournamentRankings([s.accountId]);
     // Part G: whoever watched it live hears it ended.
     deps.feeds?.end(id);
     return result;

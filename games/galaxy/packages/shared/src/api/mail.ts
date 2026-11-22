@@ -141,6 +141,11 @@ export interface MailMessage {
   read: boolean;
   claimed: boolean;
   archived: boolean;
+  /**
+   * The in-game page its button opens (a tournament's results, plan «temporadas como fichas», part 5: `/torneos/<slug>`);
+   * null for the rest. Absent from an older server.
+   */
+  link?: string | null;
 }
 
 export interface MyMailbox {

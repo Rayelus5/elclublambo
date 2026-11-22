@@ -7,6 +7,7 @@ import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import { invalidateTournamentRankings } from '../tournaments/scoring';
 import { guardTarget } from './players';
 
 // The panel's runs (GDD §16.2, §16.6; M6d-3): every run, newest first; a run's replay rebuilt from what the server kept
@@ -198,6 +199,9 @@ export async function markRun(db: Kysely<DB>, actor: AuditActor, s: SessionInfo,
     await writeAudit(trx, { actor, action: req.suspicious ? 'run.mark' : 'run.unmark', targetType: 'run', targetId: id, before, after, reason: req.reason });
     return { state: after, changed: true };
   });
-  if (out.changed) invalidateLeaderboard();
+  if (out.changed) {
+    invalidateLeaderboard();
+    invalidateTournamentRankings();
+  }
   return out.state;
 }

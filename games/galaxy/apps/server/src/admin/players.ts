@@ -31,6 +31,7 @@ import { closeOffersOf } from '../market/offers';
 import { HttpError } from '../errors';
 import { hitRateLimit, RateLimitedError } from '../ratelimit';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import { invalidateTournamentRankings } from '../tournaments/scoring';
 import { accountXp } from '../social/progress';
 import { playerShopRows } from '../shop/admin';
 
@@ -434,6 +435,7 @@ export async function banPlayer(deps: AdminDeps, actor: AuditActor, username: st
       reason,
     });
     invalidateLeaderboard();
+    invalidateTournamentRankings();
     return { until: new Date(until).toISOString() };
   });
 }
@@ -446,6 +448,7 @@ export async function unbanPlayer(deps: AdminDeps, actor: AuditActor, username: 
     await writeAudit(trx, { actor, action: 'player.unban', ...target(a.id), before: { until: iso(before.banned_until), reason: before.ban_reason }, reason });
   });
   invalidateLeaderboard();
+  invalidateTournamentRankings();
   return { unbanned: true };
 }
 
@@ -456,6 +459,8 @@ export async function setPrizeEligible(deps: AdminDeps, actor: AuditActor, usern
     await trx.updateTable('galaxy.accounts').set({ prize_eligible: eligible }).where('id', '=', a.id).execute();
     await writeAudit(trx, { actor, action: 'player.prizes', ...target(a.id), after: { eligible }, reason });
   });
+  // A tournament's ranking marks who cannot win prizes.
+  invalidateTournamentRankings([a.id]);
   return { eligible };
 }
 
@@ -466,6 +471,7 @@ export async function setLeaderboardExcluded(deps: AdminDeps, actor: AuditActor,
     await writeAudit(trx, { actor, action: 'player.leaderboard', ...target(a.id), after: { excluded }, reason });
   });
   invalidateLeaderboard();
+  invalidateTournamentRankings();
   return { excluded };
 }
 
@@ -550,5 +556,6 @@ export async function deletePlayer(deps: AdminDeps, actor: AuditActor, username:
     return { id: a.id, username: anon };
   });
   invalidateLeaderboard();
+  invalidateTournamentRankings();
   return done;
 }

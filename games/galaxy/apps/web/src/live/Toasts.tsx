@@ -1,4 +1,4 @@
-import type { LiveNotice, NoticeMode } from '@galaxy/shared';
+import { type LiveNotice, type NoticeMode, tournamentPath } from '@galaxy/shared';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useFriendAction, useFriends } from '../api/friends';
@@ -48,6 +48,8 @@ function toneOf(toast: LiveToast): NoticeTone {
   if (x.kind === 'offer') return x.event === 'accepted' ? 'sale' : x.event === 'received' ? 'trade' : 'alert';
   // A season starting is good news, like a result.
   if (x.kind === 'season') return 'result';
+  // A tournament: good news, unless it was cancelled.
+  if (x.kind === 'tournament') return x.event === 'cancelled' ? 'alert' : 'result';
   return x.kind;
 }
 
@@ -171,6 +173,8 @@ function NoticeToast({ toast, notice }: { toast: LiveToast; notice: LiveNotice }
       return <Shell toast={toast} face={<IconFace name="trophy" />} title={n.achievement} detail={notice.name} actions={see('/misiones?pestana=logros', n.collect)} />;
     case 'season':
       return <Shell toast={toast} face={<IconFace name="podium" />} title={n.seasonStarted(notice.name)} detail={n.seasonDetail} actions={see('/temporada')} />;
+    case 'tournament':
+      return <Shell toast={toast} face={<IconFace name="trophy" />} title={n.tournament[notice.event](notice.title)} detail={n.tournamentDetail[notice.event]} actions={see(tournamentPath(notice.slug))} />;
     case 'offer': {
       const o = n.offer;
       const title = notice.event === 'received' ? o.received(notice.from?.username ?? '', notice.amount, notice.galaxy.name) : o[notice.event](notice.galaxy.name);
