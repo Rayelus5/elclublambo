@@ -1,8 +1,22 @@
-import { type HallOfFame, type SeasonHistory, type SeasonResult, type SeasonReward, type SeasonStats, seasonTier, type SeasonTier, SEASON_TIERS } from '@galaxy/shared';
+import {
+  EMPTY_SEASON_REWARD,
+  type Gift,
+  type HallOfFame,
+  type SeasonHistory,
+  seasonPlaceOf,
+  type SeasonPrize,
+  seasonPrizePlaces,
+  type SeasonResult,
+  type SeasonStats,
+  seasonTier,
+  type SeasonTier,
+  SEASON_TIERS,
+} from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { grantGifts } from '../gifts/grant';
 import { ranking } from '../social/leaderboard';
 import type { SeasonConfigs } from './service';
 import { grantCosmetics } from '../cosmetics/service';
@@ -12,16 +26,25 @@ import { grantCosmetics } from '../cosmetics/service';
 // and the rewards of that close, kept so a later change of the config cannot change them), the season's numbers are
 // frozen with it, and each ranked player gets a message saying where they finished. Each result is collected once;
 // the podium's are the station's trophies. An account that cannot win prizes for its place (admins who play) keeps its
-// rank, and the podium goes to the next ones who can.
+// rank, and the podium goes to the next ones who can. Since PR 4 each prize keeps its gifts too, and a range of places
+// pays its own (`closing.places`, by the place among those who can win prizes): all of it is collected at once.
 
 /** Seasons already archived in this process: no query once known. */
 const archived = new Set<string>();
 
-/** What a place pays: its tier's reward, plus the podium's when it is on it. */
-export function rewardsFor(podium: boolean, tier: SeasonTier | null, closing: SeasonConfigs['route']['closing']): SeasonReward[] {
-  const out: SeasonReward[] = [];
-  if (tier) out.push(closing.tiers[SEASON_TIERS.indexOf(tier)]!);
-  if (podium) out.push(closing.podium);
+/**
+ * What a place pays: its tier's reward, plus the podium's when it is on it, plus its range's when its prize place
+ * (among those who can win prizes for their place) falls in one. Each prize with its gifts.
+ */
+export function rewardsFor(podium: boolean, tier: SeasonTier | null, closing: SeasonConfigs['route']['closing'], place: number | null = null): SeasonPrize[] {
+  const out: SeasonPrize[] = [];
+  if (tier) {
+    const i = SEASON_TIERS.indexOf(tier);
+    out.push({ ...closing.tiers[i]!, gifts: [...(closing.tierGifts[i] ?? [])] });
+  }
+  if (podium) out.push({ ...closing.podium, gifts: [...closing.podiumGifts] });
+  const range = place !== null ? seasonPlaceOf(closing.places, place) : null;
+  if (range) out.push({ ...EMPTY_SEASON_REWARD, gifts: [...range.gifts], place: { from: range.from, to: range.to } });
   return out;
 }
 
@@ -30,12 +53,7 @@ export function rewardsFor(podium: boolean, tier: SeasonTier | null, closing: Se
  * cannot keeps its rank and is skipped). `rows` in rank order.
  */
 export function podiumOf(rows: readonly { accountId: string; rank: number }[], size: number, ineligible: ReadonlySet<string>): Set<string> {
-  const out = new Set<string>();
-  for (const r of rows) {
-    if (out.size >= size) break;
-    if (!ineligible.has(r.accountId)) out.add(r.accountId);
-  }
-  return out;
+  return new Set(seasonPrizePlaces(rows, ineligible, size).keys());
 }
 
 async function seasonStats(db: Kysely<DB>, s: SeasonConfigs['season'], minRunSeconds: number, tiers: (SeasonTier | null)[]): Promise<SeasonStats> {
@@ -84,11 +102,13 @@ export async function closeDue(db: Kysely<DB>, c: SeasonConfigs, now: Date, opts
   // Read with the pool before the transaction (the ranking keeps its own connection); after the end nothing adds.
   const rows = await ranking(db, s, 'general', c.minRunSeconds);
   const ineligible = new Set((await db.selectFrom('galaxy.accounts').select('id').where('prize_eligible', '=', false).execute()).map((a) => a.id));
-  const podium = podiumOf(rows, c.route.closing.podiumSize, ineligible);
+  const { podiumSize, places: ranges } = c.route.closing;
+  const places = seasonPrizePlaces(rows, ineligible, Math.max(podiumSize, ...ranges.map((p) => p.to)));
   const results = rows.map((r) => {
     const tier = seasonTier(r.value, s);
-    const onPodium = podium.has(r.accountId);
-    return { row: r, tier, podium: onPodium, rewards: rewardsFor(onPodium, tier, c.route.closing) };
+    const place = places.get(r.accountId) ?? null;
+    const onPodium = place !== null && place <= podiumSize;
+    return { row: r, tier, podium: onPodium, rewards: rewardsFor(onPodium, tier, c.route.closing, place) };
   });
   const stats = await seasonStats(db, s, c.minRunSeconds, results.map((x) => x.tier));
   await db.transaction().execute(async (trx) => {
@@ -143,7 +163,7 @@ const toResult = (r: ResultRow): SeasonResult => ({
   score: r.score,
   tier: r.tier as SeasonTier | null,
   podium: r.podium,
-  rewards: r.rewards as SeasonReward[],
+  rewards: r.rewards as SeasonPrize[],
   claimed: r.claimed_at !== null,
 });
 
@@ -162,7 +182,10 @@ export async function pendingResult(db: Kysely<DB>, accountId: string): Promise<
   return r ? toResult(r) : null;
 }
 
-/** Collects a closed season's rewards, once. */
+/**
+ * Collects a closed season's rewards, once (the guard is `claimed_at`): each old reward as before, and every prize's
+ * gifts in one grant keyed by the claim, its galaxies seeded by the season and the account (never by the client's key).
+ */
 export async function claimResult(trx: Kysely<DB>, accountId: string, season: string, key: string, now: Date): Promise<void> {
   const row = await trx
     .updateTable('galaxy.season_results')
@@ -176,11 +199,25 @@ export async function claimResult(trx: Kysely<DB>, accountId: string, season: st
     const any = await trx.selectFrom('galaxy.season_results').select('season').where('account_id', '=', accountId).where('season', '=', season).executeTakeFirst();
     throw any ? new HttpError(409, 'already_claimed') : new HttpError(404, 'season_result_not_found');
   }
-  for (const reward of row.rewards as SeasonReward[]) {
+  const gifts: Gift[] = [];
+  for (const reward of row.rewards as SeasonPrize[]) {
     for (const cur of ['coins', 'dust', 'signal'] as const) {
       if (reward[cur] > 0) await credit(trx, accountId, cur, reward[cur], 'season_close', { season }, key);
     }
     await grantCosmetics(trx, accountId, reward);
+    gifts.push(...(reward.gifts ?? []));
+  }
+  if (gifts.length > 0) {
+    await grantGifts(trx, accountId, gifts, {
+      key: `${key}:gifts`,
+      seedKey: `season:${season}:close:${accountId}`,
+      reason: 'season_close',
+      ref: { season },
+      actor: { id: accountId, label: 'temporada' },
+      // Closed: nothing seasonal is paid (a record never holds it either).
+      season: { id: season, open: false },
+      auditAction: 'season.close',
+    });
   }
 }
 

@@ -1,4 +1,4 @@
-import { type Leaderboard, type LeaderTab, seasonConfigOf, type SeasonInfo, seasonOpen } from '@galaxy/shared';
+import { closingInfo, type Leaderboard, type LeaderTab, seasonConfigOf, type SeasonInfo, seasonOpen } from '@galaxy/shared';
 import { HttpError } from '../errors';
 import { seasonById } from '../season/records';
 import { leaderboard, type SocialDeps } from './leaderboard';
@@ -15,8 +15,7 @@ export async function previewLeaderboard(deps: SocialDeps, viewerId: string, id:
   const live = await deps.config.get('season');
   if (live.id === row.id && seasonOpen(live, deps.now())) return leaderboard(deps, viewerId, tab);
   const cfg = seasonConfigOf(row);
-  const { tiers, podium, podiumSize } = row.route.closing;
-  const season: SeasonInfo = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers], closing: { tiers: [...tiers], podium, podiumSize } };
+  const season: SeasonInfo = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers], closing: closingInfo(row.route.closing) };
   const empty: Leaderboard = { season, tab, rows: [], me: null, total: 0 };
   if (tab === 'clans') return { ...empty, clans: [], myClan: null };
   if (tab === 'groups') return { ...empty, groups: [], myGroup: null };

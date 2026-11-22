@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { type Tier, TIERS } from '../gacha/types';
 import type { ClanColor, ClanEmblem } from '../clans/rules';
 import type { SeasonTier } from '../progress/season';
-import type { SeasonReward } from '../progress/season-route';
+import type { SeasonClosingInfo } from '../progress/season-route';
 import type { PublicGalaxy } from './planetarium';
 
 // The social API (GDD §14.1, §14.2, §12.1; M5a): the season leaderboard with its tabs, public profiles and public
@@ -64,14 +64,11 @@ export interface SeasonInfo {
 }
 
 /**
- * The prizes of a season's close (GDD §13.1): each player gets their tier's reward (Bronce to Estelar), and the first
- * `podiumSize` places get the podium's on top (with a trophy for the station).
+ * The prizes of a season's close (GDD §13.1): each player gets their tier's reward (Bronce to Estelar), the first
+ * `podiumSize` places get the podium's on top (with a trophy for the station) and, since PR 4, each range of places
+ * its own gifts. Every prize has its old reward and its gifts (`tierGifts`, `podiumGifts`; absent, none).
  */
-export interface SeasonClosing {
-  tiers: SeasonReward[];
-  podium: SeasonReward;
-  podiumSize: number;
-}
+export type SeasonClosing = Omit<SeasonClosingInfo, 'tierGifts' | 'podiumGifts' | 'places'> & Partial<Pick<SeasonClosingInfo, 'tierGifts' | 'podiumGifts' | 'places'>>;
 
 export interface Leaderboard {
   /** null: no season is open. */

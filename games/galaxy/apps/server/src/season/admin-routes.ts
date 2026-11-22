@@ -3,6 +3,7 @@ import {
   type AdminSeasonList,
   currentSeason,
   seasonActionBodySchema,
+  seasonBigGifts,
   seasonCalendarWarnings,
   seasonDeleteBodySchema,
   seasonExtendBodySchema,
@@ -68,12 +69,16 @@ export function registerSeasonAdminRoutes(api: FastifyInstance, deps: { db: Kyse
     return { seasons: list.map((s) => toAdmin(s, now)), now: new Date(now).toISOString(), warnings: seasonCalendarWarnings(list, now) };
   });
 
+  // The record's problems and, since PR 4, which of its prizes are big (only a superadmin schedules it then).
   api.post('/galaxy/api/admin/seasons/validate', { bodyLimit: 1024 * 1024 }, async (req) => {
     const admin = requireAdmin(req);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 120, 60);
     const { record } = seasonValidateBodySchema.parse(req.body);
     const issues = await seasonIssues(deps.db, deps.config, record);
-    return { ok: issues.length === 0, issues };
+    const parsed = seasonRecordSchema.safeParse(record);
+    const ctx = await seasonContext(deps.config);
+    const big = parsed.success && ctx.limits && ctx.gifts ? seasonBigGifts(parsed.data.route, ctx.limits, ctx.gifts.cosmetics) : [];
+    return { ok: issues.length === 0, issues, big };
   });
 
   // Saving a draft: new, or replacing a draft whole. A draft is invisible to players, so a reason is enough.
@@ -92,7 +97,7 @@ export function registerSeasonAdminRoutes(api: FastifyInstance, deps: { db: Kyse
     const { reason, password } = seasonActionBodySchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     await confirmPassword(deps.db, admin, password);
-    const s = await scheduleSeason(deps.db, id, await seasonContext(deps.config), actorOf(req, admin), reason);
+    const s = await scheduleSeason(deps.db, id, await seasonContext(deps.config), actorOf(req, admin), reason, { superadmin: admin.roles.includes('superadmin') });
     changed();
     return toAdmin(s, deps.now().getTime());
   });

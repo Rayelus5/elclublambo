@@ -1,4 +1,4 @@
-import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type GroupRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, type SeasonInfo, seasonOpen } from '@galaxy/shared';
+import { type AccountConfig, type ClanColor, closingInfo, type ClanEmblem, type ClanRow, type GroupRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, type SeasonInfo, seasonOpen } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -232,8 +232,7 @@ async function looksOf(db: SocialDeps['db'], ids: string[]): Promise<Map<string,
 export async function leaderboard(deps: SocialDeps, viewerId: string, tab: LeaderTab): Promise<Leaderboard> {
   const [cfg, account, route] = await Promise.all([deps.config.get('season'), deps.config.get('account'), deps.config.get('seasonRoute')]);
   if (!seasonOpen(cfg, deps.now())) return { season: null, tab, rows: [], me: null, total: 0 };
-  const { tiers, podium, podiumSize } = route.closing;
-  const info: SeasonInfo = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers], closing: { tiers: [...tiers], podium, podiumSize } };
+  const info: SeasonInfo = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers], closing: closingInfo(route.closing) };
   if (tab === 'clans') {
     const clans = (await clanRanking(deps.db, cfg, account, deps.now())).filter((c) => c.rank !== null);
     const own = await deps.db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', viewerId).executeTakeFirst();

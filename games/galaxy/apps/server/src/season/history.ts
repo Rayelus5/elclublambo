@@ -1,5 +1,6 @@
 import {
   type AccountConfig,
+  closingInfo,
   levelOf,
   parseConfig,
   type PastPodiumPlace,
@@ -161,8 +162,7 @@ async function recordOf(db: Kysely<DB>, a: ArchiveRow): Promise<{ tiers: number[
   if (!r) return { tiers: [], top: null, closing: null };
   try {
     const season = seasonConfigOf({ id: a.season, name: a.name, startsAt: a.starts_at.toISOString(), endsAt: a.ends_at.toISOString(), rules: (r.rules ?? {}) as object });
-    const { tiers, podium, podiumSize } = parseConfig('seasonRoute', r.route ?? {}).closing;
-    return { tiers: [...season.tiers], top: season.top, closing: { tiers: [...tiers], podium, podiumSize } };
+    return { tiers: [...season.tiers], top: season.top, closing: closingInfo(parseConfig('seasonRoute', r.route ?? {}).closing) };
   } catch {
     // A record that no longer reads: the ranking still shows, without its tiers and prizes.
     return { tiers: [], top: null, closing: null };
