@@ -100,6 +100,43 @@ export function dateTime(iso: string): string {
   return `${day} a las ${time}`;
 }
 
+/**
+ * Why the title screen's panel shows a tournament: prizes of mine waiting, one I am playing, one open to sign up, the
+ * results of mine on their way, one I am in that starts soon, any other still alive, or the last one that ended.
+ */
+export type HubPick = 'collect' | 'playing' | 'open' | 'results' | 'joined' | 'live' | 'past';
+
+const byEnd = (a: TournamentCard, b: TournamentCard) => Date.parse(a.endsAt) - Date.parse(b.endsAt);
+const byStart = (a: TournamentCard, b: TournamentCard) => Date.parse(a.startsAt) - Date.parse(b.startsAt);
+const latest = (a: TournamentCard, b: TournamentCard) => Date.parse(b.endsAt) - Date.parse(a.endsAt);
+
+/**
+ * The tournament that matters most to the viewer now (the title screen's panel), in this order: prizes waiting (the
+ * newest first), one they are playing (the one ending first), one taking sign-ups, theirs in review, theirs still to
+ * start, any other alive, and the last one finished. Cancelled ones never; none at all: null.
+ */
+export function featuredOf(data: TournamentList | undefined): { card: TournamentCard; pick: HubPick } | null {
+  const all = listOf(data);
+  const joined = (c: TournamentCard) => c.me?.status === 'joined';
+  const of = (state: TournamentCard['state']) => all.filter((c) => c.state === state);
+  const finished = of('finished').sort(latest);
+  const running = of('running').sort(byEnd);
+  const review = of('review').sort(byEnd);
+  const scheduled = of('scheduled').sort(byStart);
+  const steps: [HubPick, TournamentCard | undefined][] = [
+    ['collect', finished.find((c) => !!c.me?.rewards && c.me.rewards.gifts.length > 0 && !c.me.claimed)],
+    ['playing', running.find(joined)],
+    ['open', running.find((c) => c.join.open)],
+    ['results', review.find(joined)],
+    ['joined', scheduled.find(joined)],
+    ['open', scheduled.find((c) => c.join.open)],
+    ['live', running[0] ?? review[0] ?? scheduled[0]],
+    ['past', finished[0]],
+  ];
+  for (const [pick, card] of steps) if (card) return { card, pick };
+  return null;
+}
+
 /** A day as players read it: «23 de noviembre». */
 export function dayOf(iso: string): string {
   return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));

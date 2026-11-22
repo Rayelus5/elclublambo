@@ -492,7 +492,9 @@
   }
 
   /* The season panel (M5a, DESIGN_SYSTEM §8 undecies): the season, its podium and your place. */
-  .season-summary { grid-column: 3; grid-row: 3; align-self: start; --r: 26px; overflow: hidden; }
+  /* The right column: the season and, under it, the tournaments (TournamentsHubPanel) taking what the menu leaves. */
+  .hub-side { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; gap: clamp(14px, 1.8vh, 20px); min-inline-size: 0; }
+  .season-summary { flex: none; --r: 26px; overflow: hidden; }
   .season-summary .hd { padding: 14px 20px 12px; display: flex; align-items: center; gap: 14px; color: #fff;
     background-color: var(--color-nova); background-image: radial-gradient(rgb(255 255 255 / .22) 1.3px, transparent 1.8px), linear-gradient(160deg, var(--color-nova), var(--color-nova-lip)); background-size: 11px 11px, 100% 100%; box-shadow: inset 0 -4px 0 rgb(0 0 0 / .16); }
   .season-summary .hd > .ico { font-size: 32px; }
@@ -6186,13 +6188,7 @@
   .tn-side-me b { font-size: 15px; color: var(--color-solar); }
   .tn-side-all { justify-self: start; }
 
-  /* The ways in: Torneos on Jugar's corner (the home) and on the lobby's rail, a small dot while sign-up is open. */
-  .play-slot { position: relative; display: grid; min-inline-size: 0; }
-  .hub-tournaments { position: absolute; z-index: 1; inset-block-start: 14px; inset-inline-end: 14px; display: inline-flex; align-items: center; gap: 7px; block-size: 44px; box-sizing: border-box; padding: 0 16px 0 12px; border-radius: 99px; background: rgb(58 23 0 / .74); color: #fff; font-size: 15.5px; font-weight: 700; text-decoration: none; box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), 0 3px 0 rgb(58 23 0 / .38); transition: background-color .15s ease, translate .18s var(--ease-bounce); }
-  .hub-tournaments .ico { inline-size: 20px; block-size: 20px; color: var(--color-solar); }
-  .hub-tournaments:hover { background: rgb(58 23 0 / .9); translate: 0 -2px; }
-  .hub-tournaments:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
-  .play-slot:has(.play:hover) .hub-tournaments { translate: 0 -3px; }
+  /* The ways in: the title screen's panel (below) and the lobby's rail, a small dot while sign-up is open. */
   .tn-dot { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--color-nova); box-shadow: 0 0 0 3px var(--color-solar-2), 0 0 12px var(--color-nova); animation: tn-dot 1.6s ease-in-out infinite; }
   @keyframes tn-dot { 50% { scale: 1.25; } }
   .lobby-zone .tn-dot { inset-block-start: -4px; inset-inline-end: -4px; box-shadow: 0 0 0 3px var(--color-panel-lip), 0 0 12px var(--color-nova); }
@@ -6207,5 +6203,82 @@
   .tn-climb .ico { inline-size: 16px; block-size: 16px; }
   @keyframes tn-climb { from { opacity: 0; translate: 0 8px; } }
 
-  :where(:root[data-motion='reduced']) { .tn-cell, .tn-live, .tn-dot, .tn-go-claim, .tn-claim, .tn-climb { animation: none; } }
+
+  /* The title screen's tournaments (the owner, 2026-11-22): under the season's panel, as tall as the menu leaves it.
+     The tournament that matters most sits over its banner, darkened at the foot for the words; the panel is a size
+     container, so it says more the taller it is: one line, then its state and time, then its first prize. */
+  .hub-tn { --r: 24px; --lip-c: var(--color-solar-lip); flex: 1 1 0; min-block-size: 76px; overflow: hidden; isolation: isolate; container: htn / size; background: var(--color-panel-2); }
+  .hub-tn .htn-art { z-index: -2; }
+  .hub-tn .htn-art img { transition: scale .6s ease; }
+  .hub-tn .htn-art .tn-art-mark .ico { inline-size: clamp(56px, 46cqh, 120px); }
+  .hub-tn::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgb(7 10 28 / .62) 0%, rgb(7 10 28 / .1) 34%, rgb(10 12 34 / .55) 62%, rgb(12 14 40 / .94) 100%); pointer-events: none; }
+  .hub-tn:has(.htn-go:hover) { transform: translateY(-3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .32), inset 0 -3px 0 rgb(0 0 0 / .18), 0 calc(var(--lip-h, 6px) + 3px) 0 var(--lip-c), 0 20px 30px rgb(0 0 0 / .4); }
+  .hub-tn:has(.htn-go:hover) .htn-art img { scale: 1.06; }
+  .hub-tn:has(.htn-go:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  /* Prizes waiting: the frame breathes gold. */
+  .hub-tn.p-collect { animation: htn-glow 1.8s ease-in-out infinite; }
+  @keyframes htn-glow { 50% { box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), inset 0 -3px 0 rgb(0 0 0 / .18), 0 var(--lip-h, 6px) 0 var(--lip-c), 0 0 30px color-mix(in oklab, var(--color-solar) 70%, transparent); } }
+  .htn-body { block-size: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; min-inline-size: 0; }
+  .htn-top { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
+  .htn-eyebrow { margin: 0; display: inline-flex; align-items: center; gap: 8px; flex: none; padding: 3px 13px 3px 3px; border-radius: 99px; background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); font: 400 19px/1 var(--font-display); letter-spacing: .01em; box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), 0 3px 0 var(--color-solar-lip); }
+  .htn-badge { position: relative; display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 50%; background: var(--color-on-solar); color: var(--color-solar); }
+  .htn-badge .ico { inline-size: 17px; block-size: 17px; }
+  .htn-badge .tn-dot { inset-block-start: -4px; inset-inline-end: -4px; box-shadow: 0 0 0 3px var(--color-solar), 0 0 12px var(--color-nova); }
+  .htn-count { min-inline-size: 0; padding: 4px 10px; border-radius: 99px; background: rgb(7 10 28 / .6); color: var(--color-ink); font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .htn-all { position: relative; z-index: 2; flex: none; margin-inline-start: auto; display: inline-flex; align-items: center; gap: 2px; block-size: 34px; box-sizing: border-box; padding: 0 8px 0 13px; border-radius: 99px; background: rgb(7 10 28 / .66); color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; box-shadow: inset 0 1px 0 rgb(255 255 255 / .14); transition: background-color .15s ease, translate .18s var(--ease-bounce); }
+  .htn-all .ico { inline-size: 18px; block-size: 18px; }
+  .htn-all:hover { background: rgb(7 10 28 / .88); translate: 0 -2px; }
+  .htn-all:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .htn-main { margin-block-start: auto; display: grid; gap: 7px; min-inline-size: 0; }
+  .htn-tags { display: none; flex-wrap: wrap; gap: 6px; min-inline-size: 0; }
+  .htn-tags .tn-state { block-size: 26px; font-size: 12.5px; }
+  .htn-time { min-block-size: 26px; padding: 2px 10px; background: rgb(7 10 28 / .72); font-size: 13px; }
+  .htn-go { color: #fff; text-decoration: none; min-inline-size: 0; }
+  .htn-go::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+  .htn-go:focus-visible { outline: none; }
+  .htn-name { display: block; font: 400 25px/1.06 var(--font-display); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 10px rgb(0 0 0 / .55); }
+  .htn-foot { display: flex; align-items: center; gap: 10px; min-inline-size: 0; }
+  .htn-line { min-inline-size: 0; font-size: 14.5px; font-weight: 700; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
+  .hub-tn:is(.p-playing, .p-results, .p-collect) .htn-line { color: var(--color-solar); }
+  .htn-cta { flex: none; margin-inline-start: auto; display: inline-flex; align-items: center; gap: 2px; block-size: 32px; box-sizing: border-box; padding: 0 8px 0 13px; border-radius: 99px; background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); font-size: 14px; font-weight: 800; white-space: nowrap; box-shadow: inset 0 1px 0 rgb(255 255 255 / .45), 0 3px 0 var(--color-solar-lip); }
+  .htn-cta .ico { inline-size: 17px; block-size: 17px; transition: translate .18s var(--ease-bounce); }
+  .hub-tn:has(.htn-go:hover) .htn-cta .ico { translate: 3px 0; }
+  .htn-extra { display: none; align-items: center; gap: 10px; min-inline-size: 0; padding: 7px 10px; border-radius: 14px; background: rgb(7 10 28 / .58); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 30%, transparent); }
+  .htn-extra-label { flex: none; font: 400 15px/1 var(--font-display); color: var(--color-solar); }
+  .htn-extra-gifts { display: flex; align-items: center; gap: 6px; min-inline-size: 0; overflow: hidden; }
+  .htn-empty { margin: auto 0 0; color: var(--color-ink-soft); font-size: 15px; font-weight: 600; line-height: 1.35; text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
+  /* Room for more: its state and time ticking; more still: its first prize. */
+  @container htn (min-height: 158px) { .htn-tags { display: flex; } }
+  @container htn (min-height: 226px) { .htn-extra { display: flex; } }
+  /* Short screens: one line, «Torneos», the title with where you stand, and «Ver todos» as its arrow alone. */
+  @container htn (max-height: 111px) {
+    .htn-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 8px 10px 8px 9px; }
+    .htn-top { display: contents; }
+    .htn-eyebrow { grid-column: 1; grid-row: 1; padding-inline-end: 11px; font-size: 16px; }
+    .htn-count { display: none; }
+    .htn-all { grid-column: 3; grid-row: 1; inline-size: 34px; padding: 0; justify-content: center; }
+    .htn-all-text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .htn-main, .htn-empty { grid-column: 2; grid-row: 1; margin: 0; gap: 2px; }
+    .htn-name { font-size: 20px; }
+    .htn-cta { display: none; }
+    .htn-line { font-size: 13.5px; }
+  }
+
+  /* Screens up to 900 high: the season's panel tightens so the tournaments' panel under it keeps room for its title,
+     state and time without the home scrolling; the podium drops its levels (the leaderboard has them). */
+  @media (max-height: 940px) {
+    .hub-side .season-summary .hd { padding-block: 10px 8px; }
+    .hub-side .season-summary .podium { margin: 10px 14px 0; }
+    .hub-side .season-summary .podium-level { display: none; }
+    .hub-side .season-summary .podium-step { block-size: 28px; font-size: 22px; }
+    .hub-side .season-summary .podium li.place-1 .podium-step { block-size: 44px; }
+    .hub-side .season-summary .podium li.place-2 .podium-step { block-size: 36px; }
+    .hub-side .season-me { margin-block-start: 8px; padding-block: 8px; }
+    .hub-side .season-players { margin-block-start: 6px; }
+    .hub-side .season-summary .more { block-size: 42px; margin-block: 8px 12px; font-size: 16px; }
+    .hub-side .season-summary .more-season { margin-block-end: 0; }
+    .hub-tn { min-block-size: 68px; }
+  }
+
+  :where(:root[data-motion='reduced']) { .tn-cell, .tn-live, .tn-dot, .tn-go-claim, .tn-claim, .tn-climb, .hub-tn.p-collect { animation: none; } .hub-tn .htn-art img { transition: none; } }
 }

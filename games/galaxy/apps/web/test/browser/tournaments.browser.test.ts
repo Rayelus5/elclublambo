@@ -19,7 +19,6 @@ import { page } from 'vitest/browser';
 import { TOURNAMENT_LIST_KEY } from '../../src/api/tournaments';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
 import { Rail } from '../../src/hangar/lobby/Rail';
-import { MainMenu } from '../../src/hub/MainMenu';
 import { LeaderboardScreen } from '../../src/social/LeaderboardScreen';
 import { TournamentScreen } from '../../src/tournaments/TournamentScreen';
 import { TournamentsScreen } from '../../src/tournaments/TournamentsScreen';
@@ -28,7 +27,7 @@ import '../../src/styles/app.css';
 // The tournaments in a real browser (plan «temporadas como fichas», part 5): the list with its cards and a tournament's
 // page in each of its states (upcoming, running, in review, finished with a prize to collect, cancelled), at the four
 // widths: the page never grows sideways, the hero, the ranking and the side column keep inside it, and the wide tables
-// scroll inside their panels. Also the ways in (Jugar's corner, the lobby's rail) and the line after a run.
+// scroll inside their panels. Also the lobby's rail and the line after a run.
 // VITE_TOURNAMENT_SHOTS=1 saves screenshots for review (apps/web/test/browser/__shots__/).
 
 const shots = !!import.meta.env['VITE_TOURNAMENT_SHOTS'];
@@ -240,26 +239,10 @@ test('inscribirse explica todo en su diálogo, y recoger el premio vuela a la ba
   if (shots) await page.screenshot({ path: '__shots__/torneo-recoger-1600.png' });
 }, 60_000);
 
-test('Torneos en la esquina de Jugar y en el raíl, con su punto; y la línea al terminar una partida', async () => {
+// The title screen's panel has its own test (hub-tournaments.browser.test.ts).
+test('Torneos en el raíl, con su punto; y la línea al terminar una partida', async () => {
   await page.viewport(1600, 900);
-  const host = mount(createElement('div', { className: 'hub-shot' }, createElement(MainMenu, { galaxies: 12 })), '/', { '/tournaments': list });
-  host.style.width = '660px';
-  host.style.padding = '24px';
   document.body.classList.add('ready', 'settled');
-  await expect.poll(() => document.querySelector('.hub-tournaments .tn-dot')).not.toBeNull();
-  await wait(1600);
-  const play = document.querySelector<HTMLElement>('.play')!.getBoundingClientRect();
-  const pill = document.querySelector<HTMLElement>('.hub-tournaments')!.getBoundingClientRect();
-  // On Jugar's corner, inside it, and over nothing of its own (the ring on the left, the title at the foot).
-  expect(pill.right).toBeLessThanOrEqual(play.right);
-  expect(pill.top).toBeGreaterThanOrEqual(play.top);
-  expect(pill.height).toBeGreaterThanOrEqual(44);
-  const ring = document.querySelector<HTMLElement>('.play-ring')!.getBoundingClientRect();
-  expect(pill.left).toBeGreaterThan(ring.right);
-  if (shots) await page.screenshot({ path: '__shots__/torneos-menu-1600.png', element: document.querySelector<HTMLElement>('.menu')! });
-  root?.unmount();
-  document.body.innerHTML = '';
-
   mount(createElement(Rail), '/incursion', { '/tournaments': list });
   await expect.poll(() => document.querySelector('.lobby-zone .tn-dot')).not.toBeNull();
   await wait(800);
