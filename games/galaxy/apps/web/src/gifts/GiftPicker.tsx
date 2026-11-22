@@ -25,9 +25,11 @@ export interface GiftPickerProps {
   packsFull: boolean;
   /** Without the packs tab (a pack holds no packs). */
   showPacks?: boolean;
+  /** Only gifts that never expire (a tournament's prizes, collected whenever): no event signals, nothing of a season. */
+  lasting?: boolean;
 }
 
-export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull, showPacks = true }: GiftPickerProps) {
+export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull, showPacks = true, lasting = false }: GiftPickerProps) {
   const ids = useId();
   const TABS: readonly Tab[] = showPacks ? ALL_TABS : ALL_TABS.filter((k) => k !== 'packs');
   const [tab, setTab] = useState<Tab>('resources');
@@ -52,8 +54,8 @@ export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, 
     'signal',
     'material',
     'components',
-    ...catalog.events.map((e) => `signal:${e.id}`),
-    ...(catalog.season.open ? [`season:${catalog.season.id}`] : []),
+    ...(lasting ? [] : catalog.events.map((e) => `signal:${e.id}`)),
+    ...(!lasting && catalog.season.open ? [`season:${catalog.season.id}`] : []),
   ];
   return (
     <section className="gift-picker" aria-label={g.tabsLabel}>
@@ -86,7 +88,7 @@ export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, 
                 <AmountRow key={c} gift={(n) => ({ kind: 'currency', currency: c as never, amount: n })} catalog={catalog} max={10_000_000} disabled={itemsFull} onAdd={onAdd} />
               ))}
             </ul>
-            <p className="hint">{g.resourcesHint}</p>
+            <p className="hint">{lasting ? g.lastingHint : g.resourcesHint}</p>
           </>
         ) : null}
         {tab === 'style' ? (
@@ -112,15 +114,17 @@ export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, 
             {full}
             <ul className="gift-rows">
               <AmountRow gift={(n) => ({ kind: 'xp', amount: n })} label={g.progress.xp} catalog={catalog} max={1_000_000} disabled={itemsFull} onAdd={onAdd} />
-              <AmountRow
-                gift={(n) => ({ kind: 'seasonPoints', amount: n })}
-                label={g.progress.seasonPoints}
-                catalog={catalog}
-                max={1_000_000}
-                disabled={itemsFull || !catalog.season.open}
-                note={catalog.season.open ? null : g.progress.seasonClosed}
-                onAdd={onAdd}
-              />
+              {lasting ? null : (
+                <AmountRow
+                  gift={(n) => ({ kind: 'seasonPoints', amount: n })}
+                  label={g.progress.seasonPoints}
+                  catalog={catalog}
+                  max={1_000_000}
+                  disabled={itemsFull || !catalog.season.open}
+                  note={catalog.season.open ? null : g.progress.seasonClosed}
+                  onAdd={onAdd}
+                />
+              )}
             </ul>
           </>
         ) : null}

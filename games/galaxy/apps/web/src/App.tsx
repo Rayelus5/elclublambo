@@ -32,6 +32,8 @@ import { PackLibraryScreen } from './admin/mail/PackLibraryScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
 import { SeasonsScreen } from './admin/seasons/SeasonsScreen';
 import { SeasonWizardScreen } from './admin/seasons/SeasonWizard';
+import { TournamentsScreen } from './admin/tournaments/TournamentsScreen';
+import { TournamentPage } from './admin/tournaments/TournamentPage';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
 import { Alerts, Commerce } from './admin/ModMarket';
@@ -173,6 +175,8 @@ export function App() {
             <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="temporadas" element={<SeasonsScreen />} />
             <Route path="temporadas/:id" element={<SeasonWizardScreen />} />
+            <Route path="torneos" element={<TournamentsScreen />} />
+            <Route path="torneos/:id" element={<TournamentPage />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="referidos" element={<ReferralsScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />

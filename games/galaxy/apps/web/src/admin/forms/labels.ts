@@ -6,7 +6,7 @@ import type { IconName } from '../../ui/Icon';
 // a named entry), and the Spanish names of the values a field can take. A field without its own label borrows the one
 // of its last segment (COMMON), so the rewards, dates and ids of every list read the same.
 
-export type Unit = 'percent' | 'factor' | 'hours' | 'days' | 'minutes' | 'seconds' | 'points';
+export type Unit = 'percent' | 'factor' | 'hours' | 'days' | 'minutes' | 'seconds' | 'points' | 'eur';
 
 export interface FieldInfo {
   label: string;
@@ -550,4 +550,4 @@ export function itemName(info: FieldInfo, i: number): string | null {
   return typeof info.items === 'function' ? info.items(i) : (info.items[i] ?? null);
 }
 
-export const UNIT_SUFFIX: Record<Unit, string> = { percent: '%', factor: '×', hours: 'h', days: 'días', minutes: 'min', seconds: 's', points: 'puntos' };
+export const UNIT_SUFFIX: Record<Unit, string> = { percent: '%', factor: '×', hours: 'h', days: 'días', minutes: 'min', seconds: 's', points: 'puntos', eur: '€' };
