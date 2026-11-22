@@ -34,7 +34,8 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una o do
 - **Anomalía:** una de las que hay en `content.anomalies`, o una nueva. Una nueva va antes con la skill `galaxy-enemigos-sectores-sondas` y se publica `content` antes que la temporada.
 - **Acabado exclusivo:** `rift` o ninguno. Uno nuevo es código y arte.
 - **Puntos y tramos** (`points`, `tiers` de 5 crecientes). Escálalos a la duración: la Temporada 1 usó `[350, 1400, 4200, 10000, 20000]` para 4 semanas.
-- **Ruta:** pasos (`at` estrictamente creciente, hasta 60), tienda, premios de cierre por tramo y podio. Títulos de ≤30 caracteres. Marcos solo de `bronze, silver, gold, nebula, abyss, crown`.
+- **Ruta:** pasos (`at` estrictamente creciente, hasta 60), tienda, premios de cierre por tramo, podio y **puestos** (rangos desde el 1). Títulos de ≤30 caracteres. Marcos solo de `bronze, silver, gold, nebula, abyss, crown`.
+- **Premios de cualquier tipo** (desde el 22/11/2026): además de monedas, polvo, señales, esquirlas y piezas, cada escalón, artículo o premio de cierre puede dar galaxias (rareza, acabado y quizá un rasgo), sondas, skins o experiencia. Pregunta cuáles y si alguno es grande: por encima de `mailLimits` solo un superadmin la programa desde el panel.
 - **Misiones de temporada:** cuáles, con stats de `MISSION_STATS`.
 - **Logros nuevos:** opcionales. Sus ids nunca cambian de significado.
 - **Eventos:** si hay eventos que cruzan el cambio de temporada, hay que acortarlos o moverlos, porque deben caber en la temporada. Para eventos nuevos, la skill `galaxy-evento`.
@@ -46,7 +47,7 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una o do
 2. **`temporada.json`:** la ficha completa (`seasonRecordSchema` en `packages/shared/src/progress/season-record.ts`):
    - `id`, `name`, `startsAt`, `endsAt` (medianoche de Madrid; normalmente empieza justo cuando acaba la anterior);
    - `rules`: lo que antes era `season` sin id, nombre ni fechas (`points`, `tiers`, `top`, `capPerMinute`, `anomaly`, `finish`, `finishChance`);
-   - `route`: moneda, pasos, tienda y premios de cierre (antes `seasonRoute`);
+   - `route`: moneda, pasos, tienda y premios de cierre (antes `seasonRoute`). Cada paso, artículo y premio lleva su `reward` de siempre y, si da algo más, una lista `gifts` con regalos del buzón; el cierre añade `tierGifts` (cinco listas, de Bronce a Estelar), `podiumGifts` y `places: [{ from, to, gifts }]`. Reglas y ejemplo en CONTENIDO B8 («Premios de cualquier tipo»): la ruta y la tienda solo dan la moneda de **su** temporada y nunca puntos de temporada; el cierre no da nada de temporada; como mucho 20 regalos y 10 galaxias por lista;
    - `missions`: la lista de misiones de temporada (antes `missions.season`); sus ids no repiten los de las diarias ni semanales;
    - `lab`: el árbol de laboratorio de temporada (antes `lab.season`), con ids nuevos de esa temporada.
 3. **`achievements.json`:** solo si cambian. La lista completa: lo vivo más lo nuevo, sin cambiar ids existentes.
@@ -63,7 +64,7 @@ Con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una o do
 ```
 pnpm -C games/galaxy exec vitest run --project unit packages/shared/test/launch-config.test.ts
 ```
-Comprueba que todo vale sobre lo anterior, que la ficha vale (fechas a medianoche de Madrid, anomalía existente, árbol de laboratorio dentro del presupuesto con el árbol permanente), los eventos dentro de alguna temporada y los ids de misión únicos. El test reconstruye lo vivo desde las carpetas; la comprobación contra lo vivo de verdad es `check-config` (acepta la ficha bajo `temporada`, la que pone `scripts/ops-bundle.mjs`).
+Comprueba que todo vale sobre lo anterior, que la ficha vale (fechas a medianoche de Madrid, anomalía existente, árbol de laboratorio dentro del presupuesto con el árbol permanente, regalos de temporada bien puestos y rangos de puestos en orden), los eventos dentro de alguna temporada y los ids de misión únicos. Que cada pieza, sonda o galaxia regalada exista y se pueda hacer lo comprueba `check-config` contra lo vivo. El test reconstruye lo vivo desde las carpetas; la comprobación contra lo vivo de verdad es `check-config` (acepta la ficha bajo `temporada`, la que pone `scripts/ops-bundle.mjs`).
 
 Si la temporada cambia de tema, revisa también los textos fijos: «Temporada 1 · La Señal» en `apps/web/src/codex/entries.ts`, PERKINS en `es.ts` y el sector de temporada (`sectors.season`). Eso es un PR de código aparte, con sus tests.
 
@@ -77,7 +78,7 @@ Si la temporada cambia de tema, revisa también los textos fijos: «Temporada 1 
    ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js season-schedule <id> --reason '<motivo>'"
    ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js season-list"
    ```
-   `season-import` la deja como borrador (se puede repetir para corregirla); `season-schedule` la programa. Se puede programar con días de antelación: empieza sola a su hora.
+   `season-import` la deja como borrador (se puede repetir para corregirla); `season-schedule` la programa. Se puede programar con días de antelación: empieza sola a su hora. También se puede preparar entera desde Administración › Temporadas (paso «Ruta, tienda y misiones», con el selector de regalos del buzón); si da premios grandes, la programa un superadmin.
 3. Las claves de la carpeta (logros, eventos, escáneres, contenido) se publican con la skill `galaxy-publicar-config`.
 
 **Reglas que no se saltan:**
