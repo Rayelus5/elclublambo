@@ -16,6 +16,7 @@ test('cada motivo para no poder inscribirte se dice en claro, con el nivel y el 
   expect(blockText(card({ join: { open: false, block: 'disqualified' } }))).toBe(t.block.disqualified);
   expect(blockText(card({ join: { open: false, block: 'closed' } }))).toBe(t.block.closed);
   expect(blockText(card({ join: { open: false, block: 'full' } }))).toBe(t.block.full);
+  expect(blockText(card({ join: { open: false, block: 'excluded' } }))).toBe(t.block.excluded);
   expect(blockText(card({ join: { open: false, block: 'level' }, filters: { sector: null, probe: null, mode: 'any', minLevel: 12 } }))).toBe('Necesitas nivel 12 para inscribirte');
   expect(blockText(card({ join: { open: false, block: 'exclusive' }, exclusiveWith: { slug: 'copa-de-fuego', title: 'Copa de fuego' } }))).toBe('Ya estás en «Copa de fuego», que coincide en fechas');
 });

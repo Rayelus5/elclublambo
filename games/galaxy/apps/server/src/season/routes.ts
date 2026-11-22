@@ -1,4 +1,16 @@
-import { type HallOfFame, type SeasonHistory, seasonItemParamsSchema, seasonResultParamsSchema, seasonStepParamsSchema, type SeasonView, usernameParamSchema } from '@galaxy/shared';
+import {
+  type HallOfFame,
+  type SeasonHistory,
+  seasonIdParamsSchema,
+  seasonItemParamsSchema,
+  seasonResultParamsSchema,
+  type SeasonResults,
+  seasonResultsQuerySchema,
+  type SeasonsHistory,
+  seasonStepParamsSchema,
+  type SeasonView,
+  usernameParamSchema,
+} from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { requireSession } from '../auth/guards';
@@ -9,6 +21,7 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { accountNamed } from '../social/profiles';
 import { claimResult, closeDue, hallOfFame, seasonHistory } from './close';
+import { seasonResults, seasonsHistory } from './history';
 import { allSeasons, closeEndedSeasons, type SeasonStore, seasonConfigsOf } from './records';
 import { requireAdmin } from '../auth/guards';
 import { HttpError } from '../errors';
@@ -38,7 +51,8 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
       const row = (await allSeasons(deps.db)).find((x) => x.id === preview);
       if (!row) throw new HttpError(404, 'season_not_found');
       const at = new Date(Math.min(Math.max(now.getTime(), Date.parse(row.startsAt)), Date.parse(row.endsAt) - 1));
-      return seasonView(deps.db, seasonConfigsOf(row, c.minRunSeconds), s.accountId, 0, at);
+      // Never the admin's own closing prizes: the preview is the season as a player will meet it.
+      return { ...(await seasonView(deps.db, seasonConfigsOf(row, c.minRunSeconds), s.accountId, 0, at)), closing: null };
     }
     await closeEnded(c, now);
     await convertLeftovers(deps.db, c, s.accountId, now);
@@ -80,6 +94,25 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'profiles', 120, 60);
     await closeEnded(await seasonConfigs(deps.config), deps.now());
     return hallOfFame(deps.db);
+  });
+
+  // Every closed season with its podium and its numbers, and one's final ranking a page at a time (plan «temporadas
+  // como fichas», histórico para jugadores): public to every player, like the hall of fame. Under /seasons, so no id
+  // can meet /season/route, /season/shop or /season/results.
+  api.get('/galaxy/api/seasons/history', async (req): Promise<SeasonsHistory> => {
+    const s = requireSession(req);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'profiles', 120, 60);
+    await closeEnded(await seasonConfigs(deps.config), deps.now());
+    return seasonsHistory(deps.db);
+  });
+
+  api.get('/galaxy/api/seasons/:id/results', async (req): Promise<SeasonResults> => {
+    const s = requireSession(req);
+    const { id } = seasonIdParamsSchema.parse(req.params);
+    const query = seasonResultsQuerySchema.parse(req.query);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'profiles', 120, 60);
+    const [account, live] = await Promise.all([deps.config.get('account'), deps.config.get('season')]);
+    return seasonResults(deps.db, id, s.accountId, query, account, live.top);
   });
 
   api.get('/galaxy/api/profiles/:username/seasons', async (req): Promise<SeasonHistory> => {

@@ -48,7 +48,7 @@ export interface TournamentRanking {
  * the first run that gave it.
  */
 export function metricExpressions(metric: TournamentMetric): { value: string; reached: string } {
-  const firstBest = (col: string) => `(array_agg(c.finished_at order by ${col} desc, c.finished_at asc) filter (where c.id is not null))[1]`;
+  const firstBest = (col: string) => `(array_agg(c.finished_at order by ${col} desc nulls last, c.finished_at asc) filter (where c.id is not null))[1]`;
   switch (metric) {
     case 'points':
     case 'season_points':
@@ -85,7 +85,7 @@ export function filterSql(f: TournamentFilters): RawBuilder<unknown> {
 export function countedRunsSql(t: TournamentScoring, season: SeasonConfig, minRunSeconds: number): RawBuilder<unknown> {
   const from = t.metric === 'season_points' ? sql`${new Date(season.startsAt)}::timestamptz` : sql`greatest(e.joined_at, ${new Date(t.startsAt)}::timestamptz)`;
   return sql`
-    select e.account_id, r.id, r.finished_at, r.kills, r.depth, r.boss_kills, r.outcome, r.coop_run_id, r.sector, r.probe, ${runPointsSql(season)} as pts
+    select e.account_id, r.id, r.finished_at, r.kills, r.depth, r.boss_kills, r.outcome, r.coop_run_id, r.sector, r.probe, r.sim_version, ${runPointsSql(season)} as pts
     from galaxy.tournament_entries e
     join galaxy.runs r on r.account_id = e.account_id
     where e.tournament_id = ${t.id} and e.left_at is null and not e.disqualified

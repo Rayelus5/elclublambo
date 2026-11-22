@@ -33,6 +33,8 @@ export type TournamentJoinBlock =
   | 'disqualified'
   /** Sign-up is over (it ended, or it is not open). */
   | 'closed'
+  /** Left out of the leaderboard by an admin: it would never rank. */
+  | 'excluded'
   | 'full'
   | 'level'
   /** In another exclusive tournament whose dates overlap (`exclusiveWith`). */
@@ -189,18 +191,37 @@ export interface AdminTournament {
   cashPending: number;
   /** Why scheduling it needs a superadmin (empty: any admin). */
   bigReasons: TournamentBigReason[];
+  /** The simulation version the server ran when it started (null before it starts). */
+  simVersion: string | null;
+  /**
+   * Running or in review, and the server's simulation is no longer the one it started with: its runs from before the
+   * deploy cannot be replayed (`sim_version`) and will wait for a decision. The list warns about it.
+   */
+  simChanged: boolean;
+  /** Running or in review: the simulation versions of its runs that count (empty otherwise). */
+  simVersions: string[];
 }
 
 export interface AdminTournamentList {
   tournaments: AdminTournament[];
   now: string;
+  /** The simulation version this server runs. */
+  simVersion: string;
 }
 
 /** A replay check: `pending` (not done yet), `ok`, `mismatch` (the run became suspicious), `unverifiable` or `error`. */
 export type TournamentCheckStatus = 'pending' | 'ok' | 'mismatch' | 'error' | 'unverifiable';
 
-/** Why a run could not be checked. */
-export type UnverifiableReason = 'inputs_missing' | 'inputs_unreadable' | 'sim_version' | 'content_unreadable' | 'coop';
+/**
+ * Why a run could not be checked (stable codes: the panel groups and filters by them):
+ * - `inputs_missing`: its recorded inputs are gone (pruned, or never kept);
+ * - `inputs_unreadable`: they are there but do not decode;
+ * - `sim_version`: it was played with another simulation (a deploy changed it);
+ * - `content_unreadable`: the content it started with is gone from the history or no longer reads;
+ * - `coop`: a group run (never queued: the server referees them as they are played).
+ */
+export const UNVERIFIABLE_REASONS = ['inputs_missing', 'inputs_unreadable', 'sim_version', 'content_unreadable', 'coop'] as const;
+export type UnverifiableReason = (typeof UNVERIFIABLE_REASONS)[number];
 
 export interface AdminTournamentCheck {
   runId: string;
@@ -214,6 +235,19 @@ export interface AdminTournamentCheck {
   decidedBy: string | null;
   decidedAt: string | null;
   checkedAt: string | null;
+  /** Tries a dead or stuck worker cost (it becomes an error after three). */
+  attempts: number;
+  /**
+   * In review: the run backs a prize place as the ranking stands. Only those hold the results; the rest (of players who
+   * left the prizes, were disqualified or banned) are kept as they are and no longer replayed.
+   */
+  current: boolean;
+}
+
+/** Undecided unverifiable checks, grouped (for «Aceptar todas (N)»): how many, and how many hold the results. */
+export interface UnverifiableGroups {
+  byReason: { reason: UnverifiableReason; count: number; blocking: number }[];
+  byPlayer: { username: string; count: number; blocking: number }[];
 }
 
 export interface AdminTournamentRankRow extends Omit<TournamentRankRow, 'me'> {
@@ -246,7 +280,16 @@ export interface AdminTournamentReview {
   publishAt: string;
   /** Nothing pending: «Publicar ya» works (and, after publishAt, the job publishes). */
   canPublish: boolean;
+  /** What holds the results: prize places' runs still to replay or decide (or not queued yet). */
+  blocking: number;
+  unverifiable: UnverifiableGroups;
   cash: AdminTournamentCash[];
+}
+
+/** POST …/:id/checks/decide-many: the review as it is after, how many it decided and which it left (and why). */
+export interface TournamentDecideManyResult extends AdminTournamentReview {
+  decided: number;
+  skipped: { runId: string; username: string; why: 'self_target' | 'staff_target' }[];
 }
 
 const reason = z.string().trim().min(3).max(500);
@@ -276,6 +319,19 @@ export const tournamentScheduleBodySchema = z.object({ version, reason, password
 export const tournamentActionBodySchema = z.object({ reason, password }).strict();
 /** POST …/:id/checks/:run/decide. */
 export const tournamentDecideBodySchema = z.object({ decision: z.enum(['accept', 'discard']), reason, password }).strict();
+/**
+ * POST …/:id/checks/decide-many: every undecided `unverifiable` check (never a mismatch or an error: those one by one)
+ * matching the filter (its reason, its player; none: all of them), in one go. A run the admin may not decide (their own,
+ * or staff's) is skipped and listed.
+ */
+export const tournamentDecideManyBodySchema = z
+  .object({
+    decision: z.enum(['accept', 'discard']),
+    filter: z.object({ reason: z.enum(UNVERIFIABLE_REASONS).optional(), username: usernameSchema.optional() }).strict().default({}),
+    reason,
+    password,
+  })
+  .strict();
 /** POST …/:id/entries/:username/disqualify (false: back in). */
 export const tournamentDisqualifyBodySchema = z.object({ disqualified: z.boolean(), reason, password }).strict();
 /** POST …/:id/cash/:username/paid. */

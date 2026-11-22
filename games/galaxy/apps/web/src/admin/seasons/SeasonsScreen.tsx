@@ -11,7 +11,8 @@ import { PublishFields } from '../PublishFields';
 
 // Temporadas (plan «temporadas como fichas», 2026-11-21): every season on one calendar (the open one, the scheduled,
 // the drafts and the past), with what can be done to each. A scheduled season opens on its own at its date and the
-// previous one closes on its own with its prizes; the warnings say when some days will have no season.
+// previous one closes on its own with its prizes; the warnings say when some days will have no season. Each season can
+// be seen as players will meet it (2026-11-22): its shop and its leaderboard, in this tab, with a way back here.
 
 const t = copy.admin.seasons;
 const DAY = 86_400_000;
@@ -23,6 +24,22 @@ const dayFmt = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', day
 export const madridDate = (iso: string) => dayFmt.format(new Date(iso));
 /** The days a season lasts (whole Madrid days). */
 export const seasonDays = (s: Pick<AdminSeason, 'startsAt' | 'endsAt'>) => Math.round((Date.parse(s.endsAt) - Date.parse(s.startsAt)) / DAY);
+
+/** A season's shop and leaderboard as players will see them (an admin's preview; a closed one shows its results). */
+export function AsPlayerLinks({ id }: { id: string }) {
+  return (
+    <>
+      <Link to={`/temporada?vista=${encodeURIComponent(id)}`} className="lip pill small">
+        <Icon name="store" />
+        <span>{t.asPlayer.shop}</span>
+      </Link>
+      <Link to={`/clasificacion?temporada=${encodeURIComponent(id)}`} className="lip pill small">
+        <Icon name="podium" />
+        <span>{t.asPlayer.board}</span>
+      </Link>
+    </>
+  );
+}
 
 /** Where a season goes on the calendar (`now`: the server's, from the list). */
 export function groupOf(s: AdminSeason, now: number): Group {
@@ -164,6 +181,7 @@ function SeasonCard({ s, group, now, onAction }: { s: AdminSeason; group: Group;
           <Icon name="copy" />
           <span>{t.actions.duplicate}</span>
         </Link>
+        <AsPlayerLinks id={s.id} />
         {group === 'open' ? (
           <button type="button" className="lip pill small" onClick={() => onAction({ kind: 'extend', season: s })}>
             <Icon name="calendar" />

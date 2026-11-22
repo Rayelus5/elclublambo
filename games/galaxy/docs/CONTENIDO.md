@@ -475,8 +475,9 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 
 **Operarlo:**
 - **Programar** con premios por encima de `mailLimits`, o con dinero, solo lo hace un superadmin (`tournament_needs_superadmin`).
-- **Durante la revisión** mira el panel: las partidas `unverifiable` o `error` esperan tu decisión, y sin ella los resultados no salen.
-- **Un despliegue que sube `SIM_VERSION`** con torneos en curso deja sus partidas sin comprobar: cada una pedirá una decisión.
+- **Durante la revisión** mira el panel: las partidas `unverifiable` o `error` de los puestos con premio esperan tu decisión, y sin ella los resultados no salen. Las `unverifiable` se deciden en bloque por motivo (`inputs_missing`, `inputs_unreadable`, `sim_version`, `content_unreadable`) o por jugador; las `error`, una a una. Las tuyas y (si no eres superadmin) las del equipo las decide otro.
+- **Un despliegue que sube `SIM_VERSION`** con torneos en curso deja sus partidas anteriores sin comprobar (`sim_version`): el listado lo avisa (`simChanged`) y se deciden en bloque.
+- **Quien está fuera de la clasificación** (`leaderboard_excluded`) no puede inscribirse.
 - **El dinero** se paga fuera del juego. Escribe al ganador por el buzón y márcalo como pagado.
 - **Los premios** son regalos del buzón (B10), pero sin nada de temporada ni de evento: se recogen sin fecha.
 

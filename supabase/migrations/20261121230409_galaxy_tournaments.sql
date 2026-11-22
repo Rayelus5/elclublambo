@@ -5,13 +5,15 @@
 -- before a review: at its end the prize places' solo runs are replayed by the server, and an admin decides on what
 -- cannot be checked. Prizes are collected on the tournament's page and never expire; money is paid outside the game.
 --   tournaments          one row per tournament: its record (dates, rules, measure, filters, fee, prizes), its state
---                        (draft, scheduled, running, review, finished, cancelled) and who did what. Only drafts are
---                        ever deleted; a fee never goes with a cash prize; 28 days at most.
+--                        (draft, scheduled, running, review, finished, cancelled), the simulation version it started
+--                        with (the panel warns when a deploy changes it) and who did what. Only drafts are ever
+--                        deleted; a fee never goes with a cash prize; 28 days at most.
 --   tournament_entries   who signed up, when, and with which key and fee; when they left (never back), the refund of a
 --                        cancelled tournament, a disqualification, and the frozen result (rank, score, rewards, whether
 --                        the account could win prizes) with its collection. Never deleted with its tournament alive.
 --   tournament_checks    the review's replays: one per run, pending → ok, mismatch (the run became suspicious),
---                        unverifiable or error (both wait for an admin's decision: accept or discard).
+--                        unverifiable or error (both wait for an admin's decision: accept or discard); `attempts`
+--                        counts the tries a dead or stuck worker cost.
 --   tournament_cash      money prizes owed and when an admin marked them paid (once).
 --   mailbox_messages.link  the in-game page a system message's button opens (a tournament's results).
 --   runs                 an index for the tournaments' sums: an account's runs by when they finished.
@@ -47,6 +49,7 @@ create table galaxy.tournaments (
   scheduled_by uuid references galaxy.accounts (id) on delete set null,
   published_at timestamptz,
   cancelled_at timestamptz,
+  started_sim_version text check (started_sim_version is null or char_length(started_sim_version) between 1 and 20),
   check (ends_at > starts_at),
   check (ends_at - starts_at <= interval '28 days'),
   -- A paid entry never goes with a money prize (the owner, 2026-11-21).
@@ -84,6 +87,7 @@ create table galaxy.tournament_checks (
   decided_by uuid references galaxy.accounts (id) on delete set null,
   decided_at timestamptz,
   checked_at timestamptz,
+  attempts integer not null default 0 check (attempts >= 0),
   created_at timestamptz not null default now(),
   primary key (tournament_id, run_id),
   -- Only a run that could not be checked waits for a decision.

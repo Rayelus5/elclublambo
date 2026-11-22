@@ -1,12 +1,14 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   type AdminTournament,
+  type AdminTournamentList,
   type AdminTournamentReview,
   type LiveEvent,
   madridMidnightOf,
   parseConfig,
   PROBE_TEST,
   type TournamentClaimResult,
+  type TournamentDecideManyResult,
   type TournamentDetail,
   type TournamentEntryResult,
   type TournamentList,
@@ -19,7 +21,8 @@ import { scheduleSeason, saveSeasonDraft } from '../../src/season/records';
 import { tournamentTick } from '../../src/tournaments/jobs';
 import { joinTournament, leaveTournament } from '../../src/tournaments/player';
 import { scoringOf, scoringSeason, tournamentById } from '../../src/tournaments/records';
-import { inlineReplayer } from '../../src/tournaments/replayer';
+import { inlineReplayer, type Replayer } from '../../src/tournaments/replayer';
+import { finishTournament, processNextCheck } from '../../src/tournaments/review';
 import { computeTournamentRanking } from '../../src/tournaments/scoring';
 import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 import { playedRun } from '../replay-fixture';
@@ -37,7 +40,7 @@ const year = 2035 + (randomBytes(1)[0]! % 10);
 const month = 1 + (randomBytes(1)[0]! % 9);
 const day = (m: number, d: number) => madridMidnightOf(`${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
 const SEASON_START = day(month, 1);
-const SEASON_END = day(month + 2, 1);
+const SEASON_END = day(month + 3, 1);
 const H = 3_600_000;
 /** The n-th tournament's window: two days, one after another inside the season. */
 const windowOf = (n: number) => {
@@ -118,7 +121,7 @@ const leave = (cookie: string, id: string, k = key()) => post(app.app, `/galaxy/
 const claim = (cookie: string, id: string, k = key()) => post(app.app, `/galaxy/api/tournaments/${id}/claim`, undefined, { cookie, headers: { 'idempotency-key': k } });
 const coinsOf = async (id: string) => Number((await app.db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', id).where('currency', '=', 'coins').executeTakeFirst())?.amount ?? 0);
 
-type RunSpec = { at: Date; depth?: number; kills?: number; cores?: number; outcome?: 'extracted' | 'died' | 'abandoned'; seconds?: number; sector?: string; probe?: string; suspicious?: boolean; coop?: boolean };
+type RunSpec = { at: Date; depth?: number; kills?: number; cores?: number; outcome?: 'extracted' | 'died' | 'abandoned'; seconds?: number; sector?: string; probe?: string; suspicious?: boolean; coop?: boolean; simVersion?: string };
 
 /** A finished run straight in the table (a group run with its group's row when `coop`). */
 async function finishedRun(accountId: string, r: RunSpec, extra: { seed?: string; claim?: object; ticks?: number; hash?: string; level?: number } = {}): Promise<string> {
@@ -141,7 +144,7 @@ async function finishedRun(accountId: string, r: RunSpec, extra: { seed?: string
       probe: r.probe ?? 'lumen',
       relics: '[]',
       content_version: 0,
-      sim_version: SIM_VERSION,
+      sim_version: r.simVersion ?? SIM_VERSION,
       start_key: randomUUID(),
       started_at: new Date(r.at.getTime() - 600_000),
       finished_at: r.at,
@@ -501,7 +504,8 @@ describe('la revisión y los resultados', () => {
 
     // The money waits for an admin, who marks it paid once (audited).
     const cash = (await get(app.app, '/galaxy/api/admin/tournaments/cash', { cookie: admin.cookie })).json() as { cash: { tournamentId: string; username: string; paidAt: string | null; amountEur: number }[] };
-    expect(cash.cash.filter((c) => c.tournamentId === t.id)).toEqual([expect.objectContaining({ username: y.username, amountEur: 30, paidAt: null })]);
+    // The prize place (first among those who can win), not the overall rank (second, behind who cannot).
+    expect(cash.cash.filter((c) => c.tournamentId === t.id)).toEqual([expect.objectContaining({ username: y.username, rank: 1, amountEur: 30, paidAt: null })]);
     const paid = await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/cash/${y.username}/paid`, { reason: 'Pagado por transferencia', password: admin.password }, { cookie: admin.cookie });
     expect(paid.statusCode, paid.body).toBe(200);
     expect(paid.json().paidAt).not.toBeNull();
@@ -526,5 +530,178 @@ describe('la revisión y los resultados', () => {
     const card = ((await get(app.app, '/galaxy/api/tournaments', { cookie: p.cookie })).json() as TournamentList).upcoming.find((c) => c.id === t.id)!;
     expect(card.me).toMatchObject({ status: 'disqualified', reason: 'Trampas' });
     expect((await join(p.cookie, t.id)).json().error).toBe('tournament_disqualified');
+  });
+});
+
+/** A run the bot played, kept as the server keeps it (its own inputs, or none; another simulation's, maybe). */
+async function realRun(accountId: string, at: Date, depth: number, opts: { inputs?: boolean; tamper?: boolean; simVersion?: string } = {}) {
+  const real = playedRun(900);
+  const s = real.summary;
+  const claim = { ticks: s.ticks, depth: s.depth, kills: s.kills + (opts.tamper ? 5 : 0), bossKills: s.bossKills, level: s.level };
+  const id = await finishedRun(accountId, { at, depth, kills: s.kills, cores: s.bossKills, outcome: real.run.outcome!, simVersion: opts.simVersion }, { seed: real.start.seed, ticks: s.ticks, hash: s.hash, level: s.level, claim });
+  if (opts.inputs !== false) await app.db.insertInto('galaxy.run_inputs').values({ run_id: id, inputs: Buffer.from(real.bytes) }).execute();
+  return { id };
+}
+const checkOf = (tournament: string, run: string) => app.db.selectFrom('galaxy.tournament_checks').select(['status', 'attempts', 'detail', 'decision']).where('tournament_id', '=', tournament).where('run_id', '=', run).executeTakeFirst();
+const fixed = (verdict: Awaited<ReturnType<Replayer['verify']>>): Replayer => ({ verify: async () => verdict, close: async () => undefined });
+
+describe('la revisión, a fondo (revisión del PR, 2026-11-22)', () => {
+  test('publicar nunca da un premio a quien sube sin comprobar, aunque suba justo antes de publicar', async () => {
+    const w = windowOf(18);
+    const t = await scheduled(record(18, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const [top, next] = [await player('trtop'), await player('trnext')];
+    for (const p of [top, next]) expect((await join(p.cookie, t.id)).statusCode).toBe(200);
+    const d = playedRun(900).summary.depth;
+    const topRun = await realRun(top.id, w.at(2), d + 3);
+    // The second has no inputs: checked, it could only wait for a decision.
+    const nextRun = await realRun(next.id, w.at(3), d + 1, { inputs: false });
+    await tick(w.at(1));
+    // Ended and its prize place replayed, the results not out yet (the review takes an hour more here).
+    await app.db.updateTable('galaxy.tournaments').set({ review_hours: 1 }).where('id', '=', t.id).execute();
+    await tick(w.at(48.5));
+    expect((await checkOf(t.id, topRun.id))?.status).toBe('ok');
+    expect(await checkOf(t.id, nextRun.id)).toBeUndefined();
+    // Something that does not wait for the tournament (an admin's mark, a ban) lands while the results are about to
+    // publish: the top run stops counting and the second moves up.
+    let calls = 0;
+    const racing = {
+      ...config,
+      get: (async (key: string) => {
+        if (key === 'account' && ++calls === 2) await app.db.updateTable('galaxy.runs').set({ suspicious: true }).where('id', '=', topRun.id).execute();
+        return config.get(key as never);
+      }) as typeof config.get,
+    };
+    await finishTournament({ db: app.db, config: racing, now: () => w.at(51) }, t.id);
+    const won = await app.db.selectFrom('galaxy.tournament_entries').select(['account_id', 'rewards']).where('tournament_id', '=', t.id).execute();
+    const winners = won.filter((x) => x.rewards !== null).map((x) => x.account_id);
+    // Whoever wins rests on a run that was replayed and passed.
+    expect(winners.filter((id) => id !== top.id)).toEqual([]);
+  });
+
+  test('al cerrar el servidor la comprobación en marcha sigue pendiente; un hilo caído se reintenta tres veces y después es un error', async () => {
+    const w = windowOf(19);
+    const t = await scheduled(record(19, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const p = await player('trretry');
+    await join(p.cookie, t.id);
+    const run = await realRun(p.id, w.at(2), 5);
+    await tick(w.at(1));
+    // The end, with a replayer that is closing (a deploy): nothing is written.
+    await tournamentTick({ db: app.db, config, now: () => w.at(49), live, replayer: fixed({ status: 'aborted' }) });
+    expect(await checkOf(t.id, run.id)).toMatchObject({ status: 'pending', attempts: 0, detail: null });
+    const dead = fixed({ status: 'error', detail: { reason: 'worker_failed' } });
+    const step = () => processNextCheck({ db: app.db, config, now: () => w.at(50) }, dead, { tournament: t.id });
+    expect(await step()).toBe('done');
+    expect(await checkOf(t.id, run.id)).toMatchObject({ status: 'pending', attempts: 1 });
+    await step();
+    expect(await checkOf(t.id, run.id)).toMatchObject({ status: 'pending', attempts: 2 });
+    await step();
+    expect(await checkOf(t.id, run.id)).toMatchObject({ status: 'error', attempts: 3, detail: { reason: 'worker_failed' } });
+  });
+
+  test('un admin no decide sobre su propia partida, ni sobre la de otro del equipo; un superadmin, sí', async () => {
+    const w = windowOf(20);
+    const t = await scheduled(record(20, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const playing = await staff('admin');
+    expect((await join(playing.cookie, t.id)).statusCode).toBe(200);
+    const run = await realRun(playing.id, w.at(2), 5, { inputs: false });
+    await tick(w.at(1));
+    await tick(w.at(49));
+    expect((await checkOf(t.id, run.id))?.status).toBe('unverifiable');
+    const decide = (by: Staff) => post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/${run.id}/decide`, { decision: 'accept', reason: 'Vista a mano', password: by.password }, { cookie: by.cookie });
+    expect((await decide(playing)).json().error).toBe('self_target');
+    expect((await decide(admin)).json().error).toBe('staff_target');
+    expect((await decide(superadmin)).statusCode).toBe(200);
+  });
+
+  test('decidir en bloque las que no se pueden comprobar, por motivo o por jugador, saltando las que el admin no puede decidir', async () => {
+    const w = windowOf(21);
+    const t = await scheduled(record(21, { prizes: [{ from: 1, to: 4, gifts: [coins(10)] }], reviewHours: 0 }));
+    const [a, b] = [await player('trbulka'), await player('trbulkb')];
+    const playing = await staff('admin');
+    const playingName = (await app.db.selectFrom('galaxy.accounts').select('username').where('id', '=', playing.id).executeTakeFirstOrThrow()).username;
+    for (const x of [a, b, playing]) expect((await join(x.cookie, t.id)).statusCode).toBe(200);
+    const a1 = await realRun(a.id, w.at(2), 6, { inputs: false });
+    const a2 = await realRun(a.id, w.at(3), 6, { inputs: false });
+    const b1 = await realRun(b.id, w.at(2), 5, { simVersion: '0.0.1' });
+    const c1 = await realRun(playing.id, w.at(2), 4, { inputs: false });
+    await tick(w.at(1));
+    await tick(w.at(49));
+    let r = await review(t.id);
+    expect(Object.fromEntries(r.checks.map((c) => [c.runId, (c.detail as { reason?: string } | null)?.reason]))).toEqual({ [a1.id]: 'inputs_missing', [a2.id]: 'inputs_missing', [b1.id]: 'sim_version', [c1.id]: 'inputs_missing' });
+    expect(r.unverifiable.byReason).toEqual(expect.arrayContaining([{ reason: 'inputs_missing', count: 3, blocking: 3 }, { reason: 'sim_version', count: 1, blocking: 1 }]));
+    expect(r.unverifiable.byPlayer).toEqual(expect.arrayContaining([{ username: a.username, count: 2, blocking: 2 }, { username: playingName, count: 1, blocking: 1 }]));
+    expect(r.blocking).toBe(4);
+
+    const many = (body: object) => post(app.app, `/galaxy/api/admin/tournaments/${t.id}/checks/decide-many`, { reason: 'Revisadas en bloque', password: admin.password, ...body }, { cookie: admin.cookie });
+    const first = await many({ decision: 'accept', filter: { reason: 'inputs_missing' } });
+    expect(first.statusCode, first.body).toBe(200);
+    const done = first.json() as TournamentDecideManyResult;
+    expect(done.decided).toBe(2);
+    expect(done.skipped).toEqual([{ runId: c1.id, username: playingName, why: 'staff_target' }]);
+    const second = (await many({ decision: 'accept', filter: { username: b.username } })).json() as TournamentDecideManyResult;
+    expect(second.decided).toBe(1);
+    r = second;
+    expect(r.blocking).toBe(1);
+    expect(r.canPublish).toBe(false);
+    const audit = await app.db.selectFrom('galaxy.admin_audit_log').select(['action', 'after']).where('target_id', '=', t.id).where('action', '=', 'tournament.checks_decided').orderBy('id').execute();
+    expect(audit.map((x) => (x.after as { decided: number }).decided)).toEqual([2, 1]);
+  });
+
+  test('una comprobación de quien ya no está en los premios no frena los resultados', async () => {
+    const w = windowOf(22);
+    const t = await scheduled(record(22, { prizes: [{ from: 1, to: 1, gifts: [coins(100)] }], reviewHours: 0 }));
+    const [x, y] = [await player('trstalex'), await player('trstaley')];
+    for (const p of [x, y]) await join(p.cookie, t.id);
+    const d = Math.max(1, playedRun(900).summary.depth);
+    // x leads with a run that does not match and one without inputs; y, honest, is between what x had and what x keeps.
+    await realRun(x.id, w.at(2), d + 5, { tamper: true });
+    await realRun(x.id, w.at(3), d, { inputs: false });
+    const honest = await realRun(y.id, w.at(4), d + 3);
+    await tick(w.at(1));
+    const end = await tick(w.at(49));
+    expect((await checkOf(t.id, honest.id))?.status).toBe('ok');
+    expect(end.finished).toContain(t.id);
+    const winner = await app.db.selectFrom('galaxy.tournament_entries').select('rewards').where('tournament_id', '=', t.id).where('account_id', '=', y.id).executeTakeFirstOrThrow();
+    expect(winner.rewards).toMatchObject({ place: 1 });
+  });
+
+  test('volver a admitir a un descalificado no lo deja en dos exclusivos que se solapan', async () => {
+    const wa = windowOf(23);
+    const a = await scheduled(record(23));
+    const b = await scheduled(record(24, { startsAt: wa.startsAt, endsAt: wa.endsAt }));
+    const p = await player('trrequal');
+    expect((await join(p.cookie, a.id)).statusCode).toBe(200);
+    const dq = (disqualified: boolean) => post(app.app, `/galaxy/api/admin/tournaments/${a.id}/entries/${p.username}/disqualify`, { disqualified, reason: 'Revisión', password: admin.password }, { cookie: admin.cookie });
+    expect((await dq(true)).statusCode).toBe(200);
+    expect((await join(p.cookie, b.id)).statusCode).toBe(200);
+    const back = await dq(false);
+    expect(back.statusCode).toBe(409);
+    expect(back.json()).toMatchObject({ error: 'tournament_exclusive', slug: (await tournamentById(app.db, b.id)).record.slug });
+  });
+
+  test('quien está fuera de la clasificación no puede inscribirse', async () => {
+    const t = await scheduled(record(25));
+    const p = await player('trexcl');
+    await app.db.updateTable('galaxy.accounts').set({ leaderboard_excluded: true }).where('id', '=', p.id).execute();
+    const card = ((await get(app.app, '/galaxy/api/tournaments', { cookie: p.cookie })).json() as TournamentList).upcoming.find((c) => c.id === t.id)!;
+    expect(card.join).toEqual({ open: false, block: 'excluded' });
+    const res = await join(p.cookie, t.id);
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('tournament_excluded');
+  });
+
+  test('el panel avisa cuando la simulación cambió desde que empezó un torneo', async () => {
+    const w = windowOf(26);
+    const t = await scheduled(record(26));
+    const p = await player('trsim');
+    await join(p.cookie, t.id);
+    await tick(w.at(1));
+    const one = async () => (await get(app.app, `/galaxy/api/admin/tournaments/${t.id}`, { cookie: admin.cookie })).json() as AdminTournament;
+    expect(await one()).toMatchObject({ state: 'running', simVersion: SIM_VERSION, simChanged: false, simVersions: [] });
+    await realRun(p.id, w.at(2), 3, { inputs: false });
+    await app.db.updateTable('galaxy.tournaments').set({ started_sim_version: '0.0.1' }).where('id', '=', t.id).execute();
+    expect(await one()).toMatchObject({ simVersion: '0.0.1', simChanged: true, simVersions: [SIM_VERSION] });
+    const list = (await get(app.app, '/galaxy/api/admin/tournaments', { cookie: admin.cookie })).json() as AdminTournamentList;
+    expect(list.simVersion).toBe(SIM_VERSION);
   });
 });

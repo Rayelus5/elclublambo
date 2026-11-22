@@ -1,4 +1,4 @@
-import { type HallOfFame, type SeasonHistory, type SeasonResult, type SeasonReward, seasonTier, type SeasonTier, SEASON_TIERS } from '@galaxy/shared';
+import { type HallOfFame, type SeasonHistory, type SeasonResult, type SeasonReward, type SeasonStats, seasonTier, type SeasonTier, SEASON_TIERS } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { credit } from '../economy/wallet';
@@ -36,19 +36,6 @@ export function podiumOf(rows: readonly { accountId: string; rank: number }[], s
     if (!ineligible.has(r.accountId)) out.add(r.accountId);
   }
   return out;
-}
-
-/** What a season was, frozen at its close (`season_archive.stats`). */
-export interface SeasonStats {
-  players: number;
-  runs: number;
-  kills: number;
-  cores: number;
-  extractions: number;
-  maxDepth: number;
-  topSector: string | null;
-  topProbe: string | null;
-  tiers: Record<SeasonTier, number>;
 }
 
 async function seasonStats(db: Kysely<DB>, s: SeasonConfigs['season'], minRunSeconds: number, tiers: (SeasonTier | null)[]): Promise<SeasonStats> {

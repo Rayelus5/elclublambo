@@ -9,6 +9,8 @@ import {
   tournamentCheckParamsSchema,
   tournamentCreateBodySchema,
   tournamentDecideBodySchema,
+  tournamentDecideManyBodySchema,
+  type TournamentDecideManyResult,
   tournamentDeleteBodySchema,
   type TournamentDetail,
   tournamentDisqualifyBodySchema,
@@ -23,6 +25,7 @@ import {
   type TournamentValidation,
   tournamentValidateBodySchema,
 } from '@galaxy/shared';
+import { SIM_VERSION } from '@galaxy/sim';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { confirmPassword } from '../admin/players';
 import type { AuditActor } from '../audit';
@@ -35,7 +38,7 @@ import { clientIp } from '../security/client-ip';
 import { bigReasonsOf, cancelTournament, createTournament, deleteTournament, scheduleTournament, type TournamentDeps, unscheduleTournament, updateTournament } from './admin';
 import { claimTournament, joinTournament, leaveTournament, tournamentDetail, tournamentList } from './player';
 import { recordIssues, tournamentById, tournamentsIn } from './records';
-import { adminTournamentOf, cashPrizes, decideCheck, disqualifyEntry, finishTournament, markCashPaid, reviewView } from './review';
+import { adminTournamentOf, cashPrizes, decideCheck, decideMany, disqualifyEntry, finishTournament, markCashPaid, reviewView } from './review';
 
 // The tournaments' routes (plan «temporadas como fichas», part 5; GDD §13.3). Players: the list, a tournament's page,
 // and signing up, leaving and collecting with an `Idempotency-Key` (a resend answers from the stored operation without
@@ -101,7 +104,7 @@ export function registerTournamentRoutes(api: FastifyInstance, deps: TournamentD
     const s = requireAdmin(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'admin', 120, 60);
     const all = await tournamentsIn(deps.db, ['draft', 'scheduled', 'running', 'review', 'finished', 'cancelled'], (id, err) => req.log.error({ tournament: id, err: (err as Error).name }, 'tournament_invalid_stored_row'));
-    return { tournaments: await Promise.all(all.map((t) => adminTournamentOf(deps, t))), now: deps.now().toISOString() };
+    return { tournaments: await Promise.all(all.map((t) => adminTournamentOf(deps, t))), now: deps.now().toISOString(), simVersion: SIM_VERSION };
   });
 
   api.get('/galaxy/api/admin/tournaments/cash', async (req): Promise<{ cash: AdminTournamentCash[] }> => {
@@ -188,12 +191,21 @@ export function registerTournamentRoutes(api: FastifyInstance, deps: TournamentD
     return reviewView(deps, id);
   });
 
+  // In bulk, the undecided unverifiable ones matching the filter (the owner, 2026-11-22: «decidir en bloque»).
+  api.post('/galaxy/api/admin/tournaments/:id/checks/decide-many', async (req): Promise<TournamentDecideManyResult> => {
+    const { s, actor, confirm } = await admin(req);
+    const { id } = tournamentIdParamsSchema.parse(req.params);
+    const { decision, filter, reason, password } = tournamentDecideManyBodySchema.parse(req.body);
+    await confirm(password);
+    return decideMany(deps, s, actor, id, decision, filter, reason);
+  });
+
   api.post('/galaxy/api/admin/tournaments/:id/checks/:run/decide', async (req): Promise<AdminTournamentReview> => {
-    const { actor, confirm } = await admin(req);
+    const { s, actor, confirm } = await admin(req);
     const { id, run } = tournamentCheckParamsSchema.parse(req.params);
     const { decision, reason, password } = tournamentDecideBodySchema.parse(req.body);
     await confirm(password);
-    await decideCheck(deps, actor, id, run, decision, reason);
+    await decideCheck(deps, s, actor, id, run, decision, reason);
     return reviewView(deps, id);
   });
 
