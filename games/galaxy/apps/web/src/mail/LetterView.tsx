@@ -10,7 +10,7 @@ import { MAIL_TYPE_LOOK, mailTypeName } from './types';
 
 // A letter as its reader sees it (mail v2): the stamp of its kind in its colour, its title, date and text as written,
 // and its gift — the loose gifts and each pack under its name — with whatever action goes under it (claiming, in the
-// mailbox; nothing, in the panel's preview).
+// mailbox; nothing, in the panel's preview). A season's or a tournament's letter leads to the page of its prizes.
 
 const t = copy.mail;
 const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));
@@ -26,6 +26,8 @@ export function LetterView({
   contents,
   catalog,
   taken = false,
+  link = null,
+  onGo,
   children,
 }: {
   type: MailType;
@@ -37,6 +39,10 @@ export function LetterView({
   catalog: View;
   /** Its gift was claimed: shown dimmed. */
   taken?: boolean;
+  /** The in-game page its button opens (a tournament's results: `/torneos/<slug>`). */
+  link?: string | null;
+  /** Leaving for that page (or the season's): the mailbox closes behind. */
+  onGo?: () => void;
   /** Under the gift: «Recoger» or what it gave. */
   children?: ReactNode;
 }) {
@@ -55,9 +61,16 @@ export function LetterView({
       </p>
       <p className="letter-body">{body}</p>
       {type === 'season' ? (
-        <Link to="/temporada" className="lip pill pill-solar letter-go">
+        <Link to="/temporada" className="lip pill pill-solar letter-go" onClick={onGo}>
           <Icon name="podium" />
           <span>{t.goSeason}</span>
+        </Link>
+      ) : null}
+      {/* A tournament's results (plan «temporadas como fichas», part 5): the prizes are collected on its page. */}
+      {type === 'tournament' && link?.startsWith('/torneos/') ? (
+        <Link to={link} className="lip pill pill-solar letter-go" onClick={onGo}>
+          <Icon name="trophy" />
+          <span>{t.goTournament}</span>
         </Link>
       ) : null}
       {any ? (

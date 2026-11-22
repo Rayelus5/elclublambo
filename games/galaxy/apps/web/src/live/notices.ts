@@ -8,6 +8,7 @@ import { MISSIONS_KEY } from '../api/missions';
 import { LEADERBOARD_KEY, PROFILE_KEY } from '../api/social';
 import { TRADES_KEY } from '../api/trades';
 import { syncWallet } from '../api/wallet';
+import { TOURNAMENTS_KEY } from '../api/tournaments';
 
 // What a real-time notice touches (plan of 2026-11-12), read again at once: `hidden` lists are refetched even when no
 // screen shows them (one exact key each), so they are right the moment one opens; the rest (prefixes with many pages
@@ -15,8 +16,8 @@ import { syncWallet } from '../api/wallet';
 
 export type Refresh = { key: QueryKey; hidden?: true };
 
-/** The prefix of every tournament query (the list and each page). */
-export const TOURNAMENTS_KEY = ['tournaments'] as const;
+/** The prefix of every tournament query (the list and each page): api/tournaments.ts. */
+export { TOURNAMENTS_KEY };
 
 export function refreshFor(n: LiveNotice): Refresh[] {
   switch (n.kind) {

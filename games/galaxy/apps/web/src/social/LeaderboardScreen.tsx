@@ -16,11 +16,13 @@ import { useContentNames } from '../api/content-names';
 import { PreviewBanner, seasonSpan } from '../season/SeasonPreview';
 import { Select, type SelectOption } from '../ui/Select';
 import { PastBoard } from './PastSeason';
+import { TournamentsSideCard } from '../tournaments/SideCard';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
 // view can be shared; the podium holds the top three and the table the rest (in General with each player's runs and
 // best layer, 2026-11-21), scrolling inside its own box; your row is marked, and pinned below when it is out of the
-// top; beside them, the season card (SeasonCard), which leads to the season's route and shop. A selector chooses the
+// top; beside them, the season card (SeasonCard), which leads to the season's route and shop, and the tournaments
+// running now with my place in each. A selector chooses the
 // season (plan «temporadas como fichas», histórico, 2026-11-22), also in the address (?temporada=): the current one, or
 // a closed one with its final General ranking (PastSeason.tsx; the other tabs are not kept). An admin with a season
 // still to come in the address sees its preview: its card as it will open, with nobody on it, and a way back to the
@@ -365,6 +367,8 @@ export function LeaderboardScreen() {
             <aside className="lb-side">
               {/* Your score and the season's players, whatever the tab (Purgas only counts those with a Core). */}
               <SeasonCard season={v.season} me={general.data?.me ?? null} total={general.data?.total ?? v.total} />
+              {/* The tournaments running now, with my place in each (plan «temporadas como fichas», part 5). */}
+              <TournamentsSideCard />
             </aside>
           </div>
         )}

@@ -34,6 +34,8 @@ export const SCREEN_TITLES: readonly (readonly [pattern: string, screen: string 
   ['/temporada', 'Temporada'],
   ['/trofeos', 'Trofeos'],
   ['/clasificacion', 'Clasificación'],
+  ['/torneos', 'Torneos'],
+  ['/torneos/:slug', 'Torneo'],
   ['/clanes', 'Clanes'],
   ['/clanes/:tag', 'Clan'],
   ['/mercado', 'Mercado'],
