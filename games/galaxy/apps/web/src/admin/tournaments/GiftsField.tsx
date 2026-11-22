@@ -18,9 +18,9 @@ export const MAX_PRIZE_GIFTS = 20;
 
 /** The gifts in a line: each drawing with its words. */
 export function GiftLine({ gifts, catalog }: { gifts: readonly Gift[]; catalog: GiftCatalog }) {
-  if (gifts.length === 0) return <span className="tn-gifts-none">{t.noGifts}</span>;
+  if (gifts.length === 0) return <span className="atn-gifts-none">{t.noGifts}</span>;
   return (
-    <ul className="tn-gift-line">
+    <ul className="atn-gift-line">
       {gifts.map((g, i) => (
         <li key={i}>
           <GiftArt gift={g} catalog={catalog} compact />
@@ -37,14 +37,14 @@ export function GiftsField({ gifts, catalog, title, onChange }: { gifts: readonl
   const issues = giftIssues(gifts, catalog.live).filter((i) => i.code !== 'season_closed' && i.code !== 'event_closed');
   const full = gifts.length >= MAX_PRIZE_GIFTS;
   return (
-    <div className="tn-gifts">
+    <div className="atn-gifts">
       <GiftLine gifts={gifts} catalog={catalog} />
       <button type="button" className="lip pill small" aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <Icon name="plus" />
         <span>{t.chooseGifts}</span>
       </button>
       {open ? (
-        <Dialog title={title} className="admin-dialog tn-gift-dialog" onClose={() => setOpen(false)}>
+        <Dialog title={title} className="admin-dialog atn-gift-dialog" onClose={() => setOpen(false)}>
           <GiftTray items={gifts} packs={[]} catalog={catalog} issues={issues} maxItems={MAX_PRIZE_GIFTS} maxPacks={0} onRemove={(i) => onChange(gifts.filter((_, k) => k !== i))} onRemovePack={() => {}} />
           <GiftPicker
             catalog={catalog}
@@ -59,7 +59,7 @@ export function GiftsField({ gifts, catalog, title, onChange }: { gifts: readonl
             }}
           />
           <p className="hint">{t.packsNote}</p>
-          <button type="button" className="lip pill pill-solar tn-gift-done" onClick={() => setOpen(false)}>
+          <button type="button" className="lip pill pill-solar atn-gift-done" onClick={() => setOpen(false)}>
             {t.giftsDone}
           </button>
         </Dialog>

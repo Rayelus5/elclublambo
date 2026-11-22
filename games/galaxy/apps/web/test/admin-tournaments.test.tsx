@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { type AdminSeason, type AdminTournament, type AdminTournamentCash, type AdminTournamentReview, CONFIG_KEYS, type MeResponse, parseConfig, type TournamentRecord } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -206,6 +208,8 @@ test('los premios en metálico pendientes se marcan como pagados con motivo y co
   const section = await screen.findByRole('region', { name: t.cash.title });
   const row = within(section).getByRole('row', { name: /orion/ });
   expect(within(row).getByText('150,00 €')).toBeInTheDocument();
+  // Writing to the winner opens Comunicación with them and the subject already there.
+  expect(within(row).getByRole('link', { name: t.cash.writeTo('orion') })).toHaveAttribute('href', `/admin/comunicacion?para=orion&asunto=${encodeURIComponent(t.cash.subject('Gran Premio'))}`);
   // The paid one is not in the way.
   expect(within(section).queryByRole('button', { name: t.cash.markPaidOf('lyra') })).not.toBeInTheDocument();
   await user.click(within(row).getByRole('button', { name: t.cash.markPaidOf('orion') }));
@@ -507,4 +511,14 @@ test('si cambió la versión de la simulación durante el torneo, la lista y la 
   renderAt(`/admin/torneos/${ID.review}`, { '/admin/torneos/:id': <TournamentPage /> });
   await screen.findByRole('region', { name: p.rankingTitle });
   expect(screen.getByText(t.simChanged)).toBeInTheDocument();
+});
+
+// The panel's own classes (atn-): the players' screens use tn-, and one sheet holds both (2026-11-22, `.tn-cash` of the
+// players' € chip turned the panel's money section into a green pill).
+test('el panel de torneos usa sus propias clases, que nunca pisan las de las pantallas del jugador', () => {
+  const dir = resolve(process.cwd(), 'apps/web/src/admin/tournaments');
+  for (const f of readdirSync(dir)) expect(readFileSync(join(dir, f), 'utf8'), f).not.toMatch(/(?<![\w-])tn-/);
+  // And the sheet styles them under their own name.
+  const css = readFileSync(resolve(process.cwd(), 'apps/web/src/styles/app.css'), 'utf8');
+  for (const name of ['atn-cash', 'atn-card', 'atn-chip', 'atn-ranking', 'atn-rules']) expect(css, name).toContain(`.${name} `);
 });

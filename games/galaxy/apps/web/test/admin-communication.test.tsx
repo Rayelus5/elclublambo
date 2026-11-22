@@ -69,6 +69,16 @@ test('enviar a una lista de cuentas dice a cuántas llega y manda solo lo escrit
   expect(await screen.findByRole('status')).toHaveTextContent(t.sent(2));
 });
 
+test('desde un premio en metálico llega con el ganador y el asunto puestos, como mensaje personal', async () => {
+  mockApi(routes());
+  renderAt('/admin/comunicacion?para=orion&asunto=Tu%20premio%20en%20Gran%20Premio', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  expect(within(form).getByLabelText(t.fields.title)).toHaveValue('Tu premio en Gran Premio');
+  expect(within(form).getByLabelText(t.fields.usernames)).toHaveValue('orion');
+  expect(await within(form).findByText(t.reach(2))).toBeInTheDocument();
+  expect(within(form).getByRole('radio', { name: copy.mailTypes.personal.name })).toBeChecked();
+});
+
 test('con regalos pide la contraseña y la manda', async () => {
   const fetch = mockApi(routes({ 'POST /galaxy/api/admin/mail': () => jsonResponse(200, { id: 'm9', recipients: 40 }) }));
   renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });

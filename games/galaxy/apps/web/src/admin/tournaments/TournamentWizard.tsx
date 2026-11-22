@@ -85,9 +85,9 @@ function Problems({ issues, path, exact = false }: { issues: readonly Tournament
 function ToggleRow({ label, hint, checked, disabled = false, onChange, children }: { label: string; hint: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void; children?: ReactNode }) {
   const id = useId();
   return (
-    <div className={`tn-toggle${checked ? ' on' : ''}${disabled ? ' off' : ''}`}>
-      <div className="tn-toggle-head">
-        <span id={`${id}-l`} className="tn-toggle-label">
+    <div className={`atn-toggle${checked ? ' on' : ''}${disabled ? ' off' : ''}`}>
+      <div className="atn-toggle-head">
+        <span id={`${id}-l`} className="atn-toggle-label">
           {label}
         </span>
         <Switch aria-labelledby={`${id}-l`} aria-describedby={`${id}-h`} checked={checked} disabled={disabled} onChange={onChange} />
@@ -95,7 +95,7 @@ function ToggleRow({ label, hint, checked, disabled = false, onChange, children 
       <p id={`${id}-h`} className="cf-hint">
         {hint}
       </p>
-      {checked && children ? <div className="cf-grid tn-toggle-body">{children}</div> : null}
+      {checked && children ? <div className="cf-grid atn-toggle-body">{children}</div> : null}
     </div>
   );
 }
@@ -126,13 +126,13 @@ function ImageField({ label, hint, value, assets, banner, onChange }: { label: s
     </label>
   );
   return (
-    <fieldset className="news-picker tn-image">
+    <fieldset className="news-picker atn-image">
       <legend>{label}</legend>
-      <div className={`tn-image-preview${banner ? ' banner' : ''}`}>
-        {value ? <img src={mediaUrl(value)} alt="" draggable={false} /> : <span className="tn-card-sky" aria-hidden="true" />}
+      <div className={`atn-image-preview${banner ? ' banner' : ''}`}>
+        {value ? <img src={mediaUrl(value)} alt="" draggable={false} /> : <span className="atn-card-sky" aria-hidden="true" />}
       </div>
-      <p className={off ? 'cf-hint tn-warn' : 'cf-hint'}>{off ? t.fields.bannerOff(chosen.width, chosen.height) : hint}</p>
-      <div className="news-picks tn-picks" role="presentation">
+      <p className={off ? 'cf-hint atn-warn' : 'cf-hint'}>{off ? t.fields.bannerOff(chosen.width, chosen.height) : hint}</p>
+      <div className="news-picks atn-picks" role="presentation">
         {pick('none', null, null, t.fields.noImage)}
         {assets.map((a) => pick(a.id, a.id, mediaUrl(a.id), a.name))}
       </div>
@@ -156,7 +156,7 @@ function MetricPicker({ value, onChange }: { value: TournamentMetric; onChange: 
     go(to);
   };
   return (
-    <div className="tn-metrics" role="radiogroup" aria-label={t.metricsLabel}>
+    <div className="atn-metrics" role="radiogroup" aria-label={t.metricsLabel}>
       {TOURNAMENT_METRICS.map((m, i) => {
         const words = t.metrics[m];
         return (
@@ -169,11 +169,11 @@ function MetricPicker({ value, onChange }: { value: TournamentMetric; onChange: 
             role="radio"
             aria-checked={m === value}
             tabIndex={m === value ? 0 : -1}
-            className={`tn-metric${m === value ? ' on' : ''}`}
+            className={`atn-metric${m === value ? ' on' : ''}`}
             onClick={() => go(i)}
             onKeyDown={(e) => onKey(e, i)}
           >
-            <span className="tn-metric-icon" aria-hidden="true">
+            <span className="atn-metric-icon" aria-hidden="true">
               <Icon name={METRIC_ICON[m]} />
             </span>
             <b>{words.name}</b>
@@ -192,7 +192,7 @@ function MetricPicker({ value, onChange }: { value: TournamentMetric; onChange: 
 function SeasonFit({ season, record }: { season: AdminSeason | null; record: TournamentRecord }) {
   if (!season)
     return (
-      <div className="ev-warnings tn-season-none" role="status">
+      <div className="ev-warnings atn-season-none" role="status">
         <p>
           <Icon name="alert" />
           <span>{t.noSeason}</span>
@@ -211,15 +211,15 @@ function SeasonFit({ season, record }: { season: AdminSeason | null; record: Tou
   const outside = Date.parse(record.endsAt) > Date.parse(season.endsAt);
   const vars = { '--tn-from': `${from}%`, '--tn-to': `${Math.min(100, to)}%` } as CSSProperties;
   return (
-    <div className="lip panel tn-season">
-      <p className="tn-season-name">
+    <div className="lip panel atn-season">
+      <p className="atn-season-name">
         <Icon name="podium" />
         <span>{t.seasonIn(season.name, shortDay(season.startsAt), shortDay(new Date(Date.parse(season.endsAt) - 1).toISOString()))}</span>
       </p>
-      <div className={`tn-timeline${outside ? ' bad' : ''}`} role="img" aria-label={t.timelineLabel} style={vars}>
-        <span className="tn-timeline-run" />
+      <div className={`atn-timeline${outside ? ' bad' : ''}`} role="img" aria-label={t.timelineLabel} style={vars}>
+        <span className="atn-timeline-run" />
       </div>
-      {season.state === 'draft' ? <p className="cf-hint tn-warn">{t.seasonDraft}</p> : null}
+      {season.state === 'draft' ? <p className="cf-hint atn-warn">{t.seasonDraft}</p> : null}
     </div>
   );
 }
@@ -249,8 +249,8 @@ export function TournamentSummary({ record, season, catalog, entrants = 0, state
   const [now] = useState(() => Date.now());
   const signUp = [r.exclusive ? t.exclusiveMark : null, r.entry ? `${t.facts.entry} ${feeWords(r.entry)}` : t.free, r.filters.minLevel ? t.card.level(r.filters.minLevel) : null, r.maxEntrants ? t.capSummary(r.maxEntrants) : t.noCap].filter(Boolean);
   return (
-    <div className="tn-summary">
-      <dl className="ev-facts tn-facts">
+    <div className="atn-summary">
+      <dl className="ev-facts atn-facts">
         <div>
           <dt>{t.facts.season}</dt>
           <dd>{season ? season.name : t.noSeason}</dd>
@@ -277,7 +277,7 @@ export function TournamentSummary({ record, season, catalog, entrants = 0, state
           <dt>{t.facts.prizes}</dt>
           <dd>
             <span>{r.prizes.length ? t.rangesSummary(r.prizes.length, r.prizes.at(-1)!.to) : t.noPrizes}</span>
-            {r.prizes.some((p) => p.cash) ? <small className="tn-money">{t.withCash}</small> : null}
+            {r.prizes.some((p) => p.cash) ? <small className="atn-money">{t.withCash}</small> : null}
             {r.participation ? <small>{t.withParticipation}</small> : null}
           </dd>
         </div>
@@ -286,18 +286,18 @@ export function TournamentSummary({ record, season, catalog, entrants = 0, state
           <dd>{t.reviewHours(r.reviewHours)}</dd>
         </div>
       </dl>
-      <section className="tn-preview" aria-label={t.preview}>
+      <section className="atn-preview" aria-label={t.preview}>
         <h3>{t.preview}</h3>
-        <div className="tn-preview-grid">
+        <div className="atn-preview-grid">
           <PlayerCard record={r} state={state} entrants={entrants} catalog={catalog} now={now} />
-          <div className="tn-preview-page">
-            {r.detailsMedia ? <img className="tn-details-img" src={mediaUrl(r.detailsMedia)} alt="" draggable={false} /> : null}
+          <div className="atn-preview-page">
+            {r.detailsMedia ? <img className="atn-details-img" src={mediaUrl(r.detailsMedia)} alt="" draggable={false} /> : null}
             <h4>{t.prizeTable}</h4>
             {catalog ? <PrizeTable record={r} catalog={catalog} /> : null}
             {r.rules ? (
               <>
                 <h4>{t.rulesTitle}</h4>
-                <p className="tn-rules">{r.rules}</p>
+                <p className="atn-rules">{r.rules}</p>
               </>
             ) : null}
           </div>
@@ -443,7 +443,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
           ) : null}
 
           {step === 'entry' ? (
-            <div className="tn-toggles">
+            <div className="atn-toggles">
               <ToggleRow label={t.fields.exclusive} hint={draft.exclusive ? t.exclusiveOn : t.exclusiveOff} checked={draft.exclusive} onChange={(exclusive) => set({ exclusive })} />
               <ToggleRow label={t.fields.fee} hint={anyCash ? t.feeBlocked : t.feeHint} checked={!!draft.entry} disabled={anyCash && !draft.entry} onChange={(on) => set({ entry: on ? { currency: 'coins', amount: 100 } : null })}>
                 {draft.entry ? (
@@ -474,12 +474,12 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
 
           {step === 'prizes' ? (
             <>
-              <section className="tn-ranges" aria-label={t.rangesTitle}>
+              <section className="atn-ranges" aria-label={t.rangesTitle}>
                 <h3>{t.rangesTitle}</h3>
                 <p className="cf-hint">{t.rangesHint}</p>
                 <Problems issues={issues} path="prizes" exact />
                 {draft.prizes.length === 0 ? (
-                  <div className="tn-ranges-empty">
+                  <div className="atn-ranges-empty">
                     <Icon name="trophy" />
                     <p>{t.noRanges}</p>
                     <button type="button" className="lip pill small pill-solar" onClick={() => set({ prizes: [{ from: 1, to: 1, gifts: [], cash: null }] })}>
@@ -488,24 +488,24 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
                     </button>
                   </div>
                 ) : (
-                  <ol className="tn-range-list">
+                  <ol className="atn-range-list">
                     {draft.prizes.map((p, i) => {
                       const places = t.places(p.from, p.to);
                       const bad = issues.some((x) => x.path === `prizes.${i}` || x.path.startsWith(`prizes.${i}.`));
                       return (
-                        <li key={i} className={`tn-range${bad ? ' bad' : ''}`}>
-                          <div className="tn-range-head">
-                            <b className="tn-place" data-place={Math.min(p.from, 4)}>
+                        <li key={i} className={`atn-range${bad ? ' bad' : ''}`}>
+                          <div className="atn-range-head">
+                            <b className="atn-place" data-place={Math.min(p.from, 4)}>
                               {places}
                             </b>
                             <button type="button" className="cf-icon-btn danger" aria-label={t.removeRange(places)} onClick={() => set({ prizes: draft.prizes.filter((_, k) => k !== i) })}>
                               <Icon name="trash" />
                             </button>
                           </div>
-                          <div className="tn-range-grid">
+                          <div className="atn-range-grid">
                             <NumberField label={t.rangeFrom} value={p.from} onChange={(from) => setPrize(i, { from })} />
                             <NumberField label={t.rangeTo} value={p.to} onChange={(to) => setPrize(i, { to })} />
-                            <div className="tn-range-gifts">
+                            <div className="atn-range-gifts">
                               <span className="cf-absent-label">{t.giftsLabel}</span>
                               {catalog ? <GiftsField gifts={p.gifts} catalog={catalog} title={t.giftsTitle(places)} onChange={(gifts) => setPrize(i, { gifts })} /> : null}
                             </div>
@@ -536,7 +536,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
                 {draft.participation ? (
                   <>
                     <NumberField label={t.fields.minRuns} value={draft.participation.minRuns} onChange={(minRuns) => set({ participation: { ...draft.participation!, minRuns } })} />
-                    <div className="tn-range-gifts">
+                    <div className="atn-range-gifts">
                       <span className="cf-absent-label">{t.giftsLabel}</span>
                       {catalog ? <GiftsField gifts={draft.participation.gifts} catalog={catalog} title={t.participationGiftsTitle} onChange={(gifts) => set({ participation: { ...draft.participation!, gifts } })} /> : null}
                     </div>
@@ -589,7 +589,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
             {issues.length > 0 && blocking.length === 0 ? <p className="panel-note">{t.scheduleOnlyDraftIssues}</p> : null}
           </section>
           <form
-            className="admin-publish tn-draft-form"
+            className="admin-publish atn-draft-form"
             aria-label={t.draftTitle}
             onSubmit={(e) => {
               e.preventDefault();
@@ -615,7 +615,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
             </button>
           </form>
           {step === 'review' ? (
-            <section aria-label={t.scheduleNow} className="tn-schedule">
+            <section aria-label={t.scheduleNow} className="atn-schedule">
               <h2>{t.scheduleTitle}</h2>
               <p className="panel-note">{t.scheduleHint}</p>
               <BigNote reasons={big} superadmin={superadmin} catalog={catalog} />
@@ -683,21 +683,21 @@ function DataStep({ record, issues, assets, set, onTitle, onSlug }: { record: To
           </small>
           <Problems issues={issues} path="slug" />
         </div>
-        <div className="cf-field tn-wide">
+        <div className="cf-field atn-wide">
           <label htmlFor="tw-summary">{t.fields.summary}</label>
           <input id="tw-summary" type="text" maxLength={200} value={record.summary} onChange={(e) => set({ summary: e.target.value })} />
           <small className="cf-hint">{t.fields.summaryHint}</small>
           <Problems issues={issues} path="summary" />
         </div>
-        <div className="cf-field tn-wide">
+        <div className="cf-field atn-wide">
           <label htmlFor="tw-rules">{t.fields.rules}</label>
           <textarea id="tw-rules" rows={6} maxLength={4000} value={record.rules} onChange={(e) => set({ rules: e.target.value })} />
           <small className="cf-hint">{t.fields.rulesHint}</small>
           <Problems issues={issues} path="rules" />
         </div>
       </div>
-      <h3 className="tn-subhead">{t.imagesTitle}</h3>
-      <div className="tn-images">
+      <h3 className="atn-subhead">{t.imagesTitle}</h3>
+      <div className="atn-images">
         <div>
           <ImageField label={t.fields.banner} hint={t.fields.bannerHint(BANNER.width, BANNER.height)} value={record.bannerMedia} assets={assets} banner onChange={(bannerMedia) => set({ bannerMedia })} />
           <Problems issues={issues} path="bannerMedia" />
@@ -747,7 +747,7 @@ function SelectRow({ label, value, options, onChange, issues, path }: { label: s
 function ModeRow({ value, onChange }: { value: TournamentFilters['mode']; onChange: (m: TournamentFilters['mode']) => void }) {
   const id = useId();
   return (
-    <div className="cf-field tn-wide">
+    <div className="cf-field atn-wide">
       <span id={`${id}-l`} className="cf-absent-label">
         {t.fields.mode}
       </span>
@@ -760,9 +760,9 @@ function ModeRow({ value, onChange }: { value: TournamentFilters['mode']; onChan
 function CashRow({ places, cash, blocked, onChange }: { places: string; cash: TournamentRecord['prizes'][number]['cash']; blocked: boolean; onChange: (c: TournamentRecord['prizes'][number]['cash']) => void }) {
   const id = useId();
   return (
-    <div className={`tn-cash-row${cash ? ' on' : ''}`}>
-      <div className="tn-toggle-head">
-        <span id={`${id}-l`} className="tn-toggle-label">
+    <div className={`atn-cash-row${cash ? ' on' : ''}`}>
+      <div className="atn-toggle-head">
+        <span id={`${id}-l`} className="atn-toggle-label">
           <Icon name="coin" />
           <span>{t.cashLabel}</span>
         </span>

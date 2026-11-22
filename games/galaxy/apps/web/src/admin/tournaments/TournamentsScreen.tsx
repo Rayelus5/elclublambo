@@ -105,7 +105,7 @@ function PrizesFact({ x, catalog }: { x: AdminTournament; catalog: GiftCatalog |
     <dd>
       {first ? <span>{t.rangesSummary(r.prizes.length, lastPrizePlace(r.prizes))}</span> : null}
       {first && catalog && first.gifts.length ? (
-        <ul className="gift-pack-strip tn-strip" aria-hidden="true">
+        <ul className="gift-pack-strip atn-strip" aria-hidden="true">
           {first.gifts.slice(0, 6).map((g, i) => (
             <li key={i}>
               <GiftArt gift={g} catalog={catalog} compact />
@@ -114,7 +114,7 @@ function PrizesFact({ x, catalog }: { x: AdminTournament; catalog: GiftCatalog |
         </ul>
       ) : null}
       {r.prizes.some((p) => p.cash) ? (
-        <small className="tn-money">
+        <small className="atn-money">
           {t.withCash} <b>{euros(r.prizes.reduce((s, p) => s + (p.cash ? p.cash.amountEur * (p.to - p.from + 1) : 0), 0))}</b>
         </small>
       ) : null}
@@ -139,16 +139,16 @@ function TournamentCard({ x, now, catalog, names, onAction }: { x: AdminTourname
   ];
   const canUnschedule = state === 'scheduled' && Date.parse(r.startsAt) > now && !anyEntries(x);
   return (
-    <li className={`lip panel ev-card tn-list-card${state === 'finished' || state === 'cancelled' ? ' past' : ''}`} aria-labelledby={`${ids}-h`}>
+    <li className={`lip panel ev-card atn-list-card${state === 'finished' || state === 'cancelled' ? ' past' : ''}`} aria-labelledby={`${ids}-h`}>
       <header>
-        <span className="tn-thumb" aria-hidden="true">
+        <span className="atn-thumb" aria-hidden="true">
           {banner ? <img src={banner} alt="" loading="lazy" draggable={false} /> : <Icon name="trophy" />}
         </span>
         <div>
           <h3 id={`${ids}-h`}>{r.title}</h3>
           <p>{r.summary || `/torneos/${r.slug}`}</p>
         </div>
-        <span className="tn-chip" data-state={state}>
+        <span className="atn-chip" data-state={state}>
           {t.states[state]}
         </span>
       </header>
@@ -264,7 +264,7 @@ export function TournamentsScreen() {
   const unpaid = (cash.data?.cash ?? []).filter((c) => !c.paidAt);
   const order = (s: TournamentState) => (a: AdminTournament, b: AdminTournament) => (s === 'finished' || s === 'cancelled' ? Date.parse(b.record.startsAt) - Date.parse(a.record.startsAt) : Date.parse(a.record.startsAt) - Date.parse(b.record.startsAt));
   return (
-    <section className="admin-page tn-page">
+    <section className="admin-page atn-page">
       <div className="ev-top">
         <div>
           <h1>{copy.admin.sections.tournaments}</h1>
@@ -282,8 +282,8 @@ export function TournamentsScreen() {
       ) : null}
       {list.error ? <p className="field-error">{errorText(list.error, copy.errors)}</p> : null}
       {cash.data && cash.data.cash.length > 0 ? (
-        <section className={`lip panel tn-cash${unpaid.length ? ' due' : ''}`} aria-label={t.cash.title}>
-          <header className="tn-section-head">
+        <section className={`lip panel atn-cash${unpaid.length ? ' due' : ''}`} aria-label={t.cash.title}>
+          <header className="atn-section-head">
             <Icon name="coin" />
             <h2>{t.cash.title}</h2>
             {unpaid.length ? <span className="admin-chip warn">{unpaid.length}</span> : null}

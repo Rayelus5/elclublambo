@@ -16,25 +16,25 @@ export function PlayerCard({ record, state, entrants, catalog, now }: { record: 
   const banner = record.bannerMedia ? mediaUrl(record.bannerMedia) : null;
   const countdown = state === 'scheduled' ? t.startsIn(until(record.startsAt, now)) : state === 'running' ? t.endsIn(until(record.endsAt, now)) : null;
   return (
-    <article className="tn-card" data-state={state}>
-      <div className="tn-card-banner">
-        {banner ? <img src={banner} alt="" draggable={false} /> : <span className="tn-card-sky" aria-hidden="true" />}
-        <span className="tn-card-chips">
-          <span className="tn-chip" data-state={state}>
+    <article className="atn-card" data-state={state}>
+      <div className="atn-card-banner">
+        {banner ? <img src={banner} alt="" draggable={false} /> : <span className="atn-card-sky" aria-hidden="true" />}
+        <span className="atn-card-chips">
+          <span className="atn-chip" data-state={state}>
             {c.states[state]}
           </span>
           {record.exclusive ? (
-            <span className="tn-chip excl">
+            <span className="atn-chip excl">
               <Icon name="lock" />
               <span>{t.exclusiveMark}</span>
             </span>
           ) : null}
         </span>
       </div>
-      <div className="tn-card-body">
+      <div className="atn-card-body">
         <h3>{record.title.trim() || c.untitled}</h3>
-        {record.summary ? <p className="tn-card-summary">{record.summary}</p> : null}
-        <ul className="tn-card-facts">
+        {record.summary ? <p className="atn-card-summary">{record.summary}</p> : null}
+        <ul className="atn-card-facts">
           <li>
             <Icon name="calendar" />
             <span>
@@ -62,17 +62,17 @@ export function PlayerCard({ record, state, entrants, catalog, now }: { record: 
           ) : null}
         </ul>
         {first ? (
-          <div className="tn-card-prize">
+          <div className="atn-card-prize">
             <b>{c.firstPrize}</b>
             {catalog ? <GiftLine gifts={first.gifts} catalog={catalog} /> : null}
-            {first.cash ? <span className="tn-cash-chip">{euros(first.cash.amountEur)}</span> : null}
+            {first.cash ? <span className="atn-cash-chip">{euros(first.cash.amountEur)}</span> : null}
             {record.prizes.length > 1 ? <small>{c.morePrizes(record.prizes.length - 1)}</small> : null}
           </div>
         ) : (
-          <p className="tn-card-prize none">{t.noPrizes}</p>
+          <p className="atn-card-prize none">{t.noPrizes}</p>
         )}
         {/* Drawn as the players' button, never pressed here. */}
-        <span className="lip pill pill-solar tn-card-join" aria-hidden="true">
+        <span className="lip pill pill-solar atn-card-join" aria-hidden="true">
           {c.join}
         </span>
       </div>
@@ -84,7 +84,7 @@ export function PlayerCard({ record, state, entrants, catalog, now }: { record: 
 export function PrizeTable({ record, catalog }: { record: TournamentRecord; catalog: GiftCatalog }) {
   if (record.prizes.length === 0 && !record.participation) return <p className="panel-note">{t.noPrizes}</p>;
   return (
-    <table className="admin-table tn-prize-table">
+    <table className="admin-table atn-prize-table">
       <caption className="sr-only">{t.prizeTable}</caption>
       <thead>
         <tr>

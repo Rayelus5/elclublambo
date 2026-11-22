@@ -50,7 +50,7 @@ export function CashTable({ cash, showTournament = true, onDone }: { cash: reado
       {unpaid.length === 0 ? <p className="panel-note">{c.empty}</p> : null}
       {rows.length > 0 ? (
         <HScroll variant="table" className="admin-table-wrap">
-          <table className="admin-table tn-cash-table">
+          <table className="admin-table atn-cash-table">
             <thead>
               <tr>
                 {showTournament ? <th scope="col">{c.cols.tournament}</th> : null}
@@ -63,17 +63,27 @@ export function CashTable({ cash, showTournament = true, onDone }: { cash: reado
             </thead>
             <tbody>
               {rows.map((x) => (
-                <tr key={`${x.tournamentId}:${x.username}`} className={x.paidAt ? 'tn-paid' : undefined}>
+                <tr key={`${x.tournamentId}:${x.username}`} className={x.paidAt ? 'atn-paid' : undefined}>
                   {showTournament ? (
                     <td>
                       <Link to={`/admin/torneos/${x.tournamentId}`}>{x.title}</Link>
                     </td>
                   ) : null}
                   <td>
-                    <Link to={`/admin/jugadores/${encodeURIComponent(x.username)}`}>{x.username}</Link>
+                    <span className="atn-cash-player">
+                      <Link to={`/admin/jugadores/${encodeURIComponent(x.username)}`}>{x.username}</Link>
+                      {/* Arranging the payment goes through the mailbox: a personal message to them, the subject written. */}
+                      <Link
+                        className="lip pill small"
+                        to={`/admin/comunicacion?para=${encodeURIComponent(x.username)}&asunto=${encodeURIComponent(c.subject(x.title))}`}
+                        aria-label={c.writeTo(x.username)}
+                      >
+                        {c.write}
+                      </Link>
+                    </span>
                   </td>
                   <td>{c.place(x.rank)}</td>
-                  <td className="tn-money">{euros(x.amountEur)}</td>
+                  <td className="atn-money">{euros(x.amountEur)}</td>
                   <td>{x.note || '—'}</td>
                   <td>
                     {x.paidAt ? (
@@ -91,7 +101,7 @@ export function CashTable({ cash, showTournament = true, onDone }: { cash: reado
         </HScroll>
       ) : null}
       {done.length > 0 && !all ? (
-        <button type="button" className="cf-link tn-show-paid" onClick={() => setAll(true)}>
+        <button type="button" className="cf-link atn-show-paid" onClick={() => setAll(true)}>
           {c.showPaid(done.length)}
         </button>
       ) : null}

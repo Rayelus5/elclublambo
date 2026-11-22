@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { copy } from '../../copy/es';
 import { Compose, type ComposeSeed } from './Compose';
 import { NoticeForm, NoticeList } from './Notices';
@@ -10,8 +11,13 @@ import { SentList } from './SentList';
  * letter as the player will see it, and the password when it gives anything); the sent list; the title notices.
  */
 export function CommunicationScreen() {
-  // «Duplicar» starts a fresh form from a sent message (mail v2, P5).
-  const [seed, setSeed] = useState<{ n: number; seed: ComposeSeed } | null>(null);
+  // «Duplicar» starts a fresh form from a sent message (mail v2, P5); `?para=<usuario>&asunto=<título>` starts a personal
+  // message to that account (a tournament's cash winner, from «Escribir»).
+  const [params] = useSearchParams();
+  const [seed, setSeed] = useState<{ n: number; seed: ComposeSeed } | null>(() => {
+    const to = params.get('para');
+    return to ? { n: 0, seed: { type: 'personal', title: params.get('asunto') ?? '', body: '', items: [], packs: [], expiresInDays: 30, usernames: [to] } } : null;
+  });
   return (
     <section className="admin-page comms">
       <h1>{copy.admin.sections.communication}</h1>

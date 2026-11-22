@@ -35,7 +35,7 @@ export function TournamentPage() {
   const ready = !!seasons.data && !!list.data && (isNew ? !from || !!source.data || !!source.error : !!own);
   const taken = new Set((list.data?.tournaments ?? []).filter((x) => x.id !== own?.id).map((x) => x.record.slug));
   return (
-    <section className="admin-page tn-page">
+    <section className="admin-page atn-page">
       <Link to="/admin/torneos" className="lip pill small">
         <Icon name="back" />
         <span>{copy.admin.sections.tournaments}</span>
