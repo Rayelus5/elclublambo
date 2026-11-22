@@ -1,4 +1,4 @@
-import type { AdminRunReplay } from '@galaxy/shared';
+import { type AdminRunReplay, checkReplay, type CheckRow, CLIPPING_FLAGS, replayOptionsOf, replayUntil } from '@galaxy/shared';
 import { createReplayer, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, type InputLog, relicVision, SIM_VERSION, type SimOptions } from '@galaxy/sim';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -14,7 +14,7 @@ import { Icon } from '../ui/Icon';
 import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
 import { ActionDialog } from './ActionDialog';
-import { checkReplay, type CheckRow, CLIPPING_FLAGS, createPlayback, type Playback, replayOptionsOf, replayUntil } from './replay/playback';
+import { createPlayback, type Playback } from './replay/playback';
 import { outcomeText } from './RunsScreen';
 import { usePrefs } from '../settings/prefs';
 
@@ -445,8 +445,9 @@ function Check({ replayable, data }: { replayable: Replayable; data: AdminRunRep
     setPct(null);
     setResult(checkReplay(r.sim, data.run, data.coop));
   };
-  // The hash in two groups of eight, one per line; the counts grouped the Spanish way.
-  const shown = (r: CheckRow, v: string | number | null) => (v === null ? '—' : r.key === 'hash' ? String(v).replace(/^(.{8})/, '$1\n') : typeof v === 'number' ? fmt(v) : String(v));
+  // The hash in two groups of eight, one per line; the counts grouped the Spanish way; the outcome in words.
+  const shown = (r: CheckRow, v: string | number | null) =>
+    v === null ? '—' : r.key === 'hash' ? String(v).replace(/^(.{8})/, '$1\n') : r.key === 'outcome' ? outcomeText(v as AdminRunReplay['run']['outcome']) : typeof v === 'number' ? fmt(v) : String(v);
   return (
     <section className="lip panel replay-check" aria-labelledby="replay-check-title">
       <h2 id="replay-check-title">{t.checkTitle}</h2>

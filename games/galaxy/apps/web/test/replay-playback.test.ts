@@ -1,7 +1,7 @@
-import { coopRulesOf, parseConfig } from '@galaxy/shared';
+import { checkReplay, coopRulesOf, parseConfig, replayOptionsOf, replayUntil } from '@galaxy/shared';
 import { decodeLog, encodeLog, fromBase64, stateHash } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { checkReplay, createPlayback, replayOptionsOf, replayUntil } from '../src/admin/replay/playback';
+import { createPlayback } from '../src/admin/replay/playback';
 import { playedRun } from './replay-fixture';
 
 // The panel's replayer (GDD §16.2, §16.6; M6d-3): a recorded run played forwards, sought backwards (rebuilt from tick
@@ -48,12 +48,24 @@ test('checkReplay dice qué coincide y qué no', () => {
   p.advance(Number.MAX_SAFE_INTEGER);
   const ok = checkReplay(p.sim, run.run);
   expect(ok.matches).toBe(true);
-  expect(ok.rows.map((r) => r.key)).toEqual(['hash', 'ticks', 'kills', 'depth', 'level']);
+  expect(ok.rows.map((r) => r.key)).toEqual(['hash', 'ticks', 'kills', 'depth', 'level', 'bossKills', 'outcome']);
   expect(ok.rows.every((r) => r.same)).toBe(true);
   // A hash that holds but a figure the client inflated is not the same run either.
   const bad = checkReplay(p.sim, { ...run.run, hash: '0000000000000000', claimed: { ...run.run.claimed!, kills: run.run.claimed!.kills + 1 } });
   expect(bad.matches).toBe(false);
   expect(bad.rows.filter((r) => !r.same).map((r) => r.key)).toEqual(['hash', 'kills']);
+});
+
+test('checkReplay compara también los Núcleos y el desenlace (los torneos, 2026-11-22)', () => {
+  const p = fresh();
+  p.advance(Number.MAX_SAFE_INTEGER);
+  // The fixture's run is abandoned at its last tick: the replay is still going there.
+  expect(checkReplay(p.sim, run.run).rows.find((r) => r.key === 'outcome')).toMatchObject({ saved: 'abandoned', replayed: 'abandoned', same: true });
+  const extracted = checkReplay(p.sim, { ...run.run, outcome: 'extracted' });
+  expect(extracted.matches).toBe(false);
+  expect(extracted.rows.filter((r) => !r.same).map((r) => r.key)).toEqual(['outcome']);
+  const cores = checkReplay(p.sim, { ...run.run, claimed: { ...run.run.claimed!, bossKills: run.run.claimed!.bossKills + 1 } });
+  expect(cores.rows.filter((r) => !r.same).map((r) => r.key)).toEqual(['bossKills']);
 });
 
 test('una partida que el servidor recortó se repite y se compara con lo que envió', () => {

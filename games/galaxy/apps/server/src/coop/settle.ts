@@ -9,6 +9,7 @@ import { type LiveSink, Notices } from '../realtime/notices';
 import { creditRunExtras } from '../runs/extras';
 import { settleRun } from '../runs/service';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import { invalidateTournamentRankings } from '../tournaments/scoring';
 import type { CoopSlot, Gone } from './relay';
 
 // Paying a co-op run (multiplayer plan, phase 6), from what the referee saw. Each player is paid on its own row, in
@@ -115,5 +116,6 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
     .where('state', '=', 'running')
     .execute();
   invalidateLeaderboard();
+  invalidateTournamentRankings(s.slots.map((x) => x.accountId));
   return results;
 }

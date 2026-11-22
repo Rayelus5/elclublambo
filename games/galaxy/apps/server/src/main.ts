@@ -9,7 +9,7 @@ import { startRetention } from './retention';
 const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
 // The scheduled mail's job runs inside the app (it needs the live config and socket; mail v2, P5).
-const app = await buildApp({ env, db, jobs: { mail: true, seasons: true }, seasons: true });
+const app = await buildApp({ env, db, jobs: { mail: true, seasons: true, tournaments: true }, seasons: true });
 const stopRetention = startRetention(db, app.log);
 // The market's job (2026-11-14): expired listings and the public numbers.
 const stopMarket = startMarketJobs(db, app.log);

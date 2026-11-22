@@ -465,6 +465,22 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 
 **Un ejemplo para empezar:** `ops/plantillas/buzon/`.
 
+### B11. Torneos
+
+**Qué es.** Un torneo es una fila de `galaxy.tournaments`, no una clave de configuración (GDD §13.3). La ficha es `tournamentRecordSchema` (`packages/shared/src/tournaments/record.ts`) y sus problemas, `tournamentIssues`, con el texto en `es.ts` (`tournamentIssues`). Cabe en una temporada programada, dura 28 días como mucho y nunca junta una entrada con dinero.
+
+**La API** está descrita en `packages/shared/src/api/tournaments.ts`:
+- **Jugadores** en `/galaxy/api/tournaments`: lista, página, `join`, `leave` y `claim`, con clave de idempotencia.
+- **Admins** en `/galaxy/api/admin/tournaments`: validar, guardar borrador, programar, desprogramar (antes de empezar y sin inscritos), cancelar (devuelve las entradas), revisión, decidir una partida, descalificar, «Publicar ya» y marcar el dinero como pagado. Todo con motivo y auditado; lo que cambia el torneo o los premios pide la contraseña.
+
+**Operarlo:**
+- **Programar** con premios por encima de `mailLimits`, o con dinero, solo lo hace un superadmin (`tournament_needs_superadmin`).
+- **Durante la revisión** mira el panel: las partidas `unverifiable` o `error` de los puestos con premio esperan tu decisión, y sin ella los resultados no salen. Las `unverifiable` se deciden en bloque por motivo (`inputs_missing`, `inputs_unreadable`, `sim_version`, `content_unreadable`) o por jugador; las `error`, una a una. Las tuyas y (si no eres superadmin) las del equipo las decide otro.
+- **Un despliegue que sube `SIM_VERSION`** con torneos en curso deja sus partidas anteriores sin comprobar (`sim_version`): el listado lo avisa (`simChanged`) y se deciden en bloque.
+- **Quien está fuera de la clasificación** (`leaderboard_excluded`) no puede inscribirse.
+- **El dinero** se paga fuera del juego. Escribe al ganador por el buzón y márcalo como pagado.
+- **Los premios** son regalos del buzón (B10), pero sin nada de temporada ni de evento: se recogen sin fecha.
+
 ## C. Entrega y publicación
 
 1. **Rama** `feature/galaxy-<slug>` (o `fix/`, `docs/`) desde `develop`. Commits en español, del estilo `feat(galaxy): …`, con sus trailers.

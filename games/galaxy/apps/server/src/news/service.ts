@@ -209,7 +209,9 @@ export async function uploadMedia(deps: NewsDeps, actor: AuditActor, req: { name
   });
 }
 
-const usesOf = sql<number>`(select count(*)::int from galaxy.news_posts p where p.image->>'kind' = 'asset' and p.image->>'id' = m.id::text)`;
+// Where an image is shown: news cards, and tournaments' banners and prize pictures (plan «temporadas como fichas», part 5).
+const usesOf = sql<number>`((select count(*)::int from galaxy.news_posts p where p.image->>'kind' = 'asset' and p.image->>'id' = m.id::text)
+  + (select count(*)::int from galaxy.tournaments t where t.banner_media = m.id or t.details_media = m.id))`;
 
 export async function listMedia(deps: NewsDeps): Promise<AdminMediaView> {
   const rows = await deps.db

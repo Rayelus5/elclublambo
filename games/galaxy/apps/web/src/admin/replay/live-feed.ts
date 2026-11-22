@@ -1,6 +1,5 @@
-import type { SoloFeedState, SoloWatchMessage } from '@galaxy/shared';
+import { replayOptionsOf, type SoloFeedState, type SoloWatchMessage } from '@galaxy/shared';
 import { createLiveReplayer, decodeEvents, decodeLog, fromBase64, type LiveReplayer, logTicks, type Sim, type SimEvent } from '@galaxy/sim';
-import { replayOptionsOf } from './playback';
 
 // A solo run watched live from the panel (plan «escáner pro», part G): the staff socket's messages turned into a
 // simulation that follows the player's. The hello brings the start and the whole log so far, each piece the rest; the
