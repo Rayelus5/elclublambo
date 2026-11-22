@@ -1745,3 +1745,44 @@ El sector, el grupo y la anomalía siguen multiplicando encima. Los Núcleos no 
 - que ningún perfil pase de 45 minutos de media;
 - que como mucho 2 de 16 lleguen al límite;
 - que en la Nebulosa no haya más de 150 vivos de media en los minutos 20 y 30.
+
+## Objetos en el suelo que caducan (SIM 1.21.0)
+
+**Por qué.** El propietario, el 22/11/2026: en el mapa se acumulaban los objetos sueltos y nada desaparecía salvo al recogerlo. Con el tope lleno (`content.limits.pickups`, 1500, ×1,5 en grupo), lo nuevo se sumaba a la primera pieza igual, y lo que no tenía ninguna igual en el suelo (una moneda, un componente, una señal) se perdía.
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.21.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+- **`content.pickups`**, campo nuevo de la raíz, editable en Admin › Contenido › Reglas de la incursión › Objetos en el suelo:
+  - los fragmentos de datos y los kits de reparación que nadie recoge desaparecen a los `lifeSeconds` (90) de caer;
+  - en sus últimos `fadeSeconds` (5) parpadean, cada vez más deprisa, mientras se apagan; con movimiento reducido solo se apagan;
+  - monedas, polvo, componentes, señales e imanes nunca caducan, ni lo que ya vuela hacia una sonda (por su radio de recogida o por un imán);
+  - `lifeSeconds` 0 lo apaga, y `fadeSeconds` no puede pasar de `lifeSeconds` (`pickups_fade`).
+- **Con el suelo lleno**, lo valioso (todo salvo la experiencia, también un kit) ocupa el hueco del fragmento más antiguo que no vuela. La experiencia se sigue sumando al primer fragmento, y esa fusión le renueva la vida. Si no hay fragmento que apartar, lo valioso se suma a uno igual o se pierde, como antes.
+- **El tope por defecto pasa de 1500 a 3000** (4500 en grupo). En PRE manda lo publicado y `limits` está publicado con 1500 (`ops/launch/2026-11-16-enjambre/`), así que el tope no cambia hasta publicar `limits`.
+- **Dibujo:** lo que queda fuera de la vista no tiene sprite, así que miles de piezas siguen siendo baratas. El panel de depuración (F2 › Información) dice cuántas hay en el suelo y cuántas caben.
+
+**Partidas en grupo a medias al desplegar:** como en cada subida de `SIM_VERSION`, `recover()` y `settleFromLog` las vuelven a jugar con la simulación nueva y pueden acabar distinto. Antes de desplegar, comprueba que no hay salas en curso o acéptalo.
+
+**Torneos:** las partidas jugadas con la 1.20.0 en un torneo en curso o en revisión dejan de poder comprobarse (`sim_version`). El panel lo avisa (`simChanged`) y se deciden en bloque. Antes de unir, mira `tournament-list` (solo lectura) y, si hay un torneo con premios en curso o en revisión, avisa al propietario y espera.
+
+**Después de desplegar no hay que publicar nada todavía.** `pickups` no está publicado y entra con 90 y 5 en cuanto se despliega. El tope de 3000 llega con la carpeta de operación (`ops/launch/<día>-objetos-suelo/`, PR aparte, después del despliegue): `limits` tal como está vivo, con `pickups: 3000`. Se publica con `check-config` y el OK del propietario (skill `galaxy-publicar-config`). Publicar `pickups` antes del despliegue daría `config_invalid`.
+
+**Medido** (`pickups-calibration.test.ts`, `GALAXY_CALIBRATE=1`; Nebulosa, el bot sin extraer, 8 semillas por perfil):
+
+| Perfil | Suelo | Minutos (mediana) | En el suelo en el min 10 / 20 / 30 / 40 (incursiones vivas) | Media | Pico | Ticks con el tope lleno (media, peor) |
+|---|---|---|---|---|---|---|
+| novato | antes (1500, nada caduca) | 8,8 | – / – / – / – | 165 | 1292 | 0,0 % (0,0 %) |
+| novato | ahora (3000, 90 s) | 8,4 | 458 (2) / 831 (1) / 1991 (1) / 2528 (1) | 269 | 3000 | 0,2 % (1,7 %) |
+| medio | antes (1500, nada caduca) | 27,4 | 485 (8) / 693 (4) / 1345 (4) / 1500 (2) | 539 | 1500 | 9,5 % (25,6 %) |
+| medio | ahora (3000, 90 s) | 40,5 | 300 (7) / 792 (5) / 1295 (5) / 2454 (4) | 672 | 3000 | 1,1 % (5,7 %) |
+| veterano | antes (1500, nada caduca) | 39,7 | 322 (8) / 972 (8) / 1306 (7) / 1499 (4) | 792 | 1500 | 17,1 % (35,4 %) |
+| veterano | ahora (3000, 90 s) | 43,2 | 341 (8) / 681 (8) / 1304 (8) / 2349 (7) | 954 | 3000 | 1,1 % (3,4 %) |
+| avanzado | antes (1500, nada caduca) | 43,3 | 232 (8) / 698 (8) / 1276 (8) / 1500 (7) | 806 | 1500 | 20,2 % (26,9 %) |
+| avanzado | ahora (3000, 90 s) | 44,7 | 193 (8) / 657 (8) / 1169 (8) / 1996 (7) | 915 | 3000 | 3,0 % (16,1 %) |
+
+**Lectura de la tabla:**
+- **Antes**, el medio, el veterano y el avanzado tenían el suelo de 1500 lleno entre el 9 % y el 20 % de la incursión de media (hasta el 35 % en la peor).
+- **Ahora** queda lleno el 0,2–3 % de media, por debajo del 5 % en todos los perfiles. Solo una semilla del avanzado, que llega al límite de 50 minutos, pasa el 16 %. Y con el suelo lleno, lo valioso aparta un fragmento en vez de perderse.
+- **La semilla del novato que llega a 45 minutos toca el tope** porque el bot nunca recoge polvo, que no caduca.
+- **Las duraciones cambian porque cambia la partida** (el bot va a por la pieza más cercana). Esta tabla mide el suelo, no la dificultad: para eso está `difficulty.test.ts`.
+
+Comprueba con `rayelus` en una incursión de prueba: F2 › Información dice «En el suelo», con el tope publicado; los fragmentos que no recoges parpadean y desaparecen al minuto y medio, y las monedas se quedan.
