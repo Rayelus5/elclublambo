@@ -1484,6 +1484,27 @@ La portada pública (`apps/landing`, aprobada el 17/11/2026 como «Viaje de la s
 - **A partir de 2400 px** todo es un 25 % más grande, como el juego.
 - **En el móvil,** «Jugar gratis» abre el aviso «Se juega en ordenador», que deja compartir o copiar el enlace.
 
+## 8 quinquagies. Torneos en el panel
+
+`/admin/torneos` (plan «temporadas como fichas», parte 5). Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Progreso en los pasos:** el asistente enseña sus seis pasos con su número y un aviso Nova en el que tiene problemas;
+- **Confirmar lo que no se deshace:** cancelar, desprogramar, publicar, decidir, descalificar y marcar pagado abren un diálogo que dice qué pasará, con motivo y contraseña;
+- **Tablas que hacen scroll por dentro:** la clasificación y las comprobaciones nunca empujan la página.
+
+**La lista:**
+- **Arriba,** «Premios en metálico pendientes» con un filo Solar mientras quede algo por pagar; los pagados, detrás de «Ver los pagados».
+- **Grupos por estado,** primero lo que pide un admin: En curso, En revisión, Programados, Borradores, Terminados y Cancelados.
+- **Una tarjeta por fila,** con el banner en miniatura (8:3), la etiqueta de su estado (Hielo programado, Terminal en curso, Solar en revisión, UV terminado, Nova cancelado) y sus datos en cuatro columnas que pasan a dos por debajo de 1400 px. Sus avisos, en Solar.
+
+**El asistente:**
+- **Controles del juego:** DateField con hora, el número del panel, Select, Switch y Segmented. Nunca los del sistema.
+- **Cómo se gana:** una tarjeta por medida con su icono, qué cuenta y un ejemplo en Terminal. La elegida lleva el filo Solar.
+- **Fechas:** la temporada en la que cae y una barra con el torneo dentro de ella, Solar a Terminal, o Nova si se sale.
+- **Premios:** cada tramo es una tarjeta con su puesto como medalla (oro, plata y bronce para los tres primeros), sus regalos en píldoras y su dinero en Solar. Los regalos se eligen con el selector del buzón, solo con los que no caducan.
+- **Revisión:** los datos de un vistazo y «Así lo verá el jugador»: la tarjeta con su banner (o un cielo estrellado), su cuenta atrás y el premio del 1.º, y al lado la tabla de premios y las reglas.
+
+**El panel de revisión:** cabecera con el banner, cuatro fichas (inscritos, por comprobar, por decidir y dinero por pagar), la clasificación con los tres primeros en sus colores, «Decidir en bloque» por motivo y por jugador, y «Publicar ya» a la derecha, o arriba del todo por debajo de 1500 px.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
