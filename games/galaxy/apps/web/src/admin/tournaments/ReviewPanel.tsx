@@ -195,7 +195,7 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
                         {r.rewards.cash ? <b className="atn-money">{euros(r.rewards.cash.amountEur)}</b> : null}
                       </span>
                     ) : (
-                      <span className="atn-gifts-none">{p.noPrize}</span>
+                      <span className="admin-gifts-none">{p.noPrize}</span>
                     )}
                   </td>
                   {live ? (
