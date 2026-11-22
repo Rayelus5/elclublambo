@@ -42,7 +42,7 @@ export const GOLDEN_RUNS: { name: string; options: () => SimOptions; hashes: str
         { probe: C.probes[3]!.id, relics: [] },
       ],
     }),
-    hashes: ['1200:b517e75db9d591d8', '2400:6fc886601ba66ced', '3600:a76b107264a7e12f', '4800:9a4492075b3e9e84', '6000:c6c01513b875329e', '7200:6c70155d372cd799'],
+    hashes: ['1200:b517e75db9d591d8', '2400:6fc886601ba66ced', '3600:a76b107264a7e12f', '4800:9a4492075b3e9e84', '6000:c6c01513b875329e', '7200:8e038d7ba49394da'],
   },
 ];
 
@@ -81,7 +81,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '1618', content: c, sector: c.sectors[0]!.id, probes: [{ probe: c.probes[0]!.id, relics: [], bonuses: STRONG }] };
     },
-    hashes: ['3600:bd75547670636c3b', '7200:6b83e4b5f6248ee7', '10800:00f6e6aa85abb960', '14400:a94a3eb6ce807aed', '18000:d57697a5250e4a82', '21600:97fe5a2d8cc4e970', '25200:6f0b5162f0b40089', '28800:fc6e019fda5fbf2c', '32400:1670bc8a9567ff43', '36000:667a0decbf6f98c0'],
+    hashes: ['3600:bd75547670636c3b', '7200:24b655ed2bd2c321', '10800:231adfa5edc2393c', '14400:9282ebdcc6fbc3a3', '18000:78d2c0b4dc1a9c8f', '21600:8a256b12a028a6af', '25200:4edd5544df76f2a8', '28800:722cdafbe3f7aafd', '32400:6543a6875a26ca3b', '36000:2bac19e0067e7707'],
   },
   {
     name: 'cuatro sondas en grupo hasta las capas profundas',
@@ -89,7 +89,7 @@ export const DEEP_RUNS: { name: string; options: () => SimOptions; hashes: strin
       const c = deepContent();
       return { seed: '2718', content: c, sector: c.sectors[1]!.id, coop: DEFAULT_COOP_RULES, probes: [0, 1, 2, 3].map((i) => ({ probe: c.probes[i]!.id, relics: [], bonuses: STRONG })) };
     },
-    hashes: ['3600:0d790423d51c1f6e', '7200:a623df3c88199591', '10800:01f550c81e8281ee', '14400:4286a1e7d126b3ed', '18000:6e7284704b44c670', '21600:f237ca2213f0832e', '25200:962e0c828825e01c', '28800:19cc2e2d40e00338', '32400:d6fe084e19d34f8a', '36000:3166a5dbed4bee50'],
+    hashes: ['3600:0d790423d51c1f6e', '7200:e24a0d8f3d410c7e', '10800:46d0f10ccf478740', '14400:8a13906d459df9a3', '18000:0afbb3ec663fa53d', '21600:89916f1a215843f3', '25200:30cf61487e302d4e', '28800:aa858ee3aa222039', '32400:d0cca71d0865a22e', '36000:a1f1331afc9109cb'],
   },
 ];
 

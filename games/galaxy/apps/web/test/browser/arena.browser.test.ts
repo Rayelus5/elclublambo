@@ -1,5 +1,5 @@
 import { coopRulesOf, parseConfig } from '@galaxy/shared';
-import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, startEvent, step } from '@galaxy/sim';
+import { AREA, botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, SHOT, type Sim, spawnBoss, spawnEnemy, startEvent, step, ticks } from '@galaxy/sim';
 import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -517,6 +517,48 @@ test('un satélite abandonado a la deriva y una señal en el suelo', async () =>
   expect(distinctColours(canvas)).toBeGreaterThan(8);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-satellite.png', element: canvas });
 }, 90_000);
+
+// Loose items that expire (2026-11-22): a fragment or a kit about to go fades (blinking, or steady with reduced motion),
+// a coin stays whole, and a crowd far from the view gets no sprite at all.
+for (const reduced of [false, true]) {
+  test(`la experiencia y los kits a punto de caducar se apagan${reduced ? ' sin parpadear' : ' parpadeando'}, y lejos de la vista no hay sprites`, async () => {
+    const now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const sim = createSim({ seed: '5', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+      step(sim, [IDLE]);
+      const p = sim.probes[0]!;
+      for (let k = 0; k < 6; k++) dropPickup(sim, PICKUP.xp, k < 3 ? 1 : 25, p.x - 80 + k * 18, p.y + 70);
+      dropPickup(sim, PICKUP.repair, 1, p.x + 36, p.y + 70);
+      dropPickup(sim, PICKUP.coin, 1, p.x + 56, p.y + 70);
+      for (let k = 0; k < 400; k++) dropPickup(sim, PICKUP.xp, 1, p.x + 3000 + (k % 20) * 10, p.y + Math.floor(k / 20) * 10);
+      const canvas = await mount(1280, 720);
+      stage = await createStage(canvas, DEFAULT_CONTENT, { reduced, vision: 0, probe: 0, seed: '5', preserve: true });
+      stage.resize(1280, 720);
+      stage.render(sim, 1);
+      const layer = stage.app.stage.getChildByLabel('world')!.getChildByLabel('pickups')!;
+      expect(layer.children).toHaveLength(8);
+      expect(layer.children.every((s) => s.visible && s.alpha === 1)).toBe(true);
+      const whole = pixels(canvas);
+      if (import.meta.env['VITE_ARENA_SHOTS'] && !reduced) await page.screenshot({ path: '__shots__/pickups-whole.png', element: canvas });
+      // Halfway through the warning.
+      const { lifeSeconds, fadeSeconds } = DEFAULT_CONTENT.pickups;
+      sim.tick = 1 + ticks(lifeSeconds) - ticks(fadeSeconds / 2);
+      stage.render(sim, 1);
+      const alphas = layer.children.map((s) => s.alpha);
+      for (const a of alphas.slice(0, 7)) {
+        expect(a).toBeLessThan(reduced ? 0.7 : 0.68);
+        expect(a).toBeGreaterThan(0.1);
+      }
+      expect(alphas[7]).toBe(1);
+      expect(changed(whole, pixels(canvas))).toBeGreaterThan(0);
+      expect(layer.children).toHaveLength(8);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/pickups-fade${reduced ? '-reduced' : ''}.png`, element: canvas });
+    } finally {
+      clock.mockRestore();
+    }
+  }, 90_000);
+}
 
 // Plan «skins», part C: each probe drawn with its skin (only drawing), the rest with their own drawing.
 test('cada sonda se dibuja con su skin: Lumen de coral, Bastión de chatarra y Prisma de serie', async () => {

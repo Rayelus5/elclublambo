@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type ArenaDebug, type RunEnd } from '../src/arena/ArenaScreen';
 import { markRadioSeen } from '../src/arena/settings';
-import { copy } from '../src/copy/es';
+import { copy, fmt } from '../src/copy/es';
 import { setPrefs } from '../src/settings/prefs';
 
 // The admin debug mode in a solo run (2026-11-15): F2 or the pause menu opens a side panel; looking (information,
@@ -135,6 +135,17 @@ test('mirar no convierte: colisiones e información no llaman al servidor', asyn
   expect(screen.getByRole('region', { name: t.infoTitle })).toBeTruthy();
   expect(d.markTest).not.toHaveBeenCalled();
   expect(screen.queryByRole('alertdialog')).toBeNull();
+});
+
+// Loose items that expire (2026-11-22): the read-out says how many lie on the ground and how many fit.
+test('la información dice cuántos objetos hay en el suelo y cuántos caben', async () => {
+  await mount(admin());
+  f2();
+  fireEvent.click(screen.getByRole('button', { name: t.info }));
+  const info = screen.getByRole('region', { name: t.infoTitle });
+  const value = within(info).getByText(t.rows.ground).nextElementSibling;
+  expect(value?.textContent).toBe(t.groundValue(sim.pickups.count, DEFAULT_CONTENT.limits.pickups));
+  expect(t.groundValue(1234, 3000)).toBe(`${fmt(1234)} de ${fmt(3000)}`);
 });
 
 test('la primera acción que cambia la partida pide confirmación; cancelar no aplica nada', async () => {
