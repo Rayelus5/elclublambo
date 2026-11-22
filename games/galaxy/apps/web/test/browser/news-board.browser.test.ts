@@ -158,5 +158,10 @@ for (const [w, h] of [
     expect(editor.scrollWidth).toBeLessThanOrEqual(editor.clientWidth + 1);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
     if (import.meta.env['VITE_NEWS_SHOTS']) await page.screenshot({ path: `__shots__/news-editor-${w}.png` });
+    // Where the card leads, further down the editor.
+    const link = [...editor.querySelectorAll('legend')].find((l) => l.textContent === copy.admin.news.fields.link)!.parentElement!;
+    link.scrollIntoView({ block: 'center' });
+    expect(editor.scrollWidth).toBeLessThanOrEqual(editor.clientWidth + 1);
+    if (import.meta.env['VITE_NEWS_SHOTS']) await page.screenshot({ path: `__shots__/news-editor-enlace-${w}.png` });
   });
 }
