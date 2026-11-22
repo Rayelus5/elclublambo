@@ -1532,6 +1532,39 @@ Plan «temporadas como fichas», parte 5 (22/11/2026). Las pantallas siguen la c
 - **Al terminar una partida,** una línea por torneo con lo que sumó y tu puesto, con la flecha Terminal de los puestos que subes.
 - **A partir de 2400 px** todo es un 25 % más grande, como el inicio.
 
+## 8 quinquagies ter. Encuestas y avisos
+
+Lo que ve el jugador de las campañas que publica un admin (plan del 22/11/2026, parte A; maquetas del propietario en `wireframes_popups`). El código vive en `apps/web/src/popups/` y las clases llevan el prefijo `pop-`. Consulta de ui-ux-pro-max: se aplicaron estas guías:
+- **Teclado completo y foco visible:** cada grupo de respuestas es un `radiogroup` de WAI-ARIA (una parada de Tab; flechas, Inicio y Fin eligen, `ui/useRadioKeys.ts`), las casillas son `checkbox` y el foco empieza en la respuesta y la sigue al cambiar de pregunta.
+- **Etiqueta visible, nunca solo el marcador:** el texto se nombra por su pregunta y dice cuánto llevas («120 de 500»).
+- **El estado final no depende de la animación:** elegir cambia el estado al momento; el salto del elegido es decoración.
+
+**Cuándo sale:**
+- solo en la pantalla de título (`PopupHost` en `hub/TitleScreen.tsx`), nunca en una partida ni en el lobby;
+- una vez por apertura del juego (`sessionStorage`, `galaxy.popup.session`);
+- y solo cuando nada más pide al jugador: ni el tutorial guiado, ni el aviso de señales sobrantes, ni otro diálogo abierto (`ui/dialogs.ts`, el mismo que usa el tutorial), y después de la entrada del inicio (al momento con movimiento reducido).
+- Al abrirse avisa al servidor (`shown`), que es quien lleva las tres veces y la de cada día.
+
+**Cómo se ve:**
+- **Encuesta** (maquetas 1 y 2): sin panel, sobre el velo con una luz UV en el centro. El nombre de la campaña en una etiqueta Solar pequeña con su marca braille, la pregunta como protagonista en Bungee con el contorno del logo y, si la tiene, la ficha de su tema. Debajo la escala, y «Más tarde» y «Enviar», este en Bungee.
+- **La escala:** botones redondos con su labio, de 72 px (hasta 86 en pantallas grandes) del 1 al 5 y de 60 px del 0 al 10, que caben en 1280 px. El elegido es Solar, un 10 % más grande y con brillo. Las palabras de los extremos van debajo del primero y del último, y los lectores de pantalla las oyen como «1 es Poco probable y 5 es Muy probable».
+- **El tema** (un enemigo, un Núcleo, una sonda o un sector): su dibujo de la arena en una ventana de 96 px, vivo y quieto con movimiento reducido, con una etiqueta de su tipo en su color (Nova, UV, Hielo, Terminal) y su nombre.
+- **Valoración** (maqueta de reseña): un panel con el título en Bungee y la explicación. Las estrellas y el texto van en la misma pantalla. Son cinco estrellas gordas de 76 px con su labio, doradas hasta la elegida o hasta la que está bajo el puntero, y la elegida da un saltito. El texto es una caja hundida con su contador, y «Opcional» cuando lo es.
+- **Formulario:** el mismo panel, una pregunta por pantalla, con su progreso (una píldora por pregunta: las hechas Terminal, la de ahora Solar, y «2 de 3»), «Anterior» y «Siguiente», que espera a que esté contestada.
+- **Las opciones** son tarjetas con labio, en dos columnas desde cuatro, o en una fila hasta tres. Las elegidas llevan el filo Solar, un degradado cálido y su marca (punto o visto). La múltiple dice «Puedes elegir varias».
+- **Premio:** en la última pantalla, «Al enviarla recibes» con los regalos dibujados (`GiftArt`) y sus palabras, en una franja con brillo Solar. Al enviar suena y se abre la revelación del buzón (`GiftReveal`). Sin premio, las gracias salen en la misma caja: una insignia Terminal con su visto, «Gracias por contestar» en Bungee y «Cerrar».
+- **Promoción** (maqueta 3): la imagen arriba (16:9, como mucho el 40 % del alto), el título en Bungee Solar y el texto, que se desvanece si no cabe en cuatro líneas. En la esquina, el botón redondo Solar de 72 px, montado sobre el borde, y la cruz para cerrar sobre la imagen.
+  - Con enlace, el botón lleva a una pantalla del juego o a una web en otra pestaña (y lo dice su nombre). Sus palabras salen a su lado al pasar el ratón o con el foco.
+  - Sin enlace, enseña el texto entero, o cierra si ya se ve todo.
+  - Al cerrarla, por el botón o sin él, cuenta como vista y no vuelve. El velo, Escape y la cruz la cierran.
+- **Más tarde:** Escape equivale a «Más tarde» en las preguntas. El velo no cierra una encuesta, para no perderla con un clic suelto.
+
+**Tamaños y movimiento:**
+- El velo es un contenedor (`container: pop`), así que la letra y los huecos siguen a la pantalla. La vista previa del panel dibuja lo mismo dentro de `.pop-scene` (`CampaignPopup` con `inline`).
+- Desde 2560 px todo es un 25 % más grande (`zoom`, como el inicio). Lo que se mide en `vh` lleva `--unzoom` para seguir siendo la misma parte de la pantalla.
+- Nunca crece de lado de 1280×720 a 2560×1440, y si no cabe, hace scroll por dentro.
+- **Entrada:** la caja sube con rebote, y el cambio de pregunta se desliza desde el lado al que vas. Con movimiento reducido, nada se mueve.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
