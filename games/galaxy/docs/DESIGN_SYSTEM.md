@@ -1478,6 +1478,29 @@ La portada pública (`apps/landing`, aprobada el 17/11/2026 como «Viaje de la s
 - **A partir de 2400 px** todo es un 25 % más grande, como el juego.
 - **En el móvil,** «Jugar gratis» abre el aviso «Se juega en ordenador», que deja compartir o copiar el enlace.
 
+## 8 quinquagies. Torneos
+
+Plan «temporadas como fichas», parte 5 (22/11/2026). Las pantallas siguen la clasificación y la temporada: el mismo podio, las mismas tablas y la barra de recursos de Misiones. Consulta de ui-ux-pro-max: confirmación antes de lo que no se deshace, estado activo visible y enlaces profundos.
+
+- **Color por estado** (`--k`): en curso Terminal, con un punto que late; próximo Hielo; en revisión Solar; terminado UV; cancelado Nova. Estar dentro es un anillo Solar en la tarjeta.
+- **`/torneos`:**
+  - las pestañas En curso, Próximos y Terminados van en la dirección (`?pestana=`), con cuántos hay. Sin pestaña, abre la primera que tiene alguno;
+  - las tarjetas, tres por fila desde 1280 (360 px como mínimo), igual de altas en su fila, con su pie abajo;
+  - arriba de cada una, el banner (8:3, recortado al centro) o, sin él, un dibujo del color de su estado con la trama braille y un gran trofeo inclinado. Encima, el estado y «Exclusivo»;
+  - debajo, el título (enlace a su página), el resumen en dos líneas, la cuenta atrás, la medida, los inscritos y los tres primeros tramos de premios con sus regalos dibujados en pequeño (el primero en oro). El dinero es una ficha verde «50 €»;
+  - tu estado («Estás dentro», tu puesto y tu puntuación) y la acción: «Inscribirme» en Solar, con la entrada en una ficha; «Salir»; o por qué no puedes, con un candado.
+- **Inscribirse y salir** se explican antes en un diálogo, punto por punto y cada uno con su icono: la entrada (que no se devuelve), con quién es exclusivo, desde cuándo cuentan las partidas y que salir borra la puntuación. El foco empieza en «Cancelar» o «Quedarme». Si no te llega para la entrada, lo dice y no deja pagar.
+- **La página de un torneo:**
+  - el banner es el héroe, con un velo oscuro a la izquierda: el estado, el título en grande, el resumen, la medida, los inscritos, la entrada, tu estado y la acción;
+  - debajo, el panel del momento: la cuenta atrás grande al empezar o al acabar, la revisión explicada en sencillo, el resultado final con tu premio y «Recoger» (que late en Solar), o la cancelación con su devolución;
+  - la clasificación con el podio grande de la clasificación general, la tabla desde el cuarto (un trofeo en los puestos con premio; «Sin premio» en las cuentas que no pueden ganar) y tu fila fijada debajo si no está entre los primeros;
+  - tus partidas que cuentan, con las cifras a la derecha y, en las medidas de mejor marca, la mejor en oro;
+  - a la derecha, los premios por puesto con sus regalos dibujados (el tuyo con el anillo Hielo) y la imagen de premios, y «Cómo se gana» en frases sencillas con su icono, más las reglas del organizador.
+- **Recoger** suena, vuela a la barra de recursos y se celebra con `Celebration`, como los premios de cierre de la temporada.
+- **Accesos, sin banners:** «Torneos» en la esquina de Jugar (una píldora oscura con el trofeo Solar) y en el raíl del lobby (en ámbar). Un punto Nova que late avisa de que hay inscripción abierta. En la clasificación, un bloque «Torneos en curso» bajo la temporada, con tu puesto en cada uno.
+- **Al terminar una partida,** una línea por torneo con lo que sumó y tu puesto, con la flecha Terminal de los puestos que subes.
+- **A partir de 2400 px** todo es un 25 % más grande, como el inicio.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

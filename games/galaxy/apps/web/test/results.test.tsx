@@ -1,4 +1,5 @@
 import type { RunResult } from '@galaxy/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { expect, test } from 'vitest';
@@ -31,11 +32,14 @@ const died: RunResult = {
   progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
+// The results read the tournaments' list they keep (the line of what the run added): a client of their own.
 function show(r: RunResult) {
   return render(
-    <MemoryRouter>
-      <ResultsScreen result={r} onAgain={() => {}} />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <ResultsScreen result={r} onAgain={() => {}} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

@@ -5583,3 +5583,253 @@
   @media (prefers-reduced-motion: reduce) { .gift-reveal-item, .gift-reveal-card { opacity: 1; animation: none; } }
   @media (max-width: 720px) { .mailbox-body { grid-template-columns: minmax(0, 1fr); } .mailbox-detail { padding: 12px 0 0; border-inline-start: 0; border-top: 2px solid rgb(255 255 255 / .06); } }
 }
+
+@layer components {
+  /* ---------- Tournaments (plan «temporadas como fichas», part 5; DESIGN_SYSTEM §8 quinquagies) ---------- */
+  /* Each state wears its colour (--k): running Terminal, upcoming Ice, in review Solar, finished UV, cancelled Nova. */
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment) { --k: var(--color-ink-soft); }
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment).s-running { --k: var(--color-terminal); }
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment).s-scheduled { --k: var(--color-ice); }
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment).s-review { --k: var(--color-solar); }
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment).s-finished { --k: var(--color-uv-soft); }
+  :is(.tn-card, .tn-hero, .tn-art, .tn-state, .tn-moment).s-cancelled { --k: var(--color-nova); }
+
+  /* The screens: a warm ember sky over the void; one column that never grows sideways (wide tables scroll inside). */
+  .tn-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(70% 55% at 80% -8%, #3d1c0d 0%, transparent 62%), radial-gradient(60% 50% at 0% 0%, #1d1545 0%, transparent 60%), var(--color-void); }
+  .tn-screen { box-sizing: border-box; inline-size: min(100%, 1560px); min-block-size: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 48px; display: flex; flex-direction: column; gap: 18px; }
+  /* Large screens: a quarter bigger, as the home. */
+  @media (min-width: 2400px) { .tn-screen { zoom: 1.25; } }
+  .tn-screen .collection-bar { margin-left: 0; flex-wrap: wrap; row-gap: 12px; }
+  .tn-screen .collection-bar h1 { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tn-screen .collection-bar .tn-wallet { --r: 99px; --lip-h: 4px; margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; }
+  .tn-tabs { margin: 0; inline-size: min(100%, 620px); }
+  .tn-tabs :is(a, button) { display: flex; gap: 8px; }
+  .tn-tab-count { display: inline-grid; place-items: center; min-inline-size: 22px; block-size: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: rgb(255 255 255 / .1); font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tn-tabs a[aria-current='page'] .tn-tab-count { background: var(--color-solar); color: var(--color-on-solar); }
+  .tn-done { align-self: flex-start; }
+  .tn-empty { display: grid; justify-items: center; gap: 14px; inline-size: min(100%, 620px); box-sizing: border-box; margin: 24px auto 0; padding: 40px 24px; text-align: center; }
+  .tn-empty > .ico { font-size: 52px; color: var(--color-solar); filter: drop-shadow(0 0 18px color-mix(in oklab, var(--color-solar) 45%, transparent)); }
+  .tn-empty p { margin: 0; font-size: 17px; color: var(--color-ink-soft); }
+
+  /* The cards: three across from 1280, each the same height in its row. */
+  .tn-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 22px; }
+  .tn-cell { display: grid; min-inline-size: 0; animation: tn-in .5s var(--ease-bounce) calc(var(--i, 0) * 60ms) both; }
+  @keyframes tn-in { from { opacity: 0; translate: 0 16px; } }
+  .tn-card { --r: 24px; --lip-h: 6px; display: flex; flex-direction: column; overflow: hidden; min-inline-size: 0; }
+  /* In it: a gold ring. */
+  .tn-card.in { outline: 2px solid color-mix(in oklab, var(--color-solar) 60%, transparent); outline-offset: -2px; }
+  .tn-card-art { position: relative; flex: none; aspect-ratio: 8 / 3; overflow: hidden; background: var(--color-panel-2); }
+  .tn-card-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(7 10 28 / .35), transparent 38%, transparent 62%, rgb(24 26 61 / .85)); pointer-events: none; }
+  .tn-art { position: absolute; inset: 0; display: block; overflow: hidden; }
+  .tn-art img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+  /* Without a banner: the state's colour with the braille dots and a great trophy, leaning. */
+  .tn-art.drawn { background-color: var(--color-panel-2);
+    background-image: radial-gradient(rgb(255 255 255 / .14) 1.3px, transparent 1.8px), radial-gradient(70% 120% at 88% 110%, color-mix(in oklab, var(--k) 55%, transparent), transparent 70%), linear-gradient(160deg, color-mix(in oklab, var(--k) 26%, var(--color-panel-2)), var(--color-panel) 70%);
+    background-size: 11px 11px, 100% 100%, 100% 100%; }
+  .tn-art-mark { position: absolute; inset-block: 0; inset-inline-end: 7%; display: grid; place-items: center; color: color-mix(in oklab, var(--k) 70%, #fff); filter: drop-shadow(0 0 22px color-mix(in oklab, var(--k) 65%, transparent)); rotate: -9deg; }
+  .tn-art-mark .ico { inline-size: clamp(72px, 9vw, 132px); block-size: auto; aspect-ratio: 1; stroke-width: 1.8; }
+  .tn-card-tags { position: absolute; z-index: 1; inset-block-start: 12px; inset-inline: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tn-state, .tn-tag { display: inline-flex; align-items: center; gap: 6px; block-size: 28px; padding: 0 11px; border-radius: 99px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .tn-state { background: var(--k); color: var(--color-void); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 2px 0 rgb(0 0 0 / .35); }
+  .tn-tag { background: rgb(7 10 28 / .74); color: var(--color-ink); cursor: help; }
+  .tn-tag .ico { inline-size: 14px; block-size: 14px; color: var(--color-solar); }
+  .tn-live { inline-size: 8px; block-size: 8px; border-radius: 50%; background: currentColor; animation: hm-pulse 1.4s ease-in-out infinite; }
+  .tn-card-body { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 18px; min-inline-size: 0; }
+  .tn-card-body h2 { margin: 0; font: 400 26px/1.08 var(--font-display); letter-spacing: .01em; overflow-wrap: anywhere; }
+  .tn-card-body h2 a { color: var(--color-ink); text-decoration: none; transition: color .15s; }
+  .tn-card-body h2 a:hover { color: var(--color-solar); }
+  .tn-card-body h2 a:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; border-radius: 8px; }
+  .tn-summary { margin: 0; color: var(--color-ink-soft); font-size: 15px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tn-meta { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+  .tn-chip, .tn-time { display: inline-flex; align-items: center; gap: 6px; min-block-size: 30px; box-sizing: border-box; padding: 4px 11px; border-radius: 99px; background: rgb(0 0 0 / .3); color: var(--color-ink-soft); font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; max-inline-size: 100%; }
+  .tn-chip .ico, .tn-time .ico { inline-size: 16px; block-size: 16px; flex: none; }
+  .tn-chip .ico { color: var(--color-solar); }
+  .tn-time.live { color: var(--color-terminal); }
+  .tn-time.soon { color: var(--color-ice); }
+  .tn-time.review { color: var(--color-solar); }
+
+  /* The first prizes in short: the place and its gifts drawn small, the first in gold. */
+  .tn-prize-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+  .tn-prize-strip li { display: grid; align-content: start; gap: 7px; padding: 9px 10px 10px; border-radius: 14px; background: rgb(255 255 255 / .04); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05); min-inline-size: 0; }
+  .tn-prize-strip li.first { background: radial-gradient(120% 130% at 0% 0%, rgb(255 201 74 / .17), transparent 70%); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 38%, transparent); }
+  .tn-place { font: 400 16px/1 var(--font-display); color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tn-prize-strip li.first .tn-place { color: var(--color-solar); }
+  .tn-prize-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-inline-size: 0; }
+  .tn-prize-gift { display: inline-grid; }
+  .tn-prize-gift .gift-ico { inline-size: 32px; block-size: 32px; border-radius: 10px; }
+  .tn-prize-gift .gift-ico .ico { inline-size: 18px; block-size: 18px; }
+  .tn-prize-gift .gift-ico.galaxy { inline-size: 26px; block-size: 34px; }
+  .tn-prize-gift .gift-galaxy-card { inline-size: 24px; block-size: 32px; }
+  .tn-prize-more { font-size: 12.5px; font-weight: 800; color: var(--color-ink-mute); }
+  .tn-no-prizes { margin: 0; font-size: 14px; color: var(--color-ink-mute); }
+  /* Money: a green note, never paid in the game. */
+  .tn-cash { display: inline-flex; align-items: center; block-size: 26px; padding: 0 10px; border-radius: 99px; background: linear-gradient(180deg, #8dffcf, var(--color-terminal)); color: var(--color-on-terminal); font-size: 13.5px; font-weight: 800; white-space: nowrap; box-shadow: inset 0 1px 0 rgb(255 255 255 / .5), 0 0 14px -2px color-mix(in oklab, var(--color-terminal) 75%, transparent); }
+
+  /* My place in it. */
+  .tn-me { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 9px 12px; border-radius: 14px; background: color-mix(in oklab, var(--color-solar) 11%, transparent); }
+  .tn-me-status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--color-solar); }
+  .tn-me-status .ico { inline-size: 16px; block-size: 16px; }
+  .tn-me:is(.left, .disqualified) { background: rgb(255 255 255 / .04); }
+  .tn-me:is(.left, .disqualified) .tn-me-status { color: var(--color-ink-mute); }
+  .tn-me-rank { font: 400 21px/1 var(--font-display); color: var(--color-ink); }
+  .tn-me-score { margin-inline-start: auto; font-size: 14px; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+
+  /* The action and the way to its page, at the card's foot. */
+  .tn-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-block-start: auto; padding-block-start: 12px; border-block-start: 1px solid rgb(255 255 255 / .07); }
+  .tn-card-foot .lip.pill { block-size: 40px; padding: 0 14px 0 12px; font-size: 15px; gap: 7px; }
+  .tn-card-foot .lip.pill .ico { inline-size: 18px; block-size: 18px; }
+  .tn-see { margin-inline-start: auto; }
+  .tn-join-fee { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 2px; padding: 2px 9px 2px 6px; border-radius: 99px; background: rgb(58 23 0 / .2); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tn-join .tn-join-fee .ico { inline-size: 15px; block-size: 15px; }
+  .tn-block { margin: 0; display: inline-flex; align-items: center; gap: 8px; min-inline-size: 0; font-size: 13.5px; font-weight: 700; line-height: 1.3; color: var(--color-ink-mute); }
+  .tn-block .ico { inline-size: 16px; block-size: 16px; flex: none; }
+  .tn-go-claim { animation: tn-glow 1.8s ease-in-out infinite; }
+  @keyframes tn-glow { 50% { box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), 0 4px 0 var(--color-solar-lip), 0 0 26px color-mix(in oklab, var(--color-solar) 70%, transparent); } }
+
+  /* Signing up and leaving, explained point by point before anything is sent. */
+  .modal.tn-dialog { inline-size: min(580px, 100%); box-sizing: border-box; }
+  .tn-points { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
+  .tn-points li { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgb(255 255 255 / .04); font-size: 15.5px; line-height: 1.35; }
+  .tn-points li .ico { inline-size: 38px; block-size: 38px; padding: 9px; box-sizing: border-box; border-radius: 12px; background: color-mix(in oklab, var(--color-solar) 16%, transparent); color: var(--color-solar); }
+  .tn-points li.warn .ico { background: color-mix(in oklab, var(--color-nova) 16%, transparent); color: var(--color-nova); }
+  .tn-short { margin: 12px 0 0; font-weight: 700; color: var(--color-nova); }
+  .tn-dialog .modal-actions .pill .ico { inline-size: 20px; block-size: 20px; }
+
+  /* A tournament's page: the banner as its hero, the summary and the action over a dark veil on its left. */
+  .tn-hero { --r: 28px; --lip-h: 8px; position: relative; display: grid; align-items: end; min-block-size: clamp(230px, 22vw, 330px); overflow: hidden; isolation: isolate; }
+  .tn-hero-art { z-index: -1; }
+  .tn-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, rgb(9 11 32 / .95) 0%, rgb(9 11 32 / .8) 34%, rgb(9 11 32 / .15) 72%, transparent), linear-gradient(0deg, rgb(9 11 32 / .55), transparent 55%); }
+  .tn-hero .tn-art.drawn .tn-art-mark { inset-inline-end: 9%; }
+  .tn-hero-body { display: grid; justify-items: start; gap: 12px; padding: 22px 28px 24px; max-inline-size: min(100%, 780px); box-sizing: border-box; }
+  .tn-hero .tn-card-tags { position: static; inset: auto; }
+  .tn-hero-title { margin: 0; font: 400 clamp(40px, 3.6vw, 56px)/1 var(--font-display); letter-spacing: .01em; text-shadow: 0 3px 0 rgb(0 0 0 / .35), 0 0 28px rgb(0 0 0 / .45); overflow-wrap: anywhere; }
+  .tn-hero-summary { margin: 0; font-size: 18px; line-height: 1.38; color: var(--color-ink); text-wrap: pretty; text-shadow: 0 2px 10px rgb(0 0 0 / .55); }
+  .tn-hero .tn-chip { background: rgb(7 10 28 / .66); }
+  .tn-hero-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .tn-hero .tn-me { background: rgb(7 10 28 / .72); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 30%, transparent); }
+  .tn-hero .tn-me-score { margin-inline-start: 0; }
+
+  .tn-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 22px; align-items: start; }
+  .tn-main { display: grid; gap: 22px; min-inline-size: 0; }
+  .tn-side { display: grid; gap: 18px; min-inline-size: 0; }
+  @media (max-width: 1100px) { .tn-body { grid-template-columns: minmax(0, 1fr); } }
+
+  /* The moment it is in. */
+  .tn-moment { --r: 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 18px 22px; background-image: radial-gradient(80% 160% at 0% 50%, color-mix(in oklab, var(--k) 18%, transparent), transparent 60%); }
+  .tn-moment-icon { display: grid; place-items: center; flex: none; inline-size: 56px; block-size: 56px; border-radius: 18px; background: color-mix(in oklab, var(--k) 20%, transparent); color: var(--k); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--k) 35%, transparent); }
+  .tn-moment-icon .ico { inline-size: 30px; block-size: 30px; }
+  .tn-moment-text { display: grid; gap: 4px; flex: 1 1 280px; min-inline-size: 0; }
+  .tn-moment-text h2 { margin: 0; font: 400 25px/1.1 var(--font-display); }
+  .tn-moment-text p { margin: 0; color: var(--color-ink-soft); line-height: 1.4; }
+  .tn-moment-text small { font-size: 13px; color: var(--color-ink-mute); }
+  .tn-moment-text .tn-result { font: 400 24px/1.1 var(--font-display); color: var(--color-ink); }
+  .tn-moment-text .tn-ineligible { color: var(--color-nova); font-weight: 700; }
+  .tn-big-time { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 16px; background: rgb(0 0 0 / .35); color: var(--k); font: 400 22px/1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tn-big-time .ico { inline-size: 22px; block-size: 22px; }
+  .tn-moment.won { background-image: radial-gradient(70% 160% at 0% 50%, rgb(255 201 74 / .22), transparent 60%); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 45%, transparent), inset 0 2px 0 rgb(255 255 255 / .28), 0 var(--lip-h, 6px) 0 var(--color-panel-lip), 0 14px 26px rgb(0 0 0 / .35); }
+  .tn-moment.won .tn-moment-icon { color: var(--color-solar); background: color-mix(in oklab, var(--color-solar) 22%, transparent); }
+  .tn-my-prize { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px; border-radius: 16px; background: rgb(0 0 0 / .22); }
+  .tn-my-prize > .gift-grid-list { flex: 1 1 260px; }
+  .tn-my-prize.taken > .gift-grid-list { opacity: .55; }
+  .tn-my-prize .gift-done { margin: 0 0 0 auto; }
+  .tn-claim { margin-inline-start: auto; animation: tn-glow 1.8s ease-in-out infinite; }
+  .tn-cash-row { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .tn-cash-row small { font-size: 13px; color: var(--color-ink-mute); line-height: 1.35; }
+
+  /* The ranking: the podium as on the leaderboard (large), the table from the fourth, my row pinned under it. */
+  .tn-ranking, .tn-runs { display: grid; gap: 14px; min-inline-size: 0; }
+  .tn-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .tn-section-head h2 { margin: 0; font: 400 26px/1.1 var(--font-display); }
+  .tn-section-head span { font-size: 14px; color: var(--color-ink-mute); }
+  .tn-podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .12), transparent 70%); }
+  .tn-podium .podium-avatar { inline-size: 72px; block-size: 72px; }
+  .tn-podium li.place-1 .podium-avatar { inline-size: 96px; block-size: 96px; }
+  .tn-podium .podium-who b { font-size: 18px; }
+  .tn-podium .podium-value { font-size: 15px; }
+  .tn-podium li.place-1 .podium-step { block-size: 84px; font-size: 40px; }
+  .tn-podium li.place-2 .podium-step { block-size: 64px; font-size: 34px; }
+  .tn-podium li.place-3 .podium-step { block-size: 50px; font-size: 30px; }
+  .tn-no-prize { display: inline-block; padding: 1px 8px; border-radius: 99px; background: rgb(255 255 255 / .09); color: var(--color-ink-mute); font-size: 11.5px; font-weight: 700; white-space: nowrap; cursor: help; }
+  .tn-table .tn-prize-cell { inline-size: 76px; text-align: center !important; }
+  .tn-prize-mark { display: inline-grid; place-items: center; color: var(--color-solar); filter: drop-shadow(0 0 6px color-mix(in oklab, var(--color-solar) 45%, transparent)); }
+  .tn-prize-mark .ico { inline-size: 18px; block-size: 18px; }
+  .tn-table .lb-value { inline-size: 160px; white-space: nowrap; }
+  .tn-empty-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 16px 18px; color: var(--color-ink-soft); }
+  .tn-empty-line p { margin: 0; }
+  /* My runs that count: the numbers to the right, the best one marked in gold. */
+  .tn-runs-table th, .tn-runs-table td { white-space: nowrap; }
+  .tn-runs-table .num { text-align: right !important; font-variant-numeric: tabular-nums; }
+  .tn-runs-table tr.best { background: color-mix(in srgb, var(--color-solar) 9%, transparent); box-shadow: inset 4px 0 0 var(--color-solar); }
+  .tn-runs-table .lb-value { color: var(--color-terminal); }
+  .tn-best { display: inline-grid; vertical-align: -2px; margin-inline-end: 6px; color: var(--color-solar); }
+  .tn-best .ico { inline-size: 16px; block-size: 16px; }
+
+  /* Beside them: the prizes by place and how it is won. */
+  .tn-prizes, .tn-rules { --r: 22px; display: grid; gap: 12px; padding: 18px; }
+  :is(.tn-prizes, .tn-rules) h2 { margin: 0; font: 400 24px/1.1 var(--font-display); }
+  .tn-details { display: block; inline-size: 100%; border-radius: 14px; box-shadow: 0 0 0 2px rgb(255 255 255 / .06); }
+  .tn-prize-table { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .tn-prize-table > li { --m: var(--color-ink-soft); display: grid; padding: 10px 12px 12px; border-radius: 16px; background: rgb(255 255 255 / .035); }
+  .tn-prize-table > li.r-1 { --m: var(--color-solar); background: radial-gradient(110% 140% at 0% 0%, rgb(255 201 74 / .17), transparent 70%); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 38%, transparent); }
+  .tn-prize-table > li.r-2 { --m: #c9d0ea; }
+  .tn-prize-table > li.r-3 { --m: #e8a35f; }
+  .tn-prize-table > li.r-all { --m: var(--color-terminal); }
+  .tn-prize-table > li[aria-current='true'] { box-shadow: inset 0 0 0 2px var(--color-ice), 0 0 18px -6px var(--color-ice); }
+  .tn-place-badge { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-block-size: 30px; box-sizing: border-box; padding: 3px 12px; border-radius: 99px; background: color-mix(in oklab, var(--m) 17%, transparent); color: var(--m); font: 400 17px/1.1 var(--font-display); }
+  .tn-place-badge .ico { inline-size: 18px; block-size: 18px; }
+  .tn-prize-table > li.r-all .tn-place-badge { font: 700 14px/1.2 var(--font-sans); }
+  .tn-prize-row { display: grid; gap: 8px; min-inline-size: 0; }
+  .tn-prize-row .gift-grid-list { gap: 6px; }
+  .tn-prize-row .gift-tile { padding: 4px 10px 4px 4px; font-size: 14px; gap: 8px; }
+  .tn-prize-row .gift-ico { inline-size: 36px; block-size: 36px; }
+  .tn-prize-row .gift-ico.galaxy { inline-size: 30px; block-size: 40px; }
+  .tn-prize-row .gift-galaxy-card { inline-size: 28px; block-size: 38px; }
+  .tn-rules ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+  .tn-rules li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; font-size: 14.5px; line-height: 1.4; color: var(--color-ink-soft); }
+  .tn-rules li .ico { inline-size: 20px; block-size: 20px; margin-block-start: 1px; color: var(--color-solar); }
+  .tn-rules li:first-child { font-size: 16px; font-weight: 700; color: var(--color-ink); }
+  .tn-rules-more { padding-block-start: 12px; border-block-start: 1px solid rgb(255 255 255 / .07); }
+  .tn-rules-more h3 { margin: 0 0 6px; font: 400 18px var(--font-display); }
+  .tn-rules-more p { margin: 0; white-space: pre-line; font-size: 14.5px; line-height: 1.45; color: var(--color-ink-soft); overflow-wrap: anywhere; }
+
+  /* The leaderboard's block: each running tournament as one row to its page, my place on its right. */
+  .tn-side-card { --r: 22px; display: grid; gap: 10px; padding: 16px; }
+  .tn-side-card h2 { margin: 0; display: flex; align-items: center; gap: 8px; font: 400 22px/1.1 var(--font-display); }
+  .tn-side-card h2 .ico { inline-size: 22px; block-size: 22px; color: var(--color-solar); }
+  .tn-side-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .tn-side-item { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgb(255 255 255 / .04); color: var(--color-ink); text-decoration: none; transition: background-color .15s ease, translate .18s var(--ease-bounce); }
+  .tn-side-item:hover { background: rgb(255 255 255 / .08); translate: 2px 0; }
+  .tn-side-item:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .tn-side-item.in { box-shadow: inset 3px 0 0 var(--color-solar); }
+  .tn-side-item > .ico { inline-size: 16px; block-size: 16px; color: var(--color-ink-mute); }
+  .tn-side-name { display: grid; gap: 2px; min-inline-size: 0; }
+  .tn-side-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .tn-side-time { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--color-terminal); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tn-side-time .ico { inline-size: 13px; block-size: 13px; }
+  .tn-side-me { font-size: 13px; color: var(--color-ink-mute); white-space: nowrap; }
+  .tn-side-me b { font-size: 15px; color: var(--color-solar); }
+  .tn-side-all { justify-self: start; }
+
+  /* The ways in: Torneos on Jugar's corner (the home) and on the lobby's rail, a small dot while sign-up is open. */
+  .play-slot { position: relative; display: grid; min-inline-size: 0; }
+  .hub-tournaments { position: absolute; z-index: 1; inset-block-start: 14px; inset-inline-end: 14px; display: inline-flex; align-items: center; gap: 7px; block-size: 44px; box-sizing: border-box; padding: 0 16px 0 12px; border-radius: 99px; background: rgb(58 23 0 / .74); color: #fff; font-size: 15.5px; font-weight: 700; text-decoration: none; box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), 0 3px 0 rgb(58 23 0 / .38); transition: background-color .15s ease, translate .18s var(--ease-bounce); }
+  .hub-tournaments .ico { inline-size: 20px; block-size: 20px; color: var(--color-solar); }
+  .hub-tournaments:hover { background: rgb(58 23 0 / .9); translate: 0 -2px; }
+  .hub-tournaments:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .play-slot:has(.play:hover) .hub-tournaments { translate: 0 -3px; }
+  .tn-dot { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--color-nova); box-shadow: 0 0 0 3px var(--color-solar-2), 0 0 12px var(--color-nova); animation: tn-dot 1.6s ease-in-out infinite; }
+  @keyframes tn-dot { 50% { scale: 1.25; } }
+  .lobby-zone .tn-dot { inset-block-start: -4px; inset-inline-end: -4px; box-shadow: 0 0 0 3px var(--color-panel-lip), 0 0 12px var(--color-nova); }
+  .lobby-zone.ember .lobby-zone-icon { background: linear-gradient(180deg, var(--color-solar-2), var(--color-solar-lip)); }
+
+  /* After a run: one line per tournament, what it added and the places climbed. */
+  .results-tournaments { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; inline-size: 100%; }
+  .results-tournament { --r: 18px; --lip-h: 5px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-align: start; font-size: 16px; font-weight: 700; background-image: radial-gradient(70% 180% at 0% 50%, rgb(255 201 74 / .16), transparent 60%); }
+  .results-tournament > .ico { inline-size: 22px; block-size: 22px; color: var(--color-solar); }
+  .results-tournament > .ico:last-child { inline-size: 18px; block-size: 18px; margin-inline-start: auto; color: var(--color-ink-mute); }
+  .tn-climb { display: inline-flex; align-items: center; gap: 2px; padding: 2px 10px 2px 6px; border-radius: 99px; background: color-mix(in oklab, var(--color-terminal) 18%, transparent); color: var(--color-terminal); font-weight: 800; animation: tn-climb .7s var(--ease-bounce) .4s both; }
+  .tn-climb .ico { inline-size: 16px; block-size: 16px; }
+  @keyframes tn-climb { from { opacity: 0; translate: 0 8px; } }
+
+  :where(:root[data-motion='reduced']) { .tn-cell, .tn-live, .tn-dot, .tn-go-claim, .tn-claim, .tn-climb { animation: none; } }
+}

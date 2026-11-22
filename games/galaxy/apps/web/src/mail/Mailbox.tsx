@@ -181,7 +181,7 @@ export function MailboxDialog({ onClose }: { onClose: () => void }) {
               ) : null}
             </div>
             <div className="mailbox-detail">
-              {current ? <Letter key={current.id} m={current} view={view} onReveal={setReveal} onGone={() => setOpenId(null)} /> : <p className="mailbox-pick">{t.pick}</p>}
+              {current ? <Letter key={current.id} m={current} view={view} onReveal={setReveal} onGone={() => setOpenId(null)} onGo={onClose} /> : <p className="mailbox-pick">{t.pick}</p>}
             </div>
           </div>
         </>
@@ -202,7 +202,7 @@ export function MailboxDialog({ onClose }: { onClose: () => void }) {
 }
 
 /** One message (mail v2): its kind's stamp, title, date and text as written; every gift it gives, collected once. */
-function Letter({ m, view, onReveal, onGone }: { m: MailMessage; view: ReturnType<typeof usePlayerGiftView>; onReveal: (items: GrantedItem[]) => void; onGone: () => void }) {
+function Letter({ m, view, onReveal, onGone, onGo }: { m: MailMessage; view: ReturnType<typeof usePlayerGiftView>; onReveal: (items: GrantedItem[]) => void; onGone: () => void; onGo: () => void }) {
   const claim = useClaimMail();
   const archive = useArchiveMail();
   const remove = useDeleteMail();
@@ -214,7 +214,7 @@ function Letter({ m, view, onReveal, onGone }: { m: MailMessage; view: ReturnTyp
   const error = claim.error ?? archive.error ?? remove.error;
   return (
     <>
-      <LetterView type={m.type} title={m.title} body={m.body} at={m.at} expiresAt={m.expiresAt} contents={m.contents} catalog={view} taken={claimed}>
+      <LetterView type={m.type} title={m.title} body={m.body} at={m.at} expiresAt={m.expiresAt} contents={m.contents} catalog={view} taken={claimed} link={m.link ?? null} onGo={onGo}>
         {claimed ? (
           <p className="gift-done" role="status">
             <Icon name="check" />

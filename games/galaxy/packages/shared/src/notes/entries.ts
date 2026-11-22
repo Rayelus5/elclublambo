@@ -7,6 +7,21 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-50-torneos',
+    version: '1.50',
+    date: '2026-11-22',
+    title: 'Torneos con su clasificación, premios y recogida',
+    summary: 'Compite en torneos con su propia clasificación y recoge tus premios en su página',
+    items: [
+      { kind: 'nuevo', text: 'Torneos, en el menú principal y en el lobby. Cada uno dice cómo se gana, cuánto le queda, sus premios y cuántos juegan, y un punto te avisa cuando puedes inscribirte' },
+      { kind: 'nuevo', text: 'Antes de inscribirte te contamos la entrada, si es exclusivo y desde cuándo cuentan tus partidas. Si sales, pierdes tu puntuación y no puedes volver' },
+      { kind: 'nuevo', text: 'Cada torneo tiene su página, con el podio, la clasificación con tu puesto, tus partidas que cuentan y sus premios por puesto' },
+      { kind: 'nuevo', text: 'Al acabar revisamos las partidas con premio antes de publicar los resultados. Tus premios se recogen en la página del torneo, con su animación y su sonido' },
+      { kind: 'mejora', text: 'Al terminar una incursión ves lo que ha sumado en tu torneo y cuántos puestos subes' },
+      { kind: 'mejora', text: 'La clasificación enseña los torneos en curso con tu puesto en cada uno' },
+    ],
+  },
+  {
     id: 'v1-48-clasificacion-temporada',
     version: '1.48',
     date: '2026-11-22',

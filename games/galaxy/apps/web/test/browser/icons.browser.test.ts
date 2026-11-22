@@ -41,10 +41,10 @@ function strokes(svg: SVGSVGElement) {
   return { back: back ? getComputedStyle(back).stroke : null, front: front ? getComputedStyle(front).stroke : null };
 }
 
-test('los seis iconos de la barra del lobby son blancos con contorno oscuro, sea cual sea su color', async () => {
+test('los siete iconos de la barra del lobby son blancos con contorno oscuro, sea cual sea su color', async () => {
   await page.viewport(1600, 900);
   const host = mount(createElement(Rail));
-  await expect.poll(() => host.querySelectorAll('.lobby-zone-icon svg').length).toBe(6);
+  await expect.poll(() => host.querySelectorAll('.lobby-zone-icon svg').length).toBe(7);
   for (const svg of host.querySelectorAll<SVGSVGElement>('.lobby-zone-icon svg')) {
     expect(strokes(svg), svg.closest('a')!.className).toEqual({ front: WHITE, back: RIM });
   }

@@ -11,10 +11,12 @@ import { useCatalogSummary } from '../api/catalog';
 import { useGacha } from '../api/economy';
 import { NotesLink } from '../notes/NotesScreen';
 import { InstallPill } from '../pwa/InstallPill';
+import { signUpOpen, useTournaments } from '../api/tournaments';
 
-// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the scanner and the station, the event and
-// today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike; and
-// the install pill while the browser offers it). Everything a later milestone builds is shown but locked: the
+// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar (with Torneos on its corner, and a small dot
+// while sign-up is open in one), the scanner and the station, the event and today's missions, the six section tiles
+// and the footer (Ajustes, Guía and, while it is open, the shop, all alike; and the install pill while the browser
+// offers it). Everything a later milestone builds is shown but locked: the
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
@@ -101,18 +103,28 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   const gacha = useGacha().data;
   // The resource shop (shop and lab plan, F5): only while it is open for this account, with a sign while an offer runs.
   const shop = gacha?.shop;
+  // The tournaments (plan «temporadas como fichas», part 5): a small sign, never a banner, while one takes sign-ups.
+  const signUp = signUpOpen(useTournaments().data);
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
-        <Link to="/incursion" className="lip play enter" data-sfx="hover" data-tour="play" style={style({ '--d': '.8s' })}>
-          <span className="play-ring">
-            <Icon name="play" />
-          </span>
-          <span>
-            <span className="title">{copy.hub.play}</span>
-            <span className="hint">{copy.hub.playHint}</span>
-          </span>
-        </Link>
+        <div className="play-slot">
+          <Link to="/incursion" className="lip play enter" data-sfx="hover" data-tour="play" style={style({ '--d': '.8s' })}>
+            <span className="play-ring">
+              <Icon name="play" />
+            </span>
+            <span>
+              <span className="title">{copy.hub.play}</span>
+              <span className="hint">{copy.hub.playHint}</span>
+            </span>
+          </Link>
+          {/* Torneos rides on Jugar's corner: competing is playing, and the foot is full. */}
+          <Link to="/torneos" className="hub-tournaments enter" data-sfx="hover" style={style({ '--d': '.86s' })} aria-label={signUp ? copy.hub.tournamentsOpen : undefined}>
+            <Icon name="trophy" />
+            <span>{copy.hub.tournaments}</span>
+            {signUp ? <i className="tn-dot" aria-hidden="true" /> : null}
+          </Link>
+        </div>
         <div className="modes">
           <Mode kind="m-nova" icon="radar" title={copy.hub.scan} hint={copy.hub.scanHint} d=".88s" to="/escaner" tour="scanner" badge={gacha?.freePullAvailable ? copy.hub.freePull : undefined} />
           <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" tour="home" />

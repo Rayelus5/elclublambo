@@ -67,6 +67,8 @@ import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
 import { TrophiesScreen } from './season/TrophiesScreen';
+import { TournamentScreen } from './tournaments/TournamentScreen';
+import { TournamentsScreen } from './tournaments/TournamentsScreen';
 import { SettingsScreen } from './hub/SettingsScreen';
 import { ShopScreen } from './shop/ShopScreen';
 import { ShopAdminScreen } from './admin/shop/ShopAdminScreen';
@@ -147,6 +149,8 @@ export function App() {
         <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
         <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
         <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
+        <Route path="/torneos" element={<SignedIn><TournamentsScreen /></SignedIn>} />
+        <Route path="/torneos/:slug" element={<SignedIn><TournamentScreen /></SignedIn>} />
         <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
         <Route path="/misiones" element={<SignedIn><MissionsScreen /></SignedIn>} />

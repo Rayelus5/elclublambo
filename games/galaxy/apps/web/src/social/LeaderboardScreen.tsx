@@ -12,11 +12,13 @@ import { Podium } from './parts';
 import { SeasonCard } from './SeasonCard';
 import { HomeLink } from '../ui/BackLink';
 import { useContentNames } from '../api/content-names';
+import { TournamentsSideCard } from '../tournaments/SideCard';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
 // view can be shared; the podium holds the top three and the table the rest (in General with each player's runs and
 // best layer, 2026-11-21), scrolling inside its own box; your row is marked, and pinned below when it is out of the
-// top; beside them, the season card (SeasonCard), which leads to the season's route and shop.
+// top; beside them, the season card (SeasonCard), which leads to the season's route and shop, and the tournaments
+// running now with my place in each.
 
 const t = copy.social;
 const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes', groups: 'grupo' };
@@ -272,6 +274,8 @@ export function LeaderboardScreen() {
             <aside className="lb-side">
               {/* Your score and the season's players, whatever the tab (Purgas only counts those with a Core). */}
               <SeasonCard season={v.season} me={general.data?.me ?? null} total={general.data?.total ?? v.total} />
+              {/* The tournaments running now, with my place in each (plan «temporadas como fichas», part 5). */}
+              <TournamentsSideCard />
             </aside>
           </div>
         )}

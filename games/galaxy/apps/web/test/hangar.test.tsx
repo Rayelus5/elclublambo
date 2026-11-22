@@ -618,7 +618,9 @@ describe('el lobby', () => {
     expect(screen.getByRole('region', { name: copy.hangar.relics })).toHaveTextContent(l.what);
     const zones = screen.getByRole('navigation', { name: l.zones });
     expect(within(zones).getByRole('link', { name: l.zone.workshop })).toHaveAttribute('href', '/taller');
-    expect(within(zones).getAllByRole('link')).toHaveLength(6);
+    // Torneos joined them (plan «temporadas como fichas», part 5).
+    expect(within(zones).getByRole('link', { name: l.zone.tournaments })).toHaveAttribute('href', '/torneos');
+    expect(within(zones).getAllByRole('link')).toHaveLength(7);
   });
 });
 
