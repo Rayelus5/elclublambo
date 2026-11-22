@@ -33,6 +33,9 @@ import { EventsScreen } from './admin/events/EventsScreen';
 import { SeasonsScreen } from './admin/seasons/SeasonsScreen';
 import { SeasonWizardScreen } from './admin/seasons/SeasonWizard';
 import { TournamentsScreen as AdminTournamentsScreen } from './admin/tournaments/TournamentsScreen';
+import { PopupPage } from './admin/popups/PopupPage';
+import { PopupResults } from './admin/popups/PopupResults';
+import { PopupsScreen } from './admin/popups/PopupsScreen';
 import { TournamentPage } from './admin/tournaments/TournamentPage';
 import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
@@ -181,6 +184,9 @@ export function App() {
             <Route path="temporadas/:id" element={<SeasonWizardScreen />} />
             <Route path="torneos" element={<AdminTournamentsScreen />} />
             <Route path="torneos/:id" element={<TournamentPage />} />
+            <Route path="encuestas" element={<PopupsScreen />} />
+            <Route path="encuestas/:id" element={<PopupPage />} />
+            <Route path="encuestas/:id/resultados" element={<PopupResults />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="referidos" element={<ReferralsScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />

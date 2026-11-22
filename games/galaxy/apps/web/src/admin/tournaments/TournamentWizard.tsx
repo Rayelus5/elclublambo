@@ -34,6 +34,7 @@ import { useSettled } from '../../ui/useSettled';
 import { duration } from '../events/shared';
 import { NumberInput } from '../forms/ConfigForm';
 import { fromLocalInput, toLocalInput } from '../forms/format';
+import { BigNote } from '../BigNote';
 import { GiftsField } from '../GiftsField';
 import { ImageField } from '../ImageField';
 import { PublishFields } from '../PublishFields';
@@ -66,6 +67,8 @@ import {
 // a superadmin. Only the project's own widgets: DateField, NumberInput, Select, Switch, Segmented, Dialog.
 
 const DAY = 86_400_000;
+/** Why scheduling needs a superadmin, in the tournaments' words. */
+const BIG_WORDS = { title: t.bigTitle, you: t.bigYou, needs: t.bigNeeds, cash: t.bigCash };
 const METRIC_ICON: Record<TournamentMetric, IconName> = { points: 'starOn', best_run: 'star', kills: 'target', runs: 'play', depth: 'down', cores: 'comet', extractions: 'exit', season_points: 'podium' };
 
 /** The problems of a field (`path`) and of what is inside it, in words. */
@@ -191,25 +194,6 @@ function SeasonFit({ season, record }: { season: AdminSeason | null; record: Tou
         <span className="atn-timeline-run" />
       </div>
       {season.state === 'draft' ? <p className="cf-hint atn-warn">{t.seasonDraft}</p> : null}
-    </div>
-  );
-}
-
-/** Why scheduling needs a superadmin, and whether this admin is one. */
-export function BigNote({ reasons, superadmin, catalog }: { reasons: readonly TournamentBigReason[]; superadmin: boolean; catalog: GiftCatalog | null }) {
-  if (reasons.length === 0) return null;
-  return (
-    <div className={`gift-big${superadmin ? ' ok' : ' bad'}`} role="status">
-      <p className="gift-big-head">
-        <Icon name={superadmin ? 'shield' : 'lock'} />
-        <b>{t.bigTitle}</b>
-        <span>{superadmin ? t.bigYou : t.bigNeeds}</span>
-      </p>
-      <ul>
-        {reasons.map((r) => (
-          <li key={r}>{r === 'cash' ? t.bigCash : catalog ? bigReasonText(r, catalog) : r}</li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -519,7 +503,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
                 <NumberField label={t.fields.reviewHours} value={draft.reviewHours} unit="hours" hint={t.reviewHoursHint} onChange={(reviewHours) => set({ reviewHours })} />
               </div>
               <Problems issues={issues} path="reviewHours" />
-              <BigNote reasons={big} superadmin={superadmin} catalog={catalog} />
+              <BigNote reasons={big} superadmin={superadmin} catalog={catalog} words={BIG_WORDS} />
             </>
           ) : null}
 
@@ -589,7 +573,7 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
             <section aria-label={t.scheduleNow} className="atn-schedule">
               <h2>{t.scheduleTitle}</h2>
               <p className="panel-note">{t.scheduleHint}</p>
-              <BigNote reasons={big} superadmin={superadmin} catalog={catalog} />
+              <BigNote reasons={big} superadmin={superadmin} catalog={catalog} words={BIG_WORDS} />
               <PublishFields
                 busy={save.isPending || schedule.isPending}
                 disabled={!canSchedule}

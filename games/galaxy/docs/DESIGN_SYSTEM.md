@@ -1566,6 +1566,13 @@ Lo que ve el jugador de las campañas que publica un admin (plan del 22/11/2026,
 - Nunca crece de lado de 1280×720 a 2560×1440, y si no cabe, hace scroll por dentro.
 - **Entrada:** la caja sube con rebote, y el cambio de pregunta se desliza desde el lado al que vas. Con movimiento reducido, nada se mueve.
 
+**En el panel** (`/admin/encuestas`, `apps/web/src/admin/popups/`, clases con el prefijo `apop-`). Sigue a Torneos (§8 quinquagies) y se aplicaron las mismas guías de ui-ux-pro-max, más dos: los errores junto a su campo además de en la lista de «Qué falta», y ningún dato solo por color.
+- **El color de cada tipo** (`--k`): Encuesta Sky (sus letras, aclaradas para leerse sobre el panel), Valoración Solar, Formulario Terminal y Promoción UV. Va en su etiqueta con icono, en el filo izquierdo de la tarjeta y en su miniatura.
+- **La lista:** En curso, Programadas, Borradores y Terminadas. Cada tarjeta lleva su imagen en 16:9 (o el icono del tipo sobre su color), el tipo y el estado, las fechas en hora de Madrid con su cuenta atrás, el público con sus condiciones y su prioridad, «N respuestas de M vistas» («Ver más» en las promociones) y el premio en píldoras. Borrar, volver a borrador y terminar abren el diálogo del panel con motivo (y contraseña, salvo al borrar un borrador).
+- **El asistente:** los pasos de Torneos, con su número o el aviso Nova y cuántos problemas tiene; una promoción no tiene Preguntas ni Premio. Los tipos son tarjetas en su color (un `radiogroup`) y debajo, las plantillas. Cada pregunta de un formulario es una tarjeta con su tipo en un `Segmented`, subir, bajar y quitar, y el tema de una escala se elige en dos `Select` con el dibujo de cada uno.
+- **«Así lo verá el jugador»:** el `CampaignPopup` real, sin enviar nada, en un escenario que es una pantalla entera de 1280, 1920 o 2560 px con su velo. Se maqueta a ese tamaño y se escala al ancho del asistente (o se centra a tamaño real si cabe). Sus alturas en `vh` pasan a la del escenario (`cqh`) y desde 2560 px va un 25 % más grande, como en el juego. En la revisión ocupa todo el ancho bajo los pasos.
+- **Resultados:** las cifras de Estadísticas (§8 unvicies) y una tarjeta por pregunta. Las barras son de un solo azul, con su número y su porcentaje al lado y una tabla para lectores de pantalla. A la derecha, la media y, en las escalas de 0 a 10, el NPS con su barra de tres tramos (detractores ámbar, pasivos gris, promotores azul), cada uno con su nombre, su cuenta y su porcentaje. Los textos van en tarjetas con el nombre enlazado a su ficha y «Cargar más» de 50 en 50.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
