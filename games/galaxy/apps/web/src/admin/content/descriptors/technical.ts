@@ -77,7 +77,7 @@ export const part: DescriptorPart = {
     },
     'limits.pickups': {
       label: 'Objetos en el suelo a la vez',
-      hint: 'Máximo de experiencia, monedas, polvo y demás tirados en el suelo; si se llena, lo nuevo se suma a uno igual, y en grupo el tope es mayor',
+      hint: 'Máximo de experiencia, monedas, polvo y demás tirados en el suelo; si se llena, lo valioso aparta el fragmento de datos más antiguo y la experiencia se suma a uno igual, y en grupo el tope es mayor',
       section: LIMITS,
       advanced: true,
     },

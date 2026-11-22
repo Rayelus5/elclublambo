@@ -26,6 +26,7 @@ const CODES: Record<string, string> = {
   satellites_chances: 'Cada satélite de más tiene que ser igual o menos probable que el anterior',
   events_slot: 'Cada hueco del calendario tiene que terminar después de empezar',
   dash_too_fast: 'El dash es demasiado rápido: recorre demasiada distancia de golpe',
+  pickups_fade: 'El aviso antes de desaparecer no puede durar más que la vida de la experiencia y los kits',
   reserved_id: 'Ese identificador está reservado: elige otro',
 };
 

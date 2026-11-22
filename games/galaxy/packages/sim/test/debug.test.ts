@@ -256,6 +256,9 @@ describe('información', () => {
     expect(info.toCore).toBeCloseTo(sim.sector.layerSeconds - layerSeconds(sim));
     expect(info.boss).toBeNull();
     expect(info.god).toBe(false);
+    // Loose items (2026-11-22): how many lie on the ground and how many fit.
+    expect(info.pools.pickupCap).toBe(sim.pickups.cap);
+    expect(info.pools.pickupCap).toBe(sim.content.limits.pickups);
   });
 
   // The truce of life (2026-11-18): the panel says where the run is in it.

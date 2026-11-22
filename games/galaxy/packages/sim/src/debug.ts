@@ -57,7 +57,8 @@ export interface DebugInfo {
   scale: Scale & { elite: number };
   coreFactor: number;
   boss: { id: string; hp: number; maxHp: number } | null;
-  pools: { shots: number; foeShots: number; pickups: number; areas: number; props: number };
+  /** Live entities per pool, and how many pickups fit on the ground (the co-op pool is bigger). */
+  pools: { shots: number; foeShots: number; pickups: number; pickupCap: number; areas: number; props: number };
   god: boolean;
   level: number;
   hp: number;
@@ -251,7 +252,7 @@ export function debugInfo(sim: Sim, probe: number): DebugInfo {
     scale: scaleAt(sim),
     coreFactor: coreLevelFactor(sim),
     boss: boss ? { id: boss.def, hp: en.hp[boss.index]!, maxHp: en.maxHp[boss.index]! } : null,
-    pools: { shots: sim.shots.count, foeShots: sim.foeShots.count, pickups: sim.pickups.count, areas: sim.areas.count, props: sim.props.count },
+    pools: { shots: sim.shots.count, foeShots: sim.foeShots.count, pickups: sim.pickups.count, pickupCap: sim.pickups.cap, areas: sim.areas.count, props: sim.props.count },
     god: sim.debug?.god ?? false,
     level: p.level,
     hp: p.hp,

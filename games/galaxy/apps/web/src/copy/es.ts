@@ -4950,6 +4950,8 @@ export const copy = {
       hint: 'F2 abre y cierra este panel',
       speed: 'Velocidad',
       speedValue: (n: number) => `x${String(n).replace('.', ',')}`,
+      /** Loose items on the ground (2026-11-22): how many lie there and how many fit. */
+      groundValue: (n: number, cap: number) => `${fmt(n)} de ${fmt(cap)}`,
       view: 'Ver',
       info: 'Información',
       infoTitle: 'Información de depuración',
@@ -5010,6 +5012,7 @@ export const copy = {
         armor: 'Armadura',
         damage: 'Daño',
         pools: 'Objetos',
+        ground: 'En el suelo',
         content: 'Contenido',
         sim: 'Simulación',
       },

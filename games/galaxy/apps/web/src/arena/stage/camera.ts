@@ -51,6 +51,11 @@ export function cameraFor(viewportW: number, viewportH: number, focus: { x: numb
   };
 }
 
+/** Whether a world point is within the camera's view, widened by `margin` world units on every side. */
+export function inView(c: Camera, x: number, y: number, margin: number): boolean {
+  return Math.abs(x - c.x) <= c.worldW / 2 + margin && Math.abs(y - c.y) <= c.worldH / 2 + margin;
+}
+
 /**
  * Wheel turns as zoom steps: a mouse notch is one (up comes closer); a trackpad's small deltas add up to one. With
  * SHIFT held (a dash) the browser turns the wheel sideways: its sideways delta zooms the same.

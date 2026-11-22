@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { contentSchema, DEFAULT_CONTENT, type Content } from '../src/index';
 
@@ -285,5 +286,43 @@ describe('la explosión del élite Inestable', () => {
     const bad = structuredClone(DEFAULT_CONTENT) as unknown as { elites: { id: string; explode: Record<string, number> | null }[] };
     bad.elites.find((e) => e.id === 'volatile')!.explode!['keep'] = 0;
     expect(() => contentSchema.parse(bad)).toThrow();
+  });
+});
+
+// Loose items that expire (2026-11-22): how long data fragments and repair kits last on the ground and how long they
+// warn before going are new; a content published before (PRE's) still validates and gets the code's values.
+describe('objetos del suelo', () => {
+  test('la experiencia y los kits viven 90 s y avisan 5 s antes, y caben 3000 objetos', () => {
+    expect(DEFAULT_CONTENT.pickups).toEqual({ lifeSeconds: 90, fadeSeconds: 5 });
+    expect(DEFAULT_CONTENT.limits.pickups).toBe(3000);
+  });
+
+  test('el contenido publicado antes, sin `pickups`, sigue valiendo con los valores por defecto', () => {
+    const live = JSON.parse(readFileSync(new URL('../../../ops/launch/2026-11-16-enjambre/content.json', import.meta.url), 'utf8'));
+    expect(live.pickups).toBeUndefined();
+    const parsed = contentSchema.safeParse(live);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues?.slice(0, 3))).toBe(true);
+    expect(parsed.data!.pickups).toEqual(DEFAULT_CONTENT.pickups);
+    expect(parsed.data!.limits.pickups).toBe(1500);
+  });
+
+  test('el aviso no dura más que la vida; con vida 0 nada caduca y el aviso da igual', () => {
+    const withPickups = (pickups: Content['pickups']) => contentSchema.safeParse({ ...clone(), pickups });
+    expect(withPickups({ lifeSeconds: 10, fadeSeconds: 10 }).success).toBe(true);
+    expect(withPickups({ lifeSeconds: 0, fadeSeconds: 5 }).success).toBe(true);
+    const fade = withPickups({ lifeSeconds: 4, fadeSeconds: 5 });
+    expect(fade.success).toBe(false);
+    expect(fade.error!.issues.map((i) => i.message)).toContain('pickups_fade');
+    expect(withPickups({ lifeSeconds: 3601, fadeSeconds: 5 }).success).toBe(false);
+    expect(withPickups({ lifeSeconds: 90, fadeSeconds: 61 }).success).toBe(false);
+    expect(withPickups({ lifeSeconds: -1, fadeSeconds: 0 }).success).toBe(false);
+  });
+
+  test('el tope de objetos en el suelo sigue llegando a 5000 como mucho', () => {
+    const c = clone();
+    c.limits.pickups = 5000;
+    expect(contentSchema.safeParse(c).success).toBe(true);
+    c.limits.pickups = 5001;
+    expect(contentSchema.safeParse(c).success).toBe(false);
   });
 });
