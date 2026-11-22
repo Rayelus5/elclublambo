@@ -30,7 +30,20 @@ export function userAgent(req: FastifyRequest): string {
   return typeof ua === 'string' ? ua : '';
 }
 
-/** Opens a session, sets the cookie and returns the profile. */
+/**
+ * What the top bar shows of an account besides its name: its level (M5a), avatar and frame (Nov plan C2). The same for
+ * `/me` and for a session just opened, so the bar is whole right after signing in (2026-11-22: the avatar and frame
+ * only came after a reload).
+ */
+async function lookOf(deps: AuthDeps, accountId: string): Promise<{ level: number; avatar: string | null; frame: string | null }> {
+  const [level, look] = await Promise.all([
+    accountLevel(deps.db, accountId, await deps.config.get('account')),
+    deps.db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', accountId).executeTakeFirst(),
+  ]);
+  return { level, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
+}
+
+/** Opens a session, sets the cookie and returns the profile (the same as `/me`). */
 export async function startSession(
   deps: AuthDeps,
   req: FastifyRequest,
@@ -45,7 +58,8 @@ export async function startSession(
     ttlMs: opts.ttlSec * 1000,
   });
   setSessionCookie(reply, token, opts.ttlSec);
-  return { id: account.id, username: account.username, roles: await rolesOf(deps.db, account.id), mfa: opts.mfa };
+  const [roles, look] = await Promise.all([rolesOf(deps.db, account.id), lookOf(deps, account.id)]);
+  return { id: account.id, username: account.username, roles, mfa: opts.mfa, ...look };
 }
 
 export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
@@ -150,16 +164,11 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
 
   app.get('/galaxy/api/auth/me', async (req): Promise<MeResponse> => {
     const s = requireSession(req);
-    // The account level (M5a) for the top bar.
-    const [level, look, referrals] = await Promise.all([
-      accountLevel(deps.db, s.accountId, await deps.config.get('account')),
-      // Nov plan C2: the avatar and frame the top bar shows.
-      deps.db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
-      deps.config.get('referrals'),
-    ]);
+    // The account level (M5a), avatar and frame (Nov plan C2) for the top bar.
+    const [look, referrals] = await Promise.all([lookOf(deps, s.accountId), deps.config.get('referrals')]);
     // A newcomer who came with a code: past the owner's level, the owner's gift goes out (once). The game reads the
     // account after every run, so this follows the level closely. A failure here never costs the player their page.
-    await onLevel(deps.db, referrals, s.accountId, level).catch((err: unknown) => req.log.warn({ err }, 'referral activation failed'));
-    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, level, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
+    await onLevel(deps.db, referrals, s.accountId, look.level).catch((err: unknown) => req.log.warn({ err }, 'referral activation failed'));
+    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, ...look };
   });
 }

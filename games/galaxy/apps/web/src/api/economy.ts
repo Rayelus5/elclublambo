@@ -184,7 +184,9 @@ export function usePull() {
   return useMutation({
     mutationFn: (req: PullRequest) => api<PullResponse>('/gacha/pull', { method: 'POST', body: req, headers: keyFor(pullIntent(req)) }),
     onSuccess: (res) => {
-      qc.setQueryData<GachaView>(GACHA_KEY, { ...res.view, wallet: res.wallet });
+      // The scan's view is narrower than GET /gacha's: what only that one knows (the shop's flag behind the home's
+      // «Tienda», the leftovers) stays, and the rest is the scan's (2026-11-22: «Tienda» vanished after scanning).
+      qc.setQueryData<GachaView>(GACHA_KEY, (old) => ({ ...old, ...res.view, wallet: res.wallet }));
       void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
       void qc.invalidateQueries({ queryKey: FINDS_KEY });
     },

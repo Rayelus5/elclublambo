@@ -89,6 +89,16 @@ test('login con el nombre en mayúsculas → 200 status ok y sesión nueva', asy
   expect(me.json().username).toBe(username);
 });
 
+test('el login trae el mismo perfil que /me: nivel, avatar y marco (la barra los pinta sin recargar)', async () => {
+  const { username, me: created } = await registered('Avatar');
+  await ctx.db.updateTable('galaxy.accounts').set({ avatar: 'probe-lumen', frame: 'gold' }).where('id', '=', created.id).execute();
+  const res = await post(ctx.app, LOGIN, { username, password: PASS });
+  expect(res.statusCode).toBe(200);
+  const me = await get(ctx.app, ME, { cookie: sessionCookie(res) });
+  expect(res.json()).toEqual({ status: 'ok', me: me.json() });
+  expect(res.json().me).toMatchObject({ level: 1, avatar: 'probe-lumen', frame: 'gold' });
+});
+
 test('contraseña mala y usuario inexistente dan el mismo 401 invalid_credentials', async () => {
   const { username } = await registered();
   const bad = await post(ctx.app, LOGIN, { username, password: 'otra-clave-larga' });
