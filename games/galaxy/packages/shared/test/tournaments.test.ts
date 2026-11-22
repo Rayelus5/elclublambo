@@ -5,6 +5,7 @@ import {
   parseConfig,
   prizeForPlace,
   tournamentBigReasons,
+  tournamentFitsSeason,
   tournamentIssues,
   tournamentRecordSchema,
   tournamentRewardsFor,
@@ -83,6 +84,13 @@ describe('la ficha de un torneo', () => {
     expect(messages(BASE, { season: { ...SEASON, state: 'draft' } })).toContain('tournament_season_closed');
     expect(messages({ ...BASE, endsAt: '2026-12-31T00:00:00.000Z' }, { season: SEASON })).toContain('tournament_outside_season');
     expect(messages({ ...BASE, startsAt: '2026-11-20T00:00:00.000Z' }, { season: SEASON })).toContain('tournament_outside_season');
+  });
+
+  test('caber en la temporada es empezar y acabar dentro de sus fechas, con sus dos bordes incluidos', () => {
+    expect(tournamentFitsSeason(BASE, SEASON)).toBe(true);
+    expect(tournamentFitsSeason({ startsAt: SEASON.startsAt, endsAt: SEASON.endsAt }, SEASON)).toBe(true);
+    expect(tournamentFitsSeason({ ...BASE, endsAt: '2026-12-31T00:00:00.000Z' }, SEASON)).toBe(false);
+    expect(tournamentFitsSeason({ ...BASE, startsAt: '2026-11-20T00:00:00.000Z' }, SEASON)).toBe(false);
   });
 
   test('los filtros nombran un sector y una sonda que existen', () => {

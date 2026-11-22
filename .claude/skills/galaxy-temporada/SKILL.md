@@ -82,7 +82,7 @@ Si la temporada cambia de tema, revisa también los textos fijos: «Temporada 1 
 3. Las claves de la carpeta (logros, eventos, escáneres, contenido) se publican con la skill `galaxy-publicar-config`.
 
 **Reglas que no se saltan:**
-- **Sin solapes:** dos temporadas programadas nunca se solapan; seguidas (el fin de una es el inicio de la otra) sí. Para alargar la actual y empujar la siguiente: `season-extend <id> <fin> --reason <motivo> --move-next`.
+- **Sin solapes:** dos temporadas programadas nunca se solapan; seguidas (el fin de una es el inicio de la otra) sí. Para alargar la actual y empujar la siguiente: `season-extend <id> <fin> --reason <motivo> --move-next`. No se mueve si las fechas nuevas rompen algo que valía (un regalo de evento que no llega al nuevo final, un torneo programado o en curso que se queda fuera de su temporada).
 - **Desprogramar:** `season-unschedule <id>` solo antes de que empiece.
 - **Corregir una programada o ya empezada:** `season-patch <id> - --reason <motivo>` con la ficha entera corregida (por la entrada estándar con `ops-bundle`). Nunca cambia el id ni, una vez empezada, el inicio.
 - **Ids nuevos siempre:** no se programa una temporada con el id de otra ya archivada, ni una cuyo final ya pasó.

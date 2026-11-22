@@ -106,7 +106,8 @@ Todo esto es del propietario, en el panel. Tu papel es explicárselo y avisarle.
 - **En revisión,** al acabar: el servidor resimula las partidas de los puestos con premio.
   - Las que no coinciden pasan a sospechosas solas.
   - Las que no se pueden comprobar (`unverifiable`) o fallan (`error`) esperan a un admin. Las `unverifiable` se aceptan o descartan en bloque, por motivo o por jugador; las `error`, una a una.
-  - Nadie decide sobre su propia partida.
+  - Tu propia partida solo la puedes descartar. La de un superadmin la decide otro superadmin; la de otro del equipo, un superadmin.
+  - Si nadie puede decidirla en el panel (la partida es del único superadmin), el propietario la decide desde el contenedor con `tournament-decide <slug> <id de la partida> accept|discard --reason '<motivo>'` (por SSH, como `tournament-list`; queda auditada como «cli»).
   - Un admin puede descalificar con motivo.
 - **Resultados:** salen cuando pasan las horas de revisión y no queda nada pendiente, o con «Publicar ya». Cada ganador recibe un aviso en el buzón y recoge sus premios en la página del torneo.
 - **Dinero:** sale en «Premios en metálico pendientes». El admin escribe al ganador por el buzón, le paga fuera del juego y lo marca como pagado.

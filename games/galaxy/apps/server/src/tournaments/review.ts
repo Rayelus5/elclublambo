@@ -209,11 +209,23 @@ const mustReview = (t: TournamentRow) => {
 };
 
 /**
- * An admin's decision on a run that could not be checked (unverifiable, or an error): accepted it counts; discarded it
- * stops counting here and whoever moves up is queued in the same transaction. Never on their own run nor (unless a
- * superadmin) on staff's, like every action on a player (guardTarget).
+ * Why an admin may not decide a check of a run of `ownerId` (with `ownerRoles`), or null. Not guardTarget's rule (the
+ * owner, 2026-11-22): admins can win prizes, so a superadmin's run that cannot be checked would hold the results forever.
+ * One's own run may only be discarded (that only hurts oneself; accepting it takes someone else or the server's CLI); a
+ * superadmin's, another superadmin decides; other staff's, a superadmin; a player's, any admin.
  */
-export async function decideCheck(deps: TournamentDeps, s: SessionInfo, actor: AuditActor, id: string, runId: string, decision: 'accept' | 'discard', reason: string): Promise<void> {
+export function checkBlock(s: Pick<SessionInfo, 'accountId' | 'roles'>, ownerId: string, ownerRoles: readonly string[], decision: 'accept' | 'discard'): 'tournament_self_accept' | 'staff_target' | null {
+  if (ownerId === s.accountId) return decision === 'discard' ? null : 'tournament_self_accept';
+  if (ownerRoles.length > 0 && !s.roles.includes('superadmin')) return 'staff_target';
+  return null;
+}
+
+/**
+ * A decision on a run that could not be checked (unverifiable, or an error): accepted it counts; discarded it stops
+ * counting here and whoever moves up is queued in the same transaction. An admin's (`s`) only where checkBlock lets them;
+ * the server's CLI (`s` null, trusted like every container command) on any run.
+ */
+export async function decideCheck(deps: TournamentDeps, s: SessionInfo | null, actor: AuditActor, id: string, runId: string, decision: 'accept' | 'discard', reason: string): Promise<void> {
   const rules = await scoringRules(deps, await tournamentById(deps.db, id));
   await inTransaction(deps.db, async (trx) => {
     const t = await tournamentById(trx, id, { lock: true });
@@ -221,8 +233,12 @@ export async function decideCheck(deps: TournamentDeps, s: SessionInfo, actor: A
     const k = await trx.selectFrom('galaxy.tournament_checks').select(['status', 'decision']).where('tournament_id', '=', id).where('run_id', '=', runId).forUpdate().executeTakeFirst();
     if (!k) throw new HttpError(404, 'tournament_check_not_found');
     if ((k.status !== 'unverifiable' && k.status !== 'error') || k.decision !== null) throw new HttpError(409, 'tournament_check_decided');
-    const owner = await trx.selectFrom('galaxy.runs as r').innerJoin('galaxy.accounts as a', 'a.id', 'r.account_id').select('a.username').where('r.id', '=', runId).executeTakeFirstOrThrow();
-    await guardTarget(trx, s, owner.username, { self: false });
+    if (s) {
+      const owner = await trx.selectFrom('galaxy.runs').select('account_id').where('id', '=', runId).executeTakeFirstOrThrow();
+      const roles = await trx.selectFrom('galaxy.account_roles').select('role').where('account_id', '=', owner.account_id).execute();
+      const why = checkBlock(s, owner.account_id, roles.map((r) => r.role as string), decision);
+      if (why) throw new HttpError(403, why);
+    }
     await trx.updateTable('galaxy.tournament_checks').set({ decision, decided_by: actor.id, decided_at: deps.now() }).where('tournament_id', '=', id).where('run_id', '=', runId).execute();
     await writeAudit(trx, { actor, action: 'tournament.check_decided', targetType: 'tournament', targetId: id, after: { run: runId, status: k.status, decision }, reason });
     if (decision === 'discard') await ensureChecks(trx, t, rules);
@@ -230,18 +246,11 @@ export async function decideCheck(deps: TournamentDeps, s: SessionInfo, actor: A
   invalidateTournament(id);
 }
 
-/** Why an admin may not act on a run's owner (guardTarget's rule, without throwing), or null. */
-export function targetBlock(s: Pick<SessionInfo, 'accountId' | 'roles'>, ownerId: string, ownerRoles: readonly string[]): 'self_target' | 'staff_target' | null {
-  if (ownerId === s.accountId) return 'self_target';
-  if (ownerRoles.includes('superadmin') || (ownerRoles.length > 0 && !s.roles.includes('superadmin'))) return 'staff_target';
-  return null;
-}
-
 /**
  * Decides in one go every undecided `unverifiable` check of a tournament in review that matches the filter (its reason,
- * its player): never a mismatch or an error, those one by one. A run the admin may not decide is skipped and listed. One
- * transaction under the tournament's lock, one audit entry with the count and the filter, and whoever moves up after a
- * discard queued in it.
+ * its player): never a mismatch or an error, those one by one. A run the admin may not decide (checkBlock: their own when
+ * accepting, staff's they may not touch) is skipped and listed. One transaction under the tournament's lock, one audit
+ * entry with the count and the filter, and whoever moves up after a discard queued in it.
  */
 export async function decideMany(
   deps: TournamentDeps,
@@ -274,7 +283,7 @@ export async function decideMany(
     const skipped: TournamentDecideManyResult['skipped'] = [];
     const chosen: string[] = [];
     for (const f of found) {
-      const why = targetBlock(s, f.account_id, rolesOf(f.account_id));
+      const why = checkBlock(s, f.account_id, rolesOf(f.account_id), decision);
       if (why) skipped.push({ runId: f.run_id, username: f.username, why });
       else chosen.push(f.run_id);
     }

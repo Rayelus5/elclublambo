@@ -35,7 +35,7 @@ import { HttpError } from './errors';
 import type { Env } from './env';
 import { closeDue } from './season/close';
 import { cliConfig, seasonExtend, seasonImport, seasonList, seasonPatch, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
-import { tournamentCheck, tournamentDraft, tournamentList, tournamentShow } from './tournaments/cli';
+import { tournamentCheck, tournamentDecide, tournamentDraft, tournamentList, tournamentShow } from './tournaments/cli';
 import { createSeasonStore, seasonContext } from './season/records';
 import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
@@ -71,6 +71,10 @@ const USAGE = [
   '  season-patch <id> <temporada.json | -> --reason <motivo>',
   '  season-unschedule <id> --reason <motivo>',
   '  season-extend <id> <fin ISO> --reason <motivo> [--move-next]',
+  '  tournament-list',
+  '  tournament-show <slug>',
+  '  tournament-draft <torneo.json | -> --reason <motivo>',
+  '  tournament-decide <slug> <id de la partida> accept|discard --reason <motivo>',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -664,5 +668,9 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'tournament-list') return tournamentList(deps.db, deps.out);
   if (command === 'tournament-show') return tournamentShow(deps.db, positional(args, [])[0], deps.out);
   if (command === 'tournament-draft') return tournamentDraft(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
+  if (command === 'tournament-decide') {
+    const [slug, runId, decision] = positional(args, ['--reason']);
+    return tournamentDecide(deps.db, slug, runId, decision, flag(args, '--reason'), deps.out);
+  }
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

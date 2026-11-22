@@ -5,7 +5,7 @@ import type { DB } from '../db/schema';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { grantGifts } from '../gifts/grant';
-import { invalidateLeaderboard, ranking } from '../social/leaderboard';
+import { ranking } from '../social/leaderboard';
 import { pendingResult } from './close';
 import { grantCosmetics } from '../cosmetics/service';
 
@@ -43,12 +43,20 @@ async function payReward(trx: Kysely<DB>, accountId: string, seasonId: string, r
   await grantCosmetics(trx, accountId, reward);
 }
 
+/**
+ * What paying a step or an item did that its caller acts on once the transaction commits: whether its gifts touched the
+ * season's score, so the cached ranking is dropped then (dropped inside it, a read in between would cache it again
+ * without them). A record never gives season points (they would pay steps that pay points), but dropping is cheap.
+ */
+export interface SeasonPaid {
+  seasonTouched: boolean;
+}
+
 /** A step's or an item's gifts, inside its guarded transaction (the season is open: its own currency is paid). */
-async function payGifts(trx: Kysely<DB>, accountId: string, seasonId: string, gifts: readonly Gift[], ctx: { key: string; seedKey: string; reason: string; ref: unknown; auditAction: string }): Promise<void> {
-  if (gifts.length === 0) return;
+async function payGifts(trx: Kysely<DB>, accountId: string, seasonId: string, gifts: readonly Gift[], ctx: { key: string; seedKey: string; reason: string; ref: unknown; auditAction: string }): Promise<SeasonPaid> {
+  if (gifts.length === 0) return { seasonTouched: false };
   const { seasonTouched } = await grantGifts(trx, accountId, gifts, { ...ctx, key: `${ctx.key}:gifts`, actor: { id: accountId, label: 'temporada' }, season: { id: seasonId, open: true } });
-  // A record never gives season points (they would pay steps that pay points), but a ranking cached is cheap to drop.
-  if (seasonTouched) invalidateLeaderboard();
+  return { seasonTouched };
 }
 
 export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: string, score: number, now: Date): Promise<SeasonView> {
@@ -74,8 +82,8 @@ export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: st
   };
 }
 
-/** Collects a route step the score has reached, once. */
-export async function claimStep(trx: Kysely<DB>, c: SeasonConfigs, accountId: string, at: number, score: number, key: string, now: Date): Promise<void> {
+/** Collects a route step the score has reached, once (the caller drops the ranking after the commit when told to). */
+export async function claimStep(trx: Kysely<DB>, c: SeasonConfigs, accountId: string, at: number, score: number, key: string, now: Date): Promise<SeasonPaid> {
   if (!seasonOpen(c.season, now)) throw new HttpError(409, 'season_closed');
   const step = c.route.steps.find((s) => s.at === at);
   if (!step) throw new HttpError(404, 'season_step_not_found');
@@ -89,11 +97,11 @@ export async function claimStep(trx: Kysely<DB>, c: SeasonConfigs, accountId: st
   if (!won) throw new HttpError(409, 'already_claimed');
   const ref = { season: c.season.id, step: at };
   await payReward(trx, accountId, c.season.id, step.reward, 'season_route', ref, key);
-  await payGifts(trx, accountId, c.season.id, step.gifts, { key, seedKey: `season:${c.season.id}:step:${at}:${accountId}`, reason: 'season_route', ref, auditAction: 'season.route' });
+  return payGifts(trx, accountId, c.season.id, step.gifts, { key, seedKey: `season:${c.season.id}:step:${at}:${accountId}`, reason: 'season_route', ref, auditAction: 'season.route' });
 }
 
-/** Buys one of a shop item with the season currency, up to its limit. */
-export async function buyItem(trx: Kysely<DB>, c: SeasonConfigs, accountId: string, itemId: string, key: string, now: Date): Promise<void> {
+/** Buys one of a shop item with the season currency, up to its limit (the ranking, like claimStep). */
+export async function buyItem(trx: Kysely<DB>, c: SeasonConfigs, accountId: string, itemId: string, key: string, now: Date): Promise<SeasonPaid> {
   if (!seasonOpen(c.season, now)) throw new HttpError(409, 'season_closed');
   const item = c.route.shop.find((i) => i.id === itemId);
   if (!item) throw new HttpError(404, 'season_item_not_found');
@@ -113,7 +121,7 @@ export async function buyItem(trx: Kysely<DB>, c: SeasonConfigs, accountId: stri
   await debit(trx, accountId, seasonCurrency(id), item.price, 'season_shop', ref, key);
   await payReward(trx, accountId, id, item.reward, 'season_shop', ref, key);
   // The purchase's number (its counter after this one) tells each one's galaxies apart.
-  await payGifts(trx, accountId, id, item.gifts, { key, seedKey: `season:${id}:shop:${item.id}:${one.bought}:${accountId}`, reason: 'season_shop', ref, auditAction: 'season.shop' });
+  return payGifts(trx, accountId, id, item.gifts, { key, seedKey: `season:${id}:shop:${item.id}:${one.bought}:${accountId}`, reason: 'season_shop', ref, auditAction: 'season.shop' });
 }
 
 /**

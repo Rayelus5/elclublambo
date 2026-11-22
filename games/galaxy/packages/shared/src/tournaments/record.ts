@@ -157,6 +157,14 @@ export interface TournamentContext {
   gifts?: GiftLive;
 }
 
+/**
+ * Whether a tournament's dates lie inside its season's (both edges included): what scheduling one checks, and what moving
+ * a season's dates must keep for the tournaments it already holds.
+ */
+export function tournamentFitsSeason(t: { startsAt: string; endsAt: string }, s: { startsAt: string; endsAt: string }): boolean {
+  return Date.parse(t.startsAt) >= Date.parse(s.startsAt) && Date.parse(t.endsAt) <= Date.parse(s.endsAt);
+}
+
 /** Every gift of a record with its path: each range's and the participation prize's. */
 function giftsOf(t: TournamentRecord): { path: string; gifts: readonly Gift[] }[] {
   return [...t.prizes.map((p, i) => ({ path: `prizes.${i}.gifts`, gifts: p.gifts })), ...(t.participation ? [{ path: 'participation.gifts', gifts: t.participation.gifts }] : [])];
@@ -176,7 +184,7 @@ export function tournamentIssues(input: unknown, ctx: TournamentContext = {}): T
     const s = ctx.season;
     if (!s || s.id !== t.seasonId) out.push({ path: 'seasonId', message: 'tournament_season_unknown' });
     else if (s.state !== 'scheduled') out.push({ path: 'seasonId', message: 'tournament_season_closed' });
-    else if (Date.parse(t.startsAt) < Date.parse(s.startsAt) || Date.parse(t.endsAt) > Date.parse(s.endsAt)) out.push({ path: 'startsAt', message: 'tournament_outside_season' });
+    else if (!tournamentFitsSeason(t, s)) out.push({ path: 'startsAt', message: 'tournament_outside_season' });
   }
   if (ctx.sectors && t.filters.sector && !ctx.sectors.includes(t.filters.sector)) out.push({ path: 'filters.sector', message: 'tournament_sector_unknown' });
   if (ctx.probes && t.filters.probe && !ctx.probes.includes(t.filters.probe)) out.push({ path: 'filters.probe', message: 'tournament_probe_unknown' });

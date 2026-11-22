@@ -15,10 +15,10 @@ import { useSettled } from '../../ui/useSettled';
 import { ClosingEditor, LabEditor, MissionsEditor, RouteEditor, ShopEditor } from './ContentEditors';
 import { NumberInput } from '../forms/ConfigForm';
 import { fmtNumber, scaleOf, tidy } from '../forms/format';
-import { issueText as formIssueText } from '../forms/issues';
 import { type Unit, UNIT_SUFFIX } from '../forms/labels';
 import { PublishFields } from '../PublishFields';
 import { AsPlayerLinks, groupOf, madridDate, seasonDays } from './SeasonsScreen';
+import { seasonIssueText as issueText } from './issues';
 
 // The season wizard (plan «temporadas como fichas», 2026-11-21): a season in five steps (its name and dates, its points
 // and tiers with a live example, its route, shop, prizes, missions and lab, its anomaly and finish, and a review with
@@ -121,21 +121,6 @@ function stepOf(i: SeasonIssue): Step {
   if (i.path.startsWith('rules')) return 'rules';
   if (i.path.startsWith('route') || i.path.startsWith('missions') || i.path.startsWith('lab')) return 'content';
   return 'data';
-}
-
-function issueText(i: SeasonIssue): string {
-  if (i.message.startsWith('season_overlap:')) return t.overlapWith(i.message.slice('season_overlap:'.length));
-  if (i.message.startsWith('mission_duplicate:')) return t.duplicateMission(i.message.slice('mission_duplicate:'.length));
-  // A gift's problem, as the mail says it.
-  if (i.message.startsWith('gift_')) {
-    const said = (copy.gifts.issues as Record<string, string>)[i.message.slice('gift_'.length)];
-    if (said) return said;
-  }
-  const own = t.issueText[i.message];
-  if (own) return own;
-  // The checks the config keys share (the seasonal lab tree's, over the permanent one), as the config form says them.
-  const shared = formIssueText(i.message);
-  return shared !== i.message ? shared : `${i.path ? `${i.path} ` : ''}${i.message}`;
 }
 
 /** A number with the panel's own field (Spanish decimals, its unit after it); read-only, just the value. */

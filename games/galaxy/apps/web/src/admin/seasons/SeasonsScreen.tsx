@@ -8,6 +8,7 @@ import { DateField } from '../../ui/DateField';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { PublishFields } from '../PublishFields';
+import { seasonIssueText } from './issues';
 
 // Temporadas (plan «temporadas como fichas», 2026-11-21): every season on one calendar (the open one, the scheduled,
 // the drafts and the past), with what can be done to each. A scheduled season opens on its own at its date and the
@@ -116,6 +117,7 @@ function ActionDialog({ action, onClose }: { action: Action; onClose: (done?: st
         busy={extend.isPending}
         disabled={!endsAt}
         error={extend.error}
+        say={seasonIssueText}
         label={t.actions.extend}
         onPublish={(r, password) => endsAt && extend.mutate({ id: s.id, endsAt, moveNext, reason: r, password }, { onSuccess: () => onClose(t.done.extended(s.name)) })}
       />

@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseConfig } from '@galaxy/shared';
+import { type Gift, parseConfig, tournamentRecordSchema, type TournamentState } from '@galaxy/shared';
 import type { ControlledTransaction, Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { runCli } from '../../src/cli';
@@ -9,6 +9,7 @@ import { createConfigService } from '../../src/config/service';
 import { createDb } from '../../src/db';
 import type { DB } from '../../src/db/schema';
 import { allSeasons, extendSeason, importSeasons, patchScheduledSeason, saveSeasonDraft, scheduleSeason, type SeasonContext, unscheduleSeason } from '../../src/season/records';
+import { recordColumns } from '../../src/tournaments/records';
 import { testEnv } from '../helpers';
 
 // Seasons as records (plan «temporadas como fichas», 2026-11-21): saved as drafts, scheduled, moved; never two at once;
@@ -85,12 +86,12 @@ describe('fichas de temporada', () => {
   });
 
   test('alargar una temporada empuja el inicio de la siguiente en la misma transacción', async () => {
-    const moved = await committed(() => extendSeason(trx, 't-a', '2091-03-07T23:00:00.000Z', { moveNext: true }, actor, 'Una semana más', new Date('2091-02-10T00:00:00.000Z')));
+    const moved = await committed(() => extendSeason(trx, 't-a', '2091-03-07T23:00:00.000Z', { moveNext: true }, ctx, actor, 'Una semana más', new Date('2091-02-10T00:00:00.000Z')));
     expect(moved.endsAt).toBe('2091-03-07T23:00:00.000Z');
     const b = (await allSeasons(trx)).find((s) => s.id === 't-b')!;
     expect(b.startsAt).toBe('2091-03-07T23:00:00.000Z');
     // Without moving the next one, it would overlap it.
-    await expect(committed(() => extendSeason(trx, 't-a', '2091-03-14T23:00:00.000Z', { moveNext: false }, actor, 'Choca', new Date('2091-02-10T00:00:00.000Z')))).rejects.toMatchObject({ code: 'season_overlap' });
+    await expect(committed(() => extendSeason(trx, 't-a', '2091-03-14T23:00:00.000Z', { moveNext: false }, ctx, actor, 'Choca', new Date('2091-02-10T00:00:00.000Z')))).rejects.toMatchObject({ code: 'season_overlap' });
   });
 
   test('una temporada que ya empezó no vuelve a borrador; una futura sí', async () => {
@@ -100,6 +101,59 @@ describe('fichas de temporada', () => {
 
   test('una ficha que no vale no se guarda y dice dónde falla', async () => {
     await expect(committed(() => saveSeasonDraft(trx, { ...A, id: 't-mal', startsAt: '2091-02-01T10:00:00.000Z' }, ctx, actor, 'Mal'))).rejects.toMatchObject({ code: 'season_invalid' });
+  });
+});
+
+describe('mover el final comprueba lo que rompe (revisión de la temporada 2, 2026-11-22)', () => {
+  // Years no other file uses. A step pays an event's signals: the event has to last until the season's last moment.
+  const gala: Gift = { kind: 'currency', currency: 'signal:gala', amount: 3 };
+  const withEvent = (endsAt: string): SeasonContext => ({ ...ctx, gifts: { cosmetics: parseConfig('cosmetics', {}), probes: ['lumen'], events: [{ id: 'gala', endsAt }] } });
+  const live = withEvent('2089-03-15T23:00:00.000Z');
+  const E = { ...record('t-ext', '2089-01-31T23:00:00.000Z', '2089-02-28T23:00:00.000Z'), route: { steps: [{ at: 100, gifts: [gala] }] } };
+  const during = new Date('2089-02-10T00:00:00.000Z');
+  /** A tournament of that season straight in its table (saved as a draft, as every one is), then in that state. */
+  const tournament = async (slug: string, seasonId: string, startsAt: string, endsAt: string, state: TournamentState) => {
+    const record = tournamentRecordSchema.parse({ slug, seasonId, title: `Torneo ${slug}`, startsAt, endsAt, metric: 'points' });
+    await trx.insertInto('galaxy.tournaments').values(recordColumns(record)).execute();
+    await trx.updateTable('galaxy.tournaments').set({ state }).where('slug', '=', slug).execute();
+  };
+
+  test('no se alarga si un regalo de la ruta deja de valer en el nuevo final', async () => {
+    await committed(() => saveSeasonDraft(trx, E, live, actor, 'Con señales'));
+    await committed(() => scheduleSeason(trx, 't-ext', live, actor, 'Programa'));
+    // The event ends on 16 March: past it, the step would pay signals that are worth nothing.
+    const refused = committed(() => extendSeason(trx, 't-ext', '2089-03-21T23:00:00.000Z', { moveNext: false }, live, actor, 'Más allá del evento', during));
+    await expect(refused).rejects.toMatchObject({ code: 'season_invalid', details: { issues: [{ path: 'route.steps.0.gifts.0', message: 'gift_event_closed' }] } });
+    await expect(committed(() => extendSeason(trx, 't-ext', '2089-03-07T23:00:00.000Z', { moveNext: false }, live, actor, 'Antes del evento', during))).resolves.toMatchObject({ endsAt: '2089-03-07T23:00:00.000Z' });
+  });
+
+  test('lo que ya fallaba antes de moverlo no lo frena', async () => {
+    // The event was cut short after the season was scheduled: the step fails at the end it has now and at the new one.
+    const cut = withEvent('2089-02-20T23:00:00.000Z');
+    const moved = await committed(() => extendSeason(trx, 't-ext', '2089-03-14T23:00:00.000Z', { moveNext: false }, cut, actor, 'Una semana más', during));
+    expect(moved.endsAt).toBe('2089-03-14T23:00:00.000Z');
+  });
+
+  test('no se acorta si deja fuera de sus fechas un torneo programado; un borrador no cuenta', async () => {
+    await tournament('t-ext-copa', 't-ext', '2089-03-05T19:00:00.000Z', '2089-03-06T23:00:00.000Z', 'scheduled');
+    await tournament('t-ext-borrador', 't-ext', '2089-03-10T19:00:00.000Z', '2089-03-12T23:00:00.000Z', 'draft');
+    const cut = committed(() => extendSeason(trx, 't-ext', '2089-03-04T23:00:00.000Z', { moveNext: false }, live, actor, 'Más corta', during));
+    await expect(cut).rejects.toMatchObject({ code: 'season_invalid', details: { issues: [{ path: 'endsAt', message: 'season_cuts_tournament' }] } });
+    // Its end exactly at the tournament's: it still fits.
+    await expect(committed(() => extendSeason(trx, 't-ext', '2089-03-06T23:00:00.000Z', { moveNext: false }, live, actor, 'Justo', during))).resolves.toMatchObject({ endsAt: '2089-03-06T23:00:00.000Z' });
+  });
+
+  test('empujar la siguiente no deja fuera un torneo suyo que ya empezó antes del nuevo inicio', async () => {
+    const P = record('t-ext-p', '2090-01-31T23:00:00.000Z', '2090-02-28T23:00:00.000Z');
+    const Q = record('t-ext-q', '2090-02-28T23:00:00.000Z', '2090-03-21T23:00:00.000Z');
+    for (const s of [P, Q]) {
+      await committed(() => saveSeasonDraft(trx, s, ctx, actor, 'Seguidas'));
+      await committed(() => scheduleSeason(trx, s.id, ctx, actor, 'Seguidas'));
+    }
+    await tournament('t-ext-q-copa', 't-ext-q', '2090-03-02T19:00:00.000Z', '2090-03-04T23:00:00.000Z', 'running');
+    const pushed = committed(() => extendSeason(trx, 't-ext-p', '2090-03-07T23:00:00.000Z', { moveNext: true }, ctx, actor, 'Una semana más', new Date('2090-02-10T00:00:00.000Z')));
+    await expect(pushed).rejects.toMatchObject({ code: 'season_invalid', details: { issues: [{ path: 'endsAt', message: 'season_cuts_tournament' }] } });
+    expect((await allSeasons(trx)).find((s) => s.id === 't-ext-q')?.startsAt).toBe(Q.startsAt);
   });
 });
 
@@ -154,7 +208,7 @@ describe('corregir una temporada programada (season-patch)', () => {
     await trx.insertInto('galaxy.season_archive').values({ season: 't-used', name: 'Usada', starts_at: '2019-01-01T00:00:00.000Z', ends_at: '2019-02-01T00:00:00.000Z' }).execute();
     await committed(() => saveSeasonDraft(trx, record('t-used', '2097-01-31T23:00:00.000Z', '2097-02-28T23:00:00.000Z'), ctx, actor, 'Repite id'));
     await expect(committed(() => scheduleSeason(trx, 't-used', ctx, actor, 'Programa'))).rejects.toMatchObject({ code: 'season_invalid' });
-    await expect(committed(() => extendSeason(trx, 't-a', '2091-04-30T22:00:00.000Z', { moveNext: false }, actor, 'Tarde', new Date('2091-03-20T00:00:00.000Z')))).rejects.toMatchObject({ code: 'season_invalid' });
+    await expect(committed(() => extendSeason(trx, 't-a', '2091-04-30T22:00:00.000Z', { moveNext: false }, ctx, actor, 'Tarde', new Date('2091-03-20T00:00:00.000Z')))).rejects.toMatchObject({ code: 'season_invalid' });
   });
 
   test('una temporada programada o cerrada no se borra (solo los borradores)', async () => {

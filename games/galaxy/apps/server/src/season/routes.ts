@@ -19,6 +19,7 @@ import type { DB } from '../db/schema';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { invalidateLeaderboard } from '../social/leaderboard';
 import { accountNamed } from '../social/profiles';
 import { claimResult, closeDue, hallOfFame, seasonHistory } from './close';
 import { seasonResults, seasonsHistory } from './history';
@@ -67,10 +68,14 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
     const now = deps.now();
     const c = await seasonConfigs(deps.config);
     const score = await seasonScore(deps.db, c, s.accountId, now);
-    return runOperation(deps.db, s.accountId, key, 'season.claim', requestHash({ at }), async (trx) => {
-      await claimStep(trx, c, s.accountId, at, score, key, now);
+    let seasonTouched = false;
+    const out = await runOperation(deps.db, s.accountId, key, 'season.claim', requestHash({ at }), async (trx) => {
+      seasonTouched = (await claimStep(trx, c, s.accountId, at, score, key, now)).seasonTouched;
       return seasonView(trx, c, s.accountId, score, now);
     });
+    // After the commit, like the mail's claim: dropped inside it, a read in between would cache the old ranking again.
+    if (seasonTouched) invalidateLeaderboard();
+    return out;
   });
 
   // The rewards of a closed season (M7d-2), once.
@@ -130,9 +135,12 @@ export function registerSeasonRoutes(api: FastifyInstance, deps: { db: Kysely<DB
     const now = deps.now();
     const c = await seasonConfigs(deps.config);
     const score = await seasonScore(deps.db, c, s.accountId, now);
-    return runOperation(deps.db, s.accountId, key, 'season.buy', requestHash({ id }), async (trx) => {
-      await buyItem(trx, c, s.accountId, id, key, now);
+    let seasonTouched = false;
+    const out = await runOperation(deps.db, s.accountId, key, 'season.buy', requestHash({ id }), async (trx) => {
+      seasonTouched = (await buyItem(trx, c, s.accountId, id, key, now)).seasonTouched;
       return seasonView(trx, c, s.accountId, score, now);
     });
+    if (seasonTouched) invalidateLeaderboard();
+    return out;
   });
 }

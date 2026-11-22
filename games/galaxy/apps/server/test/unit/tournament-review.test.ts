@@ -1,8 +1,8 @@
-import { tournamentRecordSchema } from '@galaxy/shared';
+import { type Role, tournamentRecordSchema } from '@galaxy/shared';
 import { describe, expect, test } from 'vitest';
 import { joinBlock } from '../../src/tournaments/player';
 import type { TournamentRow } from '../../src/tournaments/records';
-import { resultsMail, runsToCheck, scoreWords } from '../../src/tournaments/review';
+import { checkBlock, resultsMail, runsToCheck, scoreWords } from '../../src/tournaments/review';
 
 // The review and the sign-up's rules (plan «temporadas como fichas», part 5; GDD §13.3): which runs a prize place rests
 // on, what each winner's mail says, and why someone cannot sign up.
@@ -19,6 +19,36 @@ describe('qué partidas se comprueban', () => {
   test('en la mejor partida y en la capa, solo la que dio la mejor (la primera en llegar); si es de grupo, ninguna', () => {
     expect(runsToCheck('best_run', runs)).toEqual(['a2']);
     expect(runsToCheck('depth', runs)).toEqual(['a2']);
+  });
+});
+
+describe('quién decide una partida que no se pudo comprobar', () => {
+  const me = (...roles: Role[]) => ({ accountId: 'yo', roles });
+
+  test('tu propia partida solo la puedes descartar: aceptarla lo decide otro', () => {
+    expect(checkBlock(me('superadmin'), 'yo', ['superadmin'], 'accept')).toBe('tournament_self_accept');
+    expect(checkBlock(me('admin'), 'yo', ['admin'], 'accept')).toBe('tournament_self_accept');
+    expect(checkBlock(me('superadmin'), 'yo', ['superadmin'], 'discard')).toBeNull();
+    expect(checkBlock(me('admin'), 'yo', ['admin'], 'discard')).toBeNull();
+  });
+
+  test('la de un superadmin la decide otro superadmin, nunca un admin', () => {
+    expect(checkBlock(me('superadmin'), 'otro', ['superadmin'], 'accept')).toBeNull();
+    expect(checkBlock(me('superadmin'), 'otro', ['superadmin'], 'discard')).toBeNull();
+    expect(checkBlock(me('admin'), 'otro', ['superadmin'], 'accept')).toBe('staff_target');
+    expect(checkBlock(me('admin'), 'otro', ['superadmin'], 'discard')).toBe('staff_target');
+  });
+
+  test('la de otro del equipo solo la decide un superadmin', () => {
+    expect(checkBlock(me('admin'), 'otro', ['admin'], 'accept')).toBe('staff_target');
+    expect(checkBlock(me('admin'), 'otro', ['moderator'], 'discard')).toBe('staff_target');
+    expect(checkBlock(me('superadmin'), 'otro', ['admin'], 'accept')).toBeNull();
+  });
+
+  test('la de un jugador la decide cualquier admin', () => {
+    expect(checkBlock(me('admin'), 'jugador', [], 'accept')).toBeNull();
+    expect(checkBlock(me('admin'), 'jugador', [], 'discard')).toBeNull();
+    expect(checkBlock(me('superadmin'), 'jugador', [], 'accept')).toBeNull();
   });
 });
 
