@@ -141,7 +141,7 @@ export interface SeasonHistory {
 
 export interface SeasonView {
   /** Null while no season is open (then the rest is empty). */
-  season: { id: string; name: string; endsAt: string; tiers: number[] } | null;
+  season: { id: string; name: string; startsAt: string; endsAt: string; tiers: number[] } | null;
   score: number;
   tier: SeasonTier | null;
   currency: { name: string; balance: number };

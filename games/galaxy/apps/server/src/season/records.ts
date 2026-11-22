@@ -406,6 +406,12 @@ export async function deleteSeasonDraft(db: Kysely<DB>, id: string, actor: Audit
   });
 }
 
+/** One season by id, drafts too (an admin's preview), or null. */
+export async function seasonById(db: Kysely<DB>, id: string): Promise<SeasonRow | null> {
+  const r = await db.selectFrom('galaxy.seasons').select(ROW_FIELDS).where('id', '=', id).executeTakeFirst();
+  return r ? readSeasonRow(r) : null;
+}
+
 /** Every season with its state, drafts too, by start (the CLI's list and the panel's timeline). */
 export async function allSeasons(db: Kysely<DB>): Promise<SeasonRow[]> {
   const raw = await db.selectFrom('galaxy.seasons').select(ROW_FIELDS).orderBy('starts_at').execute();

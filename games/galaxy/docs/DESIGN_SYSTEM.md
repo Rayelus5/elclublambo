@@ -622,6 +622,12 @@ Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ra
   - los jugadores de la temporada.
 - Los umbrales, los premios y el tamaño del podio vienen de la configuración viva: ningún texto los lleva escritos.
 
+**Las temporadas pasadas** (2026-11-22):
+- **El selector** va en la cabecera, entre el título y «Salón de la fama» (el `Select` del juego): «Temporada actual» y cada temporada cerrada con sus días («Del 13 nov al 22 nov 2026»). Lo elegido va en la dirección (`/clasificacion?temporada=season-1`). Sin temporadas cerradas no sale.
+- **Una temporada pasada** enseña su clasificación General final: el podio, la tabla con el tramo de cada jugador (su emblema ×1 y su nombre) y «Ver más» para la página siguiente; tu fila marcada o fijada debajo. Las otras pestañas se ven desactivadas, con la nota «De las temporadas pasadas se guarda la clasificación General».
+- **Al lado**, su tarjeta (no es un enlace: ya terminó): el nombre con «Terminada», sus días, tu puesto, tu tramo y tus puntos (o «No puntuaste en esta temporada»), «Subiste al podio» en Solar si fue así, y lo que pagó cada tramo al cerrar. Debajo, «Estadísticas»: cifras en baldosas (jugadores, partidas, enemigos eliminados, Núcleos, extracciones, capa más profunda; el sector y la sonda más jugados a lo ancho) y cuántos llegaron a cada tramo, con una barra en el metal del tramo.
+- **Vista previa de un admin** (`?temporada=` con una temporada que aún no ha empezado): una franja de borde Hielo discontinuo con el ojo, «Vista previa de Temporada 3, empieza el 21 dic 2026», qué deja fuera la vista previa y «Volver a Temporadas». La tarjeta enseña sus días en lugar de la cuenta atrás y lleva a la tienda en vista previa. La misma franja sale en `/temporada?vista=`, donde nada se recoge ni se compra, nada vuela y no hay cuenta atrás. Los jugadores nunca la ven.
+
 **El perfil** (`/perfil/<nombre>`):
 - avatar grande, nombre, nivel y «Miembro desde noviembre de 2026»;
 - cuatro paneles:
@@ -1289,7 +1295,7 @@ Una tarjeta lista para recoger lleva un borde Solar, y una ya recogida se atenú
 
 **`/trofeos`**, desde la sala Trofeos:
 - «Tus temporadas»: una fila por temporada, con un trofeo Oro, Plata o Bronce si subiste al podio, o el emblema del tramo si no.
-- «Salón de la fama»: una tarjeta por temporada con su podio enlazado al perfil.
+- «Salón de la fama»: una tarjeta por temporada con su podio enlazado al perfil y «Ver la clasificación final». En «Tus temporadas», el nombre de cada una lleva a lo mismo.
 
 El perfil enseña el mismo historial. El marco **Corona** es un doble anillo Solar y violeta con brillo.
 

@@ -1,10 +1,11 @@
 import { type Leaderboard, leaderboardQuerySchema, type Profile, profileProbesSchema, type PublicCollectionPage, publicCollectionQuerySchema, usernameParamSchema } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
-import { requireSession } from '../auth/guards';
+import { requireAdmin, requireSession } from '../auth/guards';
 import { hitRateLimit } from '../ratelimit';
 import { leaderboard, type SocialDeps } from './leaderboard';
 import { setProfileProbes } from './probes';
 import { profileOf, publicCollection } from './profiles';
+import { previewLeaderboard } from './season-preview';
 
 // The social routes (GDD §14.1, §14.2; M5a): the season leaderboard, public profiles and public collections, for
 // anyone signed in. The session is checked first, then the input.
@@ -12,7 +13,12 @@ import { profileOf, publicCollection } from './profiles';
 export function registerSocialRoutes(api: FastifyInstance, deps: SocialDeps): void {
   api.get('/galaxy/api/leaderboard', async (req): Promise<Leaderboard> => {
     const s = requireSession(req);
-    const { tab } = leaderboardQuerySchema.parse(req.query);
+    const { tab, season } = leaderboardQuerySchema.parse(req.query);
+    // An admin's look at another season's leaderboard before it opens (the panel's «Temporadas»).
+    if (season) {
+      requireAdmin(req);
+      return previewLeaderboard(deps, s.accountId, season, tab);
+    }
     return leaderboard(deps, s.accountId, tab);
   });
 

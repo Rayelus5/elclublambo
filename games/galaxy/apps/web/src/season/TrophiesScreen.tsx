@@ -10,10 +10,13 @@ import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
 
 // The trophy room (GDD §10, §13.1; M7d-2, DESIGN_SYSTEM §8 tricies): your closed seasons, the podium ones as trophies,
-// and the hall of fame with every closed season's podium. The profile shows the same history.
+// and the hall of fame with every closed season's podium. The profile shows the same history. Each closed season leads
+// to its final ranking on the leaderboard (plan «temporadas como fichas», histórico, 2026-11-22).
 
 const t = copy.trophies;
 const PLACE = ['gold', 'silver', 'bronze'] as const;
+/** A closed season's final ranking on the leaderboard. */
+export const resultsHref = (season: string) => `/clasificacion?temporada=${encodeURIComponent(season)}`;
 
 /** A player's closed seasons, newest first (the profile and the trophy room). */
 export function SeasonHistoryList({ username }: { username: string }) {
@@ -40,7 +43,9 @@ export function SeasonHistoryList({ username }: { username: string }) {
             <span className="trophy none" aria-hidden="true" />
           )}
           <span className="season-history-text">
-            <b>{s.name}</b>
+            <Link to={resultsHref(s.season)} className="season-history-link">
+              <b>{s.name}</b>
+            </Link>
             <span>{t.place(s.rank, s.score)}</span>
           </span>
           <span className="season-history-tier">{s.podium ? t.podiumPlace(s.rank) : s.tier ? copy.social.tier[s.tier] : copy.social.noTier}</span>
@@ -88,6 +93,10 @@ export function TrophiesScreen() {
                     </li>
                   ))}
                 </ol>
+                <Link to={resultsHref(s.season)} className="lip pill small hall-results" aria-label={t.seeResultsOf(s.name)}>
+                  <Icon name="podium" />
+                  <span>{t.seeResults}</span>
+                </Link>
               </li>
             ))}
           </ul>

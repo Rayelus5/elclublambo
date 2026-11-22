@@ -1,4 +1,4 @@
-import type { Leaderboard, LeaderTab, Profile, PublicCollectionPage, Tier } from '@galaxy/shared';
+import type { Leaderboard, LeaderTab, Profile, PublicCollectionPage, SeasonResults, SeasonsHistory, Tier } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 
@@ -23,8 +23,36 @@ export function useSaveProfileProbes() {
   });
 }
 
-export function useLeaderboard(tab: LeaderTab) {
-  return useQuery({ queryKey: [...LEADERBOARD_KEY, tab], queryFn: () => api<Leaderboard>(`/leaderboard?tab=${tab}`), staleTime: 30_000 });
+/**
+ * A tab of the live leaderboard; with `season`, an admin's preview of that season's (the panel's «Temporadas»). Off
+ * with `enabled: false` (a past season shows its own final ranking instead).
+ */
+export function useLeaderboard(tab: LeaderTab, opts: { season?: string | null; enabled?: boolean } = {}) {
+  const season = opts.season ?? null;
+  return useQuery({
+    queryKey: season ? [...LEADERBOARD_KEY, tab, 'preview', season] : [...LEADERBOARD_KEY, tab],
+    queryFn: () => api<Leaderboard>(`/leaderboard?tab=${tab}${season ? `&season=${encodeURIComponent(season)}` : ''}`),
+    staleTime: 30_000,
+    enabled: opts.enabled ?? true,
+  });
+}
+
+/** Every closed season (plan «temporadas como fichas», histórico): it changes only when a season closes. */
+export function useSeasonsHistory() {
+  return useQuery({ queryKey: ['seasons-history'], queryFn: () => api<SeasonsHistory>('/seasons/history'), staleTime: 5 * 60_000 });
+}
+
+/** A closed season's final ranking, a page at a time («Ver más»): it never changes, so it is kept a long while. */
+export function useSeasonResults(id: string | null) {
+  return useInfiniteQuery({
+    queryKey: ['season-results', id],
+    queryFn: ({ pageParam }) => api<SeasonResults>(`/seasons/${encodeURIComponent(id!)}/results${pageParam ? `?offset=${pageParam}` : ''}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next ?? undefined,
+    enabled: id !== null,
+    staleTime: 30 * 60_000,
+    retry: retryUnlessMissing,
+  });
 }
 
 export function useProfile(username: string) {
