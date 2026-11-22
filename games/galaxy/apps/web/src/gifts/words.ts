@@ -85,8 +85,9 @@ export function currencyLook(currency: string, cat: Pick<GiftCatalog, 'events' |
     const event = cat.events.find((e) => e.id === id)?.name ?? id;
     return { icon: 'ticket', name: g.currency.eventSignal(event), amount: (n) => g.amount.eventSignal(n, event), tone: 'nova' };
   }
+  // The season's own currency: its shard, as the wallet and the season screen draw it.
   const name = cat.season.currencyName;
-  return { icon: 'starOn', name, amount: (n) => g.amount.season(n, name), tone: 'sky' };
+  return { icon: 'shard', name, amount: (n) => g.amount.season(n, name), tone: 'uv' };
 }
 
 /** A cosmetic piece's name in the catalog (a title is its own text). */

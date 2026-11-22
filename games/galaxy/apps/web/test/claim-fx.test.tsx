@@ -109,3 +109,24 @@ test('en Misiones el monedero está marcado con data-wallet, así que los chips 
   renderAt('/misiones', { '/misiones': <MissionsScreen /> });
   await vi.waitFor(() => expect(document.querySelector('.missions-wallet[data-wallet] .res.coins')).not.toBeNull());
 });
+
+test('una galaxia, una sonda o un recurso de la temporada salen como tarjeta; la galaxia con el color de su rareza', () => {
+  withWallet('coins');
+  act(() => {
+    render(
+      <BurstFrom
+        reward={{
+          cards: [
+            { kind: 'galaxy', name: 'Galaxia épica', tier: 'epic' },
+            { kind: 'probe', name: 'Bastión' },
+            { kind: 'resource', name: '500 de material en bruto' },
+          ],
+        }}
+      />,
+    );
+  });
+  const cards = [...document.querySelectorAll<HTMLElement>('.claim-piece')];
+  expect(cards.map((c) => c.textContent)).toEqual([`${copy.missions.piece.galaxy}Galaxia épica`, `${copy.missions.piece.probe}Bastión`, `${copy.missions.piece.resource}500 de material en bruto`]);
+  expect(cards[0]!.dataset.tier).toBe('epic');
+  expect(document.querySelector('.claim-chip')).toBeNull();
+});

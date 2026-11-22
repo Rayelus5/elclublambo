@@ -5,7 +5,13 @@ import type { MissionsView } from '@galaxy/shared';
 export type MissionTab = 'daily' | 'weekly' | 'season' | 'events' | 'achievements';
 export const MISSION_TABS: MissionTab[] = ['daily', 'weekly', 'season', 'events', 'achievements'];
 
-/** What a reward gives; the season's ones add their currency (`shards`), an avatar and a probe skin (season shop plan, PR 4). */
+/** What pops as a card where a reward is collected: a piece, a galaxy, a probe or a resource the wallet does not show. */
+export type RewardCard = { kind: 'title' | 'frame' | 'avatar' | 'skin' | 'galaxy' | 'probe' | 'resource'; name: string; tier?: string };
+
+/**
+ * What a reward gives; the season's ones add their currency (`shards`), an avatar and a probe skin (season shop plan,
+ * PR 4), and the gifts of any kind of a season's prizes their cards (plan «temporadas como fichas», PR 4).
+ */
 export type Reward = {
   coins?: number;
   dust?: number;
@@ -18,6 +24,7 @@ export type Reward = {
   frame?: string | null;
   avatar?: string | null;
   skin?: string | null;
+  cards?: RewardCard[];
 };
 
 /** One reward ready to collect: how to claim it, its name and what it gives; `big` ones (achievements, the season's missions) celebrate. */
@@ -69,5 +76,6 @@ export function addRewards(a: Reward, b: Reward): Reward {
     frame: b.frame ?? a.frame ?? null,
     avatar: b.avatar ?? a.avatar ?? null,
     skin: b.skin ?? a.skin ?? null,
+    cards: [...(a.cards ?? []), ...(b.cards ?? [])],
   };
 }

@@ -4,8 +4,9 @@ import type { Reward } from './ready';
 
 // Collecting a reward (open beta) sounds like what it gives, one after another: the pop of collecting, coins clinking
 // in a cascade (more coins, more clinks), dust shimmering, a signal ringing like a bell, the season's shards chiming
-// like glass, a blip for points or experience, a sparkle for a new piece (title, frame, avatar, skin), and a short
-// fanfare for an achievement, a season mission or the season's closing prizes. On the effects bus, synthesised.
+// like glass, a blip for points or experience, a sparkle for a new piece (title, frame, avatar, skin), a rising
+// shimmer for a galaxy and an engine's hum for a probe (a season's gifts, plan «temporadas como fichas» PR 4), and a
+// short fanfare for an achievement, a season mission or the season's closing prizes. On the effects bus, synthesised.
 
 export function playClaim(reward: Reward, big = false): void {
   const bus = sfxOut();
@@ -44,7 +45,20 @@ export function playClaim(reward: Reward, big = false): void {
     at += 0.22;
   }
   if ((reward.points ?? 0) + (reward.xp ?? 0) > 0) tone(ctx, out, at, 660, 990, 0.1, 0.03, 'triangle');
-  if (reward.title || reward.frame || reward.avatar || reward.skin) {
+  const cards = reward.cards ?? [];
+  if (cards.some((c) => c.kind === 'galaxy')) {
+    // A galaxy: a slow sweep upwards with a cluster of faint stars round it.
+    tone(ctx, out, at, 330, 1320, 0.7, 0.035, 'sine');
+    [2637, 3136, 3951].forEach((hz, i) => tone(ctx, out, at + 0.2 + i * 0.08, hz, hz, 0.35, 0.012, 'sine'));
+    at += 0.45;
+  }
+  if (cards.some((c) => c.kind === 'probe')) {
+    // A probe: its engine humming low and climbing as it starts.
+    tone(ctx, out, at, 110, 220, 0.5, 0.04, 'sawtooth');
+    tone(ctx, out, at + 0.05, 220, 440, 0.4, 0.02, 'triangle');
+    at += 0.35;
+  }
+  if (reward.title || reward.frame || reward.avatar || reward.skin || cards.some((c) => c.kind === 'title' || c.kind === 'frame' || c.kind === 'avatar' || c.kind === 'skin' || c.kind === 'resource')) {
     // A sparkle: twinkles falling from very high over a faint crackle.
     noise(ctx, out, at, 0.5, 0.05, 9000);
     [4186, 3520, 3951, 3136, 3520].forEach((hz, i) => tone(ctx, out, at + i * 0.05, hz, hz * 1.02, 0.16, 0.016, 'sine'));

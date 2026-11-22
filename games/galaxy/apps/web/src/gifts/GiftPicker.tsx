@@ -25,9 +25,11 @@ export interface GiftPickerProps {
   packsFull: boolean;
   /** Without the packs tab (a pack holds no packs). */
   showPacks?: boolean;
+  /** Without season points (a season's own prizes never give them: points that pay steps that pay points). */
+  showSeasonPoints?: boolean;
 }
 
-export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull, showPacks = true }: GiftPickerProps) {
+export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, packsFull, showPacks = true, showSeasonPoints = true }: GiftPickerProps) {
   const ids = useId();
   const TABS: readonly Tab[] = showPacks ? ALL_TABS : ALL_TABS.filter((k) => k !== 'packs');
   const [tab, setTab] = useState<Tab>('resources');
@@ -112,15 +114,17 @@ export function GiftPicker({ catalog, onAdd, onAddPack, packsChosen, itemsFull, 
             {full}
             <ul className="gift-rows">
               <AmountRow gift={(n) => ({ kind: 'xp', amount: n })} label={g.progress.xp} catalog={catalog} max={1_000_000} disabled={itemsFull} onAdd={onAdd} />
-              <AmountRow
-                gift={(n) => ({ kind: 'seasonPoints', amount: n })}
-                label={g.progress.seasonPoints}
-                catalog={catalog}
-                max={1_000_000}
-                disabled={itemsFull || !catalog.season.open}
-                note={catalog.season.open ? null : g.progress.seasonClosed}
-                onAdd={onAdd}
-              />
+              {showSeasonPoints ? (
+                <AmountRow
+                  gift={(n) => ({ kind: 'seasonPoints', amount: n })}
+                  label={g.progress.seasonPoints}
+                  catalog={catalog}
+                  max={1_000_000}
+                  disabled={itemsFull || !catalog.season.open}
+                  note={catalog.season.open ? null : g.progress.seasonClosed}
+                  onAdd={onAdd}
+                />
+              ) : null}
             </ul>
           </>
         ) : null}

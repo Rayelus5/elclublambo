@@ -14,8 +14,10 @@ export { readContent, singularityOf } from './content-read';
 
 export const CONTENT_KEY = ['content'] as const;
 
-export function useLiveContent(): Content {
+/** `enabled` false: what is cached, or the built-in content, without asking (a screen that may not need it). */
+export function useLiveContent(enabled = true): Content {
   const q = useQuery({
+    enabled,
     queryKey: CONTENT_KEY,
     queryFn: async () => {
       const view = await api<LiveContentView>('/content');

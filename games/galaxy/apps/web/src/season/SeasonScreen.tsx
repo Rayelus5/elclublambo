@@ -1,14 +1,16 @@
-import type { SeasonResult, SeasonReward, SeasonView } from '@galaxy/shared';
+import type { Gift, SeasonResult, SeasonReward, SeasonView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { refreshPieces } from '../api/cosmetics';
 import { GACHA_KEY, useGacha } from '../api/economy';
 import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { GiftArt } from '../gifts/GiftArt';
+import { giftWords } from '../gifts/words';
 import { WalletBar } from '../hub/WalletBar';
-import { piecesOf, useClaimFx } from '../missions/ClaimFx';
+import { BIG_CARDS, piecesOf, useClaimFx } from '../missions/ClaimFx';
 import { addRewards, type Reward } from '../missions/ready';
 import { playClaim } from '../missions/sfx';
 import { nextTier, TierEmblem } from '../social/parts';
@@ -17,8 +19,9 @@ import { Celebration } from '../ui/Celebration';
 import { Countdown } from '../ui/Countdown';
 import { Dialog } from '../ui/Dialog';
 import { useWheelSideways } from '../ui/HScroll';
-import { Icon, type IconName } from '../ui/Icon';
+import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
+import { type GiftView, giftsReward, giftsSentence, prizeGifts, stepGifts, useGiftView } from './gifts';
 import { PreviewBanner } from './SeasonPreview';
 
 // The season (GDD §13.1; M7d-1, DESIGN_SYSTEM §8 novovicies): the score with its tier, the route climbed with it (a
@@ -28,7 +31,9 @@ import { PreviewBanner } from './SeasonPreview';
 // with «Recoger todo» on the route, a confirmation before an expensive purchase and the time left ticking. An admin's
 // /temporada?vista=<id> (the panel's «Temporadas», 2026-11-22) shows that season as players will meet it, under a
 // band that says so: nothing can be collected or bought (no request is ever sent), nothing flies, and neither the
-// countdown nor the admin's own closing prizes show. For players the parameter does nothing.
+// countdown nor the admin's own closing prizes show. For players the parameter does nothing. Since PR 4 of «temporadas
+// como fichas» every prize is drawn as the gifts it gives (GiftArt: its old reward too), galaxies and probes among
+// them, and the closing prizes say what each one is for (the tier, the podium, a range of places).
 
 const t = copy.season;
 export const SEASON_KEY = ['season'] as const;
@@ -57,38 +62,59 @@ function useSeasonAction() {
   });
 }
 
-/** What a reward is mostly about, for its icon and its colour: the season currency first, then the rest. */
-function rewardKind(r: SeasonReward): { icon: IconName; kind: string } {
-  if (r.title || r.frame || r.avatar || r.skin) return { icon: 'trophy', kind: 'cosmetic' };
-  if (r.shards) return { icon: 'shard', kind: 'shards' };
-  if (r.signal) return { icon: 'ticket', kind: 'signal' };
-  if (r.dust) return { icon: 'dust', kind: 'dust' };
-  return { icon: 'coin', kind: 'coins' };
-}
-
-/** A summed reward in the season's words (its currency included). */
-function rewardWords(r: Reward, currency: string): string {
-  return t.reward({ coins: r.coins ?? 0, dust: r.dust ?? 0, signal: r.signal ?? 0, shards: r.shards ?? 0, title: r.title ?? null, frame: r.frame ?? null, avatar: r.avatar ?? null, skin: r.skin ?? null }, currency);
-}
-
-/** The celebration a reward deserves: a piece is (the most special one it gives), plain currency is not. */
+/** The celebration a reward deserves: a piece, a galaxy or a probe is (the last it gives), plain currency is not. */
 function bigOf(reward: Reward): { title: string; name: string } | null {
-  const piece = piecesOf(reward).at(-1);
+  const piece = piecesOf(reward)
+    .filter((c) => BIG_CARDS.has(c.kind))
+    .at(-1);
   return piece ? { title: copy.missions.piece[piece.kind], name: piece.name } : null;
+}
+
+/** Some gifts drawn, each next to its words (wrapping: nothing is clipped). */
+function GiftList({ gifts, view }: { gifts: readonly Gift[]; view: GiftView }) {
+  if (gifts.length === 0) return null;
+  return (
+    <ul className="season-gifts" aria-label={t.giftsLabel}>
+      {gifts.map((g, i) => (
+        <li key={i} className="season-gift">
+          <GiftArt gift={g} catalog={view} />
+          <span>{giftWords(g, view)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** What each prize of a close is for: its range of places, else its tier (first), else the podium. */
+function prizeFor(r: SeasonResult, i: number): string {
+  const p = r.rewards[i]!;
+  if (p.place) return t.closingFor.place(p.place.from, p.place.to);
+  if (r.tier && i === 0) return t.closingFor.tier(copy.social.tier[r.tier]);
+  return t.closingFor.podium;
 }
 
 /** The box a control has now, read before the answer replaces it (a collected step loses its button). */
 const boxOf = (selector: string): DOMRect | null => document.querySelector(selector)?.getBoundingClientRect() ?? null;
 
 /** The last closed season's place and its rewards, to collect once (M7d-2). */
-function Closing({ r, onClaim, pending }: { r: SeasonResult; onClaim: () => void; pending: boolean }) {
+function Closing({ r, onClaim, pending, view }: { r: SeasonResult; onClaim: () => void; pending: boolean; view: GiftView }) {
   return (
     <section className={`lip panel season-closing${r.podium ? ' podium' : ''}`} aria-labelledby="season-closing-title">
       {r.tier ? <TierEmblem tier={r.tier} scale={2} /> : <Icon name="trophy" />}
       <div>
         <h2 id="season-closing-title">{t.closingTitle(r.name)}</h2>
         <p>{t.closingPlace(r.rank, r.score)}</p>
-        <p className="season-closing-reward">{r.rewards.map((x) => t.reward(x, '')).filter(Boolean).join('; ')}</p>
+        <div className="season-closing-prizes">
+          {r.rewards.map((p, i) => {
+            const gifts = prizeGifts(p);
+            return gifts.length > 0 ? (
+              <section key={i} className="season-closing-part" aria-label={prizeFor(r, i)}>
+                <h3>{prizeFor(r, i)}</h3>
+                <GiftList gifts={gifts} view={view} />
+              </section>
+            ) : null;
+          })}
+        </div>
         {r.podium ? <p className="season-closing-trophy">{t.closingTrophy}</p> : null}
       </div>
       <button type="button" className="lip pill pill-solar" data-claim="closing" disabled={pending} onClick={onClaim}>
@@ -121,7 +147,7 @@ export function SeasonScreen() {
   const [working, setWorking] = useState(false);
   const busy = working || act.isPending || locked;
   /** What the route gave in this visit, said once; and the last thing bought. */
-  const [gained, setGained] = useState<Reward | null>(null);
+  const [gained, setGained] = useState<Gift[] | null>(null);
   const [bought, setBought] = useState<string | null>(null);
   const [asking, setAsking] = useState<Item | null>(null);
   const [big, setBig] = useState<{ key: number; title: string; name: string } | null>(null);
@@ -147,6 +173,17 @@ export function SeasonScreen() {
   useWheelSideways(track);
   const slide = (dir: 1 | -1) => track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.8, behavior: 'smooth' });
 
+  // Every prize as gifts, and what names and draws them (the pieces' catalog and the probes only when one is there).
+  const seasonId = v?.season?.id ?? '';
+  const giftsOfStep = useCallback((reward: SeasonReward, gifts: readonly Gift[] | undefined) => stepGifts(reward, gifts, seasonId), [seasonId]);
+  const every = useMemo(
+    () => (v ? [...v.steps.flatMap((s) => giftsOfStep(s.reward, s.gifts)), ...v.shop.flatMap((i) => giftsOfStep(i.reward, i.gifts)), ...(v.closing?.rewards.flatMap(prizeGifts) ?? [])] : []),
+    [v, giftsOfStep],
+  );
+  const view = useGiftView(every, { id: seasonId, currencyName: v?.currency.name ?? '' });
+  /** What a prize gives for the flight and the sound: its old reward, and its gifts. */
+  const rewardOf = (reward: Reward, gifts: readonly Gift[] | undefined): Reward => addRewards(reward, giftsReward(gifts ?? [], view));
+
   /** One action: done, then heard, seen flying from where it was pressed to the wallet, and celebrated if big. */
   async function perform(action: SeasonAction, from: DOMRect | null, reward: Reward, celebrate: { title: string; name: string } | null): Promise<void> {
     await act.mutateAsync(action);
@@ -170,8 +207,9 @@ export function SeasonScreen() {
     try {
       for (const [i, s] of steps.entries()) {
         if (i > 0) await new Promise((r) => setTimeout(r, reduced ? 0 : 220));
-        await perform({ kind: 'step', at: s.at }, stepBox(s.at), s.reward, bigOf(s.reward));
-        setGained((g) => addRewards(g ?? {}, s.reward));
+        const reward = rewardOf(s.reward, s.gifts);
+        await perform({ kind: 'step', at: s.at }, stepBox(s.at), reward, bigOf(reward));
+        setGained((g) => [...(g ?? []), ...giftsOfStep(s.reward, s.gifts)]);
       }
     } catch {
       // The mutation shows its own error.
@@ -184,7 +222,8 @@ export function SeasonScreen() {
     if (busy) return;
     setWorking(true);
     try {
-      await perform({ kind: 'item', id: item.id }, boxOf(`[data-claim="item-${item.id}"]`), item.reward, bigOf(item.reward));
+      const reward = rewardOf(item.reward, item.gifts);
+      await perform({ kind: 'item', id: item.id }, boxOf(`[data-claim="item-${item.id}"]`), reward, bigOf(reward));
       setBought(item.name);
     } catch {
       // The mutation shows its own error.
@@ -197,7 +236,7 @@ export function SeasonScreen() {
     if (busy) return;
     setWorking(true);
     try {
-      const total = r.rewards.reduce<Reward>((sum, x) => addRewards(sum, x), {});
+      const total = r.rewards.reduce<Reward>((sum, x) => addRewards(sum, rewardOf(x, x.gifts)), {});
       await perform({ kind: 'result', season: r.season }, boxOf('[data-claim="closing"]'), total, { title: t.bigClosing, name: r.name });
     } catch {
       // The mutation shows its own error.
@@ -209,7 +248,7 @@ export function SeasonScreen() {
   const next = v?.steps.find((s) => !s.reached);
   const nextT = v?.season ? nextTier(v.score, v.season.tiers) : null;
   const ready = v ? v.steps.filter((s) => s.reached && !s.claimed) : [];
-  const closing = v?.closing && !locked ? <Closing r={v.closing} pending={busy} onClaim={() => void claimClosing(v.closing!)} /> : null;
+  const closing = v?.closing && !locked ? <Closing r={v.closing} pending={busy} view={view} onClaim={() => void claimClosing(v.closing!)} /> : null;
   return (
     <div className="screen-root missions-root">
       <div className="missions season-screen">
@@ -276,7 +315,7 @@ export function SeasonScreen() {
                 <span>{t.routeProgress(v.steps.filter((s) => s.claimed).length, v.steps.length)}</span>
                 {gained ? (
                   <p className="missions-gained season-gained" role="status" aria-atomic="true">
-                    {copy.missions.gained(rewardWords(gained, v.currency.name))}
+                    {copy.missions.gained(giftsSentence(gained, view))}
                   </p>
                 ) : null}
                 {ready.length > 1 ? (
@@ -295,16 +334,12 @@ export function SeasonScreen() {
               <div className={`season-track${edges.start ? '' : ' fade-start'}${edges.end ? '' : ' fade-end'}`}>
                 <ol ref={track} aria-label={t.routeTitle} onScroll={measure}>
                   {v.steps.map((s, i) => {
-                    const k = rewardKind(s.reward);
                     return (
                       <li key={s.at} className={s.claimed ? 'claimed' : s.reached ? 'ready' : 'locked'} style={{ '--i': i } as CSSProperties}>
                         <span className="season-node" aria-hidden="true">
                           {s.claimed ? <Icon name="check" /> : i + 1}
                         </span>
-                        <span className={`season-reward-icon k-${k.kind}`} aria-hidden="true">
-                          <Icon name={k.icon} />
-                        </span>
-                        <span className="season-reward">{t.reward(s.reward, v.currency.name)}</span>
+                        <GiftList gifts={giftsOfStep(s.reward, s.gifts)} view={view} />
                         <b className="season-at">{t.at(s.at)}</b>
                         {s.claimed ? (
                           <span className="season-step-state">
@@ -339,14 +374,10 @@ export function SeasonScreen() {
                 {v.shop.map((i) => {
                   const out = i.bought >= i.limit;
                   const short = !out && v.currency.balance < i.price;
-                  const k = rewardKind(i.reward);
                   return (
                     <li key={i.id} className={`lip panel${out ? ' sold' : short ? ' short' : ' affordable'}`}>
-                      <span className={`season-reward-icon k-${k.kind}`} aria-hidden="true">
-                        <Icon name={k.icon} />
-                      </span>
                       <b>{i.name}</b>
-                      <span>{t.reward(i.reward, v.currency.name)}</span>
+                      <GiftList gifts={giftsOfStep(i.reward, i.gifts)} view={view} />
                       <span className="season-stock">{t.stock(i.bought, i.limit)}</span>
                       {short ? (
                         <span className="season-short">
