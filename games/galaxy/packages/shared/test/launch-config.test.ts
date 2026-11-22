@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfigKey, mergeDraft, normalizeSeasonRecord, opsProblems, parseConfig, type SeasonRecordData, seasonConfigOf, seasonRecordIssues } from '../src';
+import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfigKey, mergeDraft, normalizeSeasonRecord, opsProblems, parseConfig, type SeasonRecordData, seasonConfigOf, seasonRecordIssues, tournamentIssues } from '../src';
 
 // The live config published on PRE with `cli.js publish-config` (games/galaxy/ops, docs/CONTENIDO.md):
 // - ops/launch/<yyyy-mm-dd>[-slug]/: what was (or will be) published, one file per key with the top-level fields it
@@ -13,6 +13,9 @@ import { type ConfigKey, type ConfigValue, configIssues, configSchemas, isConfig
 // - Seasons as records (plan «temporadas como fichas», 2026-11-21): a folder may carry `temporada.json`, a whole season
 //   (dates, rules, route, missions, lab tree) that is imported and scheduled, never published as keys. From the first
 //   one on, every season that counts is checked: the old key's season ends where the first record starts.
+// - Tournaments (skill galaxy-torneo, 2026-11-22): a folder may carry `torneo.json`, one tournament that goes to PRE as a
+//   draft with `tournament-draft` (scheduled later in the panel). It must hold, with its season among the folders'
+//   records when it is one of them (check-config checks it against the real ones on PRE).
 // The open beta launch (2026-11-10) also keeps its own promises (4 weeks, 4 + 4 missions, harder sectors, a week of
 // boosts).
 
@@ -29,6 +32,8 @@ interface Folder {
   strays: string[];
   /** The folder's season record (`temporada.json`), if it brings one. */
   record?: unknown;
+  /** The folder's tournament (`torneo.json`), if it brings one. */
+  tournament?: unknown;
 }
 interface Stage extends Folder {
   /** The folder's day at 00:00 in Madrid (22:00–23:00 UTC the day before): what still runs from then on counts. */
@@ -43,14 +48,16 @@ function read(dir: URL, name: string): Folder {
   const drafts: Drafts = {};
   const strays: string[] = [];
   let record: unknown;
+  let tournament: unknown;
   for (const file of readdirSync(dir).sort()) {
     if (!file.endsWith('.json')) continue;
     const key = file.slice(0, -'.json'.length);
     if (file === 'temporada.json') record = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
+    else if (file === 'torneo.json') tournament = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
     else if (isConfigKey(key)) drafts[key] = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
     else strays.push(file);
   }
-  return { name, drafts, strays, record };
+  return { name, drafts, strays, record, tournament };
 }
 
 function folders(sub: 'launch' | 'plantillas', named: (name: string) => boolean): Folder[] {
@@ -111,8 +118,24 @@ const madrid = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hou
 const madridMidnight = (iso: string) => madrid.format(new Date(iso)) === '00:00:00';
 
 /** The checks every published state must pass (events and scanners counted from `at` on). */
-function holdsTogether(name: string, live: Live, at: number, own: Drafts, records: SeasonRecordData[] = [], record?: unknown) {
+function holdsTogether(name: string, live: Live, at: number, own: Drafts, records: SeasonRecordData[] = [], record?: unknown, tournament?: unknown) {
   const season = get(live, 'season');
+
+  if (tournament !== undefined) {
+    test(`${name}: su torneo (torneo.json) vale con el contenido de entonces y cabe en su temporada`, () => {
+      const id = (tournament as { seasonId?: unknown }).seasonId;
+      const home = records.find((r) => r.id === id);
+      const content = get(live, 'content');
+      expect(
+        tournamentIssues(tournament, {
+          // A season of these folders is checked here; any other, by check-config against PRE.
+          season: home ? { id: home.id, state: 'scheduled', startsAt: home.startsAt, endsAt: home.endsAt } : undefined,
+          sectors: content.sectors.map((x) => x.id),
+          probes: content.probes.map((p) => p.id),
+        }),
+      ).toEqual([]);
+    });
+  }
 
   test(`${name}: se sostiene entre claves (lo mismo que comprueba check-config en PRE)`, () => {
     const all = { season, events: get(live, 'events'), gacha: get(live, 'gacha'), missions: get(live, 'missions'), content: get(live, 'content'), seasons: seasonsOf(live, records) };
@@ -136,11 +159,11 @@ function holdsTogether(name: string, live: Live, at: number, own: Drafts, record
 const launches = fold(folders('launch', () => true));
 const templates = folders('plantillas', () => true);
 
-test('hay carpetas de lanzamiento, con nombre <aaaa-mm-dd>[-slug] en minúsculas, y plantillas de temporada y de evento', () => {
+test('hay carpetas de lanzamiento, con nombre <aaaa-mm-dd>[-slug] en minúsculas, y plantillas de temporada, de evento y de torneo', () => {
   expect(launches.length).toBeGreaterThan(0);
   // A folder with another name would still be checked here, but sorts out of order: its name is the publish day.
   for (const l of launches) expect(l.name, l.name).toMatch(FOLDER);
-  expect(templates.map((t) => t.name)).toEqual(expect.arrayContaining(['evento', 'temporada']));
+  expect(templates.map((t) => t.name)).toEqual(expect.arrayContaining(['evento', 'temporada', 'torneo']));
 });
 
 describe.each(launches)('ops/launch/$name', (stage) => {
@@ -150,7 +173,7 @@ describe.each(launches)('ops/launch/$name', (stage) => {
       expect(configIssues(key, mergeDraft(key, stage.before[key] ?? defaults(key), draft)), key).toEqual([]);
     }
   });
-  holdsTogether(stage.name, stage.live, stage.at, stage.drafts, stage.records, stage.record);
+  holdsTogether(stage.name, stage.live, stage.at, stage.drafts, stage.records, stage.record, stage.tournament);
 });
 
 describe.each(templates)('ops/plantillas/$name', (t) => {
@@ -161,7 +184,7 @@ describe.each(templates)('ops/plantillas/$name', (t) => {
     }
   });
   const folded = fold([t])[0]!;
-  holdsTogether(t.name, folded.live, -Infinity, t.drafts, folded.records, t.record);
+  holdsTogether(t.name, folded.live, -Infinity, t.drafts, folded.records, t.record, t.tournament);
 });
 
 describe('el lanzamiento de la beta abierta (2026-11-10)', () => {

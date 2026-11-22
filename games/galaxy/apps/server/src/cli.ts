@@ -35,6 +35,7 @@ import { HttpError } from './errors';
 import type { Env } from './env';
 import { closeDue } from './season/close';
 import { cliConfig, seasonExtend, seasonImport, seasonList, seasonPatch, seasonSchedule, seasonShow, seasonUnschedule } from './season/cli';
+import { tournamentCheck, tournamentDraft, tournamentList, tournamentShow } from './tournaments/cli';
 import { createSeasonStore, seasonContext } from './season/records';
 import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
@@ -442,7 +443,9 @@ async function checkConfig(args: string[], deps: CliDeps): Promise<number> {
   const drafts = batch as Record<string, unknown>;
   // A season record travels as `temporada` (plan «temporadas como fichas»): checked as a record, never published here.
   const record = drafts['temporada'];
-  const keys = Object.keys(drafts).filter((k) => k !== 'temporada');
+  // A tournament travels as `torneo` (skill galaxy-torneo): checked against what is live, saved only with tournament-draft.
+  const tournament = drafts['torneo'];
+  const keys = Object.keys(drafts).filter((k) => k !== 'temporada' && k !== 'torneo');
   const strays = keys.filter((k) => !isConfigKey(k));
   if (strays.length > 0) {
     deps.out(`Claves desconocidas: ${strays.join(', ')}`);
@@ -475,6 +478,15 @@ async function checkConfig(args: string[], deps: CliDeps): Promise<number> {
       deps.out(`Temporada ${candidate.id}: ${candidate.name}, del ${candidate.startsAt} al ${candidate.endsAt}`);
     }
   }
+  if (tournament !== undefined) {
+    const issues = await tournamentCheck(deps.db, tournament);
+    const slug = (tournament as { slug?: unknown } | null)?.slug;
+    if (issues.length > 0) {
+      deps.out(typeof slug === 'string' ? `El torneo ${slug} no vale:` : 'El torneo no vale:');
+      for (const i of issues) deps.out(`  ${i.path || '(raíz)'}: ${i.message}`);
+      valid = false;
+    } else deps.out(`Torneo ${String(slug)}: se puede guardar y programar`);
+  }
   if (!valid) return 1;
   const live = async <K extends 'season' | 'events' | 'gacha' | 'missions' | 'content'>(k: K): Promise<ConfigValue<K>> => (after[k] as ConfigValue<K> | undefined) ?? (await config.get(k));
   // With seasons as records: the ones still to run (and the candidate, over its own draft or schedule) all count.
@@ -488,7 +500,7 @@ async function checkConfig(args: string[], deps: CliDeps): Promise<number> {
   }
   const problems = opsProblems({ season: await live('season'), events: await live('events'), gacha: await live('gacha'), missions: await live('missions'), content: await live('content'), seasons }, Date.now());
   for (const p of problems) deps.out(`Problema: ${p}`);
-  const checked = candidate ? [...ordered, 'temporada'] : ordered;
+  const checked = [...ordered, ...(candidate ? ['temporada'] : []), ...(tournament !== undefined ? ['torneo'] : [])];
   deps.out(problems.length === 0 ? `Se sostiene: ${checked.join(', ')}` : `No se sostiene: ${problems.length} problema(s)`);
   return problems.length === 0 ? 0 : 1;
 }
@@ -649,5 +661,8 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
     const [id, endsAt] = positional(args, ['--reason']).filter((a) => a !== '--move-next');
     return seasonExtend(deps.db, id, endsAt, flag(args, '--reason'), args.includes('--move-next'), deps.out);
   }
+  if (command === 'tournament-list') return tournamentList(deps.db, deps.out);
+  if (command === 'tournament-show') return tournamentShow(deps.db, positional(args, [])[0], deps.out);
+  if (command === 'tournament-draft') return tournamentDraft(deps.db, positional(args, ['--reason'])[0], flag(args, '--reason'), deps.out);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

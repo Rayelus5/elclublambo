@@ -503,6 +503,8 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 - **Jugadores** en `/galaxy/api/tournaments`: lista, página, `join`, `leave` y `claim`, con clave de idempotencia.
 - **Admins** en `/galaxy/api/admin/tournaments`: validar, guardar borrador, programar, desprogramar (antes de empezar y sin inscritos), cancelar (devuelve las entradas), revisión, decidir una partida, descalificar, «Publicar ya» y marcar el dinero como pagado. Todo con motivo y auditado; lo que cambia el torneo o los premios pide la contraseña.
 
+**Prepararlo** en el panel (Administración › Torneos) o en una carpeta de `ops/launch/` con `torneo.json` (plantilla en `ops/plantillas/torneo/`, skill `galaxy-torneo`). La carpeta la valida `launch-config.test.ts` y `check-config` contra lo vivo. Con el OK del propietario, `tournament-draft` la guarda en PRE como borrador; la CLI nunca programa torneos.
+
 **Operarlo:**
 - **Programar** con premios por encima de `mailLimits`, o con dinero, solo lo hace un superadmin (`tournament_needs_superadmin`).
 - **Durante la revisión** mira el panel: las partidas `unverifiable` o `error` de los puestos con premio esperan tu decisión, y sin ella los resultados no salen. Las `unverifiable` se deciden en bloque por motivo (`inputs_missing`, `inputs_unreadable`, `sim_version`, `content_unreadable`) o por jugador; las `error`, una a una. Las tuyas y (si no eres superadmin) las del equipo las decide otro.

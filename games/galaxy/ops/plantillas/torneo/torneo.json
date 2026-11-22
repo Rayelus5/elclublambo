@@ -1,0 +1,24 @@
+{
+  "slug": "copa-nebulosa",
+  "seasonId": "season-2",
+  "title": "Copa de la Nebulosa",
+  "summary": "Suma puntos con cada incursión que termines durante el fin de semana",
+  "rules": "Cuentan las incursiones que terminas desde que te inscribes hasta el final del torneo, en solitario o en grupo. Cada una suma los puntos de temporada que da. Si te sales, pierdes tu puntuación y no puedes volver. Los premios se recogen en la página del torneo cuando salen los resultados, tras una revisión de 24 horas",
+  "bannerMedia": null,
+  "detailsMedia": null,
+  "startsAt": "2026-12-04T19:00:00.000Z",
+  "endsAt": "2026-12-07T23:00:00.000Z",
+  "exclusive": true,
+  "metric": "points",
+  "filters": { "sector": null, "probe": null, "mode": "any", "minLevel": null },
+  "entry": null,
+  "prizes": [
+    { "from": 1, "to": 1, "gifts": [{ "kind": "currency", "currency": "coins", "amount": 25000 }, { "kind": "galaxy", "tier": "legendary", "finish": "holo", "trait": null, "count": 1 }], "cash": null },
+    { "from": 2, "to": 3, "gifts": [{ "kind": "currency", "currency": "coins", "amount": 12000 }, { "kind": "galaxy", "tier": "epic", "finish": "normal", "trait": null, "count": 1 }], "cash": null },
+    { "from": 4, "to": 10, "gifts": [{ "kind": "currency", "currency": "coins", "amount": 5000 }, { "kind": "currency", "currency": "dust", "amount": 1000 }], "cash": null },
+    { "from": 11, "to": 50, "gifts": [{ "kind": "currency", "currency": "coins", "amount": 2000 }], "cash": null }
+  ],
+  "participation": { "minRuns": 3, "gifts": [{ "kind": "currency", "currency": "dust", "amount": 300 }] },
+  "reviewHours": 24,
+  "maxEntrants": null
+}

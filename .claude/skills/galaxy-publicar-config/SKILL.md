@@ -11,6 +11,8 @@ Esta skill publica una carpeta de `games/galaxy/ops/launch/` preparada por otra 
 - contenido: `galaxy-habilidad`, `galaxy-reliquias`, `galaxy-enemigos-sectores-sondas`;
 - operación en vivo: `galaxy-temporada`, `galaxy-evento`.
 
+Un torneo (`torneo.json`) no se publica con esta skill: lo guarda como borrador `tournament-draft`, siguiendo la skill `galaxy-torneo`.
+
 Las reglas están en la parte B de `games/galaxy/docs/CONTENIDO.md`. El acceso SSH a PRE (`<PRE>` en esta skill) está en `games/galaxy/docs/DEPLOY_PRE.md`, en «Lanzamiento de la beta abierta», y los comandos, en su tabla «Operación». Los comandos son para **Git Bash**: en PowerShell `<` no existe y `>` guarda con BOM. Si no puedes llegar a PRE, para y díselo al propietario.
 
 ## Nunca

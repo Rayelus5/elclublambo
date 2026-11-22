@@ -154,6 +154,7 @@ Viven en `../../.claude/skills/`. Claude Code las carga solas; para cualquier ot
 | `galaxy-enemigos-sectores-sondas` | Enemigos, élites, Núcleos, sectores, biomas y sondas |
 | `galaxy-temporada` | Temporada nueva: fechas, ruta y tienda, misiones y logros, anomalía, cierre |
 | `galaxy-evento` | Evento temporal con metas, escáner de evento con destacada, potenciadores y aviso |
+| `galaxy-torneo` | Torneo dentro de una temporada: medida, filtros, entrada, premios por puesto o dinero; se guarda como borrador y lo programa el propietario |
 | `galaxy-publicar-config` | Publicar en PRE una carpeta de `ops/launch/`, solo con el OK del propietario |
 
 ## Dónde empezar
