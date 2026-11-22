@@ -1524,7 +1524,11 @@ Plan «temporadas como fichas», parte 5 (22/11/2026). Las pantallas siguen la c
   - tus partidas que cuentan, con las cifras a la derecha y, en las medidas de mejor marca, la mejor en oro;
   - a la derecha, los premios por puesto con sus regalos dibujados (el tuyo con el anillo Hielo) y la imagen de premios, y «Cómo se gana» en frases sencillas con su icono, más las reglas del organizador.
 - **Recoger** suena, vuela a la barra de recursos y se celebra con `Celebration`, como los premios de cierre de la temporada.
-- **Accesos, sin banners:** «Torneos» en la esquina de Jugar (una píldora oscura con el trofeo Solar) y en el raíl del lobby (en ámbar). Un punto Nova que late avisa de que hay inscripción abierta. En la clasificación, un bloque «Torneos en curso» bajo la temporada, con tu puesto en cada uno.
+- **En el inicio, su propio panel** (el propietario, 22/11/2026) bajo el de la temporada, en la columna de la derecha: los dos juntos ocupan el alto del menú. Enseña el torneo que más te importa ahora (premios por recoger, el que juegas, uno con inscripción abierta, el tuyo en revisión, el tuyo por empezar, cualquier otro vivo o el último terminado) sobre su banner, oscurecido abajo para las letras:
+  - arriba, la píldora Solar «Torneos» con el trofeo (y el punto Nova si hay inscripción abierta), cuántos hay en curso o próximos y «Ver todos»;
+  - abajo, el estado y la cuenta atrás, el título en grande (todo el panel lleva a su página), tu puesto con tu puntuación en Solar o por qué está ahí, y la acción en una píldora Solar («Ver torneo», «Inscríbete», «Recoger premios», «Ver resultados»). Con premios esperando, el marco respira en oro;
+  - es un contenedor de tamaño: en pantallas bajas queda en una línea (la píldora, el título con tu puesto y la flecha de «Ver todos»), con más alto suma el estado y la cuenta atrás, y con más aún el primer premio. Hasta 900 px de alto el panel de la temporada se aprieta un poco (sin los niveles del podio) para que quepa sin que el inicio haga scroll.
+- **Otros accesos, sin banners:** «Torneos» en el raíl del lobby (en ámbar), con el mismo punto Nova. En la clasificación, un bloque «Torneos en curso» bajo la temporada, con tu puesto en cada uno.
 - **Al terminar una partida,** una línea por torneo con lo que sumó y tu puesto, con la flecha Terminal de los puestos que subes.
 - **A partir de 2400 px** todo es un 25 % más grande, como el inicio.
 

@@ -10,12 +10,13 @@ import { ResultsScreen } from '../src/hangar/ResultsScreen';
 import { Rail } from '../src/hangar/lobby/Rail';
 import { MainMenu } from '../src/hub/MainMenu';
 import { TopBar } from '../src/hub/TopBar';
+import { TournamentsHubPanel } from '../src/tournaments/HubPanel';
 import { LeaderboardScreen } from '../src/social/LeaderboardScreen';
 import { jsonResponse, mockApi, renderAt } from './render';
 import { at, card, DAY, list, me } from './tournament-fixtures';
 
-// The ways into the tournaments (plan «temporadas como fichas», part 5): «Torneos» in the main menu and in the lobby's
-// rail, with a small dot while sign-up is open in one (no banner); the leaderboard's block with my place in each one
+// The ways into the tournaments (plan «temporadas como fichas», part 5): the title screen's panel under the season's
+// (the owner, 2026-11-22) and «Torneos» in the lobby's rail, with a small dot while sign-up is open in one; the leaderboard's block with my place in each one
 // running; the results letter's «Ver torneo»; and, after a run, one line with what it added and where I am now.
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,19 +24,44 @@ const t = copy.tournaments;
 const open = list({ running: [card()] });
 const closed = list({ running: [card({ join: { open: false, block: 'joined' }, me: me() })] });
 
-test('el menú principal lleva a Torneos, con un punto mientras hay inscripción abierta', async () => {
+test('el panel de torneos del inicio lleva a todos, con un punto mientras hay inscripción abierta, y al torneo que importa', async () => {
   mockApi({ 'GET /galaxy/api/tournaments': () => jsonResponse(200, open) });
-  renderAt('/', { '/': <MainMenu galaxies={3} /> });
-  const link = await screen.findByRole('link', { name: copy.hub.tournamentsOpen });
-  expect(link).toHaveAttribute('href', '/torneos');
-  expect(link.querySelector('.tn-dot')).not.toBeNull();
+  renderAt('/', { '/': <TournamentsHubPanel /> });
+  const region = await screen.findByRole('region', { name: t.title });
+  const panel = within(region);
+  expect(await panel.findByRole('link', { name: t.hub.allOpen })).toHaveAttribute('href', '/torneos');
+  expect(region.querySelector('.tn-dot')).not.toBeNull();
+  // Open to sign up: the panel invites, and the way in is the tournament's page (where the dialog explains first).
+  const go = await panel.findByRole('link', { name: /Copa de hielo/ });
+  expect(go).toHaveAttribute('href', '/torneos/copa-de-hielo');
+  expect(go).toHaveTextContent(t.hub.cta.join);
+  expect(panel.getByText(t.hub.openLine(t.entrants(42, null)))).toBeInTheDocument();
 });
 
-test('sin inscripción abierta, Torneos del menú va sin punto', async () => {
+test('sin inscripción abierta el panel va sin punto, y en uno que juegas dice tu puesto', async () => {
   mockApi({ 'GET /galaxy/api/tournaments': () => jsonResponse(200, closed) });
+  renderAt('/', { '/': <TournamentsHubPanel /> });
+  const region = await screen.findByRole('region', { name: t.title });
+  const panel = within(region);
+  expect(await panel.findByRole('link', { name: t.hub.allLabel })).toHaveAttribute('href', '/torneos');
+  expect(await panel.findByText('Vas 5.º con 1240 puntos')).toBeInTheDocument();
+  expect(region.querySelector('.tn-dot')).toBeNull();
+  expect(panel.getByRole('link', { name: /Copa de hielo/ })).toHaveTextContent(t.hub.cta.see);
+});
+
+test('sin ningún torneo el panel lo dice y sigue llevando a la lista', async () => {
+  mockApi({ 'GET /galaxy/api/tournaments': () => jsonResponse(200, list()) });
+  renderAt('/', { '/': <TournamentsHubPanel /> });
+  const panel = within(await screen.findByRole('region', { name: t.title }));
+  expect(await panel.findByText(t.hub.empty)).toBeInTheDocument();
+  expect(panel.getByRole('link', { name: t.hub.allLabel })).toHaveAttribute('href', '/torneos');
+});
+
+test('Jugar ya no lleva Torneos en su esquina', async () => {
+  mockApi({ 'GET /galaxy/api/tournaments': () => jsonResponse(200, open) });
   renderAt('/', { '/': <MainMenu galaxies={3} /> });
-  const link = await screen.findByRole('link', { name: copy.hub.tournaments });
-  expect(link.querySelector('.tn-dot')).toBeNull();
+  expect(await screen.findByRole('link', { name: new RegExp(copy.hub.play) })).toHaveAttribute('href', '/incursion');
+  expect(screen.queryByRole('link', { name: /Torneos/ })).toBeNull();
 });
 
 test('el raíl del lobby lleva a Torneos, con su punto cuando puedes inscribirte', async () => {

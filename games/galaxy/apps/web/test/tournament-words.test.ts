@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { copy } from '../src/copy/es';
-import { blockText, exclusiveClashes, feeWords, rewardOf, runGains } from '../src/tournaments/words';
+import { blockText, exclusiveClashes, featuredOf, feeWords, rewardOf, runGains } from '../src/tournaments/words';
 import { at, card, DAY, list, me } from './tournament-fixtures';
 
 // What the tournaments say in words and work out on their own (plan «temporadas como fichas», part 5): why you cannot
@@ -63,4 +63,30 @@ test('lo que sumó una partida: lo que crece tu puntuación y los puestos que su
   expect(runGains(list({ running: [card()] }), list({ running: [card()] }))).toEqual([]);
   expect(runGains(undefined, after)).toEqual([]);
   expect(copy.tournaments.runGain(t.value.points(320), 'Copa de hielo', 5)).toBe('+320 puntos en Copa de hielo, ahora 5.º');
+});
+
+test('el inicio enseña el torneo que más te importa: premios, el que juegas, uno abierto, el tuyo en revisión o por empezar', () => {
+  const id = (n: number) => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
+  const prize = card({ id: id(1), slug: 'premio', state: 'finished', endsAt: at(-2 * DAY), join: { open: false, block: 'closed' }, me: me({ rewards: { place: 3, gifts: [{ kind: 'currency', currency: 'coins', amount: 500 }], cash: null, participation: false } }) });
+  const collected = card({ id: id(2), slug: 'recogido', state: 'finished', endsAt: at(-DAY), join: { open: false, block: 'closed' }, me: me({ claimed: true, rewards: { place: 1, gifts: [{ kind: 'currency', currency: 'coins', amount: 900 }], cash: null, participation: false } }) });
+  const playingLate = card({ id: id(3), slug: 'juego-tarde', endsAt: at(6 * DAY), join: { open: false, block: 'joined' }, me: me() });
+  const playingSoon = card({ id: id(4), slug: 'juego-pronto', endsAt: at(2 * DAY), join: { open: false, block: 'joined' }, me: me() });
+  const open = card({ id: id(5), slug: 'abierto', join: { open: true, block: null } });
+  const review = card({ id: id(6), slug: 'revision', state: 'review', endsAt: at(-3_600_000), join: { open: false, block: 'closed' }, me: me() });
+  const soon = card({ id: id(7), slug: 'pronto', state: 'scheduled', startsAt: at(2 * DAY), endsAt: at(5 * DAY), join: { open: false, block: 'joined' }, me: me({ rank: null }) });
+  const blocked = card({ id: id(8), slug: 'bloqueado', join: { open: false, block: 'exclusive' } });
+  const cancelled = card({ id: id(9), slug: 'cancelado', state: 'cancelled', join: { open: false, block: 'closed' } });
+  const pick = (l: Parameters<typeof list>[0]) => {
+    const f = featuredOf(list(l));
+    return f ? [f.card.slug, f.pick] : null;
+  };
+  expect(pick({ running: [playingSoon, open], finished: [collected, prize] })).toEqual(['premio', 'collect']);
+  expect(pick({ running: [open, playingLate, playingSoon], finished: [collected] })).toEqual(['juego-pronto', 'playing']);
+  expect(pick({ running: [blocked, open], finished: [review], upcoming: [soon] })).toEqual(['abierto', 'open']);
+  expect(pick({ running: [blocked], finished: [review], upcoming: [soon] })).toEqual(['revision', 'results']);
+  expect(pick({ running: [blocked], upcoming: [soon] })).toEqual(['pronto', 'joined']);
+  expect(pick({ running: [blocked] })).toEqual(['bloqueado', 'live']);
+  expect(pick({ finished: [cancelled, collected] })).toEqual(['recogido', 'past']);
+  expect(pick({ finished: [cancelled] })).toBeNull();
+  expect(featuredOf(undefined)).toBeNull();
 });

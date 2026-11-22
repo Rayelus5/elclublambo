@@ -18,6 +18,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'mejora', text: 'Cada premio se ve con su dibujo: la galaxia con el color de su rareza, la sonda volando y cada pieza tal cual' },
       { kind: 'mejora', text: 'Al recoger una galaxia o una sonda sale su tarjeta donde la recoges, con su sonido, y se celebra' },
       { kind: 'mejora', text: 'Los premios de cierre dicen de dónde sale cada uno: tu tramo, el podio o tu puesto' },
+      { kind: 'mejora', text: 'Los torneos tienen su propio panel en la pantalla de inicio, debajo de la temporada: el que más te importa con su banner, cuánto le queda, tu puesto y un acceso a todos' },
     ],
   },
   {
@@ -27,7 +28,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     title: 'Torneos con su clasificación, premios y recogida',
     summary: 'Compite en torneos con su propia clasificación y recoge tus premios en su página',
     items: [
-      { kind: 'nuevo', text: 'Torneos, en el menú principal y en el lobby. Cada uno dice cómo se gana, cuánto le queda, sus premios y cuántos juegan, y un punto te avisa cuando puedes inscribirte' },
+      { kind: 'nuevo', text: 'Torneos, en la pantalla de inicio y en el lobby. Cada uno dice cómo se gana, cuánto le queda, sus premios y cuántos juegan, y un punto te avisa cuando puedes inscribirte' },
       { kind: 'nuevo', text: 'Antes de inscribirte te contamos la entrada, si es exclusivo y desde cuándo cuentan tus partidas. Si sales, pierdes tu puntuación y no puedes volver' },
       { kind: 'nuevo', text: 'Cada torneo tiene su página, con el podio, la clasificación con tu puesto, tus partidas que cuentan y sus premios por puesto' },
       { kind: 'nuevo', text: 'Al acabar revisamos las partidas con premio antes de publicar los resultados. Tus premios se recogen en la página del torneo, con su animación y su sonido' },

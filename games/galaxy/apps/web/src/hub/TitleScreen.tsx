@@ -11,6 +11,7 @@ import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
 import { backdropSeeds, shuffledLaps } from '../scene/backdrop-seeds';
 import { Logo, MaintenanceNotice } from '../shell/AuthLayout';
 import { SeasonSummary } from '../social/SeasonSummary';
+import { TournamentsHubPanel } from '../tournaments/HubPanel';
 import { MainMenu } from './MainMenu';
 import { TopBar } from './TopBar';
 
@@ -18,7 +19,7 @@ const BEST = { sort: 'rarity', limit: 6 } as const;
 
 /**
  * The title screen (GDD §4): the hub every session starts from. Top bar with balances, the main menu on the left,
- * the season on the right (M5a) and the player's own galaxies drifting in the sky between them: the ones chosen in
+ * the season and the tournaments on the right (M5a; the tournaments' panel, 2026-11-22) and the player's own galaxies drifting in the sky between them: the ones chosen in
  * «Personalizar» (plan «escáner pro», part E) or, without a choice, the rarest — in a random order.
  */
 export function TitleScreen({ me }: { me: MeResponse }) {
@@ -57,7 +58,11 @@ export function TitleScreen({ me }: { me: MeResponse }) {
           <Logo />
           <MainMenu galaxies={total} />
         </main>
-        <SeasonSummary />
+        {/* The right column: the season, and the tournaments under it, together as tall as the menu. */}
+        <div className="hub-side">
+          <SeasonSummary />
+          <TournamentsHubPanel />
+        </div>
       </div>
     </div>
   );

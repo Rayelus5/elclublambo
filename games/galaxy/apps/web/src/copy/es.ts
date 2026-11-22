@@ -3648,9 +3648,6 @@ export const copy = {
     shop: 'Tienda',
     offer: 'Oferta',
     shopOffer: 'Tienda, con una oferta',
-    // The foot's Torneos (plan «temporadas como fichas», part 5), with a dot while sign-up is open in one.
-    tournaments: 'Torneos',
-    tournamentsOpen: 'Torneos, con inscripción abierta',
     summaryTitle: 'Tu colección',
     summaryEmpty: 'Aún no tienes galaxias. Escanea el cielo y encuentra la primera',
     summaryBest: 'Las más raras',
@@ -4433,6 +4430,23 @@ export const copy = {
     runGain: (gain: string, title: string, rank: number) => `+${gain} en ${title}, ahora ${fmt(rank)}.º`,
     runBest: (best: string, title: string, rank: number) => `Nueva marca de ${best} en ${title}, ahora ${fmt(rank)}.º`,
     climbed: (n: number) => (n === 1 ? 'subes 1 puesto' : `subes ${fmt(n)} puestos`),
+    // The title screen's panel, under the season's: the tournament that matters most to you now, and the way to all.
+    hub: {
+      all: 'Ver todos',
+      allLabel: 'Ver todos los torneos',
+      allOpen: 'Ver todos los torneos, con inscripción abierta',
+      running: (n: number) => `${fmt(n)} en curso`,
+      upcoming: (n: number) => (n === 1 ? '1 próximo' : `${fmt(n)} próximos`),
+      empty: 'Ningún torneo a la vista. Vuelve pronto',
+      error: 'No pudimos cargar los torneos',
+      rank: (rank: number, value: string) => `Vas ${fmt(rank)}.º con ${value}`,
+      rankFinal: (rank: number, value: string) => `Quedaste ${fmt(rank)}.º con ${value}`,
+      participationWaiting: 'Tu premio por participar te espera',
+      openLine: (entrants: string) => `Inscripción abierta, ${entrants}`,
+      joinedSoon: (entrants: string) => `Estás dentro, ${entrants}`,
+      firstPrize: 'Premio del 1.º',
+      cta: { collect: 'Recoger premios', join: 'Inscríbete', see: 'Ver torneo', results: 'Ver resultados' },
+    },
   },
   settings: {
     title: 'Ajustes',
