@@ -32,7 +32,7 @@ type Player = { id: string; username: string; cookie: string };
 async function player(name = 'popj'): Promise<Player> {
   const username = uniqueName(name);
   const res = await post(ctx.app, '/galaxy/api/auth/register', { username, password: 'una-clave-larga' });
-  expect(res.statusCode, res.body).toBe(200);
+  expect(res.statusCode, res.body).toBe(201);
   return { id: (res.json() as { id: string }).id, username, cookie: sessionCookie(res) };
 }
 
@@ -102,8 +102,8 @@ describe('qué popup sale y cuándo', () => {
 
   test('tres veces como mucho, nunca dos el mismo día', async () => {
     const p = await player();
-    const id = await campaign([p]);
     const t0 = Date.now();
+    const id = await campaign([p], { endsAt: new Date(t0 + 6 * DAY).toISOString() });
     expect((await shown(p, id)).statusCode).toBe(204);
     // A second render the same day changes nothing.
     expect((await shown(p, id)).statusCode).toBe(204);
@@ -115,7 +115,8 @@ describe('qué popup sale y cuándo', () => {
       expect((await shown(p, id)).statusCode).toBe(204);
     }
     expect(await viewOf(p, id)).toMatchObject({ shows: 3 });
-    clock = new Date(t0 + 2.9 * DAY);
+    // Another day: it never comes back.
+    clock = new Date(t0 + 3 * DAY);
     expect(await next(p)).toBeNull();
     const res = await shown(p, id);
     expect(res.statusCode).toBe(409);

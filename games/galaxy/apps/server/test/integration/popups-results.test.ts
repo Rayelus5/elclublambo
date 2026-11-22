@@ -28,7 +28,7 @@ type Player = { id: string; username: string; cookie: string };
 async function player(): Promise<Player> {
   const username = uniqueName('popr');
   const res = await post(ctx.app, '/galaxy/api/auth/register', { username, password: 'una-clave-larga' });
-  expect(res.statusCode, res.body).toBe(200);
+  expect(res.statusCode, res.body).toBe(201);
   return { id: (res.json() as { id: string }).id, username, cookie: sessionCookie(res) };
 }
 
