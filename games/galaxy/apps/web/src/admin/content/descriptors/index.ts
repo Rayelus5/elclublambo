@@ -41,9 +41,9 @@ export const AREAS: readonly AreaDesc[] = [
   {
     id: 'reglas',
     title: 'Reglas de la incursión',
-    summary: 'Experiencia, topes de estadísticas, críticos, curación, la Estática, el dash y las anomalías',
+    summary: 'Experiencia, topes de estadísticas, críticos, curación, la Estática, el dash, los objetos del suelo y las anomalías',
     icon: 'sliders',
-    keys: ['xp', 'caps', 'crit', 'hitCap', 'healing', 'stillness', 'dash', 'anomalies'],
+    keys: ['xp', 'caps', 'crit', 'hitCap', 'healing', 'stillness', 'dash', 'pickups', 'anomalies'],
   },
   { id: 'tecnico', title: 'Técnico', summary: 'Tamaños de la vista y límites del motor. Tócalos solo si sabes lo que haces', icon: 'gear', keys: ['arena', 'limits'] },
 ];

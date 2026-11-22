@@ -522,6 +522,11 @@ export interface Content {
    */
   stillness: { radius: number; warn: number; hurt: number; damage: number; growth: number; max: number };
   arena: { viewW: number; viewH: number; margin: number; despawn: number };
+  /**
+   * Loose items that expire (2026-11-22; systems/pickups.ts): data fragments and repair kits left on the ground go after
+   * `lifeSeconds`, blinking for the last `fadeSeconds` (only the drawing). 0: they never go.
+   */
+  pickups: { lifeSeconds: number; fadeSeconds: number };
   limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number };
   anomalies: AnomalyDef[];
   props: PropsTuning;

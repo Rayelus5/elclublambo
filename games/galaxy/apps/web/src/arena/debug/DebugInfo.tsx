@@ -45,6 +45,7 @@ export function DebugInfo({ sim, rates, now, speed, content }: { sim: Sim; rates
     [t.rows.armor, `${Math.round(d.stats.armor * 100)} %`],
     [t.rows.damage, d.stats.damage.toFixed(2).replace('.', ',')],
     [t.rows.pools, `${d.pools.shots} · ${d.pools.foeShots} · ${d.pools.pickups} · ${d.pools.areas}`],
+    [t.rows.ground, t.groundValue(d.pools.pickups, d.pools.pickupCap)],
     [t.rows.content, content],
     [t.rows.sim, SIM_VERSION],
   ];

@@ -2138,7 +2138,11 @@ export const DEFAULT_CONTENT: Content = {
   // «La Estática te alcanza» (2026-11-16): a warning at 8 s in a small area, from 12 s 2 %/s more and more (up to 15 %/s).
   stillness: { radius: 56, warn: 8, hurt: 12, damage: 0.02, growth: 0.02, max: 0.15 },
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
-  limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
+  // Loose items that expire (2026-11-22): a data fragment or a kit nobody took is gone after a minute and a half, with a
+  // soft blink in its last 5 seconds.
+  pickups: { lifeSeconds: 90, fadeSeconds: 5 },
+  // 3000 pickups (4500 in co-op) since 2026-11-22: with old fragments going, the pool fills far less often.
+  limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 3000, areas: 300, props: 160 },
   // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.
   props: { perChunk: 2, hp: 28, hpPerLayer: 0.5, radius: 9, componentChance: 0.3, components: 1, dustMin: 0, dustMax: 1 },
   // Abandoned satellites (SIM 1.10.0): about one run in three has one, a few two, rarely three; each gives a signal.

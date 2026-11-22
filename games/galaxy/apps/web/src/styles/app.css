@@ -3643,13 +3643,14 @@
   .cf-grid > .atn-wide { grid-column: 1 / -1; }
   .atn-subhead { margin: 6px 0 0; font: 400 18px var(--font-display); }
   .atn-images { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; align-items: start; }
-  .atn-image { padding: 14px; border-radius: 16px; background: rgb(0 0 0 / .16); }
-  .atn-image-preview { aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #141842; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
-  .atn-image-preview.banner { aspect-ratio: 8 / 3; }
-  .atn-image-preview img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
-  .atn-picks { max-block-size: 200px; }
-  .atn-warn { color: var(--color-solar); font-weight: 700; }
-  .atn-card-sky {
+  /* The panel's shared image field (admin/ImageField), on the board's .news-picker and .news-picks (further down: they win where they clash). */
+  .admin-image { padding: 14px; border-radius: 16px; background: rgb(0 0 0 / .16); }
+  .admin-image-preview { aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #141842; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .admin-image-preview[data-aspect='8:3'] { aspect-ratio: 8 / 3; }
+  .admin-image-preview img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+  .admin-image-picks { max-block-size: 200px; }
+  .atn-warn, .admin-image-warn { color: var(--color-solar); font-weight: 700; }
+  .atn-card-sky, .admin-image-sky {
     display: block;
     inline-size: 100%;
     block-size: 100%;
@@ -3713,19 +3714,20 @@
   .atn-range-grid > .atn-cash-row { grid-column: 1 / 3; padding: 10px 12px; }
   @media (max-width: 1500px) { .atn-range-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .atn-range-gifts, .atn-range-grid > .atn-cash-row { grid-column: 1 / -1; grid-row: auto; } }
   .atn-cash-row.on { background: color-mix(in srgb, var(--color-solar) 8%, rgb(0 0 0 / .2)); }
-  .atn-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-inline-size: 0; }
-  .atn-gifts > .lip { display: inline-flex; align-items: center; gap: 6px; }
-  .atn-gift-line { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; min-inline-size: 0; }
-  .atn-gift-line li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 99px; background: var(--color-panel-2); font-size: 13px; font-weight: 700; max-inline-size: 100%; }
-  .atn-gift-line li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .atn-gift-line .gift-ico { inline-size: 26px; block-size: 26px; border-radius: 99px; }
-  .atn-gift-line .gift-ico .ico { inline-size: 15px; block-size: 15px; }
-  .atn-gift-line .gift-ico.galaxy { inline-size: 22px; block-size: 26px; }
-  .atn-gift-line .gift-ico.galaxy .gift-galaxy-card { inline-size: 20px; block-size: 26px; }
-  .atn-gifts-none { color: var(--color-ink-mute); font-size: 13.5px; }
-  .modal.admin-dialog.atn-gift-dialog { inline-size: min(980px, 100%); display: grid; gap: 12px; }
-  .atn-gift-dialog .hint { margin: 0; font-size: 13.5px; color: var(--color-ink-mute); }
-  .atn-gift-done { justify-self: end; }
+  /* The panel's shared gifts field (admin/GiftsField). */
+  .admin-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-inline-size: 0; }
+  .admin-gifts > .lip { display: inline-flex; align-items: center; gap: 6px; }
+  .admin-gift-line { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; min-inline-size: 0; }
+  .admin-gift-line li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 99px; background: var(--color-panel-2); font-size: 13px; font-weight: 700; max-inline-size: 100%; }
+  .admin-gift-line li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-gift-line .gift-ico { inline-size: 26px; block-size: 26px; border-radius: 99px; }
+  .admin-gift-line .gift-ico .ico { inline-size: 15px; block-size: 15px; }
+  .admin-gift-line .gift-ico.galaxy { inline-size: 22px; block-size: 26px; }
+  .admin-gift-line .gift-ico.galaxy .gift-galaxy-card { inline-size: 20px; block-size: 26px; }
+  .admin-gifts-none { color: var(--color-ink-mute); font-size: 13.5px; }
+  .modal.admin-dialog.admin-gifts-dialog { inline-size: min(980px, 100%); display: grid; gap: 12px; }
+  .admin-gifts-dialog .hint { margin: 0; font-size: 13.5px; color: var(--color-ink-mute); }
+  .admin-gifts-done { justify-self: end; }
   .atn-schedule { display: grid; gap: 10px; }
   .atn-schedule .panel-note, .atn-schedule .admin-publish { margin: 0; }
   .atn-schedule .field-error ul { margin: 0; padding-inline-start: 18px; }
@@ -4364,8 +4366,8 @@
   .news-auto-note .ico { flex: none; margin-block-start: 2px; color: var(--color-ice); }
   .news-textarea { box-sizing: border-box; inline-size: 100%; min-block-size: 84px; padding: 9px 12px; resize: vertical; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 15px/1.4 var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
   .news-textarea:focus-visible { outline: none; border-color: var(--color-ice); }
-  .news-picker, .news-link { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; min-inline-size: 0; }
-  .news-picker legend, .news-link legend { padding: 0; margin-block-end: 6px; font-weight: 700; }
+  .news-picker, .admin-link { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+  .news-picker legend, .admin-link legend { padding: 0; margin-block-end: 6px; font-weight: 700; }
   .news-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-block-size: 300px; overflow-y: auto; padding: 3px; }
   .news-pick { position: relative; display: grid; gap: 4px; padding: 4px; border-radius: 12px; background: var(--color-panel-2); font-size: 12.5px; font-weight: 700; color: var(--color-ink-soft); cursor: pointer; box-shadow: inset 0 0 0 2px transparent; }
   .news-pick input { position: absolute; opacity: 0; pointer-events: none; }
@@ -4380,11 +4382,8 @@
   .news-drop > .ico { font-size: 22px; }
   .news-drop p { display: grid; gap: 2px; margin: 0; font-size: 13.5px; }
   .news-drop b { color: var(--color-ink); }
-  .news-link-kinds { display: flex; flex-wrap: wrap; gap: 8px; }
-  .news-link-kind { position: relative; display: inline-flex; align-items: center; min-block-size: 40px; padding: 0 14px; border-radius: 99px; background: var(--color-panel-2); font-size: 14px; font-weight: 700; color: var(--color-ink-soft); cursor: pointer; }
-  .news-link-kind input { position: absolute; opacity: 0; pointer-events: none; }
-  .news-link-kind.on { color: #0b0e2a; background: var(--color-solar); }
-  .news-link-kind:has(input:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  /* The panel's shared «Ver más» link field (admin/LinkField): its kinds in the game's segmented control, as wide as they are. */
+  .admin-link .segmented { justify-self: start; max-inline-size: 100%; }
   .news-dates { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .news-missing { color: var(--color-solar); }
   .news-preview-card .news-card { animation: none; }

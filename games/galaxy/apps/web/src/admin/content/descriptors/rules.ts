@@ -3,7 +3,7 @@ import type { DescriptorPart, FieldTable } from './types';
 
 // Descriptors of the run content (the content editor, 2026-11-16, P4). See types.ts for the rules of the texts.
 // The rules of a run: experience per level, the stats' caps, critical hits, the hit cap, healing, the Static
-// (standing still), the player's dash and the season anomalies.
+// (standing still), the player's dash, the loose items that expire on the ground and the season anomalies.
 
 /** Each stat's cap: its name and what it limits (diminishing returns towards it, systems/stats.ts). */
 const CAPS: Record<StatKey, [label: string, hint: string]> = {
@@ -126,6 +126,22 @@ export const part: DescriptorPart = {
     'stillness.max': {
       label: 'Daño máximo',
       hint: 'Lo más que llega a quitar cada segundo, en tanto por uno de la vida máxima',
+    },
+
+    // Loose items that expire on the ground (2026-11-22).
+    pickups: {
+      label: 'Objetos en el suelo',
+      hint: 'Cuánto duran en el suelo los fragmentos de datos y los kits de reparación que nadie recoge; las monedas, el polvo, los componentes, las señales y los imanes nunca desaparecen, ni lo que ya vuela hacia una sonda',
+    },
+    'pickups.lifeSeconds': {
+      label: 'Vida de la experiencia y los kits',
+      hint: 'Tiempo que un fragmento de datos o un kit de reparación sigue en el suelo antes de desaparecer; 0 hace que no desaparezcan',
+      unit: 'seconds',
+    },
+    'pickups.fadeSeconds': {
+      label: 'Aviso antes de desaparecer',
+      hint: 'Los últimos segundos de su vida, en los que parpadean cada vez más deprisa y se apagan; no puede durar más que la vida',
+      unit: 'seconds',
     },
 
     // The player's dash.

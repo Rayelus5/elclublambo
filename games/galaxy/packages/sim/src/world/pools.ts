@@ -146,7 +146,7 @@ export const PICKUP_FIELDS = {
   y: 'f64',
   px: 'f64',
   py: 'f64',
-  /** 0 data fragment (XP), 1 coin, 2 star dust, 3 repair kit, 4 magnet, 5 component. */
+  /** 0 data fragment (XP), 1 coin, 2 star dust, 3 repair kit, 4 magnet, 5 component, 6 signal. */
   kind: 'u8',
   value: 'f64',
   /** Pulled towards a probe. */
@@ -154,6 +154,8 @@ export const PICKUP_FIELDS = {
   mt: 'i32',
   /** Pulled by a magnet pickup: 1 + the probe that took it (0: the nearest probe). */
   to: 'u8',
+  /** The tick it dropped, or the last one a full pool merged a drop into it (SIM 1.21.0: fragments and kits expire). */
+  born: 'i32',
 } as const;
 
 export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5, signal: 6 } as const;

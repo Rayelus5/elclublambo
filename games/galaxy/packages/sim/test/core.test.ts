@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createSim, dealDamage, dropPickup, IDLE, PICKUP, runSummary, spawnEnemy, SpatialGrid, stateHash, step, type Sim } from '../src/index';
+import { createSim, dealDamage, despawns, dropPickup, IDLE, PICKUP, pickupLeft, runSummary, spawnEnemy, SpatialGrid, stateHash, step, type Sim } from '../src/index';
 import { move, options, pick, quietSim, run, tinyContent } from './fixtures';
 
 // The core of the run simulation (GDD §5.1, §5.7, §18.4): probes driven by per-tick inputs, contact damage, data
@@ -7,6 +7,19 @@ import { move, options, pick, quietSim, run, tinyContent } from './fixtures';
 
 const dummy = (sim: Sim) => sim.content.enemies.find((e) => e.id === 'dummy')!;
 const src = { probe: 0, weapon: null, relic: null, element: null };
+
+/** The live pickups as [slot, kind, value]. */
+const ground = (sim: Sim) => {
+  const out: [number, number, number][] = [];
+  for (let i = 0; i < sim.pickups.top; i++) if (sim.pickups.alive[i]) out.push([i, sim.pickups.kind[i]!, sim.pickups.value[i]!]);
+  return out;
+};
+
+/** Drops a pickup at a given tick, far from the probe. */
+const dropAt = (sim: Sim, tick: number, kind: number, value: number) => {
+  sim.tick = tick;
+  dropPickup(sim, kind, value, 2000, 2000);
+};
 
 describe('movimiento', () => {
   test('la sonda se mueve a su velocidad y en diagonal no va más rápido', () => {
@@ -159,6 +172,83 @@ describe('piscinas llenas', () => {
     expect(total).toBe(5 * 20);
   });
 
+  // Loose items that expire (2026-11-22): with the ground full, what is worth more makes room by taking the slot of
+  // the oldest data fragment still lying there.
+  test.each([PICKUP.coin, PICKUP.dust, PICKUP.component, PICKUP.signal, PICKUP.magnet, PICKUP.repair])(
+    'con el suelo lleno, lo valioso (tipo %i) aparta el fragmento más antiguo y, si empatan, el del hueco más bajo',
+    (kind) => {
+      const sim = quietSim((c) => {
+        c.limits.pickups = 4;
+      });
+      dropAt(sim, 20, PICKUP.xp, 1);
+      dropAt(sim, 10, PICKUP.xp, 2);
+      dropAt(sim, 10, PICKUP.xp, 3);
+      // Older still, but not a fragment.
+      dropAt(sim, 5, PICKUP.coin, 1);
+      dropAt(sim, 30, kind, 7);
+      expect(ground(sim)).toEqual([
+        [0, PICKUP.xp, 1],
+        [1, kind, 7],
+        [2, PICKUP.xp, 3],
+        [3, PICKUP.coin, 1],
+      ]);
+      expect(sim.pickups.born[1]).toBe(30);
+    },
+  );
+
+  test('un fragmento que ya vuela hacia una sonda no se aparta', () => {
+    const sim = quietSim((c) => {
+      c.limits.pickups = 3;
+    });
+    dropAt(sim, 1, PICKUP.xp, 1);
+    sim.pickups.magnet[0] = 1;
+    dropAt(sim, 2, PICKUP.xp, 2);
+    sim.pickups.to[1] = 1;
+    dropAt(sim, 9, PICKUP.xp, 3);
+    dropAt(sim, 10, PICKUP.coin, 5);
+    expect(ground(sim)).toEqual([
+      [0, PICKUP.xp, 1],
+      [1, PICKUP.xp, 2],
+      [2, PICKUP.coin, 5],
+    ]);
+  });
+
+  test('sin fragmentos que apartar, lo valioso se suma a uno igual o se pierde', () => {
+    const sim = quietSim((c) => {
+      c.limits.pickups = 3;
+    });
+    dropAt(sim, 1, PICKUP.coin, 1);
+    dropAt(sim, 2, PICKUP.xp, 1);
+    sim.pickups.magnet[1] = 1;
+    dropAt(sim, 3, PICKUP.dust, 2);
+    dropAt(sim, 4, PICKUP.coin, 4);
+    dropAt(sim, 5, PICKUP.component, 1);
+    expect(ground(sim)).toEqual([
+      [0, PICKUP.coin, 5],
+      [1, PICKUP.xp, 1],
+      [2, PICKUP.dust, 2],
+    ]);
+  });
+
+  test('la experiencia con el suelo lleno se suma al primer fragmento y le renueva la vida', () => {
+    const sim = quietSim((c) => {
+      c.limits.pickups = 2;
+      c.pickups = { lifeSeconds: 1, fadeSeconds: 0 };
+    });
+    dropAt(sim, 0, PICKUP.coin, 1);
+    dropAt(sim, 0, PICKUP.xp, 1);
+    dropAt(sim, 30, PICKUP.xp, 4);
+    expect(ground(sim)).toEqual([
+      [0, PICKUP.coin, 1],
+      [1, PICKUP.xp, 5],
+    ]);
+    expect(sim.pickups.born[1]).toBe(30);
+    run(sim, 59);
+    expect(sim.pickups.alive[1]).toBe(1);
+    run(sim, 1);
+    expect(sim.pickups.alive[1]).toBe(0);
+  });
+
   test('un índice reutilizado cambia de generación', () => {
     const sim = quietSim();
     const e = spawnEnemy(sim, dummy(sim), 300, 0);
@@ -166,6 +256,73 @@ describe('piscinas llenas', () => {
     dealDamage(sim, e, 1000, src);
     expect(spawnEnemy(sim, dummy(sim), 300, 0)).toBe(e);
     expect(sim.enemies.gen[e]).toBe((gen + 1) & 0xffff);
+  });
+});
+
+// Loose items that expire (2026-11-22): data fragments and repair kits left on the ground go after the content's
+// `pickups.lifeSeconds`; coins, dust, components, signals and magnets never do, nor anything already flying to a probe.
+describe('objetos que caducan', () => {
+  const ALL_KINDS = [PICKUP.xp, PICKUP.coin, PICKUP.dust, PICKUP.repair, PICKUP.magnet, PICKUP.component, PICKUP.signal];
+
+  test('solo caducan la experiencia y los kits de reparación', () => {
+    expect(ALL_KINDS.filter((k) => despawns(k))).toEqual([PICKUP.xp, PICKUP.repair]);
+  });
+
+  test('la experiencia y los kits caducan justo al cumplir su vida, y lo demás nunca', () => {
+    const sim = quietSim((c) => {
+      c.pickups = { lifeSeconds: 1, fadeSeconds: 0.5 };
+    });
+    ALL_KINDS.forEach((k, j) => dropPickup(sim, k, 1, 2000 + j * 40, 2000));
+    run(sim, 59);
+    expect(sim.pickups.count).toBe(7);
+    run(sim, 1);
+    expect(ground(sim).map(([, k]) => k)).toEqual([PICKUP.coin, PICKUP.dust, PICKUP.magnet, PICKUP.component, PICKUP.signal]);
+    run(sim, 3600);
+    expect(sim.pickups.count).toBe(5);
+  });
+
+  test('cuenta los ticks que le quedan desde que cayó', () => {
+    const sim = quietSim((c) => {
+      c.pickups = { lifeSeconds: 2, fadeSeconds: 1 };
+    });
+    run(sim, 10);
+    dropPickup(sim, PICKUP.xp, 1, 2000, 2000);
+    dropPickup(sim, PICKUP.coin, 1, 2040, 2000);
+    expect(sim.pickups.born[0]).toBe(10);
+    expect(pickupLeft(sim, 0)).toBe(120);
+    run(sim, 30);
+    expect(pickupLeft(sim, 0)).toBe(90);
+    expect(pickupLeft(sim, 1)).toBe(Infinity);
+    run(sim, 89);
+    expect(pickupLeft(sim, 0)).toBe(1);
+    run(sim, 1);
+    expect(sim.pickups.alive[0]).toBe(0);
+  });
+
+  test('lo que vuela hacia una sonda no caduca', () => {
+    const sim = quietSim((c) => {
+      c.pickups = { lifeSeconds: 1, fadeSeconds: 0 };
+    });
+    dropPickup(sim, PICKUP.xp, 1, 3000, 0);
+    sim.pickups.magnet[0] = 1;
+    dropPickup(sim, PICKUP.repair, 1, -3000, 0);
+    sim.pickups.to[1] = 1;
+    expect(pickupLeft(sim, 0)).toBe(Infinity);
+    expect(pickupLeft(sim, 1)).toBe(Infinity);
+    run(sim, 120);
+    expect(sim.pickups.count).toBe(2);
+  });
+
+  test('con vida 0 nada caduca', () => {
+    const sim = quietSim((c) => {
+      c.pickups = { lifeSeconds: 0, fadeSeconds: 0 };
+    });
+    dropPickup(sim, PICKUP.xp, 1, 2000, 2000);
+    dropPickup(sim, PICKUP.repair, 1, 2040, 2000);
+    expect(pickupLeft(sim, 0)).toBe(Infinity);
+    sim.tick = 1_000_000;
+    run(sim, 1);
+    expect(sim.pickups.count).toBe(2);
   });
 });
 

@@ -1,5 +1,5 @@
 import 'pixi.js/unsafe-eval';
-import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent, ticks } from '@galaxy/sim';
+import { AREA, type BiomeId, type Content, ELEMENT_IDS, pickupLeft, SHOT, type Sim, type SimEvent, ticks } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { singularityOf } from '../../api/content-read';
 import { copy } from '../../copy/es';
@@ -7,7 +7,8 @@ import { drawableId, probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm, maskTexture } from './atlas';
 import { createEnvironment, hashSeed, OVERLAY_MAX } from './environment';
-import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
+import { baseZoom, type Camera, cameraFor, inView, zoomSteps } from './camera';
+import { pickupAlpha } from './pickup-fade';
 import { createFx, reactionLabel } from './fx';
 import { stagePalette, type StagePalette } from './palette';
 import type { ColorVisionMode } from '../../a11y/color-vision';
@@ -125,6 +126,8 @@ const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cel
 const STEP_RAD = (Math.PI * 2) / 4096;
 /** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
 const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component', 6: 'signal-ticket' };
+/** World units round the view where loose items still get a sprite (their size, the bob and the shake). */
+const PICKUP_MARGIN = 24;
 /** A quirk's jump glides over this long; afterimages fade over GHOST_LIFE. */
 const GLIDE_S = 0.12;
 const GHOST_LIFE = 0.28;
@@ -330,7 +333,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   // In-run events (2026-11-16): their areas on the ground, and the bounty hunter's mark over the enemies.
   const eventFloor = new Graphics({ label: 'events' });
   const eventMarks = new Container({ label: 'eventMarks' });
-  const pickups = new Container();
+  const pickups = new Container({ label: 'pickups' });
   const areas = new Graphics({ label: 'areas' });
   // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
   const beams = new Graphics({ label: 'beams' });
@@ -1004,10 +1007,23 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     fx.burst(tx, ty, 0xf3f5ff, 8, 55);
   }
 
-  function drawPickups(sim: Sim, alpha: number): void {
+  /**
+   * Loose items. Thousands may lie on the ground (2026-11-22), so only those near the view get a sprite. A data fragment
+   * or a kit about to expire warns (pickupAlpha), on the same count of ticks the simulation uses (pickupLeft). A slot's
+   * sprite is reused by the next pickup in it, so its alpha is set every frame.
+   */
+  function drawPickups(sim: Sim, alpha: number, c: Camera): void {
     const pk = sim.pickups;
+    const fade = ticks(sim.content.pickups.fadeSeconds);
     for (let i = 0; i < pk.top; i++) {
       if (!pk.alive[i]) continue;
+      const x = Math.round(lerp(pk.px[i]!, pk.x[i]!, alpha));
+      const y = Math.round(lerp(pk.py[i]!, pk.y[i]!, alpha));
+      if (!inView(c, x, y, PICKUP_MARGIN)) {
+        const off = pickupPool.list[i];
+        if (off) off.visible = false;
+        continue;
+      }
       const kind = pk.kind[i]!;
       const v = pk.value[i]!;
       const id = kind === 0 ? (v >= 25 ? 'xp-25' : v >= 5 ? 'xp-5' : 'xp-1') : (PICKUP_SPRITE[kind] ?? 'repair');
@@ -1015,7 +1031,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       s.texture = atlas.frames[id]![frameOf(id, i * 0.21)]!;
       s.anchor.set(0.5);
       const bob = pk.magnet[i] || opts.reduced ? 0 : Math.round(Math.sin(clock * 4 + i) * 1);
-      s.position.set(Math.round(lerp(pk.px[i]!, pk.x[i]!, alpha)), Math.round(lerp(pk.py[i]!, pk.y[i]!, alpha)) + bob);
+      s.position.set(x, y + bob);
+      s.alpha = pickupAlpha(pickupLeft(sim, i) - alpha, fade, opts.reduced);
     }
     pickupPool.hideFrom(pk.alive, pk.top);
   }
@@ -1721,7 +1738,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       drawWarnings(sim.tick + alpha);
       drawCoreBeam(beams, sim, opts.reduced, clock);
       drawEnemies(sim, alpha);
-      drawPickups(sim, alpha);
+      drawPickups(sim, alpha, c);
       drawShots(sim, alpha);
       drawGhosts();
       drawProbes(sim, alpha);

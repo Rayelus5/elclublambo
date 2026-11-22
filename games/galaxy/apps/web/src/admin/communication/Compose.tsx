@@ -1,10 +1,9 @@
-import { type AdminMailType, allGifts, bigGiftReasons, galaxyCount, type Gift, giftIssues, type MailAudience, type MailContents, MAX_GALAXIES, parseConfig } from '@galaxy/shared';
+import { type AdminMailType, allGifts, bigGiftReasons, galaxyCount, type Gift, giftIssues, type MailContents, MAX_GALAXIES, parseConfig } from '@galaxy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ADMIN_KEY } from '../../api/admin';
 import { api } from '../../api/client';
 import { useConfigKeys } from '../../api/config';
-import { useMailPreview } from '../../api/mail';
 import { errorText, useMe } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { GiftPicker } from '../../gifts/GiftPicker';
@@ -14,8 +13,8 @@ import { LetterView } from '../../mail/LetterView';
 import { DateField } from '../../ui/DateField';
 import { Segmented } from '../../ui/Segmented';
 import { Select } from '../../ui/Select';
-import { useSettled } from '../../ui/useSettled';
-import { type AudienceKind, audienceOf } from './audience';
+import { type AudienceValue, EMPTY_AUDIENCE } from './audience';
+import { AudienceFields, useAudienceReach } from './AudienceFields';
 import { SaveTemplate } from './SaveTemplate';
 import { TypePicker } from './TypePicker';
 
@@ -47,10 +46,10 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
   const superadmin = !!me?.roles.includes('superadmin');
   const { catalog } = useGiftCatalog();
   const [f, setF] = useState<Record<string, string>>(() =>
-    seed ? { title: seed.title, body: seed.body, expiresInDays: String(seed.expiresInDays), ...(seed.usernames?.length ? { usernames: seed.usernames.join(', ') } : {}) } : FRESH,
+    seed ? { title: seed.title, body: seed.body, expiresInDays: String(seed.expiresInDays) } : FRESH,
   );
   const [type, setType] = useState<AdminMailType>(seed?.type ?? 'announcement');
-  const [kind, setKind] = useState<AudienceKind>(seed?.usernames?.length ? 'names' : 'all');
+  const [aud, setAud] = useState<AudienceValue>(() => (seed?.usernames?.length ? { ...EMPTY_AUDIENCE, kind: 'names', usernames: seed.usernames.join(', ') } : EMPTY_AUDIENCE));
   const [items, setItems] = useState<Gift[]>(seed?.items ?? []);
   const [packs, setPacks] = useState<string[]>(seed?.packs ?? []);
   const [done, setDone] = useState<string | null>(null);
@@ -77,10 +76,8 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
   const scheduledAt = later && f['scheduledAt'] ? new Date(f['scheduledAt']) : null;
   const lateOk = !later || (!!scheduledAt && !Number.isNaN(scheduledAt.getTime()) && scheduledAt.getTime() > nowMs);
   const set = (k: string, v: string) => setF((x) => ({ ...x, [k]: v }));
-  const { audience, problem } = audienceOf(kind, f);
-  const settled = useSettled(audience ? JSON.stringify(audience) : '', 400);
-  const preview = useMailPreview(settled ? (JSON.parse(settled) as MailAudience) : null);
-  const recipients = settled && settled === JSON.stringify(audience) ? preview.data?.recipients : undefined;
+  const reach = useAudienceReach(aud);
+  const { audience, recipients } = reach;
 
   const contents: MailContents = useMemo(
     () => ({
@@ -106,6 +103,8 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
     onSuccess: (r) => {
       setDone(scheduledAt ? t.scheduledDone : t.sent(r.recipients));
       setF(FRESH);
+      // Who it went to is cleared, but not how it was chosen.
+      setAud((a) => ({ ...EMPTY_AUDIENCE, kind: a.kind }));
       setItems([]);
       setPacks([]);
       setLater(false);
@@ -129,19 +128,15 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
     <div className="field">
       <label htmlFor={`${ids}-${k}`}>{label}</label>
       <div className="control">
-        {opts.type === 'date' ? (
-          <DateField id={`${ids}-${k}`} value={f[k] ?? ''} onChange={(v) => set(k, v)} />
-        ) : (
-          <input
-            id={`${ids}-${k}`}
-            type={opts.type ?? 'text'}
-            inputMode={opts.numeric ? 'numeric' : undefined}
-            autoComplete={opts.type === 'password' ? 'current-password' : 'off'}
-            maxLength={k === 'title' ? 80 : undefined}
-            value={f[k] ?? ''}
-            onChange={(e) => set(k, opts.numeric ? e.target.value.replace(/\D/g, '') : e.target.value)}
-          />
-        )}
+        <input
+          id={`${ids}-${k}`}
+          type={opts.type ?? 'text'}
+          inputMode={opts.numeric ? 'numeric' : undefined}
+          autoComplete={opts.type === 'password' ? 'current-password' : 'off'}
+          maxLength={k === 'title' ? 80 : undefined}
+          value={f[k] ?? ''}
+          onChange={(e) => set(k, opts.numeric ? e.target.value.replace(/\D/g, '') : e.target.value)}
+        />
       </div>
       {opts.hint ? <p className="hint">{opts.hint}</p> : null}
     </div>
@@ -192,40 +187,7 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
               <textarea id={`${ids}-body`} rows={5} maxLength={2000} value={f['body'] ?? ''} onChange={(e) => set('body', e.target.value)} />
             </div>
           </div>
-          <div className="field">
-            <label htmlFor={`${ids}-audience`}>{t.fields.audience}</label>
-            <div className="control">
-              <Select<AudienceKind>
-                id={`${ids}-audience`}
-                size="lg"
-                block
-                value={kind}
-                options={(['all', 'names', 'segment'] as const).map((k) => ({ value: k, label: t.audiences[k] ?? k }))}
-                onChange={setKind}
-              />
-            </div>
-          </div>
-          {kind === 'names' ? (
-            <div className="field">
-              <label htmlFor={`${ids}-usernames`}>{t.fields.usernames}</label>
-              <div className="control">
-                <textarea id={`${ids}-usernames`} rows={3} value={f['usernames'] ?? ''} onChange={(e) => set('usernames', e.target.value)} />
-              </div>
-              <p className="hint">{t.usernamesHint}</p>
-            </div>
-          ) : null}
-          {kind === 'segment' ? (
-            <div className="comms-row">
-              {field('minLevel', t.fields.minLevel, { numeric: true })}
-              {field('maxLevel', t.fields.maxLevel, { numeric: true })}
-              {field('joinedFrom', t.fields.joinedFrom, { type: 'date' })}
-              {field('joinedTo', t.fields.joinedTo, { type: 'date' })}
-              <p className="hint comms-wide">{t.segmentHint}</p>
-            </div>
-          ) : null}
-          <p className={`comms-reach${problem ? ' bad' : ''}`} aria-live="polite">
-            {problem ?? (audience ? (recipients === undefined ? t.counting : t.reach(recipients)) : null)}
-          </p>
+          <AudienceFields value={aud} onChange={setAud} reach={reach} />
           <fieldset className="comms-gifts">
             <legend>{t.giftsTitle}</legend>
             <p className="hint">{t.giftsHint}</p>
