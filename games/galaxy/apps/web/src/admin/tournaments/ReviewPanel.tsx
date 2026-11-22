@@ -1,7 +1,7 @@
-import { type AdminTournamentCheck, type AdminTournamentReview, mediaUrl } from '@galaxy/shared';
+import { type AdminTournamentCheck, type AdminTournamentReview, mediaUrl, type TournamentDecideManyResult, type UnverifiableReason } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { type DecideManyResult, useDecideCheck, useDecideMany, useDisqualify, usePublishTournament, useTournamentReview } from '../../api/admin-tournaments';
+import { useDecideCheck, useDecideMany, useDisqualify, usePublishTournament, useTournamentReview } from '../../api/admin-tournaments';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
@@ -22,19 +22,13 @@ import { euros, scoreText, t, when } from './shared';
 const p = t.panel;
 type Ask =
   | { kind: 'decide'; check: AdminTournamentCheck; decision: 'accept' | 'discard' }
-  | { kind: 'bulk'; decision: 'accept' | 'discard'; filter: { reason?: string; username?: string }; count: number; label: string }
+  | { kind: 'bulk'; decision: 'accept' | 'discard'; filter: { reason?: UnverifiableReason; username?: string }; count: number; label: string }
   | { kind: 'disqualify'; username: string; disqualified: boolean };
 
 /** A check that waits for an admin (it could not be checked, or the replay failed, and nobody decided). */
 const waiting = (c: AdminTournamentCheck) => (c.status === 'unverifiable' || c.status === 'error') && c.decision === null;
 const reasonOf = (c: AdminTournamentCheck) => (typeof c.detail?.reason === 'string' ? c.detail.reason : '');
 const reasonText = (code: string) => p.reasons[code] ?? (code || p.statuses.unverifiable);
-
-function groups(checks: readonly AdminTournamentCheck[], key: (c: AdminTournamentCheck) => string): [string, number][] {
-  const out = new Map<string, number>();
-  for (const c of checks) out.set(key(c), (out.get(key(c)) ?? 0) + 1);
-  return [...out].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-}
 
 function Detail({ c }: { c: AdminTournamentCheck }) {
   if (c.status === 'unverifiable' || (c.status === 'error' && c.detail?.reason)) return <span>{reasonText(reasonOf(c))}</span>;
@@ -51,16 +45,16 @@ function Detail({ c }: { c: AdminTournamentCheck }) {
   return <span>—</span>;
 }
 
-function BulkGroups({ checks, onAsk }: { checks: readonly AdminTournamentCheck[]; onAsk: (a: Ask) => void }) {
-  const open = checks.filter((c) => c.status === 'unverifiable' && c.decision === null);
+function BulkGroups({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) => void }) {
   // Only groups worth a bulk decision (a single run is decided in the table).
-  const byReason = groups(open, reasonOf).filter(([, n]) => n > 1);
-  const byPlayer = groups(open, (c) => c.username).filter(([, n]) => n > 1);
+  const byReason = view.unverifiable.byReason.filter((g) => g.count > 1);
+  const byPlayer = view.unverifiable.byPlayer.filter((g) => g.count > 1);
   if (byReason.length === 0 && byPlayer.length === 0) return null;
-  const row = (label: string, n: number, filter: { reason?: string; username?: string }) => (
+  const row = (label: string, n: number, blocking: number, filter: { reason?: UnverifiableReason; username?: string }) => (
     <li key={`${filter.reason ?? ''}:${filter.username ?? ''}`} className="tn-bulk-row">
-      <span>
+      <span className="tn-bulk-what">
         <b>{label}</b> <span className="admin-chip warn">{n}</span>
+        {blocking > 0 ? <small>{p.holding(blocking)}</small> : null}
       </span>
       <span className="tn-bulk-actions">
         <button type="button" className="lip pill small" aria-haspopup="dialog" aria-label={p.acceptAllOf(label, n)} onClick={() => onAsk({ kind: 'bulk', decision: 'accept', filter, count: n, label })}>
@@ -80,17 +74,17 @@ function BulkGroups({ checks, onAsk }: { checks: readonly AdminTournamentCheck[]
         {byReason.length ? (
           <div>
             <h4>{p.byReason}</h4>
-            <ul>{byReason.map(([reason, n]) => row(reasonText(reason), n, { reason }))}</ul>
+            <ul>{byReason.map((g) => row(reasonText(g.reason), g.count, g.blocking, { reason: g.reason }))}</ul>
           </div>
         ) : null}
         {byPlayer.length ? (
           <div>
             <h4>{p.byPlayer}</h4>
-            <ul>{byPlayer.map(([username, n]) => row(username, n, { username }))}</ul>
+            <ul>{byPlayer.map((g) => row(g.username, g.count, g.blocking, { username: g.username }))}</ul>
           </div>
         ) : null}
       </div>
-      {checks.some((c) => c.status === 'error' && c.decision === null) ? <p className="cf-hint">{p.bulkOneByOne}</p> : null}
+      {view.checks.some((c) => (c.status === 'error' || c.status === 'mismatch') && c.decision === null) ? <p className="cf-hint">{p.bulkOneByOne}</p> : null}
     </div>
   );
 }
@@ -129,11 +123,7 @@ function AskDialog({ id, ask, onClose }: { id: string; ask: Ask; onClose: (done?
           many.mutate(
             { id, decision: ask.decision, filter: ask.filter, reason, password },
             {
-              onSuccess: (r: DecideManyResult) => {
-                const skipped = typeof r.skipped === 'number' ? r.skipped : Array.isArray(r.skipped) ? r.skipped.length : 0;
-                const decided = typeof r.decided === 'number' ? r.decided : ask.count - skipped;
-                onClose([p.bulkDone(decided), ...(skipped > 0 ? [p.bulkSkipped(skipped)] : [])].join('. '));
-              },
+              onSuccess: (r: TournamentDecideManyResult) => onClose([p.bulkDone(r.decided), ...(r.skipped.length > 0 ? [p.bulkSkipped(r.skipped.length)] : [])].join('. ')),
             },
           )
         }
@@ -235,7 +225,7 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
         <span className="admin-chip">{view.checks.length}</span>
       </header>
       <p className="panel-note">{p.checksLead}</p>
-      {inReview ? <BulkGroups checks={view.checks} onAsk={onAsk} /> : null}
+      {inReview ? <BulkGroups view={view} onAsk={onAsk} /> : null}
       {view.checks.length === 0 ? (
         <p className="panel-note">{p.checksEmpty}</p>
       ) : (
@@ -253,7 +243,7 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
             </thead>
             <tbody>
               {view.checks.map((c) => (
-                <tr key={c.runId} className={waiting(c) ? 'tn-waiting' : undefined}>
+                <tr key={c.runId} className={!c.current && inReview ? 'tn-stale' : waiting(c) ? 'tn-waiting' : undefined}>
                   <td>
                     <Link to={`/admin/partidas/${c.runId}`} aria-label={p.openRun(c.username)}>
                       <code>{c.runId.slice(0, 8)}</code>
@@ -268,6 +258,8 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
                   </td>
                   <td>
                     <Detail c={c} />
+                    {!c.current && inReview ? <small className="tn-stale-note">{p.notCurrent}</small> : null}
+                    {c.attempts > 1 ? <small className="tn-stale-note">{p.attempts(c.attempts)}</small> : null}
                   </td>
                   <td>
                     {c.decision ? (
@@ -322,11 +314,11 @@ export function ReviewPanel({ id }: { id: string }) {
   const r = x.record;
   const state = x.state;
   const live = state === 'running' || state === 'review';
-  const blocking = x.pending + x.undecided;
+  const blocking = view.blocking;
   const late = state === 'review' && now >= Date.parse(view.publishAt) && blocking > 0;
   const phase =
     state === 'running' ? p.running(when(r.endsAt)) : state === 'review' ? (late ? p.reviewLate(blocking) : p.review(when(view.publishAt))) : state === 'finished' ? p.finished(x.publishedAt ? when(x.publishedAt) : '—') : p.cancelled;
-  const simChanged = (x as { simChanged?: boolean }).simChanged === true;
+  const simChanged = x.simChanged;
   return (
     <section className="admin-page tn-page">
       {back}
@@ -348,7 +340,10 @@ export function ReviewPanel({ id }: { id: string }) {
       {simChanged ? (
         <p className="ev-warnings tn-sim" role="status">
           <Icon name="alert" />
-          <span>{t.simChanged}</span>
+          <span>
+            {t.simChanged}
+            {x.simVersions.length ? <small>{p.simVersions(x.simVersions.join(', '))}</small> : null}
+          </span>
         </p>
       ) : null}
       <p className={`tn-phase${late ? ' late' : ''}`}>{phase}</p>

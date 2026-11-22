@@ -71,13 +71,16 @@ const tournament = (n: number, state: AdminTournament['state'], over: Partial<Ad
   undecided: 0,
   cashPending: 0,
   bigReasons: [],
+  simVersion: null,
+  simChanged: false,
+  simVersions: [],
   ...over,
 });
 const list = [
   tournament(1, 'draft', { bigReasons: ['cash'] }),
   tournament(2, 'scheduled', { entrants: 14 }, { title: 'Liga de Núcleos', slug: 'nucleos', metric: 'cores', summary: 'Vence todos los Núcleos que puedas', prizes: [{ from: 1, to: 3, gifts: [{ kind: 'currency', currency: 'coins', amount: 4000 }], cash: null }], entry: { currency: 'coins', amount: 500 }, participation: null, filters: { sector: null, probe: null, mode: 'any', minLevel: null } }),
   tournament(3, 'running', { entrants: 87, left: 4 }, { title: 'Carrera de extracciones', slug: 'extracciones', metric: 'extractions', startsAt: around(-3), endsAt: around(4), exclusive: false }),
-  tournament(4, 'review', { entrants: 120, pending: 3, undecided: 5, disqualified: 1 }, { title: 'Gran Premio de otoño', slug: 'otono', startsAt: around(-8), endsAt: around(-0.5) }),
+  tournament(4, 'review', { entrants: 120, pending: 3, undecided: 5, disqualified: 1, simChanged: true, simVersion: '1.20.0', simVersions: ['1.19.0', '1.20.0'] }, { title: 'Gran Premio de otoño', slug: 'otono', startsAt: around(-8), endsAt: around(-0.5) }),
   tournament(5, 'finished', { entrants: 140, cashPending: 1, publishedAt: around(-5) }, { title: 'Copa de bienvenida', slug: 'bienvenida', startsAt: around(-14), endsAt: around(-7) }),
   tournament(6, 'cancelled', { entrants: 0 }, { title: 'Torneo de prueba', slug: 'prueba', startsAt: around(-20), endsAt: around(-15) }),
 ];
@@ -94,15 +97,28 @@ const review: AdminTournamentReview = {
     return { rank: i + 1, username: u, avatar: null, frame: null, score: 2400 - i * 137, eligible: i !== 2, place, runs: 12 - (i % 5), rewards };
   }),
   checks: [
-    ...['orion', 'orion', 'lyra', 'vega', 'rigel'].map((u, i) => ({ runId: id(7).replace(/^7/, String(i)), username: u, finishedAt: around(-2 - i * 0.2), status: 'unverifiable' as const, detail: { reason: i < 3 ? 'sim_version' : 'inputs_missing' }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4) })),
-    { runId: id(8), username: 'orion', finishedAt: around(-3), status: 'ok' as const, detail: { rows: [] }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4) },
-    { runId: id(9), username: 'altair', finishedAt: around(-3), status: 'mismatch' as const, detail: { rows: [{ key: 'kills', saved: 940, replayed: 512, same: false }, { key: 'hash', saved: 'a1', replayed: 'b2', same: false }] }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4) },
-    { runId: id(2), username: 'deneb', finishedAt: around(-3.5), status: 'pending' as const, detail: null, decision: null, decidedBy: null, decidedAt: null, checkedAt: null },
-    { runId: id(3), username: 'mira', finishedAt: around(-4), status: 'unverifiable' as const, detail: { reason: 'sim_version' }, decision: 'accept' as const, decidedBy: 'rayelus', decidedAt: around(-0.2), checkedAt: around(-0.4) },
+    ...['orion', 'orion', 'lyra', 'vega', 'rigel'].map((u, i) => ({ runId: id(7).replace(/^7/, String(i)), username: u, finishedAt: around(-2 - i * 0.2), status: 'unverifiable' as const, detail: { reason: i < 3 ? 'sim_version' : 'inputs_missing' }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4), attempts: 1, current: true })),
+    { runId: id(8), username: 'orion', finishedAt: around(-3), status: 'ok' as const, detail: { rows: [] }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4), attempts: 1, current: true },
+    { runId: id(9), username: 'altair', finishedAt: around(-3), status: 'mismatch' as const, detail: { rows: [{ key: 'kills', saved: 940, replayed: 512, same: false }, { key: 'hash', saved: 'a1', replayed: 'b2', same: false }] }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-0.4), attempts: 1, current: true },
+    { runId: id(2), username: 'deneb', finishedAt: around(-3.5), status: 'pending' as const, detail: null, decision: null, decidedBy: null, decidedAt: null, checkedAt: null, attempts: 0, current: true },
+    { runId: id(3), username: 'mira', finishedAt: around(-4), status: 'unverifiable' as const, detail: { reason: 'sim_version' }, decision: 'accept' as const, decidedBy: 'rayelus', decidedAt: around(-0.2), checkedAt: around(-0.4), attempts: 1, current: false },
   ],
   disqualified: [{ username: 'sirius', reason: 'Cuenta compartida con otro jugador' }],
   publishAt: around(0.5),
   canPublish: false,
+  blocking: 6,
+  unverifiable: {
+    byReason: [
+      { reason: 'sim_version', count: 3, blocking: 2 },
+      { reason: 'inputs_missing', count: 2, blocking: 2 },
+    ],
+    byPlayer: [
+      { username: 'orion', count: 2, blocking: 2 },
+      { username: 'lyra', count: 1, blocking: 1 },
+      { username: 'vega', count: 1, blocking: 1 },
+      { username: 'rigel', count: 1, blocking: 0 },
+    ],
+  },
   cash: [],
 };
 

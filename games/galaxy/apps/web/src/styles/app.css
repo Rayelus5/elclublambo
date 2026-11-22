@@ -3756,6 +3756,12 @@
   .tn-check[data-status='mismatch'], .tn-check[data-status='error'] { --k: var(--color-nova); }
   .tn-check[data-status='unverifiable'] { --k: var(--color-solar); }
   .tn-checks tr.tn-waiting td { background: color-mix(in srgb, var(--color-solar) 6%, transparent); }
+  .tn-checks tr.tn-stale td { color: var(--color-ink-mute); }
+  .tn-stale-note { display: block; margin-block-start: 2px; color: var(--color-ink-mute); font-size: 12px; }
+  .tn-bulk-what { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  .tn-bulk-what small { flex-basis: 100%; color: var(--color-solar); font-size: 12px; font-weight: 700; }
+  .tn-sim > span { display: grid; gap: 2px; }
+  .tn-sim small { color: var(--color-ink-soft); font-weight: 600; }
   .tn-detail { display: grid; gap: 2px; }
   .tn-detail small { color: var(--color-nova); font-weight: 700; }
   .tn-decide { display: inline-flex; gap: 6px; }

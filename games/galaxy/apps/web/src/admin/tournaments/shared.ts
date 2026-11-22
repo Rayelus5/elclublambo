@@ -1,7 +1,6 @@
 import {
   type AdminSeason,
   type AdminTournament,
-  type Gift,
   type TournamentFee,
   type TournamentIssue,
   TOURNAMENT_MAX_DAYS,
@@ -192,13 +191,5 @@ export function issueText(issue: TournamentIssue): string {
 const SCHEDULE_ONLY = new Set(['tournament_season_closed', 'tournament_end_past']);
 export const blocksSave = (i: TournamentIssue) => !SCHEDULE_ONLY.has(i.message);
 
-/** Where a tournament goes on the list. */
-export const groupOf = (x: Pick<AdminTournament, 'state'>): TournamentState => x.state;
-
 /** Who has an entry in it at all (in, left or disqualified): taking a scheduled one back needs none. */
 export const anyEntries = (x: Pick<AdminTournament, 'entrants' | 'left' | 'disqualified'>) => x.entrants + x.left + x.disqualified > 0;
-
-/** A prize range's gifts, with a pack's own added to them (a record holds gifts, never packs), up to `max`. */
-export function addGifts(list: readonly Gift[], more: readonly Gift[], max = 20): Gift[] {
-  return [...list, ...more].slice(0, Math.max(list.length, max));
-}

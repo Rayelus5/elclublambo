@@ -131,7 +131,7 @@ function TournamentCard({ x, now, catalog, names, onAction }: { x: AdminTourname
   const countdown =
     state === 'scheduled' ? t.startsIn(until(r.startsAt, now)) : state === 'running' ? t.endsIn(until(r.endsAt, now)) : state === 'review' ? t.resultsIn(until(new Date(Date.parse(r.endsAt) + r.reviewHours * 3_600_000).toISOString(), now)) : null;
   const warnings = [
-    ...((x as { simChanged?: boolean }).simChanged && (state === 'running' || state === 'review') ? [t.simChanged] : []),
+    ...(x.simChanged ? [t.simChanged] : []),
     ...(state === 'draft' && x.bigReasons.length ? [t.needsSuperadmin] : []),
     ...(x.pending ? [t.pendingChecks(x.pending)] : []),
     ...(x.undecided ? [t.undecidedChecks(x.undecided)] : []),

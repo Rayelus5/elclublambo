@@ -65,6 +65,9 @@ const tournament = (id: string, state: AdminTournament['state'], over: Partial<A
   undecided: 0,
   cashPending: 0,
   bigReasons: [],
+  simVersion: null,
+  simChanged: false,
+  simVersions: [],
   ...over,
 });
 
@@ -367,12 +370,14 @@ const reviewOf = (over: Partial<AdminTournamentReview> = {}): AdminTournamentRev
     { rank: 3, username: 'lyra', avatar: null, frame: null, score: 610, eligible: true, place: null, runs: 4, rewards: null },
   ],
   checks: [
-    { runId: RUN, username: 'orion', finishedAt: around(-2), status: 'unverifiable', detail: { reason: 'sim_version' }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1) },
-    { runId: '88888888-8888-4888-8888-888888888888', username: 'orion', finishedAt: around(-3), status: 'ok', detail: null, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1) },
+    { runId: RUN, username: 'orion', finishedAt: around(-2), status: 'unverifiable', detail: { reason: 'sim_version' }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1), attempts: 1, current: true },
+    { runId: '88888888-8888-4888-8888-888888888888', username: 'orion', finishedAt: around(-3), status: 'ok', detail: null, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1), attempts: 1, current: true },
   ],
   disqualified: [{ username: 'nova', reason: 'Usaba un truco' }],
   publishAt: around(1),
   canPublish: false,
+  blocking: 3,
+  unverifiable: { byReason: [{ reason: 'sim_version', count: 1, blocking: 1 }], byPlayer: [{ username: 'orion', count: 1, blocking: 1 }] },
   cash: [],
   ...over,
 });
@@ -410,7 +415,7 @@ test('aceptar una partida que no se puede comprobar pide motivo y contraseña', 
 
 test('con todo resuelto se publica ya', async () => {
   const user = userEvent.setup();
-  const done = reviewOf({ checks: [], canPublish: true, tournament: { ...list[4]!, pending: 0, undecided: 0 } });
+  const done = reviewOf({ checks: [], canPublish: true, blocking: 0, tournament: { ...list[4]!, pending: 0, undecided: 0 } });
   const { calls } = api(superadmin, {
     [`GET /galaxy/api/admin/tournaments/${ID.review}/review`]: () => jsonResponse(200, done),
     [`POST /galaxy/api/admin/tournaments/${ID.review}/publish`]: () => jsonResponse(200, { ...done, canPublish: false, tournament: { ...done.tournament, state: 'finished' } }),
@@ -452,16 +457,30 @@ test('descalificar y readmitir a un jugador', async () => {
 
 test('las partidas que no se pueden comprobar se deciden en bloque por motivo, y dice cuántas se saltaron', async () => {
   const user = userEvent.setup();
-  const run = (n: number, username: string, reason: string) => ({ runId: `9999999${n}-9999-4999-8999-999999999999`, username, finishedAt: around(-2), status: 'unverifiable' as const, detail: { reason }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1) });
-  const view = reviewOf({ checks: [run(1, 'orion', 'sim_version'), run(2, 'lyra', 'sim_version'), run(3, 'vega', 'sim_version'), run(4, 'vega', 'inputs_missing')] });
+  const run = (n: number, username: string, reason: string) => ({ runId: `9999999${n}-9999-4999-8999-999999999999`, username, finishedAt: around(-2), status: 'unverifiable' as const, detail: { reason }, decision: null, decidedBy: null, decidedAt: null, checkedAt: around(-1), attempts: 1, current: true });
+  const view = reviewOf({
+    checks: [run(1, 'orion', 'sim_version'), run(2, 'lyra', 'sim_version'), run(3, 'vega', 'sim_version'), run(4, 'vega', 'inputs_missing')],
+    unverifiable: {
+      byReason: [
+        { reason: 'sim_version', count: 3, blocking: 2 },
+        { reason: 'inputs_missing', count: 1, blocking: 0 },
+      ],
+      byPlayer: [
+        { username: 'vega', count: 2, blocking: 1 },
+        { username: 'orion', count: 1, blocking: 1 },
+        { username: 'lyra', count: 1, blocking: 0 },
+      ],
+    },
+  });
   const { calls } = api(superadmin, {
     [`GET /galaxy/api/admin/tournaments/${ID.review}/review`]: () => jsonResponse(200, view),
-    [`POST /galaxy/api/admin/tournaments/${ID.review}/checks/decide-many`]: () => jsonResponse(200, { ...view, decided: 2, skipped: 1 }),
+    [`POST /galaxy/api/admin/tournaments/${ID.review}/checks/decide-many`]: () => jsonResponse(200, { ...view, decided: 2, skipped: [{ runId: '99999992-9999-4999-8999-999999999999', username: 'lyra', why: 'staff_target' }] }),
   });
   renderAt(`/admin/torneos/${ID.review}`, { '/admin/torneos/:id': <TournamentPage /> });
   const checks = await screen.findByRole('region', { name: p.checksTitle });
   // By reason (3 for the simulation's version) and by player (vega, 2); a single run is decided in the table.
   expect(within(checks).getByRole('button', { name: p.discardAllOf('vega', 2) })).toBeInTheDocument();
+  expect(within(checks).getByText(p.holding(2))).toBeInTheDocument();
   expect(within(checks).queryByRole('button', { name: p.acceptAllOf('orion', 1) })).not.toBeInTheDocument();
   await user.click(within(checks).getByRole('button', { name: p.acceptAllOf(p.reasons.sim_version!, 3) }));
   const dialog = screen.getByRole('alertdialog', { name: p.bulkAcceptTitle(3) });

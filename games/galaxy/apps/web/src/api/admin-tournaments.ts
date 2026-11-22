@@ -1,4 +1,4 @@
-import type { AdminTournament, AdminTournamentCash, AdminTournamentList, AdminTournamentReview, TournamentValidation } from '@galaxy/shared';
+import type { AdminTournament, AdminTournamentCash, AdminTournamentList, AdminTournamentReview, TournamentDecideManyResult, TournamentValidation, UnverifiableReason } from '@galaxy/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -77,11 +77,8 @@ export const useDisqualify = () =>
 export const useMarkCashPaid = () =>
   useTournamentMutation((v: { id: string; username: string; reason: string; password: string }) => post<AdminTournamentCash>(`/${v.id}/cash/${encodeURIComponent(v.username)}/paid`, { reason: v.reason, password: v.password }));
 
-/** What a bulk decision says it did: how many it decided, and those it skipped (decided meanwhile, or changed). */
-export type DecideManyResult = AdminTournamentReview & { decided?: number; skipped?: number | readonly unknown[] };
-
 /** Every undecided run that could not be checked, of one reason or one player, decided at once. */
 export const useDecideMany = () =>
-  useTournamentMutation((v: { id: string; decision: 'accept' | 'discard'; filter: { reason?: string; username?: string }; reason: string; password: string }) =>
-    post<DecideManyResult>(`/${v.id}/checks/decide-many`, { decision: v.decision, filter: v.filter, reason: v.reason, password: v.password }),
+  useTournamentMutation((v: { id: string; decision: 'accept' | 'discard'; filter: { reason?: UnverifiableReason; username?: string }; reason: string; password: string }) =>
+    post<TournamentDecideManyResult>(`/${v.id}/checks/decide-many`, { decision: v.decision, filter: v.filter, reason: v.reason, password: v.password }),
   );
