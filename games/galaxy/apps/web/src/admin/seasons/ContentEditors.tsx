@@ -296,6 +296,8 @@ export function ClosingEditor({ draft, onRoute, catalog, issues, say }: Shared &
   const setPlace = (i: number, patch: Partial<Route['closing']['places'][number]>) => setClosing({ places: places.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
   return (
     <div className="sw-editor">
+      {/* What concerns the close as a whole (the galaxies one claim would make). */}
+      <RowProblems issues={issues.filter((i) => i.path === 'route.closing')} path="route.closing" giftsPath="-" say={say} />
       <section className="sw-block" aria-labelledby={`${ids}-tiers`}>
         <h3 id={`${ids}-tiers`}>{t.closing.tiersTitle}</h3>
         <p className="hint">{t.closing.tiersHint}</p>

@@ -68,6 +68,8 @@ export const seasonRecordSchema = z
         const path = [...list.path.split('.'), i];
         const seasonal = g.kind === 'seasonPoints' || (g.kind === 'currency' && g.currency.startsWith('season:'));
         if (!list.open && seasonal) ctx.addIssue({ code: 'custom', path, message: 'season_gift_closed' });
+        // Collected whenever, once the season is over: an event's signals would be worthless by then.
+        else if (!list.open && g.kind === 'currency' && g.currency.startsWith('signal:')) ctx.addIssue({ code: 'custom', path, message: 'season_gift_event' });
         else if (list.open && g.kind === 'seasonPoints') ctx.addIssue({ code: 'custom', path, message: 'season_gift_points' });
         else if (list.open && g.kind === 'currency' && g.currency.startsWith('season:') && g.currency !== own) ctx.addIssue({ code: 'custom', path, message: 'season_gift_other' });
       });
@@ -110,7 +112,8 @@ export interface SeasonGiftContext {
  * Everything that keeps a record from being saved or scheduled, as `{ path, message }` like `configIssues`. With the
  * live permanent lab tree, its seasonal tree must fit the same budget the key `lab` checks over both trees; with the
  * content's anomalies, its anomaly must be one of them; with what is live for gifts, each gift is checked like the
- * mail's (`gift_<code>`): those paid while it is open as of its start, the closing prizes as of its end.
+ * mail's (`gift_<code>`): those paid while it is open as of its last moment (an event's signals must last as long), the
+ * closing prizes as of its end.
  */
 export function seasonRecordIssues(input: unknown, ctx: { labNodes?: ConfigValue<'lab'>['nodes']; anomalies?: readonly string[]; gifts?: SeasonGiftContext } = {}): { path: string; message: string }[] {
   const parsed = seasonRecordSchema.safeParse(input);
@@ -128,7 +131,8 @@ export function seasonRecordIssues(input: unknown, ctx: { labNodes?: ConfigValue
     const g = ctx.gifts;
     for (const list of seasonGiftLists(r.route)) {
       if (list.gifts.length === 0) continue;
-      const live = { ...g, season: { id: r.id, open: list.open }, now: new Date(list.open ? r.startsAt : r.endsAt) };
+      // Steps and items are paid until the season's last moment; closing prizes, from its end on.
+      const live = { ...g, season: { id: r.id, open: list.open }, now: new Date(list.open ? Date.parse(r.endsAt) - 1 : Date.parse(r.endsAt)) };
       // What is seasonal was checked by the schema.
       for (const issue of giftIssues(list.gifts, live)) if (issue.code !== 'season_closed') out.push({ path: `${list.path}.${issue.index}`, message: `gift_${issue.code}` });
     }

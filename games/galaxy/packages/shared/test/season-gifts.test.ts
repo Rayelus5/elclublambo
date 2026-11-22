@@ -81,14 +81,32 @@ describe('qué regalos caben en una temporada', () => {
     expect(messages({ ...T3, route: { steps: [{ at: 100, gifts: many }] } })).toContain('route.steps.0.gifts season_gift_galaxies');
   });
 
-  test('con lo vivo, cada regalo se comprueba como en el buzón, a la fecha de inicio (y el cierre a la de fin)', () => {
+  test('con lo vivo, cada regalo se comprueba como en el buzón; lo de la ruta y la tienda, hasta el final de la temporada', () => {
     const cosmetics = parseConfig('cosmetics', {});
-    const events = [{ id: 'navidad', endsAt: '2027-01-10T23:00:00.000Z' }];
+    const events = [
+      { id: 'navidad', endsAt: '2027-01-10T23:00:00.000Z' },
+      { id: 'invierno', endsAt: '2027-01-27T23:00:00.000Z' },
+    ];
     const ctx = { gifts: { cosmetics, probes: ['lumen'], events } };
-    const signal: Gift = { kind: 'currency', currency: 'signal:navidad', amount: 3 };
-    const issues = messages({ ...T3, route: { steps: [{ at: 100, gifts: [probe, signal] }], closing: closing({ tierGifts: [[signal], [], [], [], []] }) } }, ctx);
-    // The event is still open when the season starts, but over when it ends.
-    expect(issues).toEqual(['route.steps.0.gifts.0 gift_probe_unknown', 'route.closing.tierGifts.0.0 gift_event_closed']);
+    const navidad: Gift = { kind: 'currency', currency: 'signal:navidad', amount: 3 };
+    const invierno: Gift = { kind: 'currency', currency: 'signal:invierno', amount: 3 };
+    // A step can be claimed until the season ends: an event that is over before then would pay useless signals.
+    expect(messages({ ...T3, route: { steps: [{ at: 100, gifts: [probe, navidad] }], shop: [] } }, ctx)).toEqual(['route.steps.0.gifts.0 gift_probe_unknown', 'route.steps.0.gifts.1 gift_event_closed']);
+    expect(messages({ ...T3, route: { steps: [], shop: [{ id: 'sig', name: 'Señales', price: 5, limit: 3, gifts: [invierno] }] } }, ctx)).toEqual([]);
+  });
+
+  test('los premios de cierre no dan señales de evento: se recogen sin fecha, con la temporada ya cerrada', () => {
+    const signal: Gift = { kind: 'currency', currency: 'signal:invierno', amount: 3 };
+    expect(messages({ ...T3, route: { closing: closing({ tierGifts: [[signal], [], [], [], []] }) } })).toEqual(['route.closing.tierGifts.0.0 season_gift_event']);
+  });
+
+  test('al recoger el cierre nadie recibe más galaxias de las de un mensaje: su tramo, el podio y su puesto juntos', () => {
+    const places = [{ from: 1, to: 1, gifts: [galaxy(3)] }];
+    expect(MAX_GALAXIES).toBe(10);
+    expect(messages({ ...T3, route: { closing: closing({ tierGifts: [[galaxy(4)], [], [], [], [galaxy(2)]], podiumGifts: [galaxy(4)], places }) } })).toEqual(['route.closing season_closing_galaxies']);
+    expect(messages({ ...T3, route: { closing: closing({ tierGifts: [[galaxy(4)], [], [], [], [galaxy(2)]], podiumGifts: [galaxy(3)], places }) } })).toEqual([]);
+    // Without a podium, its gifts are never paid.
+    expect(messages({ ...T3, route: { closing: closing({ tierGifts: [[galaxy(4)], [], [], [], []], podiumSize: 0, podiumGifts: [galaxy(5)], places }) } })).toEqual([]);
   });
 });
 

@@ -140,6 +140,13 @@ export const seasonRouteSchema = z
         places: z.array(seasonPlaceSchema).max(20).default([]).superRefine(checkPlaces),
       })
       .strict()
+      // One claim pays a player's tier, the podium's extra and their place together: never more galaxies than a message
+      // carries (each is made on the spot, in the one Node process).
+      .superRefine((c, ctx) => {
+        const most = (lists: readonly (readonly Gift[])[]) => lists.reduce((m, g) => Math.max(m, galaxyCount(g)), 0);
+        const worst = most(c.tierGifts) + (c.podiumSize > 0 ? galaxyCount(c.podiumGifts) : 0) + most(c.places.map((p) => p.gifts));
+        if (worst > MAX_GALAXIES) ctx.addIssue({ code: 'custom', path: [], message: 'season_closing_galaxies' });
+      })
       .prefault({}),
   })
   .strict();

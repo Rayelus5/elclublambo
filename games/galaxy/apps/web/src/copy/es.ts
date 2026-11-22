@@ -1709,6 +1709,8 @@ export const copy = {
         season_gift_other: 'Da la moneda de otra temporada',
         season_gift_closed: 'Al cerrar ya no sirven la moneda ni los puntos de esta temporada',
         season_gift_galaxies: 'Da más galaxias de las que caben en un premio',
+        season_gift_event: 'Los premios de cierre se recogen sin fecha. Nada que acabe con un evento, como sus señales',
+        season_closing_galaxies: 'Entre tramo, podio y puesto, alguien recibiría más de 10 galaxias de una vez',
         prize_range: 'El rango acaba antes de empezar',
         prize_empty: 'El rango de puestos no da nada',
         prizes_order: 'Los rangos de puestos van en orden',
