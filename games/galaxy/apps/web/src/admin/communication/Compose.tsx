@@ -36,6 +36,8 @@ export interface ComposeSeed {
   items: Gift[];
   packs: string[];
   expiresInDays: number;
+  /** Straight to these accounts (a tournament's cash winner, from «Escribir»). */
+  usernames?: string[];
 }
 
 export function Compose({ seed }: { seed?: ComposeSeed }) {
@@ -44,9 +46,11 @@ export function Compose({ seed }: { seed?: ComposeSeed }) {
   const me = useMe().data;
   const superadmin = !!me?.roles.includes('superadmin');
   const { catalog } = useGiftCatalog();
-  const [f, setF] = useState<Record<string, string>>(() => (seed ? { title: seed.title, body: seed.body, expiresInDays: String(seed.expiresInDays) } : FRESH));
+  const [f, setF] = useState<Record<string, string>>(() =>
+    seed ? { title: seed.title, body: seed.body, expiresInDays: String(seed.expiresInDays), ...(seed.usernames?.length ? { usernames: seed.usernames.join(', ') } : {}) } : FRESH,
+  );
   const [type, setType] = useState<AdminMailType>(seed?.type ?? 'announcement');
-  const [kind, setKind] = useState<AudienceKind>('all');
+  const [kind, setKind] = useState<AudienceKind>(seed?.usernames?.length ? 'names' : 'all');
   const [items, setItems] = useState<Gift[]>(seed?.items ?? []);
   const [packs, setPacks] = useState<string[]>(seed?.packs ?? []);
   const [done, setDone] = useState<string | null>(null);

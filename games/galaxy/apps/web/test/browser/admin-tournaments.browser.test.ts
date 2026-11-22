@@ -191,8 +191,8 @@ for (const [w, h] of [
 
     // The list, with the money to pay first.
     mount('/admin/torneos');
-    await expect.poll(() => document.querySelectorAll('.tn-list-card').length, { timeout: 8000 }).toBe(list.length);
-    expect(document.querySelector('.tn-cash')).not.toBeNull();
+    await expect.poll(() => document.querySelectorAll('.atn-list-card').length, { timeout: 8000 }).toBe(list.length);
+    expect(document.querySelector('.atn-cash')).not.toBeNull();
     noSideways(w);
     await shot('lista', w);
     document.querySelector('.ev-group:last-of-type')!.scrollIntoView();
@@ -218,25 +218,25 @@ for (const [w, h] of [
     }
     // A prize's gifts in the mail's own picker.
     await userEvent.click(button(new RegExp(`^${t.chooseGifts}`)));
-    await expect.poll(() => document.querySelector('.tn-gift-dialog .gift-picker'), { timeout: 5000 }).not.toBeNull();
+    await expect.poll(() => document.querySelector('.atn-gift-dialog .gift-picker'), { timeout: 5000 }).not.toBeNull();
     noSideways(w);
     await shot('regalos', w);
     await userEvent.click(button(new RegExp(`^${t.giftsDone}$`)));
     await userEvent.click(button(new RegExp(`^\\d?${t.steps.review}`)));
-    await expect.poll(() => document.querySelector('.tn-card')).not.toBeNull();
+    await expect.poll(() => document.querySelector('.atn-card')).not.toBeNull();
     window.scrollTo(0, 0);
     noSideways(w);
     await shot('paso-revision', w);
-    document.querySelector('.tn-preview')!.scrollIntoView();
+    document.querySelector('.atn-preview')!.scrollIntoView();
     await shot('paso-revision-tarjeta', w);
 
     // The review panel.
     mount(`/admin/torneos/${id(4)}`);
-    await expect.poll(() => document.querySelectorAll('.tn-ranking tbody tr').length, { timeout: 8000 }).toBe(names.length);
-    expect(document.querySelector('.tn-bulk')).not.toBeNull();
+    await expect.poll(() => document.querySelectorAll('.atn-ranking tbody tr').length, { timeout: 8000 }).toBe(names.length);
+    expect(document.querySelector('.atn-bulk')).not.toBeNull();
     noSideways(w);
     await shot('revision', w);
-    document.querySelector('.tn-checks')!.scrollIntoView();
+    document.querySelector('.atn-checks')!.scrollIntoView();
     noSideways(w);
     await shot('revision-comprobaciones', w);
   }, 120_000);

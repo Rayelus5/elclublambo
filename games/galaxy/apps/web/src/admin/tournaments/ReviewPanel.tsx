@@ -35,7 +35,7 @@ function Detail({ c }: { c: AdminTournamentCheck }) {
   const rows = (c.detail?.rows ?? []).filter((r) => !r.same);
   if (c.status === 'mismatch')
     return (
-      <span className="tn-detail">
+      <span className="atn-detail">
         {rows.map((r) => (
           <span key={r.key}>{p.detailRow(copy.admin.runs.checkKeys[r.key] ?? r.key, String(r.saved ?? '—'), String(r.replayed))}</span>
         ))}
@@ -51,12 +51,12 @@ function BulkGroups({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: A
   const byPlayer = view.unverifiable.byPlayer.filter((g) => g.count > 1);
   if (byReason.length === 0 && byPlayer.length === 0) return null;
   const row = (label: string, n: number, blocking: number, filter: { reason?: UnverifiableReason; username?: string }) => (
-    <li key={`${filter.reason ?? ''}:${filter.username ?? ''}`} className="tn-bulk-row">
-      <span className="tn-bulk-what">
+    <li key={`${filter.reason ?? ''}:${filter.username ?? ''}`} className="atn-bulk-row">
+      <span className="atn-bulk-what">
         <b>{label}</b> <span className="admin-chip warn">{n}</span>
         {blocking > 0 ? <small>{p.holding(blocking)}</small> : null}
       </span>
-      <span className="tn-bulk-actions">
+      <span className="atn-bulk-actions">
         <button type="button" className="lip pill small" aria-haspopup="dialog" aria-label={p.acceptAllOf(label, n)} onClick={() => onAsk({ kind: 'bulk', decision: 'accept', filter, count: n, label })}>
           {p.acceptAll(n)}
         </button>
@@ -67,10 +67,10 @@ function BulkGroups({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: A
     </li>
   );
   return (
-    <div className="tn-bulk">
+    <div className="atn-bulk">
       <h3>{p.bulkTitle}</h3>
       <p className="cf-hint">{p.bulkLead}</p>
-      <div className="tn-bulk-cols">
+      <div className="atn-bulk-cols">
         {byReason.length ? (
           <div>
             <h4>{p.byReason}</h4>
@@ -152,8 +152,8 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
   const metric = x.record.metric;
   const state = x.state;
   return (
-    <section className="lip panel tn-section" aria-label={p.rankingTitle}>
-      <header className="tn-section-head">
+    <section className="lip panel atn-section" aria-label={p.rankingTitle}>
+      <header className="atn-section-head">
         <Icon name="podium" />
         <h2>{p.rankingTitle}</h2>
         <span className={`admin-chip${state === 'running' ? ' ok' : state === 'review' ? ' warn' : ''}`}>{state === 'running' ? p.live : state === 'review' ? p.frozen : p.final}</span>
@@ -162,7 +162,7 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
         <p className="panel-note">{p.noRanking}</p>
       ) : (
         <HScroll variant="table" className="admin-table-wrap">
-          <table className="admin-table tn-ranking">
+          <table className="admin-table atn-ranking">
             <thead>
               <tr>
                 <th scope="col">{p.cols.rank}</th>
@@ -175,8 +175,8 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
             </thead>
             <tbody>
               {view.ranking.map((r) => (
-                <tr key={r.username} className={r.rank <= 3 ? `tn-top tn-top-${r.rank}` : undefined}>
-                  <td className="tn-rank">{r.rank}</td>
+                <tr key={r.username} className={r.rank <= 3 ? `atn-top atn-top-${r.rank}` : undefined}>
+                  <td className="atn-rank">{r.rank}</td>
                   <td>
                     <Link to={`/admin/jugadores/${encodeURIComponent(r.username)}`}>{r.username}</Link>
                     {!r.eligible ? (
@@ -185,17 +185,17 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
                       </span>
                     ) : null}
                   </td>
-                  <td className="tn-score">{scoreText(metric, r.score)}</td>
+                  <td className="atn-score">{scoreText(metric, r.score)}</td>
                   <td>{r.runs}</td>
                   <td>
                     {r.rewards ? (
-                      <span className="tn-prize-cell">
+                      <span className="atn-prize-cell">
                         {r.rewards.place !== null ? <span className="admin-chip ok">{p.place(r.rewards.place)}</span> : r.rewards.participation ? <span className="admin-chip">{p.participationOnly}</span> : null}
-                        {catalog && r.rewards.gifts.length ? <span className="tn-prize-words">{r.rewards.gifts.map((g) => giftWords(g, catalog)).join(', ')}</span> : null}
-                        {r.rewards.cash ? <b className="tn-money">{euros(r.rewards.cash.amountEur)}</b> : null}
+                        {catalog && r.rewards.gifts.length ? <span className="atn-prize-words">{r.rewards.gifts.map((g) => giftWords(g, catalog)).join(', ')}</span> : null}
+                        {r.rewards.cash ? <b className="atn-money">{euros(r.rewards.cash.amountEur)}</b> : null}
                       </span>
                     ) : (
-                      <span className="tn-gifts-none">{p.noPrize}</span>
+                      <span className="atn-gifts-none">{p.noPrize}</span>
                     )}
                   </td>
                   {live ? (
@@ -218,8 +218,8 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
 function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) => void }) {
   const inReview = view.tournament.state === 'review';
   return (
-    <section className="lip panel tn-section" aria-label={p.checksTitle}>
-      <header className="tn-section-head">
+    <section className="lip panel atn-section" aria-label={p.checksTitle}>
+      <header className="atn-section-head">
         <Icon name="shield" />
         <h2>{p.checksTitle}</h2>
         <span className="admin-chip">{view.checks.length}</span>
@@ -230,7 +230,7 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
         <p className="panel-note">{p.checksEmpty}</p>
       ) : (
         <HScroll variant="table" className="admin-table-wrap">
-          <table className="admin-table tn-checks">
+          <table className="admin-table atn-checks">
             <thead>
               <tr>
                 <th scope="col">{p.checkCols.run}</th>
@@ -243,7 +243,7 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
             </thead>
             <tbody>
               {view.checks.map((c) => (
-                <tr key={c.runId} className={!c.current && inReview ? 'tn-stale' : waiting(c) ? 'tn-waiting' : undefined}>
+                <tr key={c.runId} className={!c.current && inReview ? 'atn-stale' : waiting(c) ? 'atn-waiting' : undefined}>
                   <td>
                     <Link to={`/admin/partidas/${c.runId}`} aria-label={p.openRun(c.username)}>
                       <code>{c.runId.slice(0, 8)}</code>
@@ -252,20 +252,20 @@ function Checks({ view, onAsk }: { view: AdminTournamentReview; onAsk: (a: Ask) 
                   <td>{c.username}</td>
                   <td>{c.finishedAt ? when(c.finishedAt) : '—'}</td>
                   <td>
-                    <span className="tn-check" data-status={c.status}>
+                    <span className="atn-check" data-status={c.status}>
                       {p.statuses[c.status]}
                     </span>
                   </td>
                   <td>
                     <Detail c={c} />
-                    {!c.current && inReview ? <small className="tn-stale-note">{p.notCurrent}</small> : null}
-                    {c.attempts > 1 ? <small className="tn-stale-note">{p.attempts(c.attempts)}</small> : null}
+                    {!c.current && inReview ? <small className="atn-stale-note">{p.notCurrent}</small> : null}
+                    {c.attempts > 1 ? <small className="atn-stale-note">{p.attempts(c.attempts)}</small> : null}
                   </td>
                   <td>
                     {c.decision ? (
                       <span>{p.decided(c.decision, c.decidedBy)}</span>
                     ) : waiting(c) && inReview ? (
-                      <span className="tn-decide">
+                      <span className="atn-decide">
                         <button type="button" className="lip pill small" aria-haspopup="dialog" aria-label={p.acceptOf(c.username)} onClick={() => onAsk({ kind: 'decide', check: c, decision: 'accept' })}>
                           {p.accept}
                         </button>
@@ -305,7 +305,7 @@ export function ReviewPanel({ id }: { id: string }) {
   );
   if (!view)
     return (
-      <section className="admin-page tn-page">
+      <section className="admin-page atn-page">
         {back}
         {review.error ? <p className="field-error">{errorText(review.error, copy.errors)}</p> : null}
       </section>
@@ -320,25 +320,25 @@ export function ReviewPanel({ id }: { id: string }) {
     state === 'running' ? p.running(when(r.endsAt)) : state === 'review' ? (late ? p.reviewLate(blocking) : p.review(when(view.publishAt))) : state === 'finished' ? p.finished(x.publishedAt ? when(x.publishedAt) : '—') : p.cancelled;
   const simChanged = x.simChanged;
   return (
-    <section className="admin-page tn-page">
+    <section className="admin-page atn-page">
       {back}
-      <header className="tn-head">
-        <span className="tn-thumb big" aria-hidden="true">
+      <header className="atn-head">
+        <span className="atn-thumb big" aria-hidden="true">
           {r.bannerMedia ? <img src={mediaUrl(r.bannerMedia)} alt="" draggable={false} /> : <Icon name="trophy" />}
         </span>
         <div>
           <h1>{r.title}</h1>
-          <p className="tn-head-facts">
+          <p className="atn-head-facts">
             <span>{range(r.startsAt, r.endsAt)}</span>
             <span>{t.metrics[r.metric].name}</span>
           </p>
         </div>
-        <span className="tn-chip" data-state={state}>
+        <span className="atn-chip" data-state={state}>
           {t.states[state]}
         </span>
       </header>
       {simChanged ? (
-        <p className="ev-warnings tn-sim" role="status">
+        <p className="ev-warnings atn-sim" role="status">
           <Icon name="alert" />
           <span>
             {t.simChanged}
@@ -346,13 +346,13 @@ export function ReviewPanel({ id }: { id: string }) {
           </span>
         </p>
       ) : null}
-      <p className={`tn-phase${late ? ' late' : ''}`}>{phase}</p>
+      <p className={`atn-phase${late ? ' late' : ''}`}>{phase}</p>
       {done ? (
         <p className="admin-done" role="status">
           {done}
         </p>
       ) : null}
-      <ul className="tn-tiles">
+      <ul className="atn-tiles">
         <li>
           <b>{x.entrants}</b>
           <span>{p.tiles.entrants}</span>
@@ -370,12 +370,12 @@ export function ReviewPanel({ id }: { id: string }) {
           <span>{p.tiles.cash}</span>
         </li>
       </ul>
-      <div className={`tn-review${live ? '' : ' wide'}`}>
-        <div className="tn-review-main">
+      <div className={`atn-review${live ? '' : ' wide'}`}>
+        <div className="atn-review-main">
           <Ranking view={view} live={live} onAsk={setAsk} catalog={catalog} />
           <Checks view={view} onAsk={setAsk} />
-          <section className="lip panel tn-section" aria-label={p.disqualifiedTitle}>
-            <header className="tn-section-head">
+          <section className="lip panel atn-section" aria-label={p.disqualifiedTitle}>
+            <header className="atn-section-head">
               <Icon name="close" />
               <h2>{p.disqualifiedTitle}</h2>
               <span className="admin-chip">{view.disqualified.length}</span>
@@ -383,7 +383,7 @@ export function ReviewPanel({ id }: { id: string }) {
             {view.disqualified.length === 0 ? (
               <p className="panel-note">{p.noDisqualified}</p>
             ) : (
-              <ul className="tn-out">
+              <ul className="atn-out">
                 {view.disqualified.map((d) => (
                   <li key={d.username}>
                     <b>{d.username}</b>
@@ -399,8 +399,8 @@ export function ReviewPanel({ id }: { id: string }) {
             )}
           </section>
           {view.cash.length ? (
-            <section className="lip panel tn-section" aria-label={p.cashTitle}>
-              <header className="tn-section-head">
+            <section className="lip panel atn-section" aria-label={p.cashTitle}>
+              <header className="atn-section-head">
                 <Icon name="coin" />
                 <h2>{p.cashTitle}</h2>
               </header>
@@ -410,13 +410,13 @@ export function ReviewPanel({ id }: { id: string }) {
           ) : null}
         </div>
         {live ? (
-          <aside className="lip panel cf-aside tn-publish">
+          <aside className="lip panel cf-aside atn-publish">
             <section aria-label={p.publishNow}>
               <h2>{p.publishNow}</h2>
               <p className="panel-note">{p.publishHint}</p>
               {state === 'running' ? <p className="cf-hint">{p.publishAfter}</p> : null}
               {state === 'review' && !view.canPublish ? (
-                <p className="tn-blocked">
+                <p className="atn-blocked">
                   <Icon name="lock" />
                   <span>{p.publishBlocked(blocking)}</span>
                 </p>
