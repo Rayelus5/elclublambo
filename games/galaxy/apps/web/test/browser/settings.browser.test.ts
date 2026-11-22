@@ -8,6 +8,7 @@ import { page } from 'vitest/browser';
 import { PauseMenu } from '../../src/arena/hud/PauseMenu';
 import { SettingsScreen } from '../../src/hub/SettingsScreen';
 import { SETTINGS_TABS } from '../../src/settings/SettingsPanel';
+import { resetPrefs } from '../../src/settings/prefs';
 import { startSync } from '../../src/settings/sync';
 import '../../src/styles/app.css';
 
@@ -106,13 +107,17 @@ for (const [w, h] of [
 ] as const) {
   test(`«Guardados en tu cuenta» cabe en la cabecera de Ajustes a ${w}×${h}`, async () => {
     await page.viewport(w, h);
+    // A clean browser: what another file left (the release notes seen, read into memory when this file loaded) would
+    // make the sync save first and show «Guardando…» (CI, 2026-11-22).
+    localStorage.clear();
+    resetPrefs();
     vi.stubGlobal('fetch', () => new Promise(() => {}));
     const stop = startSync({ load: async () => ({ settings: { v: 1 }, updatedAt: null }), save: async () => ({}) });
     try {
       mount('/ajustes', createElement(SettingsScreen));
-      await wait(400);
+      // Waits for the account's answer (a slow CI machine takes longer than a fixed pause).
+      await expect.poll(() => document.querySelector<HTMLElement>('.settings-sync')?.textContent, { timeout: 5000 }).toBe('Guardados en tu cuenta');
       const note = document.querySelector<HTMLElement>('.settings-sync')!;
-      expect(note.textContent).toBe('Guardados en tu cuenta');
       const box = note.getBoundingClientRect();
       expect(box.right).toBeLessThanOrEqual(w);
       expect(box.height).toBeLessThan(30);
