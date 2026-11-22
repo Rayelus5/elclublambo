@@ -20,6 +20,7 @@
 --   table is emptied with it (apps/server/test/unit/reset-beta.test.ts checks the list against the migrations).
 -- - Season records and their revisions stay (they are the calendar, like the config); a revision's author is cleared
 --   with its guard off for that statement alone. Tournaments go with their entries, checks and money prizes.
+-- - The campaigns of «Encuestas y avisos» go with their views, responses and answers (2026-11-22).
 
 begin;
 
@@ -94,6 +95,10 @@ truncate table
   galaxy.operations,
   galaxy.planetarium_visits,
   galaxy.player_reports,
+  galaxy.popup_answers,
+  galaxy.popup_campaigns,
+  galaxy.popup_responses,
+  galaxy.popup_views,
   galaxy.probe_grants,
   galaxy.probe_levels,
   galaxy.probe_showcase,

@@ -1786,3 +1786,19 @@ El sector, el grupo y la anomalía siguen multiplicando encima. Los Núcleos no 
 - **Las duraciones cambian porque cambia la partida** (el bot va a por la pieza más cercana). Esta tabla mide el suelo, no la dificultad: para eso está `difficulty.test.ts`.
 
 Comprueba con `rayelus` en una incursión de prueba: F2 › Información dice «En el suelo», con el tope publicado; los fragmentos que no recoges parpadean y desaparecen al minuto y medio, y las monedas se quedan.
+
+## Encuestas y avisos, A2: la base de datos y el panel en el servidor
+
+**Qué cambia.**
+- **Migración** `20261122115000_galaxy_popups.sql`, solo con tablas nuevas:
+  - `popup_campaigns`: la ficha de cada campaña, borrador o publicada, con su versión y quién hizo qué. Publicada, la ficha ya no cambia. Solo se termina, una vez, o vuelve a borrador antes de que nadie la vea. Solo se borran los borradores;
+  - `popup_views`: por cuenta, las veces que salió (3 como mucho), el día de Madrid de la última, los «Más tarde», cuándo quedó hecha y el «Ver más». Un índice único por cuenta y día garantiza un popup al día;
+  - `popup_responses` y `popup_answers`: una respuesta por cuenta y campaña, y una fila por pregunta con una nota, unas opciones o un texto. Nunca cambian y solo se van con su campaña o su cuenta.
+- **Rutas del panel** (`/galaxy/api/admin/popups`): lista, ficha, validar, guardar borradores, borrar, publicar (con contraseña, y un superadmin si el premio es grande), retirar antes del inicio y sin vistas, y terminar. Todo con motivo y en la auditoría (`popup.saved`, `popup.deleted`, `popup.published`, `popup.unpublished` y `popup.ended`).
+- **Imágenes:** la imagen de una campaña cuenta como usada y no se puede borrar mientras tanto.
+- **`ops/reset-beta.sql`** vacía también las cuatro tablas.
+- **Sin interfaz ni rutas de jugador todavía.** Nadie ve nada hasta que llegue el panel y haya una campaña publicada.
+
+**Después de desplegar:**
+- en el registro del despliegue de `preproduction`, la migración aparece aplicada;
+- con una sesión de admin, `GET /galaxy/api/admin/popups` devuelve `{ "popups": [], … }`.

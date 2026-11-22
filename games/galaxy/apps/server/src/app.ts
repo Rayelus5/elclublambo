@@ -63,6 +63,7 @@ import { startSeasonJobs } from './season/jobs';
 import { startTournamentJobs } from './tournaments/jobs';
 import { REPLAY_WORKER_URL, workerReplayer } from './tournaments/replayer';
 import { registerTournamentRoutes } from './tournaments/routes';
+import { registerPopupRoutes } from './popups/routes';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
@@ -272,6 +273,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       const stopTournaments = startTournamentJobs({ db: deps.db, config, now, live, replayer }, app.log);
       api.addHook('onClose', async () => stopTournaments());
     }
+    // «Encuestas y avisos» (plan 2026-11-22, part A): the popups shown when a player opens the game.
+    registerPopupRoutes(api, { db: deps.db, config, now, trustCfIp: deps.env.TRUST_CF_IP });
     registerNewsRoutes(api, { db: deps.db, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now, disk: deps.disk ?? (() => serverDisk()) });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
