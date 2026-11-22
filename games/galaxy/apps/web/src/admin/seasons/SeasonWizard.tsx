@@ -12,9 +12,10 @@ import { Icon } from '../../ui/Icon';
 import { Segmented } from '../../ui/Segmented';
 import { Select } from '../../ui/Select';
 import { useSettled } from '../../ui/useSettled';
-import { ClosingEditor, LabSummary, MissionsEditor, RouteEditor, ShopEditor } from './ContentEditors';
+import { ClosingEditor, LabEditor, MissionsEditor, RouteEditor, ShopEditor } from './ContentEditors';
 import { NumberInput } from '../forms/ConfigForm';
 import { fmtNumber, scaleOf, tidy } from '../forms/format';
+import { issueText as formIssueText } from '../forms/issues';
 import { type Unit, UNIT_SUFFIX } from '../forms/labels';
 import { PublishFields } from '../PublishFields';
 import { AsPlayerLinks, groupOf, madridDate, seasonDays } from './SeasonsScreen';
@@ -130,7 +131,11 @@ function issueText(i: SeasonIssue): string {
     const said = (copy.gifts.issues as Record<string, string>)[i.message.slice('gift_'.length)];
     if (said) return said;
   }
-  return t.issueText[i.message] ?? `${i.path ? `${i.path} ` : ''}${i.message}`;
+  const own = t.issueText[i.message];
+  if (own) return own;
+  // The checks the config keys share (the seasonal lab tree's, over the permanent one), as the config form says them.
+  const shared = formIssueText(i.message);
+  return shared !== i.message ? shared : `${i.path ? `${i.path} ` : ''}${i.message}`;
 }
 
 /** A number with the panel's own field (Spanish decimals, its unit after it); read-only, just the value. */
@@ -405,7 +410,7 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
               {tab === 'shop' ? <ShopEditor draft={draft} onRoute={(route) => set({ route })} catalog={catalogs?.open ?? null} issues={issues} say={issueText} /> : null}
               {tab === 'closing' ? <ClosingEditor draft={draft} onRoute={(route) => set({ route })} catalog={catalogs?.closed ?? null} issues={issues} say={issueText} /> : null}
               {tab === 'missions' ? <MissionsEditor draft={draft} onMissions={(missions) => set({ missions })} issues={issues} /> : null}
-              {tab === 'lab' ? <LabSummary draft={draft} /> : null}
+              {tab === 'lab' ? <LabEditor draft={draft} onLab={(lab) => set({ lab })} issues={issues} /> : null}
             </>
           ) : null}
           {step === 'anomaly' ? (

@@ -1622,7 +1622,7 @@ export const copy = {
         shop: 'Se compra con la moneda de la temporada, que se gana jugando. El límite de compras es por jugador',
         closing: 'Al cerrar, cada jugador recibe el premio de su tramo. El podio y los puestos se suman, y solo cuentan quienes pueden ganar premios por su puesto',
         missions: 'Misiones que duran toda la temporada, con sus premios',
-        lab: 'El árbol de laboratorio de temporada aún no se edita aquí. Cópialo de otra temporada o impórtalo de su carpeta',
+        lab: 'Mejoras que duran toda la temporada y empiezan de cero en la siguiente. Suman con el árbol permanente y no pueden pasar de su presupuesto',
       } as Record<'route' | 'shop' | 'closing' | 'missions' | 'lab', string>,
       route: {
         step: (n: number) => `Escalón ${fmt(n)}`,
@@ -1677,8 +1677,6 @@ export const copy = {
         titleSet: 'Poner el título',
       },
       missionsEmpty: 'Sin misiones de temporada',
-      labReadonly: 'Solo lectura',
-      labNode: (name: string, max: number) => `${name}, hasta ${fmt(max)} niveles`,
       labEmpty: 'Sin árbol de temporada',
       big: {
         title: 'Premios grandes',
