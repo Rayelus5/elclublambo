@@ -13,3 +13,10 @@ Nada más cambia. La calibración está en `docs/DEPLOY_PRE.md`, en «Objetos en
 **`antes/content.json`:** lo que hay ahora (v14), para volver atrás. Lee `pickups` con sus valores por defecto, porque el esquema nuevo los rellena al leer.
 
 Se publica con la skill galaxy-publicar-config, solo con el OK del propietario. Afecta a las partidas que empiecen después; las que están en marcha siguen con su versión del contenido.
+
+## Publicado
+
+- **Cuándo:** 22/11/2026 por la tarde (Madrid), con el OK del propietario y el código de #273 ya desplegado.
+- **Versión:** `content` v14 → v15, con el motivo «Más objetos en el suelo: tope 3000 y caducidad 90 s».
+- **Comprobado:** v15 tiene `limits.pickups` = 3000 y `pickups` = { lifeSeconds 90, fadeSeconds 5 }. La salud está bien y el contenedor no registró errores.
+- **`antes/content.json`:** la v14 tal como estaba justo antes, para volver atrás.
