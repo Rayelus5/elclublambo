@@ -1,7 +1,6 @@
 import {
   type AdminNewsPost,
   type MediaAsset,
-  MEDIA_MAX_BYTES,
   NEWS_GALLERY,
   NEWS_ROUTES,
   NEWS_SECTIONS,
@@ -13,8 +12,8 @@ import {
   type NewsSection,
   newsPostInputSchema,
 } from '@galaxy/shared';
-import { type DragEvent, useId, useRef, useState } from 'react';
-import { useAdminMedia, useAdminNews, useDeleteMedia, useNewsAction, useOrderNews, useSaveNews, useUploadMedia } from '../api/news';
+import { useId, useState } from 'react';
+import { useAdminMedia, useAdminNews, useDeleteMedia, useNewsAction, useOrderNews, useSaveNews } from '../api/news';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { type AutoData, boardCard, useAutoData } from '../news/cards';
@@ -24,6 +23,7 @@ import { DateField } from '../ui/DateField';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { Select } from '../ui/Select';
+import { MediaDrop } from './MediaDrop';
 import { formatBytes } from './StorageScreen';
 
 // «Tablón» in the panel (the owner, 2026-11-14: «totalmente personalizable de forma intuitiva desde admin … la
@@ -115,22 +115,6 @@ const shownAs = (p: Pick<AdminNewsPost, 'id' | 'kind' | 'section' | 'featured' |
 
 function ImagePicker({ value, onChange, assets }: { value: NewsImage | null; onChange: (v: NewsImage | null) => void; assets: MediaAsset[] }) {
   const ids = useId();
-  const file = useRef<HTMLInputElement>(null);
-  const upload = useUploadMedia();
-  const [wrong, setWrong] = useState<string | null>(null);
-  const [over, setOver] = useState(false);
-  const send = (f: File | undefined) => {
-    if (!f) return;
-    setWrong(null);
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) return setWrong(t.image.wrongType);
-    if (f.size > MEDIA_MAX_BYTES) return setWrong(t.image.tooBig(formatBytes(MEDIA_MAX_BYTES)));
-    upload.mutate(f, { onSuccess: (r) => onChange({ kind: 'asset', id: r.id }) });
-  };
-  const drop = (e: DragEvent) => {
-    e.preventDefault();
-    setOver(false);
-    send(e.dataTransfer.files[0]);
-  };
   const is = (v: NewsImage | null) => (v === null ? value === null : value !== null && JSON.stringify(v) === JSON.stringify(value));
   const option = (key: string, v: NewsImage | null, src: string | null, label: string) => (
     <label key={key} className={`news-pick${is(v) ? ' on' : ''}`}>
@@ -147,40 +131,7 @@ function ImagePicker({ value, onChange, assets }: { value: NewsImage | null; onC
         {NEWS_GALLERY.map((k) => option(k, { kind: 'gallery', key: k }, galleryUrl(k), t.gallery[k]))}
         {assets.map((a) => option(a.id, { kind: 'asset', id: a.id }, imageUrl({ kind: 'asset', id: a.id }), a.name))}
       </div>
-      <div
-        className={`news-drop${over ? ' over' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={drop}
-      >
-        <Icon name="plus" />
-        <p>
-          <b>{t.image.drop}</b>
-          <span>{t.image.dropHint(formatBytes(MEDIA_MAX_BYTES))}</span>
-        </p>
-        <button type="button" className="lip pill small" disabled={upload.isPending} aria-busy={upload.isPending || undefined} onClick={() => file.current?.click()}>
-          {upload.isPending ? t.image.uploading : t.image.choose}
-        </button>
-        <input
-          ref={file}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          hidden
-          aria-label={t.image.choose}
-          onChange={(e) => {
-            send(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
-      </div>
-      {wrong || upload.error ? (
-        <p className="field-error" role="alert">
-          {wrong ?? errorText(upload.error, copy.errors)}
-        </p>
-      ) : null}
+      <MediaDrop onUploaded={(id) => onChange({ kind: 'asset', id })} />
     </fieldset>
   );
 }
