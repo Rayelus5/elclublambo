@@ -80,14 +80,14 @@ async function viewerOf(deps: TournamentDeps, accountId: string, ids: string[]) 
   const [entries, level, account, exclusive] = await Promise.all([
     ids.length > 0 ? deps.db.selectFrom('galaxy.tournament_entries').select(ENTRY_FIELDS).where('account_id', '=', accountId).where('tournament_id', 'in', ids).execute() : Promise.resolve([]),
     deps.config.get('account').then((cfg) => accountLevel(deps.db, accountId, cfg)),
-    deps.db.selectFrom('galaxy.accounts').select('prize_eligible').where('id', '=', accountId).executeTakeFirst(),
+    deps.db.selectFrom('galaxy.accounts').select(['prize_eligible', 'leaderboard_excluded']).where('id', '=', accountId).executeTakeFirst(),
     liveExclusives(deps.db, accountId, deps.now()),
   ]);
-  return { entries: new Map(entries.map((e) => [e.tournament_id, e as EntryRow])), level, eligible: account?.prize_eligible ?? true, exclusive };
+  return { entries: new Map(entries.map((e) => [e.tournament_id, e as EntryRow])), level, eligible: account?.prize_eligible ?? true, excluded: account?.leaderboard_excluded ?? false, exclusive };
 }
 
 /** The exclusive tournaments the account is in now (not left nor disqualified, scheduled or running, not over). */
-async function liveExclusives(db: Kysely<DB>, accountId: string, now: Date): Promise<{ id: string; slug: string; title: string; startsAt: string; endsAt: string }[]> {
+export async function liveExclusives(db: Kysely<DB>, accountId: string, now: Date): Promise<{ id: string; slug: string; title: string; startsAt: string; endsAt: string }[]> {
   const rows = await db
     .selectFrom('galaxy.tournament_entries as e')
     .innerJoin('galaxy.tournaments as t', 't.id', 'e.tournament_id')
@@ -119,21 +119,23 @@ async function entrantCounts(db: Kysely<DB>, ids: string[]): Promise<Map<string,
 /** Whether a viewer can sign up, and why not. */
 export function joinBlock(
   t: TournamentRow,
-  v: { entry: EntryRow | undefined; level: number; entrants: number; clash: { slug: string; title: string } | null },
+  v: { entry: EntryRow | undefined; level: number; entrants: number; clash: { slug: string; title: string } | null; excluded: boolean },
   now: Date,
 ): TournamentJoinBlock | null {
   if (v.entry) return v.entry.disqualified ? 'disqualified' : v.entry.left_at ? 'left' : 'joined';
   if ((t.state !== 'scheduled' && t.state !== 'running') || Date.parse(t.record.endsAt) <= now.getTime()) return 'closed';
+  // Out of the leaderboard (an admin's decision): it would pay and never rank.
+  if (v.excluded) return 'excluded';
   if (t.record.maxEntrants !== null && v.entrants >= t.record.maxEntrants) return 'full';
   if (t.record.filters.minLevel !== null && v.level < t.record.filters.minLevel) return 'level';
   if (v.clash) return 'exclusive';
   return null;
 }
 
-function cardOf(t: TournamentRow, ctx: { entry: EntryRow | undefined; level: number; eligible: boolean; entrants: number; exclusive: { id: string; slug: string; title: string; startsAt: string; endsAt: string }[]; ranking: TournamentRanking | null; now: Date; accountId: string }): TournamentCard {
+function cardOf(t: TournamentRow, ctx: { entry: EntryRow | undefined; level: number; eligible: boolean; excluded: boolean; entrants: number; exclusive: { id: string; slug: string; title: string; startsAt: string; endsAt: string }[]; ranking: TournamentRanking | null; now: Date; accountId: string }): TournamentCard {
   const r = t.record;
   const clash = r.exclusive ? (ctx.exclusive.find((x) => x.id !== t.id && datesOverlap(x, r)) ?? null) : null;
-  const block = joinBlock(t, { entry: ctx.entry, level: ctx.level, entrants: ctx.entrants, clash }, ctx.now);
+  const block = joinBlock(t, { entry: ctx.entry, level: ctx.level, entrants: ctx.entrants, clash, excluded: ctx.excluded }, ctx.now);
   return {
     id: t.id,
     slug: r.slug,
@@ -173,7 +175,7 @@ export async function tournamentList(deps: TournamentDeps, accountId: string): P
       // The live rank only where the viewer is in it and it still moves.
       const live = entry && !entry.left_at && !entry.disqualified && (t.state === 'running' || t.state === 'review');
       const ranking = live ? await liveRanking(deps, t) : null;
-      return cardOf(t, { entry, level: viewer.level, eligible: viewer.eligible, entrants: counts.get(t.id) ?? 0, exclusive: viewer.exclusive, ranking, now, accountId });
+      return cardOf(t, { entry, level: viewer.level, eligible: viewer.eligible, excluded: viewer.excluded, entrants: counts.get(t.id) ?? 0, exclusive: viewer.exclusive, ranking, now, accountId });
     }),
   );
   return {
@@ -228,7 +230,7 @@ export async function tournamentDetail(deps: TournamentDeps, accountId: string, 
   const entry = viewer.entries.get(t.id);
   const moving = t.state === 'running' || t.state === 'review';
   const live = moving ? await liveRanking(deps, t) : null;
-  const card = cardOf(t, { entry, level: viewer.level, eligible: viewer.eligible, entrants: counts.get(t.id) ?? 0, exclusive: viewer.exclusive, ranking: live, now, accountId });
+  const card = cardOf(t, { entry, level: viewer.level, eligible: viewer.eligible, excluded: viewer.excluded, entrants: counts.get(t.id) ?? 0, exclusive: viewer.exclusive, ranking: live, now, accountId });
 
   let rows: (TournamentRankRow & { accountId: string })[] = [];
   if (live) {
@@ -298,11 +300,13 @@ export async function joinTournament(deps: TournamentDeps, accountId: string, id
     const entrants = (await entrantCounts(trx, [id])).get(id) ?? 0;
     const exclusive = t.record.exclusive ? await liveExclusives(trx, accountId, now) : [];
     const clash = exclusive.find((x) => x.id !== id && datesOverlap(x, t.record)) ?? null;
-    const block = joinBlock(t, { entry, level, entrants, clash }, now);
+    const excluded = (await trx.selectFrom('galaxy.accounts').select('leaderboard_excluded').where('id', '=', accountId).executeTakeFirstOrThrow()).leaderboard_excluded;
+    const block = joinBlock(t, { entry, level, entrants, clash, excluded }, now);
     if (block === 'joined') throw new HttpError(409, 'tournament_joined');
     if (block === 'left') throw new HttpError(409, 'tournament_left');
     if (block === 'disqualified') throw new HttpError(409, 'tournament_disqualified');
     if (block === 'closed') throw new HttpError(409, 'tournament_closed');
+    if (block === 'excluded') throw new HttpError(403, 'tournament_excluded');
     if (block === 'full') throw new HttpError(409, 'tournament_full');
     if (block === 'level') throw new HttpError(403, 'level_too_low', { minLevel: t.record.filters.minLevel });
     if (block === 'exclusive') throw new HttpError(409, 'tournament_exclusive', { slug: clash!.slug, title: clash!.title });

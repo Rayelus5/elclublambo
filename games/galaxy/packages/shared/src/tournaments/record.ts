@@ -247,14 +247,16 @@ export function tournamentRewardsFor(t: Pick<TournamentRecord, 'prizes' | 'parti
 export type TournamentBigReason = BigGiftReason | 'cash';
 
 /**
- * Why scheduling a record needs a superadmin: any prize past the mail's limits for a superadmin (each range to as many
- * players as places it has; the participation prize to the cap, or to anyone when there is none), or any money.
+ * Why scheduling a record needs a superadmin: any prize past the mail's limits for a superadmin, or any money. Each
+ * winner takes their place's gifts and the participation prize together, so a range is weighed with it (to as many
+ * players as places it has); the participation prize alone, to the cap (or to anyone when there is none).
  */
 export function tournamentBigReasons(t: Pick<TournamentRecord, 'prizes' | 'participation' | 'maxEntrants'>, limits: MailLimits, cosmetics: CosmeticsConfig): TournamentBigReason[] {
   const out = new Set<TournamentBigReason>();
+  const extra = t.participation?.gifts ?? [];
   for (const p of t.prizes) {
     if (p.cash) out.add('cash');
-    if (p.gifts.length > 0) for (const r of bigGiftReasons(p.gifts, p.to - p.from + 1, limits, cosmetics)) out.add(r);
+    if (p.gifts.length > 0) for (const r of bigGiftReasons([...p.gifts, ...extra], p.to - p.from + 1, limits, cosmetics)) out.add(r);
   }
   if (t.participation) for (const r of bigGiftReasons(t.participation.gifts, t.maxEntrants ?? Number.MAX_SAFE_INTEGER, limits, cosmetics)) out.add(r);
   return [...out];

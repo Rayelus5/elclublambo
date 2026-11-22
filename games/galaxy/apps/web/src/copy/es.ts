@@ -4729,6 +4729,7 @@ export const copy = {
     tournament_has_entrants: 'Ya hay jugadores inscritos. Cancélalo en vez de desprogramarlo',
     tournament_finished: 'Ese torneo ya terminó',
     tournament_closed: 'Las inscripciones de ese torneo están cerradas',
+    tournament_excluded: 'Tu cuenta está fuera de la clasificación y no puede entrar en torneos. Escríbenos desde el buzón si crees que es un error',
     tournament_joined: 'Ya estás inscrito en ese torneo',
     tournament_left: 'Saliste de ese torneo y ya no puedes volver',
     tournament_disqualified: 'Te descalificaron de ese torneo',

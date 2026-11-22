@@ -63,6 +63,7 @@ describe('por qué no te puedes inscribir', () => {
     scheduledBy: null,
     publishedAt: null,
     cancelledAt: null,
+    startedSimVersion: null,
     ...over,
   });
   const entry = (over: object = {}) => ({ tournament_id: 't1', joined_at: now, left_at: null, refunded_at: null, disqualified: false, disqualified_reason: null, final_rank: null, final_score: null, final_runs: null, rewards: null, eligible: null, claimed_at: null, ...over });

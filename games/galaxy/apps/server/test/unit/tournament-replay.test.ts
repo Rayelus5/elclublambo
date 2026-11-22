@@ -82,8 +82,9 @@ parentPort.on('message', (m) => {
     made.push(r);
     const ids = ['a', 'b', 'c'];
     const out = await Promise.all(ids.map((id) => r.verify({ ...run, run: { ...run.run, id } })));
-    expect(out.map((v) => (v.detail as { run?: string }).run)).toEqual(ids);
-    expect(out.every((v) => (v.detail as { busy?: number }).busy === 1)).toBe(true);
+    const detail = (v: (typeof out)[number]) => ('detail' in v ? (v.detail as { run?: string; busy?: number }) : {});
+    expect(out.map((v) => detail(v).run)).toEqual(ids);
+    expect(out.every((v) => detail(v).busy === 1)).toBe(true);
   });
 
   test('al cerrar, la que está en marcha y las que esperan se abortan: no son un error y nada se guarda', async () => {
