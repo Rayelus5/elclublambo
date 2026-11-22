@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 // Tab stays inside, Escape or a click on the backdrop closes it (unless the dialog says otherwise), and focus goes
 // back where it was. A button disabled while its request runs drops the focus to the page: then Escape and Tab still
 // reach the dialog on top (and only that one).
-const FOCUSABLE = 'a[href], button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not(:disabled), select:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /** Open dialogs, the last one on top. */
 const open: HTMLElement[] = [];

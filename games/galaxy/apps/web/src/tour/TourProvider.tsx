@@ -8,6 +8,7 @@ import { tourActive, useTutorial, useTutorialUpdate } from '../api/tutorial';
 import { useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
+import { anyDialogOpen } from '../ui/dialogs';
 import { Icon } from '../ui/Icon';
 import { onTour } from './bus';
 import { chapterSteps, CHAPTER_ROUTE, COUNTED, type TourStep } from './steps';
@@ -58,7 +59,7 @@ function useTargetRect(target: string | undefined): DOMRect | null {
 function useOtherDialog(): boolean {
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    const check = () => setOpen(!!document.querySelector('[role="dialog"]:not(.tour-card), [role="alertdialog"]:not(.tour-skip)'));
+    const check = () => setOpen(anyDialogOpen());
     check();
     const id = setInterval(check, 200);
     return () => clearInterval(id);
