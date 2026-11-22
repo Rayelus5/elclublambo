@@ -529,8 +529,17 @@ Ver §15.
   - el **sello de origen** en las galaxias nacidas en ella.
 - **Premios de cierre:**
   - por **tramos** de puntuación: Bronce, Plata, Oro, Platino y Estelar;
-  - el **top 3** recibe además un trofeo para su estación y un marco único;
-  - **salón de la fama** con las temporadas pasadas.
+  - el **podio** (el top 3 por defecto, ajustable) recibe además un trofeo para su estación y un marco único;
+  - por **puestos**, en rangos (del 1.º al 1.º, del 2.º al 10.º…) [U, 22/11/2026]. Quien tiene apagado «puede ganar premios» conserva su puesto con una marca y su premio pasa al siguiente;
+  - se recogen en `/temporada` cuando cierra, sin fecha de caducidad, y el buzón avisa;
+  - **salón de la fama** con las temporadas pasadas, y su histórico completo para visitar.
+- **Premios de cualquier tipo [U, 22/11/2026]:** cada escalón de la ruta, cada artículo de la tienda y cada premio de cierre puede dar, además de lo de siempre, los regalos del buzón (`Gift`): galaxias, skins, sondas, piezas, recursos y experiencia. Reglas:
+  - nunca puntos de temporada, porque pagarían escalones que pagan puntos;
+  - la ruta y la tienda solo dan la moneda de su propia temporada;
+  - el cierre no da nada de la temporada ni señales de evento, porque se recoge cuando ya ha acabado;
+  - lo que da la ruta o la tienda tiene que seguir valiendo hasta el final de la temporada;
+  - una recogida de cierre nunca hace más de 10 galaxias;
+  - con premios por encima de los límites del buzón, programar la temporada desde el panel pide un superadmin.
 - **Contra abusos:** las partidas marcadas como sospechosas no suman, y comerciar o donar no da puntos.
 
 ### 13.1 bis Cómo se lanza una temporada [D]
