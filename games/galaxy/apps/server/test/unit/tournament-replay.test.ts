@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, test } from 'vitest';
 import { verifyRun } from '../../src/tournaments/replay';
-import { inlineReplayer, type Replayer, workerReplayer } from '../../src/tournaments/replayer';
+import { inlineReplayer, type Replayer, retryOf, workerReplayer } from '../../src/tournaments/replayer';
 import { playedRun } from '../replay-fixture';
 
 // The review's replay (plan «temporadas como fichas», part 5; GDD §13.3): a prize place's solo run played again on the
@@ -35,6 +35,16 @@ describe('la comprobación de una partida', () => {
     expect(verifyRun({ ...run, inputs: 'no-es-un-registro' })).toEqual({ status: 'unverifiable', detail: { reason: 'inputs_unreadable' } });
     expect(verifyRun({ ...run, run: { ...run.run, simVersion: '0.0.1' } })).toEqual({ status: 'unverifiable', detail: { reason: 'sim_version' } });
     expect(verifyRun({ ...run, contentFallback: true })).toEqual({ status: 'unverifiable', detail: { reason: 'content_unreadable' } });
+  });
+});
+
+describe('los reintentos', () => {
+  test('un hilo caído o sin tiempo se reintenta hasta tres veces; un fallo de la repetición, no', () => {
+    expect(retryOf({ status: 'error', detail: { reason: 'timeout' } }, 0)).toBe(true);
+    expect(retryOf({ status: 'error', detail: { reason: 'worker_failed' } }, 1)).toBe(true);
+    expect(retryOf({ status: 'error', detail: { reason: 'timeout' } }, 2)).toBe(false);
+    expect(retryOf({ status: 'error', detail: { reason: 'RangeError' } }, 0)).toBe(false);
+    expect(retryOf({ status: 'unverifiable', detail: { reason: 'inputs_missing' } }, 0)).toBe(false);
   });
 });
 
@@ -74,6 +84,17 @@ parentPort.on('message', (m) => {
     const out = await Promise.all(ids.map((id) => r.verify({ ...run, run: { ...run.run, id } })));
     expect(out.map((v) => (v.detail as { run?: string }).run)).toEqual(ids);
     expect(out.every((v) => (v.detail as { busy?: number }).busy === 1)).toBe(true);
+  });
+
+  test('al cerrar, la que está en marcha y las que esperan se abortan: no son un error y nada se guarda', async () => {
+    const r = workerReplayer({ url: fakeWorker('closing', 2000) });
+    const busy = r.verify(run);
+    const queued = r.verify(run);
+    await new Promise((ok) => setTimeout(ok, 100));
+    await r.close();
+    expect(await busy).toEqual({ status: 'aborted' });
+    expect(await queued).toEqual({ status: 'aborted' });
+    expect(await r.verify(run)).toEqual({ status: 'aborted' });
   });
 
   test('una que no acaba a tiempo es un error y el hilo se cambia por otro', async () => {

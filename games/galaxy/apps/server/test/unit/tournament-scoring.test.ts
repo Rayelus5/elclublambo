@@ -46,7 +46,7 @@ describe('qué suma cada medida', () => {
     expect(metricExpressions('depth').value).toBe('coalesce(max(c.depth), 0)');
     // A sum is reached by the last run that added to it; a best, by the first run that gave it.
     expect(metricExpressions('kills').reached).toBe('max(c.finished_at) filter (where c.kills > 0)');
-    expect(metricExpressions('depth').reached).toBe('(array_agg(c.finished_at order by c.depth desc, c.finished_at asc) filter (where c.id is not null))[1]');
+    expect(metricExpressions('depth').reached).toBe('(array_agg(c.finished_at order by c.depth desc nulls last, c.finished_at asc) filter (where c.id is not null))[1]');
   });
 });
 

@@ -66,7 +66,7 @@ describe('por qué no te puedes inscribir', () => {
     ...over,
   });
   const entry = (over: object = {}) => ({ tournament_id: 't1', joined_at: now, left_at: null, refunded_at: null, disqualified: false, disqualified_reason: null, final_rank: null, final_score: null, final_runs: null, rewards: null, eligible: null, claimed_at: null, ...over });
-  const v = { entry: undefined, level: 10, entrants: 3, clash: null };
+  const v = { entry: undefined, level: 10, entrants: 3, clash: null, excluded: false };
 
   test('abierto mientras está programado o en curso y antes de su fin', () => {
     expect(joinBlock(row(), v, now)).toBeNull();
@@ -85,5 +85,9 @@ describe('por qué no te puedes inscribir', () => {
     expect(joinBlock(row({}, { maxEntrants: 3 }), v, now)).toBe('full');
     expect(joinBlock(row({}, { filters: { minLevel: 11 } }), v, now)).toBe('level');
     expect(joinBlock(row(), { ...v, clash: { slug: 'otra', title: 'Otra' } }, now)).toBe('exclusive');
+  });
+
+  test('quien está fuera de la clasificación no puede inscribirse (nunca tendría puesto)', () => {
+    expect(joinBlock(row(), { ...v, excluded: true }, now)).toBe('excluded');
   });
 });
