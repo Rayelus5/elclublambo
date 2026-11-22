@@ -86,7 +86,7 @@ describe('buscar y ver', () => {
     expect(((await get(ctx.app, A(`/players?q=${ip}`), { cookie: admin.cookie })).json() as AdminPlayerList).players.map((x) => x.username)).toEqual([p.username]);
     await credit(ctx.db, p.id, 'coins', 2000, 'test');
     const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
-    expect((await post(ctx.app, '/galaxy/api/clans', { name: `Admin ${randomUUID().slice(0, 6).replace(/[^a-z]/g, 'x')}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    expect((await post(ctx.app, '/galaxy/api/clans', { name: `Admin ${randomUUID().slice(0, 8)}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     expect(((await get(ctx.app, A(`/players?q=${tag}`), { cookie: admin.cookie })).json() as AdminPlayerList).players.map((x) => x.username)).toContain(p.username);
 
     const v = await view(p.username);
@@ -333,7 +333,7 @@ describe('eliminar', () => {
     const friend = await player({ trader: true });
     await credit(ctx.db, p.id, 'coins', 3000, 'test');
     const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
-    expect((await post(ctx.app, '/galaxy/api/clans', { name: `Borrar ${randomUUID().slice(0, 6).replace(/[^a-z]/g, 'x')}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    expect((await post(ctx.app, '/galaxy/api/clans', { name: `Borrar ${randomUUID().slice(0, 8)}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     const clan = await ctx.db.selectFrom('galaxy.clans').select('id').where('tag', '=', tag).executeTakeFirstOrThrow();
     await ctx.db.insertInto('galaxy.clan_members').values({ clan_id: clan.id, account_id: heir.id, role: 'member' }).execute();
     const [g1, g2] = [await own(p.id), await own(p.id)];

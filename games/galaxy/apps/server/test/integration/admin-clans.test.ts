@@ -40,7 +40,7 @@ beforeAll(async () => {
 });
 
 const freeTag = () => randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
-const freeName = (word: string) => `${word} ${randomUUID().slice(0, 8).replace(/[^a-z]/g, 'x')}`;
+const freeName = (word: string) => `${word} ${randomUUID().slice(0, 8)}`;
 
 /** A clan led by `leader`, with `officers` promoted and `members` plain members, in that order of joining. */
 async function clan(leader: P, opts: { officers?: P[]; members?: P[]; name?: string } = {}) {
