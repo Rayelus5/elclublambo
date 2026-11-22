@@ -1802,3 +1802,15 @@ Comprueba con `rayelus` en una incursión de prueba: F2 › Información dice «
 **Después de desplegar:**
 - en el registro del despliegue de `preproduction`, la migración aparece aplicada;
 - con una sesión de admin, `GET /galaxy/api/admin/popups` devuelve `{ "popups": [], … }`.
+
+## Encuestas y avisos, A3: las rutas del jugador y los resultados
+
+**Qué cambia.** Sin migración: usa las tablas de A2.
+- **Rutas del jugador** (`/galaxy/api/popups`, con sesión y 30 peticiones por minuto):
+  - `GET /next` solo lee, así que recargar no gasta una vista;
+  - `POST /:id/shown` cuenta la vista. Aquí se cumplen de verdad las reglas: 3 como mucho, nunca dos el mismo día de Madrid y un popup al día entre todas las campañas. La misma campaña otra vez el mismo día no cuenta dos veces;
+  - `POST /:id/later` cuenta un «Más tarde» por vista;
+  - `POST /:id/seen { clicked }` cierra una promoción;
+  - `POST /:id/answer`, con `Idempotency-Key`, guarda las respuestas (los textos pasan el filtro de palabras del chat) y paga el premio con `grantGifts` y la clave `popup:<id>`. No lo cobran quien la publicó (`self`), el equipo (`staff`, la regla del buzón, que pasa a `gifts/guard.ts`) ni una cuenta creada después de publicarse (`newcomer`). Si se mostró antes del final, admite respuestas 15 minutos más.
+- **Resultados en el panel:** `GET /admin/popups/:id/results` (totales y resumen de cada pregunta), `GET /:id/texts?question=&cursor=` (de 50 en 50, con el usuario) y `GET /:id/results.csv` (una fila por respuesta, 20 000 como mucho, con BOM y a salvo de fórmulas).
+- **Todavía no se ve nada:** la web del jugador y el panel llegan en sus PR.
