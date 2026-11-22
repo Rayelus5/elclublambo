@@ -245,6 +245,18 @@ export const API_ERROR_CODES = [
   'tournament_needs_superadmin',
   'tournament_cash_not_found',
   'tournament_cash_paid',
+  // «Encuestas y avisos» (plan 2026-11-22, part A).
+  'popup_not_found',
+  'popup_closed',
+  'popup_answered',
+  'popup_answers_invalid',
+  'popup_invalid',
+  'popup_not_draft',
+  'popup_conflict',
+  'popup_needs_superadmin',
+  'popup_started',
+  'popup_ended',
+  'popup_wrong_kind',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

@@ -2,7 +2,7 @@ import type { Quirk } from '@galaxy/sim';
 import type { KeyLabels } from '../settings/keybinds';
 import type { InstallBrowser } from '../pwa/install';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
-import { type ApiErrorCode, pieceName, type TournamentIssueCode, type TournamentMetric } from '@galaxy/shared';
+import { type ApiErrorCode, pieceName, type PopupIssueCode, type TournamentIssueCode, type TournamentMetric } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
@@ -5370,6 +5370,17 @@ export const copy = {
     tournament_needs_superadmin: 'Esos premios son muy grandes o llevan dinero. Solo lo puede programar un superadmin',
     tournament_cash_not_found: 'Ese jugador no tiene un premio en metálico en ese torneo',
     tournament_cash_paid: 'Ese premio ya se marcó como pagado',
+    popup_not_found: 'Esa encuesta o aviso ya no está',
+    popup_closed: 'Esta encuesta ya está cerrada',
+    popup_answered: 'Ya contestaste esta encuesta',
+    popup_answers_invalid: 'Alguna respuesta no vale. Revísalas y vuelve a enviarlas',
+    popup_invalid: 'La campaña tiene datos que no valen. Revisa los avisos',
+    popup_not_draft: 'Esa campaña ya está publicada. Retírala antes de cambiarla',
+    popup_conflict: 'Alguien ha cambiado esa campaña mientras la editabas. Recárgala y vuelve a intentarlo',
+    popup_needs_superadmin: 'Ese premio es demasiado grande. Solo la puede publicar un superadmin',
+    popup_started: 'Esa campaña ya empezó o ya la ha visto alguien. Termínala en vez de retirarla',
+    popup_ended: 'Esa campaña ya terminó',
+    popup_wrong_kind: 'Eso no se puede hacer con este tipo de campaña',
   } satisfies Record<ApiErrorCode, string | ((details: Record<string, unknown>) => string)>,
   // What is wrong with a tournament's record (tournamentIssues in packages/shared): the panel shows it next to the field.
   tournamentIssues: {
@@ -5399,4 +5410,29 @@ export const copy = {
     gift_season_closed: 'Ese regalo acaba con la temporada',
     gift_event_closed: 'Ese regalo acaba con su evento',
   } satisfies Record<TournamentIssueCode, string>,
+  // What is wrong with a campaign of «Encuestas y avisos» (popupIssues in packages/shared): shown next to the field.
+  popupIssues: {
+    popup_dates: 'Tiene que acabar después de empezar',
+    popup_too_long: 'Una campaña dura 90 días como mucho',
+    popup_survey_shape: 'Una encuesta lleva una sola pregunta de escala',
+    popup_review_shape: 'Una valoración lleva las estrellas y, si quieres, un texto detrás',
+    popup_form_empty: 'Un formulario lleva al menos una pregunta',
+    popup_promotion_questions: 'Una promoción no lleva preguntas',
+    popup_promotion_reward: 'Una promoción no da premio',
+    popup_link_kind: 'Solo las promociones llevan el botón «Ver más»',
+    popup_question_duplicate: 'Ya hay otra pregunta con ese id',
+    popup_option_duplicate: 'Ya hay otra opción con ese id en esta pregunta',
+    popup_subject_unknown: 'Ese tema no existe en el contenido publicado',
+    popup_media_unknown: 'Esa imagen ya no está. Súbela otra vez',
+    popup_gift_seasonal: 'El premio se cobra al contestar, aunque la temporada ya haya acabado. Nada que acabe con ella, como sus puntos o su moneda',
+    popup_gift_event: 'El premio se cobra al contestar, aunque el evento ya haya acabado. Nada que acabe con él, como sus señales',
+    popup_end_past: 'Su fin ya ha pasado',
+    popup_image_missing: 'Una promoción necesita su imagen para publicarse',
+    gift_cosmetic_unknown: 'Esa pieza no existe o está desactivada',
+    gift_cosmetic_default: 'Esa pieza ya la tiene todo el mundo',
+    gift_probe_unknown: 'Esa sonda no existe en el contenido publicado',
+    gift_galaxy_unreachable: 'Una galaxia así no se puede crear. Prueba con otro rasgo o rareza',
+    gift_season_closed: 'Ese regalo acaba con la temporada',
+    gift_event_closed: 'Ese regalo acaba con su evento',
+  } satisfies Record<PopupIssueCode, string>,
 } as const;
