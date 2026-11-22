@@ -145,8 +145,88 @@ export interface PublicCollectionPage {
   counts: Record<Tier, number>;
 }
 
-export const leaderboardQuerySchema = z.object({ tab: z.enum(LEADER_TABS).default('general') }).strict();
+/**
+ * `season`: an admin's preview of another season's leaderboard (the panel's «Temporadas», 2026-11-22): its season
+ * info as it will look, with nobody on it yet.
+ */
+export const leaderboardQuerySchema = z
+  .object({ tab: z.enum(LEADER_TABS).default('general'), season: z.string().regex(/^[a-z0-9-]{1,32}$/).optional() })
+  .strict();
 export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Past seasons (plan «temporadas como fichas», histórico para jugadores, 2026-11-22): every closed season with its
+// podium and its numbers, and its final General ranking as it closed.
+
+/** What a season was, frozen at its close (`season_archive.stats`). */
+export interface SeasonStats {
+  players: number;
+  runs: number;
+  kills: number;
+  cores: number;
+  extractions: number;
+  maxDepth: number;
+  /** The sector and the probe played most (ids), null without runs. */
+  topSector: string | null;
+  topProbe: string | null;
+  /** How many players finished in each tier. */
+  tiers: Record<SeasonTier, number>;
+}
+
+/** A place on a past season's podium (the first three by rank). */
+export interface PastPodiumPlace extends PlayerLook {
+  rank: number;
+  username: string;
+  score: number;
+}
+
+/** A closed season in the history, newest first. */
+export interface PastSeason {
+  id: string;
+  name: string;
+  startsAt: string;
+  /** When it ended (or closed, if that came first). */
+  endsAt: string;
+  players: number;
+  podium: PastPodiumPlace[];
+  /** Null for the seasons closed before their numbers were kept. */
+  stats: SeasonStats | null;
+}
+
+export interface SeasonsHistory {
+  seasons: PastSeason[];
+}
+
+/** A row of a past season's final ranking: the General tab as it closed (`value` is the score), with its tier. */
+export interface PastRow extends LeaderRow {
+  tier: SeasonTier | null;
+  /** Won the podium's prize (an account that cannot win prizes keeps its rank without it). */
+  podium: boolean;
+}
+
+/** A closed season's final ranking, a page at a time, with the viewer's row and the season's numbers. */
+export interface SeasonResults {
+  season: PastSeason & {
+    /** Its tiers and what its close paid, from its record (empty and null for a season closed before records). */
+    tiers: number[];
+    closing: SeasonClosing | null;
+  };
+  rows: PastRow[];
+  /** The viewer's row, also outside this page; null when they did not rank. */
+  me: PastRow | null;
+  /** The rows shown in all (players banned since are left out). */
+  total: number;
+  /** Where the next page starts, or null after the last. */
+  next: number | null;
+}
+
+/** A page of a past season's ranking: from `offset`, `limit` rows (by default, as many as the season's table showed). */
+export const seasonResultsQuerySchema = z
+  .object({
+    offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
+    limit: z.coerce.number().int().min(1).max(500).optional(),
+  })
+  .strict();
 
 export const publicCollectionQuerySchema = z
   .object({

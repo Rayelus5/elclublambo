@@ -12,12 +12,13 @@ import { NumberInput } from '../forms/ConfigForm';
 import { fmtNumber, scaleOf, tidy } from '../forms/format';
 import { type Unit, UNIT_SUFFIX } from '../forms/labels';
 import { PublishFields } from '../PublishFields';
-import { groupOf, madridDate, seasonDays } from './SeasonsScreen';
+import { AsPlayerLinks, groupOf, madridDate, seasonDays } from './SeasonsScreen';
 
 // The season wizard (plan «temporadas como fichas», 2026-11-21): a season in five steps (its name and dates, its points
 // and tiers with a live example, its route, shop, prizes, missions and lab, its anomaly and finish, and a review with
 // the server's checks), then saved as a draft or saved and scheduled (it opens on its own at its date). A copy of a
-// season starts where it ended, with the same length. The route, shop and prizes are copied or imported for now.
+// season starts where it ended, with the same length. The route, shop and prizes are copied or imported for now. The
+// review leads to the saved season's shop and leaderboard as players will see them (2026-11-22).
 
 const t = copy.admin.seasons;
 type Step = 'data' | 'rules' | 'content' | 'anomaly' | 'review';
@@ -313,6 +314,21 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
               </div>
               <NumField id="sw-chance" label={t.fields.finishChance} value={draft.rules.finishChance} unit="percent" disabled={readonly || !draft.rules.finish} onChange={(n) => setRules({ finishChance: n })} />
             </div>
+          ) : null}
+          {step === 'review' ? (
+            <section className="ev-as-player" aria-labelledby="sw-as-player">
+              <h3 id="sw-as-player">{t.asPlayerTitle}</h3>
+              {own ? (
+                <>
+                  <p className="panel-note">{t.asPlayerHint}</p>
+                  <div className="ev-quick">
+                    <AsPlayerLinks id={own.id} />
+                  </div>
+                </>
+              ) : (
+                <p className="panel-note">{t.asPlayerSaveFirst}</p>
+              )}
+            </section>
           ) : null}
           {step === 'review' ? (
             <dl className="ev-facts">
