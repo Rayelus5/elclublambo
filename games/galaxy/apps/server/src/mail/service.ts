@@ -1,12 +1,12 @@
 import { expiringSoon, type GrantedItem, hasAnyGift, legacyView, type MailMessage, type MyMailbox, readContents, seasonOpen, type TitleNotice, type Wallet } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
-import { rolesOf } from '../auth/sessions';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { grantGifts } from '../gifts/grant';
+import { guardGift } from '../gifts/guard';
 import { invalidateLeaderboard } from '../social/leaderboard';
 
 // The mailbox and the title notices for players (GDD §16.5; M6d-1). Who a message reaches is fixed when it is sent:
@@ -186,15 +186,6 @@ export async function deleteMail(deps: MailDeps, accountId: string, id: string):
   if (live.claimed_at === null && hasAnyGift(readContents(live.gifts).contents)) throw new HttpError(409, 'mail_has_gift');
   await deps.db.updateTable('galaxy.mailbox_receipts').set({ deleted_at: deps.now() }).where('message_id', '=', id).where('account_id', '=', accountId).execute();
   return { deleted: true };
-}
-
-/** No gifts to oneself; staff collect only a superadmin's, and a superadmin none (the panel's rule, M6a). */
-async function guardGift(db: Kysely<DB>, accountId: string, senderId: string | null): Promise<void> {
-  if (senderId === accountId) throw new HttpError(403, 'self_target');
-  const mine = await rolesOf(db, accountId);
-  if (mine.length === 0) return;
-  const sender = senderId ? await rolesOf(db, senderId) : [];
-  if (mine.includes('superadmin') || !sender.includes('superadmin')) throw new HttpError(403, 'staff_target');
 }
 
 /** The notices running now, the newest first, three at most. */
