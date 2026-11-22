@@ -32,5 +32,5 @@ test('cada tabla que apunta a una tabla vaciada se vacía en el mismo TRUNCATE',
     for (const to of tos) if (truncated.has(to) && !truncated.has(from) && !dropped.has(`${from} → ${to}`)) missing.push(`${from} → ${to}`);
   }
   expect(missing).toEqual([]);
-  for (const t of ['tournaments', 'tournament_entries', 'tournament_checks', 'tournament_cash']) expect(truncated, t).toContain(t);
+  for (const t of ['tournaments', 'tournament_entries', 'tournament_checks', 'tournament_cash', 'popup_campaigns', 'popup_views', 'popup_responses', 'popup_answers']) expect(truncated, t).toContain(t);
 });

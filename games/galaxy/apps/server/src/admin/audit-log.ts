@@ -1,6 +1,7 @@
 import type { AuditPage, AuditQuery, AuditRow } from '@galaxy/shared';
 import type { Kysely } from 'kysely';
 import type { DB } from '../db/schema';
+import { cell } from './csv';
 
 // The audit log for admins (GDD §16.1; M6a): filtered by who, what, whom and dates, in pages, or exported to CSV. The
 // log itself is append-only; this only reads it.
@@ -41,13 +42,6 @@ export async function auditPage(db: Kysely<DB>, q: AuditQuery): Promise<AuditPag
   const rows = (await filtered(db, q).select(COLUMNS).orderBy('id', 'desc').limit(PAGE).offset((q.page - 1) * PAGE).execute()) as Row[];
   return { rows: rows.map(rowOf), page: q.page, pages: Math.max(1, Math.ceil(Number(n) / PAGE)) };
 }
-
-const cell = (v: unknown) => {
-  const raw = v === null || v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v);
-  // Formula injection (M6a review): a cell that starts like a formula is written as text.
-  const s = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
 
 /** The filtered log as CSV (UTF-8 with a BOM, so spreadsheets read the accents), newest first, 5000 rows at most. */
 export async function auditCsv(db: Kysely<DB>, q: AuditQuery): Promise<string> {

@@ -209,9 +209,11 @@ export async function uploadMedia(deps: NewsDeps, actor: AuditActor, req: { name
   });
 }
 
-// Where an image is shown: news cards, and tournaments' banners and prize pictures (plan «temporadas como fichas», part 5).
+// Where an image is shown: news cards, tournaments' banners and prize pictures (plan «temporadas como fichas», part 5)
+// and the campaigns of «Encuestas y avisos» (plan 2026-11-22, part A).
 const usesOf = sql<number>`((select count(*)::int from galaxy.news_posts p where p.image->>'kind' = 'asset' and p.image->>'id' = m.id::text)
-  + (select count(*)::int from galaxy.tournaments t where t.banner_media = m.id or t.details_media = m.id))`;
+  + (select count(*)::int from galaxy.tournaments t where t.banner_media = m.id or t.details_media = m.id)
+  + (select count(*)::int from galaxy.popup_campaigns c where c.image_media = m.id))`;
 
 export async function listMedia(deps: NewsDeps): Promise<AdminMediaView> {
   const rows = await deps.db

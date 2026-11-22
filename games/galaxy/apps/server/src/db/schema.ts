@@ -911,6 +911,74 @@ export interface TournamentCashTable {
   created_at: Timestamp;
 }
 
+/**
+ * «Encuestas y avisos» (plan 2026-11-22, part A; GDD §16.5): a popup shown when a player opens the game. `questions`,
+ * `link`, `audience` and `reward` hold the record's fields as PopupRecord has them. Published, its record never changes.
+ */
+export interface PopupCampaignsTable {
+  id: Generated<string>;
+  kind: string;
+  title: string;
+  body: ColumnType<string, string | undefined, string>;
+  questions: ColumnType<unknown, string, string>;
+  image_media: ColumnType<string | null, string | null | undefined, string | null>;
+  link: ColumnType<unknown, string | null, string | null>;
+  audience: ColumnType<unknown, string, string>;
+  starts_at: ColumnType<Date, Date | string, Date | string>;
+  ends_at: ColumnType<Date, Date | string, Date | string>;
+  priority: ColumnType<number, number | undefined, number>;
+  reward: ColumnType<unknown, string, string>;
+  /** Its reward needed a superadmin when it was published. */
+  big: ColumnType<boolean, boolean | undefined, boolean>;
+  state: ColumnType<'draft' | 'published', 'draft' | undefined, 'draft' | 'published'>;
+  version: ColumnType<number, number | undefined, number>;
+  created_at: Timestamp;
+  created_by: string | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  updated_by: string | null;
+  published_at: Stamp;
+  published_by: ColumnType<string | null, string | null | undefined, string | null>;
+  ended_at: Stamp;
+  ended_by: ColumnType<string | null, string | null | undefined, string | null>;
+}
+
+/** What an account did with a campaign: its shows (3 at most, one popup a day), «Más tarde», done and «Ver más». */
+export interface PopupViewsTable {
+  campaign_id: string;
+  account_id: string;
+  shows: ColumnType<number, number | undefined, number>;
+  first_shown_at: Stamp;
+  last_shown_at: Stamp;
+  /** A `date` (the Madrid day of the last show): read it with to_char(…, 'YYYY-MM-DD'). */
+  last_shown_day: ColumnType<string | null, string | null | undefined, string | null>;
+  dismissals: ColumnType<number, number | undefined, number>;
+  done_at: Stamp;
+  clicked_at: Stamp;
+}
+
+/** The guard row of an answer (one per account and campaign): its key, and the reward paid or why it was not. */
+export interface PopupResponsesTable {
+  campaign_id: string;
+  account_id: string;
+  op_key: ColumnType<string, string, never>;
+  answered_at: Timestamp;
+  /** What each gift of the reward gave (GrantedItem[]; null: no reward, or skipped). */
+  reward: ColumnType<unknown, string | null | undefined, never>;
+  reward_skipped: ColumnType<'self' | 'staff' | 'newcomer' | null, 'self' | 'staff' | 'newcomer' | null | undefined, never>;
+}
+
+/** One question answered: a score, some options or a text, exactly one. Never changed. */
+export interface PopupAnswersTable {
+  id: Generated<string>;
+  campaign_id: string;
+  account_id: string;
+  question_id: string;
+  score: ColumnType<number | null, number | null | undefined, never>;
+  choices: ColumnType<string[] | null, string[] | null | undefined, never>;
+  text: ColumnType<string | null, string | null | undefined, never>;
+  created_at: Timestamp;
+}
+
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
 export interface ClansTable {
   id: Generated<string>;
@@ -1235,4 +1303,8 @@ export interface DB {
   'galaxy.tournament_entries': TournamentEntriesTable;
   'galaxy.tournament_checks': TournamentChecksTable;
   'galaxy.tournament_cash': TournamentCashTable;
+  'galaxy.popup_campaigns': PopupCampaignsTable;
+  'galaxy.popup_views': PopupViewsTable;
+  'galaxy.popup_responses': PopupResponsesTable;
+  'galaxy.popup_answers': PopupAnswersTable;
 }
