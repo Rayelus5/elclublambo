@@ -32,7 +32,7 @@ type P = Awaited<ReturnType<typeof player>>;
 async function clanWith(leader: P, ...members: P[]): Promise<string> {
   await credit(ctx.db, leader.id, 'coins', 2000, 'test');
   const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
-  const res = await post(ctx.app, '/galaxy/api/clans', { name: `Leidos ${randomUUID().slice(0, 8).replace(/[^a-z]/g, 'x')}`, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } });
+  const res = await post(ctx.app, '/galaxy/api/clans', { name: `Leidos ${randomUUID().slice(0, 8)}`, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } });
   expect(res.statusCode).toBe(200);
   for (const m of members) await post(ctx.app, `/galaxy/api/clans/${tag}/join`, undefined, { cookie: m.cookie });
   return tag;

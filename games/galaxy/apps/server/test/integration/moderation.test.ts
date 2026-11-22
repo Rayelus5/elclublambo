@@ -72,7 +72,7 @@ describe('chat en vivo', () => {
     const leader = await player();
     await credit(ctx.db, leader.id, 'coins', 2000, 'test');
     const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
-    const name = `Vigia ${randomUUID().slice(0, 6).replace(/[^a-z]/g, 'x')}`;
+    const name = `Vigia ${randomUUID().slice(0, 8)}`;
     expect((await post(ctx.app, '/galaxy/api/clans', { name, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     const id = await write(leader, 'hola clan', 'clan');
     const channels = await read<ModChannel[]>('/channels');
