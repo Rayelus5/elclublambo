@@ -4006,6 +4006,7 @@ export const copy = {
     finishedOn: (date: string) => `Publicados el ${date}`,
     yourResult: (rank: number, total: number) => `Quedaste ${fmt(rank)}.º de ${fmt(total)}`,
     noResult: 'No llegaste a puntuar en este torneo',
+    leftBefore: 'Saliste de este torneo antes de que acabara',
     notIn: 'No participaste en este torneo',
     ineligible: 'Tu cuenta no puede ganar premios. Tu puesto queda en la clasificación con una marca y su premio pasa al siguiente',
     noPrizeWon: 'Esta vez no hay premio. Al siguiente',

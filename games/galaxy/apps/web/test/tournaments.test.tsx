@@ -279,6 +279,22 @@ test('una cuenta que no puede ganar premios lo sabe al ver su resultado', async 
   expect(await screen.findByText(t.ineligible)).toBeInTheDocument();
 });
 
+test('quien salió antes de acabar lo ve en el resultado', async () => {
+  mockApi(routes(page({ state: 'finished', endsAt: at(-3 * DAY), resultsAt: at(-2 * DAY), join: { open: false, block: 'left' }, me: me({ status: 'left', rank: null, score: 0 }), total: 30 })));
+  open();
+  expect(await screen.findByText(t.leftBefore)).toBeInTheDocument();
+  expect(screen.queryByText(t.noResult)).toBeNull();
+});
+
+test('en la lista, un torneo cancelado no dice cuándo terminó: su estado basta', async () => {
+  const off = card({ id: 'c9', slug: 'copa-anulada', title: 'Copa anulada', state: 'cancelled', join: { open: false, block: 'closed' } });
+  mockApi({ 'GET /galaxy/api/tournaments': () => jsonResponse(200, lists({ running: [], upcoming: [], finished: [off] })), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
+  renderAt('/torneos', { '/torneos': <TournamentsScreen /> });
+  const item = (await screen.findByRole('heading', { name: 'Copa anulada' })).closest('article')!;
+  expect(within(item).getByText(t.state.cancelled)).toBeInTheDocument();
+  expect(within(item).queryByText(/^Terminó el/)).toBeNull();
+});
+
 test('cancelado, lo dice y avisa de que la entrada se devolvió', async () => {
   mockApi(routes(page({ state: 'cancelled', entry: { currency: 'coins', amount: 500 }, join: { open: false, block: 'closed' }, me: me({ refunded: true, rank: null }), ranking: [], total: 0 })));
   open();

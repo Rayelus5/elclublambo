@@ -383,6 +383,8 @@ function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalo
           <p>{t.notIn}</p>
         ) : me.status === 'disqualified' ? (
           <p>{t.disqualifiedWhy(me.reason)}</p>
+        ) : me.status === 'left' ? (
+          <p>{t.leftBefore}</p>
         ) : me.rank === null ? (
           <p>{t.noResult}</p>
         ) : (

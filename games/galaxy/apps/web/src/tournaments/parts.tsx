@@ -46,8 +46,9 @@ export function StateChip({ state }: { state: TournamentCard['state'] }) {
   );
 }
 
-/** How long to its start or its end, ticking; when the results come; when it ended. */
+/** How long to its start or its end, ticking; when the results come; when it ended (a cancelled one: its chip says it). */
 export function TimeChip({ card, className = 'tn-time' }: { card: Pick<TournamentCard, 'state' | 'startsAt' | 'endsAt' | 'resultsAt'>; className?: string }) {
+  if (card.state === 'cancelled') return null;
   if (card.state === 'scheduled') return <Countdown endsAt={card.startsAt} className={`${className} soon`} label={t.startsIn} />;
   if (card.state === 'running') return <Countdown endsAt={card.endsAt} className={`${className} live`} label={t.endsIn} />;
   if (card.state === 'review' && card.resultsAt)
