@@ -517,7 +517,9 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 
 **Qué es.** Una campaña es una fila de `galaxy.popup_campaigns`, no una clave de configuración (GDD §16.5). Sale al abrir el juego, en la pantalla de título. La ficha es `popupRecordSchema` (`packages/shared/src/popups/record.ts`) y sus problemas, `popupIssues`, con el texto en `es.ts` (`popupIssues`). Hay cuatro tipos: Encuesta, Valoración, Formulario y Promoción.
 
-**Quién la publica.** Cualquier admin, desde Administración › Encuestas y avisos (`/admin/encuestas`): el asistente la guarda como borrador y la publica con motivo y contraseña. Si el premio pasa de `mailLimits`, solo un superadmin (`popup_needs_superadmin`). No hay CLI ni carpeta de `ops/launch/`.
+**Quién la publica.** Cualquier admin, desde Administración › Encuestas y avisos (`/admin/encuestas`): el asistente la guarda como borrador y la publica con motivo y contraseña. Si el premio pasa de `mailLimits`, solo un superadmin (`popup_needs_superadmin`).
+
+**Prepararla en una carpeta.** Una campaña puede ir en `ops/launch/<carpeta>/avisos/<campaña>.json` como `{ record, id?, image? }`, con `image` el nombre de un PNG, JPEG o WebP junto a ella. `packages/shared/test/popup-campaigns-ops.test.ts` comprueba que cada una se puede publicar. Sube a PRE **solo como borrador** con `node scripts/popup-bundle.mjs <campaña.json> | … popup-draft - --reason <motivo>`, que sube la imagen y guarda el borrador (con `id`, cambia ese borrador). `popup-list` las enseña. Publicarla sigue siendo del panel, con contraseña.
 
 **Límites que pone el código** (constantes de `record.ts`, no del panel):
 - dura `POPUP_MAX_DAYS` días como mucho y lleva hasta `POPUP_MAX_QUESTIONS` preguntas;
