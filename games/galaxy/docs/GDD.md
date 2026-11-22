@@ -906,6 +906,11 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
   - **El jugador** filtra por tipo, archiva y borra, recoge todo de una vez y ve revelado lo que le dio cada regalo.
   - **El panel** tiene plantillas, deja duplicar lo enviado y dice cuántos lo leyeron y lo recogieron.
 - **Avisos** en la pantalla de título.
+- **Encuestas y avisos** (Admin › Encuestas y avisos, 2026-11-22): ventanas que salen al abrir el juego, para todos, una lista de cuentas o un segmento, entre dos fechas (90 días como mucho) y con prioridad baja, normal o alta.
+  - **Cuatro tipos:** Encuesta (una escala de 1 a 5 o de 0 a 10, quizá sobre un enemigo, un Núcleo, una sonda o un sector), Valoración (estrellas y, si se quiere, un texto), Formulario (de 1 a 10 preguntas de escala, estrellas, elección o texto, una por pantalla) y Promoción (imagen grande, título, texto y un «Ver más» opcional).
+  - **Premio opcional** por contestar, elegido con los regalos del buzón. Nunca en las promociones, y solo lo cobran las cuentas que ya existían al publicarse [U].
+  - **Sin agobiar:** «Más tarde» la vuelve a sacar en otra sesión, 3 veces como mucho y nunca dos el mismo día de Madrid, y nadie ve más de una al día entre todas las campañas (la de más prioridad). Lo garantiza el servidor [U].
+  - **Respuestas** ligadas a la cuenta, una por cuenta y campaña. Los textos pasan el filtro de palabras del chat y solo los leen los admins, que ven el reparto de cada pregunta, la media, el NPS en las de 0 a 10 y el porcentaje de 4 y 5 en las demás.
 - **Tablón de noticias** (Admin › Tablón):
   - Tarjetas por secciones: Destacado, Comunidad, Eventos y torneos y Novedades.
   - Cada tarjeta lleva su título, su texto y una imagen: de la galería del juego, o subida en PNG, JPG o WebP de hasta 2 MB, comprobada por sus bytes y servida desde el mismo origen.
