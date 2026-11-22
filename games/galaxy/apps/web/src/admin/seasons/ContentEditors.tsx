@@ -8,7 +8,7 @@ import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { pick } from '../events/shared';
 import { ConfigForm, NumberInput } from '../forms/ConfigForm';
-import { issuesByPath } from '../forms/issues';
+import { issuesByPath, issueText as formIssueText } from '../forms/issues';
 
 // The wizard's editors for what a season pays (plan «temporadas como fichas», PR 4, 2026-11-22; the owner: «muy
 // intuitivo para admins poco técnicos»): the route's steps, the shop's items with its currency, the closing prizes by
@@ -408,23 +408,28 @@ export function MissionsEditor({ draft, onMissions, issues }: { draft: Draft; on
   );
 }
 
-/** The seasonal lab tree, read-only: what each node gives and up to which level. */
-export function LabSummary({ draft }: { draft: Draft }) {
+/**
+ * The seasonal lab tree with the panel's own form (the key `lab`'s season tree). The server checks it over the live
+ * permanent tree (the same budget as the key `lab`): those problems are about the whole tree and show on top.
+ */
+export function LabEditor({ draft, onLab, issues }: { draft: Draft; onLab: (lab: Draft['lab']) => void; issues: readonly SeasonIssue[] }) {
+  const [autoIds] = useState(() => new Set<string>());
+  const schema = pick(configJsonSchema('lab'), ['season']);
+  const own = issuesUnder(issues, 'lab');
+  // The record's `lab.<n>…` are the key's `season.<n>…`.
+  const byPath = issuesByPath(own.filter((i) => i.path !== 'lab').map((i) => ({ ...i, path: `season${i.path.slice('lab'.length)}` })));
+  const whole = own.filter((i) => i.path === 'lab');
   return (
     <div className="sw-editor">
-      <p className="sw-readonly">
-        <Icon name="lock" />
-        <span>{t.labReadonly}</span>
-      </p>
-      {draft.lab.length === 0 ? (
-        <p className="panel-note">{t.labEmpty}</p>
-      ) : (
-        <ul className="sw-lab">
-          {draft.lab.map((n) => (
-            <li key={n.id}>{t.labNode(n.name, n.max)}</li>
+      {whole.length > 0 ? (
+        <ul className="sw-row-problems" role="alert">
+          {whole.map((i) => (
+            <li key={i.message}>{formIssueText(i.message)}</li>
           ))}
         </ul>
-      )}
+      ) : null}
+      {draft.lab.length === 0 ? <p className="panel-note">{t.labEmpty}</p> : null}
+      <ConfigForm cfgKey="lab" schema={schema} value={{ season: draft.lab }} onChange={(v) => onLab(((v as { season?: Draft['lab'] }).season ?? []) as Draft['lab'])} issues={byPath} options={{}} autoIds={autoIds} />
     </div>
   );
 }

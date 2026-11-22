@@ -39,7 +39,8 @@ const S1 = season({ id: 'season-1', name: 'Temporada 1', state: 'closed', starts
 const S2 = season({ id: 'season-2', name: 'Temporada 2', state: 'scheduled', open: true, startsAt: midnight(-10), endsAt: midnight(5) });
 const S3 = season({ id: 'season-3', name: 'Temporada 3', state: 'draft', startsAt: midnight(8), endsAt: midnight(40) });
 
-function api(list: AdminSeasonList, me: MeResponse = admin) {
+/** `check`: what the server's validate answers (by default, the record's own checks, without what is live). */
+function api(list: AdminSeasonList, me: MeResponse = admin, check: (record: unknown) => { path: string; message: string }[] = (r) => seasonRecordIssues(r)) {
   const calls: { path: string; body: unknown }[] = [];
   // As the server sends them: `content` is too big for the list (lazy) and comes on its own.
   const keys = CONFIG_KEYS.map((key) => (key === 'content' ? { key, version: 1, createdAt: null, author: null, note: null, lazy: true } : { key, version: 1, data: parseConfig(key, {}), createdAt: null, author: null, note: null }));
@@ -51,7 +52,7 @@ function api(list: AdminSeasonList, me: MeResponse = admin) {
     'GET /galaxy/api/admin/config/content': () => jsonResponse(200, content),
     // As the server checks it (here without what is live: the record's own checks).
     'POST /galaxy/api/admin/seasons/validate': (body) => {
-      const issues = seasonRecordIssues((body as { record: unknown }).record);
+      const issues = check((body as { record: unknown }).record);
       return jsonResponse(200, { ok: issues.length === 0, issues, big: [] });
     },
     'POST /galaxy/api/admin/seasons': (body) => {
@@ -299,18 +300,36 @@ test('copiar una temporada lleva su moneda propia en los premios a la nueva', as
   expect((calls[0]!.body as Saved).record.route.shop[0]!.gifts).toEqual([{ kind: 'currency', currency: 'season:season-3', amount: 5 }]);
 });
 
-test('las misiones se editan con el formulario del panel y el laboratorio se ve en solo lectura', async () => {
+test('las misiones y el laboratorio de temporada se editan con el formulario del panel', async () => {
   const user = userEvent.setup();
   const lab = [{ id: 't-hull', branch: 'probe', name: 'Casco de temporada', effect: { kind: 'stat', stat: 'maxHp' }, per: 0.02, max: 5, cost: { dust: 10, components: 0 }, requires: null, growth: 1 }];
-  api({ seasons: [S2, small({ lab: lab as AdminSeason['lab'] })], now: new Date().toISOString(), warnings: [] });
+  const calls = api({ seasons: [S2, small({ lab: lab as AdminSeason['lab'] })], now: new Date().toISOString(), warnings: [] });
   renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
   await toContent(user);
   await user.click(screen.getByRole('radio', { name: t.contentTabs.missions }));
   expect(screen.getByText(t.missionsEmpty)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Añadir misión' })).toBeInTheDocument();
   await user.click(screen.getByRole('radio', { name: t.contentTabs.lab }));
-  expect(screen.getByText(t.labReadonly)).toBeInTheDocument();
-  expect(screen.getByText(t.labNode('Casco de temporada', 5))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Añadir nodo' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Casco de temporada/, expanded: false }));
+  const name = screen.getByDisplayValue('Casco de temporada');
+  await user.clear(name);
+  await user.type(name, 'Casco helado');
+  await saveWith(user, 'Laboratorio retocado');
+  await vi.waitFor(() => expect(calls).toHaveLength(1));
+  expect((calls[0]!.body as Saved).record.lab).toEqual([{ ...lab[0], name: 'Casco helado' }]);
+});
+
+test('lo que el laboratorio de temporada tiene mal sale en su pestaña, dicho para un admin', async () => {
+  const user = userEvent.setup();
+  const lab = [{ id: 't-hull', branch: 'probe', name: 'Casco de temporada', effect: { kind: 'stat', stat: 'maxHp' }, per: 0.02, max: 5, cost: { dust: 10, components: 0 }, requires: 'no-existe', growth: 1 }];
+  // The server checks the tree over the live permanent one: here, the requirement that is not in the tree.
+  api({ seasons: [S2, small({ lab: lab as AdminSeason['lab'] })], now: new Date().toISOString(), warnings: [] }, admin, () => [{ path: 'lab', message: 'lab_requires:t-hull' }]);
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await toContent(user);
+  // The tab says how many problems it has.
+  await user.click(await screen.findByRole('radio', { name: `${t.contentTabs.lab} (1)` }));
+  expect(await screen.findAllByText('El nodo «t-hull» necesita uno que no existe')).not.toHaveLength(0);
 });
 
 test('con premios grandes avisa por qué, y solo un superadmin la programa', async () => {

@@ -219,6 +219,18 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'nodes[].max': { label: 'Niveles' },
     'nodes[].requires': { label: 'Necesita el nodo', hint: 'Identificador; vacío si no necesita ninguno' },
     'nodes[].growth': { label: 'Crecimiento del coste por nivel', unit: 'factor' },
+    // The season's own tree (in Temporadas, a season's «Laboratorio»): the same fields.
+    season: { label: 'Nodos de temporada', noun: 'nodo' },
+    'season[].branch': { label: 'Rama' },
+    'season[].effect': { label: 'Efecto' },
+    'season[].effect.kind': { label: 'Tipo de efecto' },
+    'season[].effect.stat': { label: 'Estadística que mejora' },
+    'season[].effect.field': { label: 'Qué mejora' },
+    'season[].effect.currency': { label: 'Moneda' },
+    'season[].per': { label: 'Por nivel', unit: 'percent' },
+    'season[].max': { label: 'Niveles' },
+    'season[].requires': { label: 'Necesita el nodo', hint: 'Identificador; vacío si no necesita ninguno' },
+    'season[].growth': { label: 'Crecimiento del coste por nivel', unit: 'factor' },
   },
   relics: {
     levels: { label: 'Polvo para cada nivel', items: level(2) },

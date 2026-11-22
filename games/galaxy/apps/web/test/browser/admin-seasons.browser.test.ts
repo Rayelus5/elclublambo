@@ -42,7 +42,11 @@ const route = parseConfig('seasonRoute', {
     ],
   },
 });
-const draft: AdminSeason = { id: 'season-3', name: 'Temporada 3', startsAt: midnight(8), endsAt: midnight(36), state: 'draft', open: false, version: 1, rules, route, missions: [], lab: [] };
+const lab: AdminSeason['lab'] = [
+  { id: 's3-hull', branch: 'probe', name: 'Casco de temporada', effect: { kind: 'stat', stat: 'maxHp' }, per: 0.02, max: 5, requires: null, cost: { dust: 400, components: 0 }, growth: 1.4, falloff: 1, at: null },
+  { id: 's3-coins', branch: 'extraction', name: 'Botín de temporada', effect: { kind: 'payout', currency: 'coins' }, per: 0.03, max: 3, requires: 's3-hull', cost: { dust: 900, components: 2 }, growth: 1.5, falloff: 1, at: null },
+];
+const draft: AdminSeason = { id: 'season-3', name: 'Temporada 3', startsAt: midnight(8), endsAt: midnight(36), state: 'draft', open: false, version: 1, rules, route, missions: [], lab };
 const keys = CONFIG_KEYS.map((key) => (key === 'content' ? { key, version: 1, createdAt: null, author: null, note: null, lazy: true } : { key, version: 1, data: parseConfig(key, {}), createdAt: null, author: null, note: null }));
 
 function respond(url: string): Response {
@@ -105,7 +109,7 @@ for (const [w, h] of [
   [1920, 1080],
   [2560, 1440],
 ] as const) {
-  test(`los editores de la ruta, la tienda y el cierre a ${w}×${h}`, async () => {
+  test(`los editores de la ruta, la tienda, el cierre y el laboratorio a ${w}×${h}`, async () => {
     await mount(w, h);
     // The route: an old reward drawn as gifts, the new ones beside it.
     expect(document.querySelectorAll('.sw-rows .gift-ico.galaxy').length).toBeGreaterThan(0);
@@ -123,6 +127,14 @@ for (const [w, h] of [
     await shot('cierre', w);
     // The big prizes say so (this admin is not a superadmin).
     expect(document.querySelector('.cf-aside .gift-big.bad')).not.toBeNull();
+    // The seasonal lab tree, with the panel's own form: a node opened.
+    click(byText('[role="radio"]', t.contentTabs.lab));
+    await expect.poll(() => document.querySelectorAll('.cf-card').length).toBe(2);
+    click(document.querySelector('.cf-card .cf-card-title'));
+    await expect.poll(() => document.querySelector('.cf-card-body')).toBeTruthy();
+    await wait(300);
+    noSideways(w);
+    await shot('laboratorio', w);
   }, 60_000);
 }
 
