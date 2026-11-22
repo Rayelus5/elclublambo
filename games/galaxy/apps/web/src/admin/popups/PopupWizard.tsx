@@ -512,10 +512,12 @@ function AudienceStep({
         <legend>{t.facts.audience}</legend>
         <AudienceFields value={audience} onChange={onAudience} reach={reach} segmentHint={t.segmentHint} />
         <Problems issues={issues} path="audience" />
-        <ul className="apop-rules">
-          <li>{t.newcomers}</li>
-          {withReward ? <li className="warn">{t.newcomersReward}</li> : null}
-        </ul>
+        {audience.kind !== 'segment' || withReward ? (
+          <ul className="apop-rules">
+            {audience.kind !== 'segment' ? <li>{t.newcomers}</li> : null}
+            {withReward ? <li className="warn">{t.newcomersReward}</li> : null}
+          </ul>
+        ) : null}
       </fieldset>
       <fieldset className="cf-group">
         <legend>{t.facts.when}</legend>
@@ -553,7 +555,7 @@ function AudienceStep({
           onChange={(v) => set({ priority: Number(v) })}
         />
         <small id={`${id}-ph`} className="cf-hint">
-          {t.priorityHint}. {t.rhythm(POPUPS_PER_DAY, POPUP_MAX_SHOWS)}
+          {t.rhythm(POPUPS_PER_DAY, POPUP_MAX_SHOWS)}
         </small>
       </div>
     </>

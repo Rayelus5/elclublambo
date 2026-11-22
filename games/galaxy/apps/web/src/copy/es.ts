@@ -2180,7 +2180,6 @@ export const copy = {
       days: (n: number) => (n === 1 ? '1 día' : `${fmt(n)} días`),
       maxDays: (n: number) => `Dura ${fmt(n)} días como mucho`,
       priorities: { 0: 'Baja', 1: 'Normal', 2: 'Alta' } as Record<number, string>,
-      priorityHint: 'Si a un jugador le tocan varias el mismo día, ve primero la de más prioridad',
       segmentHint: 'Rellena al menos una condición. Las cuentas que se creen mientras dure también la ven, salvo que pongas fechas de alta',
       newcomers: 'Las cuentas nuevas también la ven mientras dure, salvo que pongas fechas de alta en un segmento',
       newcomersReward: 'Lleva premio. Las cuentas creadas después de publicarla pueden contestar, pero no lo cobran',
