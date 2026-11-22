@@ -41,7 +41,12 @@ const board = (tab: Leaderboard['tab']): Leaderboard => ({
 function mount(path: string) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => new Response(JSON.stringify(board(url.endsWith('depth') ? 'depth' : 'general')), { status: 200, headers: { 'content-type': 'application/json' } })),
+    vi.fn(async (url: string) => {
+      // No past seasons here (season-history.browser.test.ts has them) and no session to read.
+      if (url.endsWith('/seasons/history')) return new Response(JSON.stringify({ seasons: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (url.endsWith('/auth/me')) return new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify(board(url.endsWith('depth') ? 'depth' : 'general')), { status: 200, headers: { 'content-type': 'application/json' } });
+    }),
   );
   const host = document.createElement('div');
   document.body.style.margin = '0';

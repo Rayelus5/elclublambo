@@ -8,13 +8,17 @@ import { copy } from '../../copy/es';
 import { DateField } from '../../ui/DateField';
 import { Icon } from '../../ui/Icon';
 import { Select } from '../../ui/Select';
+import { NumberInput } from '../forms/ConfigForm';
+import { fmtNumber, scaleOf, tidy } from '../forms/format';
+import { type Unit, UNIT_SUFFIX } from '../forms/labels';
 import { PublishFields } from '../PublishFields';
-import { groupOf, madridDate, seasonDays } from './SeasonsScreen';
+import { AsPlayerLinks, groupOf, madridDate, seasonDays } from './SeasonsScreen';
 
 // The season wizard (plan «temporadas como fichas», 2026-11-21): a season in five steps (its name and dates, its points
 // and tiers with a live example, its route, shop, prizes, missions and lab, its anomaly and finish, and a review with
 // the server's checks), then saved as a draft or saved and scheduled (it opens on its own at its date). A copy of a
-// season starts where it ended, with the same length. The route, shop and prizes are copied or imported for now.
+// season starts where it ended, with the same length. The route, shop and prizes are copied or imported for now. The
+// review leads to the saved season's shop and leaderboard as players will see them (2026-11-22).
 
 const t = copy.admin.seasons;
 type Step = 'data' | 'rules' | 'content' | 'anomaly' | 'review';
@@ -75,11 +79,20 @@ function issueText(i: SeasonIssue): string {
   return t.issueText[i.message] ?? `${i.path ? `${i.path} ` : ''}${i.message}`;
 }
 
-function NumField({ id, label, value, min = 0, onChange, disabled }: { id: string; label: string; value: number; min?: number; onChange: (n: number) => void; disabled: boolean }) {
+/** A number with the panel's own field (Spanish decimals, its unit after it); read-only, just the value. */
+function NumField({ id, label, value, unit, onChange, disabled }: { id: string; label: string; value: number; unit?: Unit; onChange: (n: number) => void; disabled: boolean }) {
+  const info = { label, unit };
   return (
     <div className="cf-field">
       <label htmlFor={id}>{label}</label>
-      <input id={id} type="number" inputMode="numeric" min={min} value={Number.isFinite(value) ? value : ''} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
+      {disabled ? (
+        <output id={id}>
+          {fmtNumber(tidy(value * scaleOf(info)))}
+          {unit ? ` ${UNIT_SUFFIX[unit]}` : ''}
+        </output>
+      ) : (
+        <NumberInput id={id} value={value} info={info} onChange={(v) => onChange(v ?? 0)} />
+      )}
     </div>
   );
 }
@@ -196,12 +209,12 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                 <NumField id="sw-layer" label={t.fields.layer} value={p.layer} disabled={readonly} onChange={(n) => setRules({ points: { ...p, layer: n } })} />
                 <NumField id="sw-core" label={t.fields.core} value={p.core} disabled={readonly} onChange={(n) => setRules({ points: { ...p, core: n } })} />
                 <NumField id="sw-extraction" label={t.fields.extraction} value={p.extraction} disabled={readonly} onChange={(n) => setRules({ points: { ...p, extraction: n } })} />
-                <NumField id="sw-cap" label={t.fields.cap} value={draft.rules.capPerMinute} min={1} disabled={readonly} onChange={(n) => setRules({ capPerMinute: n })} />
-                <NumField id="sw-top" label={t.fields.top} value={draft.rules.top} min={3} disabled={readonly} onChange={(n) => setRules({ top: n })} />
+                <NumField id="sw-cap" label={t.fields.cap} value={draft.rules.capPerMinute} disabled={readonly} onChange={(n) => setRules({ capPerMinute: n })} />
+                <NumField id="sw-top" label={t.fields.top} value={draft.rules.top} disabled={readonly} onChange={(n) => setRules({ top: n })} />
               </div>
               <div className="cf-grid">
                 {t.tierNames.map((name, i) => (
-                  <NumField key={name} id={`sw-tier-${i}`} label={t.tierField(name)} value={draft.rules.tiers[i] ?? 0} min={1} disabled={readonly} onChange={(n) => setRules({ tiers: draft.rules.tiers.map((x, j) => (j === i ? n : x)) })} />
+                  <NumField key={name} id={`sw-tier-${i}`} label={t.tierField(name)} value={draft.rules.tiers[i] ?? 0} disabled={readonly} onChange={(n) => setRules({ tiers: draft.rules.tiers.map((x, j) => (j === i ? n : x)) })} />
                 ))}
               </div>
               <div className="lip panel ev-total" aria-live="polite">
@@ -299,8 +312,23 @@ function Wizard({ list, now, id, from }: { list: AdminSeason[]; now: number; id:
                 <label htmlFor="sw-finish">{t.fields.finish}</label>
                 <Select id="sw-finish" block disabled={readonly} value={draft.rules.finish ?? ''} options={[{ value: '', label: t.noFinish }, ...SEASON_FINISHES.map((f) => ({ value: f, label: copy.finishes[f as keyof typeof copy.finishes] ?? f }))]} onChange={(v) => setRules({ finish: (v || null) as Draft['rules']['finish'] })} />
               </div>
-              <NumField id="sw-chance" label={t.fields.finishChance} value={Math.round(draft.rules.finishChance * 1000) / 10} disabled={readonly || !draft.rules.finish} onChange={(n) => setRules({ finishChance: n / 100 })} />
+              <NumField id="sw-chance" label={t.fields.finishChance} value={draft.rules.finishChance} unit="percent" disabled={readonly || !draft.rules.finish} onChange={(n) => setRules({ finishChance: n })} />
             </div>
+          ) : null}
+          {step === 'review' ? (
+            <section className="ev-as-player" aria-labelledby="sw-as-player">
+              <h3 id="sw-as-player">{t.asPlayerTitle}</h3>
+              {own ? (
+                <>
+                  <p className="panel-note">{t.asPlayerHint}</p>
+                  <div className="ev-quick">
+                    <AsPlayerLinks id={own.id} />
+                  </div>
+                </>
+              ) : (
+                <p className="panel-note">{t.asPlayerSaveFirst}</p>
+              )}
+            </section>
           ) : null}
           {step === 'review' ? (
             <dl className="ev-facts">

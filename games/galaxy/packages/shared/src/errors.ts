@@ -227,6 +227,7 @@ export const API_ERROR_CODES = [
   'tournament_has_entrants',
   'tournament_finished',
   'tournament_closed',
+  'tournament_excluded',
   'tournament_joined',
   'tournament_left',
   'tournament_disqualified',

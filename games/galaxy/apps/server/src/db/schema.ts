@@ -860,6 +860,8 @@ export interface TournamentsTable {
   scheduled_by: ColumnType<string | null, string | null | undefined, string | null>;
   published_at: Stamp;
   cancelled_at: Stamp;
+  /** The simulation version the server ran when the tournament started (the panel warns when it changes). */
+  started_sim_version: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 /** Who signed up for a tournament, their fee and refund, a disqualification and the frozen result with its collection. */
@@ -892,6 +894,8 @@ export interface TournamentChecksTable {
   decided_by: ColumnType<string | null, never, string | null>;
   decided_at: ColumnType<Date | null, never, Date | string>;
   checked_at: Stamp;
+  /** Tries a dead or stuck worker cost (retried up to MAX_REPLAY_ATTEMPTS). */
+  attempts: ColumnType<number, number | undefined, number>;
   created_at: Timestamp;
 }
 

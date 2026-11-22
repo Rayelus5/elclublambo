@@ -157,6 +157,12 @@ describe('quién puede programarlo', () => {
     expect(tournamentBigReasons(cash, limits, cosmetics)).toEqual(['cash']);
   });
 
+  test('cada ganador se lleva su puesto y la participación juntos: se suman contra los límites', () => {
+    const half = Math.floor(limits.currency.coins / 2) + 1;
+    const both = tournamentRecordSchema.parse({ ...BASE, prizes: [{ from: 1, to: 1, gifts: [coins(half)] }], participation: { minRuns: 1, gifts: [coins(half)] }, maxEntrants: 1 });
+    expect(tournamentBigReasons(both, limits, cosmetics)).toEqual(['currency_coins']);
+  });
+
   test('el límite de destinatarios cuenta los puestos del rango y, en la participación, el cupo', () => {
     const few = { ...limits, recipients: 5 };
     const wide = tournamentRecordSchema.parse({ ...BASE, prizes: [{ from: 1, to: 10, gifts: [coins(10)] }] });

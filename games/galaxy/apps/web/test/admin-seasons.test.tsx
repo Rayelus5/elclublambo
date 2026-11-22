@@ -125,10 +125,60 @@ test('una temporada programada se abre en el asistente y su anomalía sale con s
   expect(await screen.findByText('Corrosión contagiosa')).toBeInTheDocument();
 });
 
+test('los números del asistente usan el campo del panel (con decimales en español), no el del navegador', async () => {
+  const user = userEvent.setup();
+  api({ seasons: [S1, S2, S3], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.rules) }));
+  expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+  expect(screen.getByLabelText(t.fields.layer)).toHaveAttribute('inputmode', 'decimal');
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.anomaly) }));
+  expect(screen.queryAllByRole('spinbutton')).toEqual([]);
+  // The default 0,02 shows as a percentage.
+  expect(screen.getByLabelText(t.fields.finishChance)).toHaveValue('2');
+});
+
 test('una temporada programada o pasada se ve, pero no se cambia desde el asistente', async () => {
   api({ seasons: [S1, S2], now: new Date().toISOString(), warnings: [] });
   renderAt('/admin/temporadas/season-1', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
   expect(await screen.findByText(t.closedNote)).toBeInTheDocument();
   expect(screen.getByLabelText(t.fields.name)).toBeDisabled();
   expect(screen.queryByRole('button', { name: t.saveDraft })).not.toBeInTheDocument();
+});
+
+test('cada temporada se puede ver como la verá un jugador: su tienda y su clasificación, en esta pestaña', async () => {
+  api({ seasons: [S1, S2, S3], now: new Date().toISOString(), warnings: [] });
+  renderAt('/admin/temporadas', { '/admin/temporadas': <SeasonsScreen /> });
+  for (const [group, s] of [
+    ['draft', S3],
+    ['open', S2],
+    ['closed', S1],
+  ] as const) {
+    const region = await screen.findByRole('region', { name: t.groups[group] });
+    const shop = within(region).getByRole('link', { name: t.asPlayer.shop });
+    expect(shop).toHaveAttribute('href', `/temporada?vista=${s.id}`);
+    expect(shop).not.toHaveAttribute('target');
+    expect(within(region).getByRole('link', { name: t.asPlayer.board })).toHaveAttribute('href', `/clasificacion?temporada=${s.id}`);
+  }
+});
+
+test('la revisión del asistente lleva a verla como jugador; una nueva, primero se guarda', async () => {
+  const user = userEvent.setup();
+  api({ seasons: [S2, S3], now: new Date().toISOString(), warnings: [] });
+  const view = renderAt('/admin/temporadas/season-3', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.review) }));
+  const as = screen.getByRole('region', { name: t.asPlayerTitle });
+  expect(within(as).getByRole('link', { name: t.asPlayer.shop })).toHaveAttribute('href', '/temporada?vista=season-3');
+  expect(within(as).getByRole('link', { name: t.asPlayer.board })).toHaveAttribute('href', '/clasificacion?temporada=season-3');
+  expect(as).toHaveTextContent(t.asPlayerHint);
+  view.unmount();
+
+  renderAt('/admin/temporadas/nueva?desde=season-2', { '/admin/temporadas/:id': <SeasonWizardScreen /> });
+  await screen.findByLabelText(t.fields.name);
+  await user.click(screen.getByRole('button', { name: new RegExp(t.steps.review) }));
+  const fresh = screen.getByRole('region', { name: t.asPlayerTitle });
+  expect(within(fresh).queryByRole('link')).toBeNull();
+  expect(fresh).toHaveTextContent(t.asPlayerSaveFirst);
 });

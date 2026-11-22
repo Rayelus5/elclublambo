@@ -16,7 +16,7 @@ import '../../src/styles/app.css';
 
 const score = 2300;
 const view: SeasonView = {
-  season: { id: 'season-2', name: 'Temporada 2', endsAt: new Date(Date.now() + 26 * 86_400_000 + 5 * 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
+  season: { id: 'season-2', name: 'Temporada 2', startsAt: '2026-11-22T23:00:00.000Z', endsAt: new Date(Date.now() + 26 * 86_400_000 + 5 * 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
   score,
   tier: 'silver',
   currency: { name: 'Esquirlas', balance: 470 },

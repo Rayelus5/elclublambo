@@ -33,6 +33,8 @@ export interface TournamentRow {
   scheduledBy: string | null;
   publishedAt: string | null;
   cancelledAt: string | null;
+  /** The simulation version when it started (null before). */
+  startedSimVersion: string | null;
 }
 
 export const TOURNAMENT_FIELDS = [
@@ -64,6 +66,7 @@ export const TOURNAMENT_FIELDS = [
   'scheduled_by',
   'published_at',
   'cancelled_at',
+  'started_sim_version',
 ] as const;
 
 type Raw = Selectable<DB['galaxy.tournaments']>;
@@ -104,6 +107,7 @@ export function readTournamentRow(r: Raw): TournamentRow {
     scheduledBy: r.scheduled_by,
     publishedAt: iso(r.published_at),
     cancelledAt: iso(r.cancelled_at),
+    startedSimVersion: r.started_sim_version,
   };
 }
 

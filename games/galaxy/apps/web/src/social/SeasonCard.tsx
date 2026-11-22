@@ -1,7 +1,8 @@
-import { type LeaderRow, type SeasonInfo, type SeasonReward, SEASON_TIERS } from '@galaxy/shared';
+import { type LeaderRow, type SeasonClosing, type SeasonInfo, type SeasonReward, SEASON_TIERS, type SeasonTier } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { copy, fmt } from '../copy/es';
+import { seasonSpan } from '../season/SeasonPreview';
 import { Icon, type IconName } from '../ui/Icon';
 import { TierEmblem, tierProgress } from './parts';
 import { SeasonCountdown } from './SeasonCountdown';
@@ -11,7 +12,8 @@ import { SeasonCountdown } from './SeasonCountdown';
 // podium's prize and the players. The whole card leads to the season's route and shop: one link whose hit area covers
 // the card (the «Ver ruta y tienda» at its foot names it), so nothing else in it is interactive and a screen reader
 // hears a short link, not the whole card. Every number comes from the server: the thresholds, the prizes and the
-// podium's size are live config.
+// podium's size are live config. An admin's preview of a season still to come (2026-11-22) shows its days instead of
+// the countdown and leads to that season's shop preview. A past season's card (PastSeason.tsx) shows the same prizes.
 
 const t = copy.social;
 
@@ -60,10 +62,53 @@ function Prizes({ reward, trophy = false }: { reward: SeasonReward; trophy?: boo
 }
 
 /**
- * The season card: `me` is the viewer's General row (null without points) and `total` the season's players, both from
- * the General tab whatever tab is open.
+ * «Tramos y premios»: every tier, Estelar first, with its threshold and what the close pays it (`mine` marked), and the
+ * podium's prize with how many places it reaches.
  */
-export function SeasonCard({ season, me, total }: { season: SeasonInfo; me: LeaderRow | null; total: number }) {
+export function ClosingPrizes({ tiers, closing, mine, title, hint }: { tiers: readonly number[]; closing: SeasonClosing; mine: SeasonTier | null; title: string; hint: string }) {
+  return (
+    <div className="lb-prizes-block">
+      <h3>{title}</h3>
+      <p className="lb-prizes-hint">{hint}</p>
+      <ul className="lb-tier-list" aria-label={t.tiersTitle}>
+        {[...SEASON_TIERS].reverse().map((x) => {
+          const i = SEASON_TIERS.indexOf(x);
+          const reward = closing.tiers[i];
+          const at = tiers[i];
+          return (
+            <li key={x} data-tier={x} aria-current={x === mine ? 'true' : undefined}>
+              <TierEmblem tier={x} scale={1} />
+              <span className="lb-tier-name">
+                <b>{t.tier[x]}</b>
+                {at !== undefined ? <small>{t.tierFrom(at)}</small> : null}
+              </span>
+              {x === mine ? <span className="lb-you">{t.yourTier}</span> : null}
+              {reward ? <Prizes reward={reward} /> : null}
+            </li>
+          );
+        })}
+      </ul>
+      {closing.podiumSize > 0 ? (
+        <div className="lb-podium-prize" role="group" aria-label={t.podiumPrize}>
+          <span className="lb-podium-icon" aria-hidden="true">
+            <Icon name="podium" />
+          </span>
+          <span className="lb-tier-name">
+            <b>{t.podiumTitle}</b>
+            <small>{t.podiumWho(closing.podiumSize)}</small>
+          </span>
+          <Prizes reward={closing.podium} trophy />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The season card: `me` is the viewer's General row (null without points) and `total` the season's players, both from
+ * the General tab whatever tab is open. `preview`: an admin's look at a season not open yet.
+ */
+export function SeasonCard({ season, me, total, preview = false }: { season: SeasonInfo; me: LeaderRow | null; total: number; preview?: boolean }) {
   const score = me?.value ?? 0;
   const { tier, next, from, to, share } = tierProgress(score, season.tiers);
   const mine = me ? tier : null;
@@ -78,7 +123,7 @@ export function SeasonCard({ season, me, total }: { season: SeasonInfo; me: Lead
         </span>
         <p className="lb-ends">
           <Icon name="comet" />
-          <SeasonCountdown endsAt={season.endsAt} />
+          {preview ? <span>{seasonSpan(season.startsAt, season.endsAt)}</span> : <SeasonCountdown endsAt={season.endsAt} />}
         </p>
       </div>
 
@@ -109,43 +154,11 @@ export function SeasonCard({ season, me, total }: { season: SeasonInfo; me: Lead
         )}
       </div>
 
-      <div className="lb-prizes-block">
-        <h3>{t.prizesTitle}</h3>
-        <p className="lb-prizes-hint">{t.prizesHint}</p>
-        <ul className="lb-tier-list" aria-label={t.tiersTitle}>
-          {[...SEASON_TIERS].reverse().map((x) => {
-            const i = SEASON_TIERS.indexOf(x);
-            const reward = closing.tiers[i];
-            return (
-              <li key={x} data-tier={x} aria-current={x === mine ? 'true' : undefined}>
-                <TierEmblem tier={x} scale={1} />
-                <span className="lb-tier-name">
-                  <b>{t.tier[x]}</b>
-                  <small>{t.tierFrom(season.tiers[i] ?? 0)}</small>
-                </span>
-                {x === mine ? <span className="lb-you">{t.yourTier}</span> : null}
-                {reward ? <Prizes reward={reward} /> : null}
-              </li>
-            );
-          })}
-        </ul>
-        {closing.podiumSize > 0 ? (
-          <div className="lb-podium-prize" role="group" aria-label={t.podiumPrize}>
-            <span className="lb-podium-icon" aria-hidden="true">
-              <Icon name="podium" />
-            </span>
-            <span className="lb-tier-name">
-              <b>{t.podiumTitle}</b>
-              <small>{t.podiumWho(closing.podiumSize)}</small>
-            </span>
-            <Prizes reward={closing.podium} trophy />
-          </div>
-        ) : null}
-      </div>
+      <ClosingPrizes tiers={season.tiers} closing={closing} mine={mine} title={t.prizesTitle} hint={t.prizesHint} />
 
       <div className="lb-season-foot">
         <span className="lb-players">{t.players(total)}</span>
-        <Link to="/temporada" className="lb-season-link">
+        <Link to={preview ? `/temporada?vista=${encodeURIComponent(season.id)}` : '/temporada'} className="lb-season-link">
           <span className="lip pill small pill-solar">
             <span>{t.seeRoute}</span>
             <Icon name="next" />

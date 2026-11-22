@@ -1,7 +1,8 @@
 import { type ClanRow, type GroupRow, type LeaderRow, type LeaderTab } from '@galaxy/shared';
+import { useId } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useLeaderboard } from '../api/social';
-import { errorText } from '../auth/useMe';
+import { useLeaderboard, useSeasonsHistory } from '../api/social';
+import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { clockText } from '../arena/hud/Hud';
 import { probeDrawing, spriteDataUrl } from '../arena/sprites';
@@ -12,11 +13,18 @@ import { Podium } from './parts';
 import { SeasonCard } from './SeasonCard';
 import { HomeLink } from '../ui/BackLink';
 import { useContentNames } from '../api/content-names';
+import { PreviewBanner, seasonSpan } from '../season/SeasonPreview';
+import { Select, type SelectOption } from '../ui/Select';
+import { PastBoard } from './PastSeason';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
 // view can be shared; the podium holds the top three and the table the rest (in General with each player's runs and
 // best layer, 2026-11-21), scrolling inside its own box; your row is marked, and pinned below when it is out of the
-// top; beside them, the season card (SeasonCard), which leads to the season's route and shop.
+// top; beside them, the season card (SeasonCard), which leads to the season's route and shop. A selector chooses the
+// season (plan «temporadas como fichas», histórico, 2026-11-22), also in the address (?temporada=): the current one, or
+// a closed one with its final General ranking (PastSeason.tsx; the other tabs are not kept). An admin with a season
+// still to come in the address sees its preview: its card as it will open, with nobody on it, and a way back to the
+// panel. For players, a season that is neither closed nor current in the address just shows the current one.
 
 const t = copy.social;
 const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes', groups: 'grupo' };
@@ -179,16 +187,59 @@ function ClanTable({ clans, mine }: { clans: ClanRow[]; mine: ClanRow | null }) 
   );
 }
 
+/** What the leaderboard shows: the current season, a closed one, an admin's preview, or not known yet. */
+export type BoardMode = 'live' | 'past' | 'preview' | 'loading';
+
+/**
+ * The mode for the season in the address (`wanted`): closed seasons (`past`), the current one's id (`liveId`, null
+ * between seasons) and whether the viewer is an admin with TOTP; `undefined` while that is still loading.
+ */
+export function boardMode({ wanted, past, liveId, admin }: { wanted: string | null; past: readonly string[] | undefined; liveId: string | null | undefined; admin: boolean | undefined }): BoardMode {
+  if (!wanted) return 'live';
+  if (past === undefined) return 'loading';
+  if (past.includes(wanted)) return 'past';
+  if (liveId === undefined) return 'loading';
+  if (wanted === liveId) return 'live';
+  if (admin === undefined) return 'loading';
+  return admin ? 'preview' : 'live';
+}
+
+const wait = (
+  <p className="planetarium-wait" role="status" aria-label={copy.loading}>
+    ⠋⠙⠹
+  </p>
+);
+
 export function LeaderboardScreen() {
-  const [params] = useSearchParams();
-  const tab = tabOf(params.get('pestana'));
-  const board = useLeaderboard(tab);
+  const [params, setParams] = useSearchParams();
+  const wanted = params.get('temporada') || null;
+  const viewer = useMe();
+  const history = useSeasonsHistory();
   // The season card goes by the season's score and players, whatever the tab.
   const general = useLeaderboard('general');
+  const mode = boardMode({
+    wanted,
+    past: history.data ? history.data.seasons.map((s) => s.id) : history.error ? [] : undefined,
+    liveId: general.data ? (general.data.season?.id ?? null) : general.error ? null : undefined,
+    admin: !wanted ? false : viewer.data !== undefined ? isAdmin(viewer.data) && !!viewer.data?.mfa : viewer.error ? false : undefined,
+  });
+  // A past season keeps only its General ranking: a tab in the address waits for the current season.
+  const tab = mode === 'live' ? tabOf(params.get('pestana')) : 'general';
+  const board = useLeaderboard(tab, { enabled: mode === 'live' });
+  const preview = useLeaderboard('general', { season: wanted, enabled: mode === 'preview' });
   const v = board.data;
   const me = v?.me ?? null;
   const inTable = me !== null && v!.rows.some((r) => r.username === me.username);
-  const error = errorText(board.error, copy.errors);
+  const error = errorText(mode === 'preview' ? preview.error : mode === 'live' ? board.error : null, copy.errors);
+  const note = useId();
+  const pastSeasons = history.data?.seasons ?? [];
+  const shown = mode === 'live' ? '' : (wanted ?? '');
+  const ahead = mode === 'preview' ? preview.data?.season : null;
+  const options: SelectOption[] = [
+    { value: '', label: t.currentSeason },
+    ...(ahead ? [{ value: ahead.id, label: ahead.name, hint: copy.season.preview.option }] : []),
+    ...pastSeasons.map((s) => ({ value: s.id, label: s.name, hint: seasonSpan(s.startsAt, s.endsAt) })),
+  ];
 
   return (
     <div className="screen-root leaderboard-root">
@@ -199,29 +250,71 @@ export function LeaderboardScreen() {
             <span>{t.back}</span>
           </HomeLink>
           <h1>{t.leaderboard}</h1>
+          {pastSeasons.length > 0 || ahead ? (
+            <Select className="lb-pick" size="sm" aria-label={t.seasonPick} value={shown} options={options} onChange={(id) => setParams(id ? { temporada: id } : {})} />
+          ) : null}
           <Link to="/trofeos#salon" className="lip pill small lb-hall">
             <Icon name="trophy" />
             <span>{copy.trophies.open}</span>
           </Link>
         </header>
-        <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>
-          {(['general', 'depth', 'purges', 'clans', 'groups'] as const).map((k) => (
-            <Link key={k} to={SLUG[k] ? `/clasificacion?pestana=${SLUG[k]}` : '/clasificacion'} aria-current={k === tab ? 'page' : undefined}>
-              {t.tabs[k]}
-            </Link>
-          ))}
-        </nav>
+        {mode === 'live' ? (
+          <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>
+            {(['general', 'depth', 'purges', 'clans', 'groups'] as const).map((k) => (
+              <Link key={k} to={SLUG[k] ? `/clasificacion?pestana=${SLUG[k]}` : '/clasificacion'} aria-current={k === tab ? 'page' : undefined}>
+                {t.tabs[k]}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+        {mode === 'past' && wanted ? (
+          <div className="lb-past-tabs">
+            <nav className="tabs lb-tabs" aria-label={t.tabsLabel} aria-describedby={note}>
+              {(['general', 'depth', 'purges', 'clans', 'groups'] as const).map((k) =>
+                k === 'general' ? (
+                  <Link key={k} to={`/clasificacion?temporada=${encodeURIComponent(wanted)}`} aria-current="page">
+                    {t.tabs[k]}
+                  </Link>
+                ) : (
+                  <button key={k} type="button" disabled>
+                    {t.tabs[k]}
+                  </button>
+                ),
+              )}
+            </nav>
+            <p id={note} className="lb-past-note">
+              <Icon name="info" />
+              <span>{t.past.onlyGeneral}</span>
+            </p>
+          </div>
+        ) : null}
+        {ahead ? <PreviewBanner name={ahead.name} startsAt={ahead.startsAt} endsAt={ahead.endsAt} hint={copy.season.preview.boardHint} /> : null}
         {error ? (
           <p className="field-error" role="alert">
             {error}
           </p>
         ) : null}
-        {!v ? (
-          board.isPending ? (
-            <p className="planetarium-wait" role="status" aria-label={copy.loading}>
-              ⠋⠙⠹
-            </p>
-          ) : null
+        {mode === 'loading' ? (
+          wait
+        ) : mode === 'past' && wanted ? (
+          <PastBoard id={wanted} />
+        ) : mode === 'preview' ? (
+          !ahead ? (
+            preview.isPending ? wait : null
+          ) : (
+            <div className="lb-body">
+              <main className="lb-main">
+                <div className="lip panel lb-empty">
+                  <p>{copy.social.noPoints}</p>
+                </div>
+              </main>
+              <aside className="lb-side">
+                <SeasonCard season={ahead} me={null} total={0} preview />
+              </aside>
+            </div>
+          )
+        ) : !v ? (
+          board.isPending ? wait : null
         ) : !v.season ? (
           <div className="lip panel lb-empty">
             <p>{copy.errors.season_closed}</p>

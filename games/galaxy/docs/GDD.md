@@ -604,12 +604,15 @@ Competiciones dentro de una temporada, cada una con **su propia clasificación**
 **Revisión antes de pagar [U].**
 - Al acabar se congela la clasificación. El servidor resimula en un hilo aparte, de una en una, las partidas en solitario que dan los puestos con premio: en `best_run` y `depth` la mejor; en el resto, todas. Las de grupo ya las arbitra el servidor.
 - **No coincide** (huella, ticks, enemigos, capa, nivel, Núcleos o desenlace): la partida pasa a sospechosa (`replay_mismatch`) y se recalcula. Las partidas de quien sube a un puesto con premio también se comprueban.
-- **No se puede comprobar** (sin entradas, otra versión de la simulación, contenido que ya no se lee): espera la decisión de un admin, aceptarla o descartarla (descartada deja de contar en ese torneo).
+- **No se puede comprobar** (sin entradas, otra versión de la simulación, contenido que ya no se lee): espera la decisión de un admin, aceptarla o descartarla (descartada deja de contar en ese torneo). Se deciden una a una o **en bloque**, por motivo o por jugador [U]. Nadie decide sobre su propia partida.
+- Solo frenan los resultados las partidas de los puestos con premio tal como están: la de quien ya salió de ellos se queda como está y no se vuelve a resimular.
+- Un hilo de resimulación que se cae o se queda sin tiempo se reintenta tres veces. Al reiniciar el servidor, la que estaba en marcha sigue pendiente.
+- El torneo guarda la versión de la simulación con la que empezó, y el panel avisa si un despliegue la cambia [U].
 - Un admin puede **descalificar** con motivo.
 - **Los resultados se publican** cuando pasan `reviewHours` (24 por defecto) y no queda nada pendiente, o con «Publicar ya» si no queda nada pendiente.
 
 **Premios [U].**
-- Al publicar se congelan el puesto, la puntuación y los premios de cada inscrito. Quien no puede ganar premios («puede ganar premios» apagado) conserva su puesto con una marca y su premio pasa al siguiente.
+- Al publicar, bajo el candado del torneo, se vuelve a comprobar que cada puesto con premio está comprobado; si algo cambió, espera. Se congelan el puesto, la puntuación y los premios de cada inscrito. Quien no puede ganar premios («puede ganar premios» apagado) conserva su puesto con una marca y su premio pasa al siguiente.
 - Cada ganador recibe un **aviso en el buzón** con un botón a la página del torneo, donde **recoge** sus premios. No caducan.
 - **El dinero no se paga en el juego:** queda en «Premios en metálico pendientes» y un admin lo marca como pagado (auditado).
 
