@@ -837,7 +837,7 @@ describe('las skins a elegir (plan «Torneo Navideño», C1)', () => {
       .where('m.type', '=', 'tournament')
       .where('r.account_id', '=', b.id)
       .executeTakeFirstOrThrow();
-    expect(mail.body).toContain('Entra en la página del torneo para elegir tus skins');
+    expect(mail.body).toContain('Tus premios te esperan en la página del torneo, donde eliges tus skins');
 
     // The second has to choose: without a choice, a 400 that keeps nothing (and the key can be used again).
     const k = key();
