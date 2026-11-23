@@ -4,6 +4,7 @@ import {
   type CosmeticsConfig,
   datesOverlap,
   type Gift,
+  hasPrizeToCollect,
   mediaUrl,
   type PrizeChoice,
   resolvePrizeChoice,
@@ -364,12 +365,13 @@ export async function leaveTournament(deps: TournamentDeps, accountId: string, i
 }
 
 /**
- * Collects a finished tournament's prizes (POST …/:id/claim), once: the entry's guarded `claimed_at` is the payer's own
- * guard row, and the galaxies' seeds come from the server's key for that entry, never from the request. A prize with
- * skins to choose resolves them here, with what the account owns and what is live now: a pick that does not fit throws,
- * so nothing is kept and it can be sent again; what it gave is kept in the entry's rewards (`chosen`, `missing`), and
- * the skins and the signals for the missing ones go in the same grant as the rest, under the same key (one credit per
- * currency). The request's hash only carries the choice when there is one, so a resend from before is still the same.
+ * Collects a finished tournament's prizes (POST …/:id/claim), once: the entry, locked, is the payer's own guard row
+ * (its `claimed_at`, set under a guard), and the galaxies' seeds come from the server's key for that entry, never from
+ * the request. A prize with skins to choose resolves them here, with what the account owns and what is live now: a pick
+ * that does not fit throws, so nothing is kept and it can be sent again. What it gave (`chosen`, `missing`) is kept in
+ * the entry's rewards in the same update that marks it collected (the table's guard freezes the rewards from then on),
+ * and the skins and the signals for the missing ones go in the same grant as the rest, under the same key (one credit
+ * per currency). The request's hash only carries the choice when there is one, so a resend from before is the same.
  */
 export async function claimTournament(deps: TournamentDeps, accountId: string, id: string, key: string, body: TournamentClaimBody = {}): Promise<TournamentClaimResult> {
   // Read with the pool before the transaction, as joining reads the account's config.
@@ -380,22 +382,13 @@ export async function claimTournament(deps: TournamentDeps, accountId: string, i
     const t = await tournamentById(trx, id);
     if (t.state === 'draft') throw new HttpError(404, 'tournament_not_found');
     if (t.state !== 'finished') throw new HttpError(409, 'tournament_not_finished');
-    const row = await trx
-      .updateTable('galaxy.tournament_entries')
-      .set({ claimed_at: now })
-      .where('tournament_id', '=', id)
-      .where('account_id', '=', accountId)
-      .where('claimed_at', 'is', null)
-      // Something to collect in the game: gifts, or skins to choose (hasPrizeToCollect).
-      .where(sql<boolean>`(jsonb_array_length(coalesce(rewards->'gifts', '[]'::jsonb)) > 0 or jsonb_typeof(rewards->'choice') = 'object')`)
-      .returning('rewards')
-      .executeTakeFirst();
-    if (!row) {
-      const had = await trx.selectFrom('galaxy.tournament_entries').select('claimed_at').where('tournament_id', '=', id).where('account_id', '=', accountId).executeTakeFirst();
-      throw had?.claimed_at ? new HttpError(409, 'already_claimed') : new HttpError(404, 'tournament_no_prize');
-    }
-    const rewards = row.rewards as TournamentRewards;
+    const entry = await trx.selectFrom('galaxy.tournament_entries').select(['claimed_at', 'rewards']).where('tournament_id', '=', id).where('account_id', '=', accountId).forUpdate().executeTakeFirst();
+    if (entry?.claimed_at) throw new HttpError(409, 'already_claimed');
+    const rewards = (entry?.rewards ?? null) as TournamentRewards | null;
+    // Something to collect in the game: gifts, or skins to choose (money is paid outside).
+    if (!rewards || !hasPrizeToCollect(rewards)) throw new HttpError(404, 'tournament_no_prize');
     let gifts: Gift[] = rewards.gifts;
+    let kept: TournamentRewards | null = null;
     if (rewards.choice) {
       const c = rewards.choice;
       const r = resolvePrizeChoice(c, { owned: await ownedOptions(trx, accountId, c), unavailable: choiceUnavailable(c.options, cosmetics) }, body.choice);
@@ -404,9 +397,16 @@ export async function claimTournament(deps: TournamentDeps, accountId: string, i
       const skins = r.skins.map((id): Gift => ({ kind: 'cosmetic', piece: c.piece, id }));
       const paid: Gift[] = r.compensation ? [{ kind: 'currency', currency: r.compensation.currency, amount: r.compensation.amount }] : [];
       gifts = [...gifts, ...skins, ...paid];
-      const kept: TournamentRewards = { ...rewards, chosen: r.skins, missing: r.missing };
-      await trx.updateTable('galaxy.tournament_entries').set({ rewards: JSON.stringify(kept) }).where('tournament_id', '=', id).where('account_id', '=', accountId).execute();
+      kept = { ...rewards, chosen: r.skins, missing: r.missing };
     } else if (body.choice) throw new HttpError(400, 'tournament_choice_invalid');
+    const marked = await trx
+      .updateTable('galaxy.tournament_entries')
+      .set({ claimed_at: now, ...(kept ? { rewards: JSON.stringify(kept) } : {}) })
+      .where('tournament_id', '=', id)
+      .where('account_id', '=', accountId)
+      .where('claimed_at', 'is', null)
+      .executeTakeFirst();
+    if (Number(marked.numUpdatedRows) !== 1) throw new HttpError(409, 'already_claimed');
     const { items } = await grantGifts(trx, accountId, gifts, {
       key: `tournament:${id}`,
       seedKey: `tournament:${id}:${accountId}`,
