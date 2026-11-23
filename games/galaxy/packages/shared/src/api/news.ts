@@ -34,6 +34,7 @@ export const NEWS_ROUTES = [
   '/taller',
   '/planetario',
   '/trofeos',
+  '/torneos',
   '/codice',
   '/guia',
   '/notas-de-version',

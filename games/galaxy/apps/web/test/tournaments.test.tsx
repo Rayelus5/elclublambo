@@ -1,4 +1,4 @@
-import type { TournamentDetail, TournamentList } from '@galaxy/shared';
+import { pieceName, SKIN_PROBES, type TournamentDetail, type TournamentList, type TournamentRewards } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -262,6 +262,154 @@ test('terminado, tu resultado y tu premio: «Recoger» suena, vuela a la barra y
   expect(keyOf(sent[0]![1])).toMatch(/^[0-9a-f-]{36}$/);
   // The page wears the wallet the prize flies to.
   expect(document.querySelector('[data-wallet]')).not.toBeNull();
+});
+
+// Skins to choose (plan «Torneo Navideño», C2): the window that picks them, its counter and keyboard, the owned ones
+// greyed out, the body sent, collecting without a window when there is nothing to pick, and a 409 that reopens it.
+const NAVIDAD = SKIN_PROBES.map((p) => `skin-${p}-navidad`);
+const nameOf = (id: string) => pieceName('skin', id);
+const c = t.choice;
+const choiceOf = (count: number) => ({ piece: 'skin' as const, options: NAVIDAD, count, perMissing: { currency: 'signal' as const, amount: 10 } });
+const ended = { state: 'finished' as const, endsAt: at(-3 * DAY), resultsAt: at(-2 * DAY), join: { open: false, block: 'closed' as const }, total: 30 };
+
+test('elegir las skins del premio: las que ya tienes apagadas, el contador, el teclado y se recoge con justo las que tocan', async () => {
+  const user = userEvent.setup();
+  const rewards: TournamentRewards = { place: 2, gifts: [{ kind: 'currency', currency: 'signal', amount: 25 }], cash: null, participation: false, choice: choiceOf(3) };
+  const before = page({
+    ...ended,
+    prizes: [
+      { from: 1, to: 1, gifts: [], cash: null, choice: choiceOf(8) },
+      { from: 2, to: 2, gifts: rewards.gifts, cash: null, choice: choiceOf(3) },
+    ],
+    me: me({ rank: 2, score: 3100, rewards }),
+    choiceState: { owned: [NAVIDAD[0]!], unavailable: [] },
+  });
+  let current = before;
+  const fetch = mockApi(
+    routes(before, {
+      'GET /galaxy/api/tournaments/copa-de-hielo': () => jsonResponse(200, current),
+      [`POST /galaxy/api/tournaments/${ID}/claim`]: (body: unknown) => {
+        const chosen = (body as { choice: string[] }).choice;
+        current = { ...before, choiceState: null, me: me({ rank: 2, score: 3100, rewards: { ...rewards, chosen, missing: 0 }, claimed: true }) };
+        const gifts = [...rewards.gifts, ...chosen.map((id) => ({ kind: 'cosmetic' as const, piece: 'skin' as const, id }))];
+        return jsonResponse(200, { items: gifts.map((gift) => ({ gift, outcome: 'granted' })), wallet: { coins: 1200, dust: 80, signal: 27 } });
+      },
+    }),
+  );
+  open();
+  // The prizes say what each place chooses.
+  const prizes = within(await screen.findByRole('region', { name: t.prizesTitle }));
+  expect(prizes.getByText('Pack Navidad completo')).toBeInTheDocument();
+  expect(prizes.getByText('Elige 3 skins del Pack Navidad')).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: c.pickAndClaimOf('Copa de hielo') }));
+  const dialog = screen.getByRole('dialog', { name: c.title(3) });
+  const d = within(dialog);
+  // Nothing is sent until the skins are picked.
+  expect(posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)).toHaveLength(0);
+  const option = (id: string) => d.getByRole('button', { name: new RegExp(`^${nameOf(id)}`) });
+  // The one already owned is greyed out and says so; the focus starts on the first one that can be picked.
+  expect(option(NAVIDAD[0]!)).toHaveAttribute('aria-disabled', 'true');
+  expect(option(NAVIDAD[0]!)).toHaveAccessibleName(`${nameOf(NAVIDAD[0]!)} ${c.owned}`);
+  expect(option(NAVIDAD[1]!)).toHaveFocus();
+  const status = d.getByRole('status');
+  expect(status).toHaveTextContent(c.countLabel(0, 3));
+  const confirm = d.getByRole('button', { name: c.confirm(3) });
+  expect(confirm).toBeDisabled();
+  // Clicking an owned one does nothing.
+  await user.click(option(NAVIDAD[0]!));
+  expect(option(NAVIDAD[0]!)).toHaveAttribute('aria-pressed', 'false');
+  // The keyboard picks: Space on the focused one, Tab to the next, Enter.
+  option(NAVIDAD[1]!).focus();
+  await user.keyboard(' ');
+  expect(option(NAVIDAD[1]!)).toHaveAttribute('aria-pressed', 'true');
+  expect(status).toHaveTextContent(c.countLabel(1, 3));
+  await user.tab();
+  expect(option(NAVIDAD[2]!)).toHaveFocus();
+  await user.keyboard('{Enter}');
+  await user.click(option(NAVIDAD[4]!));
+  expect(status).toHaveTextContent(c.countLabel(3, 3));
+  // Full: the rest wait until one is taken off.
+  expect(option(NAVIDAD[5]!)).toHaveAttribute('aria-disabled', 'true');
+  expect(d.getByText(c.full)).toBeInTheDocument();
+  await user.click(option(NAVIDAD[5]!));
+  expect(option(NAVIDAD[5]!)).toHaveAttribute('aria-pressed', 'false');
+  await user.click(option(NAVIDAD[4]!));
+  expect(confirm).toBeDisabled();
+  await user.click(option(NAVIDAD[7]!));
+  await user.click(confirm);
+  await waitFor(() => expect(posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)).toHaveLength(1));
+  const [, init] = posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)[0]!;
+  expect(JSON.parse(String(init!.body))).toEqual({ choice: [NAVIDAD[1], NAVIDAD[2], NAVIDAD[7]] });
+  expect(keyOf(init)).toMatch(/^[0-9a-f-]{36}$/);
+  // What the server gave flies and sounds; the window closes and the page shows the skins taken.
+  await waitFor(() => expect(playClaim).toHaveBeenCalledWith(expect.objectContaining({ signal: 25, skin: NAVIDAD[7] }), true));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(await screen.findByText(t.claimed)).toBeInTheDocument();
+  expect(screen.getByText(copy.gifts.cosmetic('skin', nameOf(NAVIDAD[2]!)))).toBeInTheDocument();
+});
+
+test('si te quedan justo las skins que tocan se recogen sin ventana, y lo que ya tienes se cambia por señales', async () => {
+  const user = userEvent.setup();
+  const rewards: TournamentRewards = { place: 1, gifts: [{ kind: 'currency', currency: 'signal', amount: 30 }], cash: null, participation: false, choice: choiceOf(8) };
+  const owned = NAVIDAD.slice(0, 3);
+  const before = page({ ...ended, me: me({ rank: 1, score: 4200, rewards }), choiceState: { owned, unavailable: [] } });
+  let current = before;
+  const fetch = mockApi(
+    routes(before, {
+      'GET /galaxy/api/tournaments/copa-de-hielo': () => jsonResponse(200, current),
+      [`POST /galaxy/api/tournaments/${ID}/claim`]: () => {
+        current = { ...before, choiceState: null, me: me({ rank: 1, score: 4200, rewards: { ...rewards, chosen: NAVIDAD.slice(3), missing: 3 }, claimed: true }) };
+        const gifts = [{ kind: 'currency' as const, currency: 'signal' as const, amount: 60 }, ...NAVIDAD.slice(3).map((id) => ({ kind: 'cosmetic' as const, piece: 'skin' as const, id }))];
+        return jsonResponse(200, { items: gifts.map((gift) => ({ gift, outcome: 'granted' })), wallet: { coins: 1200, dust: 80, signal: 62 } });
+      },
+    }),
+  );
+  open();
+  expect(await screen.findByText(c.ownedPaid(3, '30 señales de galaxia'))).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: t.claimOf('Copa de hielo') }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)).toHaveLength(1));
+  // No body: nothing to pick.
+  expect(posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)[0]![1]!.body).toBeUndefined();
+  await waitFor(() => expect(playClaim).toHaveBeenCalledWith(expect.objectContaining({ signal: 60 }), true));
+  expect(await screen.findByText(t.claimed)).toBeInTheDocument();
+  // What it gave: the five skins and the signals for the three already owned.
+  expect(screen.getByText(copy.gifts.cosmetic('skin', nameOf(NAVIDAD[7]!)))).toBeInTheDocument();
+  expect(screen.getByText(c.paidFor(3, '30 señales de galaxia'))).toBeInTheDocument();
+});
+
+test('si una skin elegida ya es tuya al recoger, la página se vuelve a leer y la ventana sigue abierta con ella apagada', async () => {
+  const user = userEvent.setup();
+  const rewards: TournamentRewards = { place: 3, gifts: [], cash: null, participation: false, choice: choiceOf(1) };
+  const before = page({ ...ended, me: me({ rank: 3, score: 2800, rewards }), choiceState: { owned: [], unavailable: [] } });
+  let current = before;
+  const fetch = mockApi(
+    routes(before, {
+      'GET /galaxy/api/tournaments/copa-de-hielo': () => jsonResponse(200, current),
+      [`POST /galaxy/api/tournaments/${ID}/claim`]: () => {
+        // Bought in the shop meanwhile, and one more switched off.
+        current = { ...before, choiceState: { owned: [NAVIDAD[2]!], unavailable: [NAVIDAD[6]!] } };
+        return jsonResponse(409, { error: 'tournament_choice_owned' });
+      },
+    }),
+  );
+  open();
+  await user.click(await screen.findByRole('button', { name: c.pickAndClaimOf('Copa de hielo') }));
+  const d = within(screen.getByRole('dialog', { name: c.title(1) }));
+  const option = (id: string) => d.getByRole('button', { name: new RegExp(`^${nameOf(id)}`) });
+  // One to pick: picking another one swaps it.
+  await user.click(option(NAVIDAD[1]!));
+  await user.click(option(NAVIDAD[2]!));
+  expect(option(NAVIDAD[1]!)).toHaveAttribute('aria-pressed', 'false');
+  expect(d.getByRole('status')).toHaveTextContent(c.countLabel(1, 1));
+  await user.click(d.getByRole('button', { name: c.confirm(1) }));
+  expect(await d.findByRole('alert')).toHaveTextContent(copy.errors.tournament_choice_owned);
+  await waitFor(() => expect(option(NAVIDAD[2]!)).toHaveAccessibleName(`${nameOf(NAVIDAD[2]!)} ${c.owned}`));
+  expect(option(NAVIDAD[6]!)).toHaveAccessibleName(`${nameOf(NAVIDAD[6]!)} ${c.off}`);
+  // The pick that is owned now is dropped: choose again.
+  expect(d.getByRole('status')).toHaveTextContent(c.countLabel(0, 1));
+  expect(d.getByRole('button', { name: c.confirm(1) })).toBeDisabled();
+  expect(posts(fetch, `/galaxy/api/tournaments/${ID}/claim`)).toHaveLength(1);
 });
 
 test('un premio solo en dinero no tiene nada que recoger: dice cómo se paga', async () => {

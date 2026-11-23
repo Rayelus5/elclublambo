@@ -122,6 +122,8 @@ describe('la ficha de una campaña', () => {
   test('una promoción no lleva preguntas ni premio, y su enlace es opcional', () => {
     expect(messages(PROMO)).toEqual([]);
     expect(messages({ ...PROMO, link: { kind: 'route', to: '/temporada', label: 'Ver la temporada' } })).toEqual([]);
+    // The tournaments too (plan «Torneo Navideño»: its promotion leads to them).
+    expect(messages({ ...PROMO, link: { kind: 'route', to: '/torneos', label: 'Ver los torneos' } })).toEqual([]);
     expect(messages({ ...PROMO, link: { kind: 'url', href: 'https://discord.gg/galaxy', label: 'Discord' } })).toEqual([]);
     expect(messages({ ...PROMO, link: { kind: 'url', href: 'http://inseguro.es', label: 'Web' } }).length).toBeGreaterThan(0);
     expect(messages({ ...PROMO, questions: [stars()] })).toContain('popup_promotion_questions');

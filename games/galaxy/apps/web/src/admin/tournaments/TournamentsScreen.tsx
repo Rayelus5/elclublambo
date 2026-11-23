@@ -8,6 +8,7 @@ import { copy } from '../../copy/es';
 import { GiftArt } from '../../gifts/GiftArt';
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
 import { type GiftCatalog } from '../../gifts/words';
+import { choiceWords } from '../../tournaments/words';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { duration, range } from '../events/shared';
@@ -113,6 +114,7 @@ function PrizesFact({ x, catalog }: { x: AdminTournament; catalog: GiftCatalog |
           ))}
         </ul>
       ) : null}
+      {first?.choice ? <small>{choiceWords(first.choice).title}</small> : null}
       {r.prizes.some((p) => p.cash) ? (
         <small className="atn-money">
           {t.withCash} <b>{euros(r.prizes.reduce((s, p) => s + (p.cash ? p.cash.amountEur * (p.to - p.from + 1) : 0), 0))}</b>

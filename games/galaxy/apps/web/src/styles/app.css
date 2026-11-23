@@ -6280,6 +6280,68 @@
   }
 
   :where(:root[data-motion='reduced']) { .tn-cell, .tn-live, .tn-dot, .tn-go-claim, .tn-claim, .tn-climb, .hub-tn.p-collect { animation: none; } .hub-tn .htn-art img { transition: none; } }
+
+  /* Skins to choose as a prize (plan «Torneo Navideño», C2; §8 quinquagies bis), with their own prefix: the prize as a
+     strip of its skins with its words, its small mark on the cards, and the window where the winner picks them. */
+  .tch-tile { align-items: center; }
+  .tch-strip { display: inline-flex; flex: none; padding-inline-start: 8px; }
+  .tch-chip { display: grid; place-items: center; inline-size: 32px; block-size: 32px; margin-inline-start: -8px; border-radius: 10px; background: radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--color-uv-soft) 30%, var(--color-panel-2)), var(--color-panel-lip)); box-shadow: 0 0 0 2px var(--color-panel-lip), inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .tch-tile.md .tch-strip { padding-inline-start: 6px; }
+  .tch-tile.md .tch-chip { inline-size: 52px; block-size: 52px; margin-inline-start: -6px; border-radius: 14px; }
+  .tch-sprite { display: block; image-rendering: pixelated; }
+  .tch-more { font: 800 12px/1 var(--font-sans); color: var(--color-ink-soft); }
+  .tch-tile.md .tch-more { font-size: 14px; }
+  .tch-mark { --k: var(--color-uv-soft); --tc: var(--color-uv-soft); overflow: visible; }
+  .tch-mark .gift-count { inset-block-end: -6px; inset-inline-end: -8px; padding: 0 5px; font-size: 10px; }
+
+  /* The window: the options in a grid (four across for a pack), the counter with its pips and the actions. */
+  .modal.tch-dialog { inline-size: min(720px, 100%); box-sizing: border-box; }
+  .tch-lead { margin: -6px 0 16px; color: var(--color-ink-soft); font-size: 15.5px; line-height: 1.4; }
+  .tch-grid { list-style: none; margin: 0; padding: 4px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .tch-grid[data-cols='1'] { grid-template-columns: minmax(0, 200px); justify-content: center; }
+  .tch-grid[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 200px)); justify-content: center; }
+  .tch-grid[data-cols='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tch-cell { display: grid; min-inline-size: 0; animation: tch-in .38s var(--ease-bounce) calc(var(--i, 0) * 40ms) both; }
+  @keyframes tch-in { from { opacity: 0; translate: 0 10px; scale: .96; } }
+  .tch-option { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; inline-size: 100%; min-block-size: 100%; box-sizing: border-box; padding: 12px 8px; border: 0; border-radius: 18px; background: var(--color-panel-2); color: var(--color-ink); font: inherit; text-align: center; cursor: pointer; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05), 0 4px 0 var(--color-panel-lip); transition: translate .18s var(--ease-bounce), box-shadow .18s var(--ease-bounce), background .18s ease, opacity .18s ease; }
+  .tch-option:hover:not([aria-disabled='true']) { translate: 0 -3px; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .12), 0 7px 0 var(--color-panel-lip); }
+  .tch-option:active:not([aria-disabled='true']) { translate: 0 2px; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .12), 0 1px 0 var(--color-panel-lip); transition-duration: 60ms; }
+  .tch-option:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .tch-stage { display: grid; place-items: center; inline-size: 96px; block-size: 96px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in oklab, var(--color-uv-soft) 26%, transparent), transparent); }
+  .tch-stage .piece-skin { display: block; image-rendering: pixelated; }
+  .tch-name { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+  .tch-why { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px 2px 7px; border-radius: 99px; background: rgb(0 0 0 / .32); color: var(--color-ink-soft); font-size: 12.5px; font-weight: 700; }
+  .tch-why .ico { inline-size: 14px; block-size: 14px; }
+  .tch-option.owned .tch-why { color: var(--color-terminal); }
+  .tch-tick { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; display: grid; place-items: center; inline-size: 28px; block-size: 28px; border-radius: 50%; background: var(--color-solar); color: var(--color-on-solar); box-shadow: 0 2px 0 var(--color-solar-lip); opacity: 0; scale: .4; transition: opacity .16s ease, scale .22s var(--ease-bounce); }
+  .tch-tick .ico { inline-size: 18px; block-size: 18px; }
+  .tch-option.on { background: radial-gradient(110% 90% at 50% 0%, rgb(255 201 74 / .2), transparent 70%), var(--color-panel-2); box-shadow: inset 0 0 0 3px var(--color-solar), 0 4px 0 var(--color-solar-lip); }
+  .tch-option.on:hover { box-shadow: inset 0 0 0 3px var(--color-solar), 0 7px 0 var(--color-solar-lip); }
+  .tch-option.on .tch-tick { opacity: 1; scale: 1; }
+  /* Owned or gone: greyed out, the reason still readable. Waiting (the pick is full): a step back. */
+  .tch-option:is(.owned, .off) { cursor: not-allowed; background: rgb(0 0 0 / .22); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .04); }
+  .tch-option:is(.owned, .off) :is(.tch-stage, .tch-name) { opacity: .42; filter: grayscale(.9); }
+  .tch-option.waits { cursor: not-allowed; opacity: .55; }
+  .tch-error { margin: 14px 0 0; }
+  .tch-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 18px; }
+  .tch-foot .modal-actions { margin: 0 0 0 auto; }
+  .tch-actions .pill { display: inline-flex; align-items: center; gap: 8px; }
+  .tch-actions .pill .ico { inline-size: 20px; block-size: 20px; }
+  .tch-count { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; min-inline-size: 0; }
+  .tch-count b { font: 400 22px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .tch-count.ready b { color: var(--color-solar); }
+  .tch-count small { flex-basis: 100%; font-size: 13px; color: var(--color-ink-mute); }
+  .tch-pips { display: inline-flex; gap: 6px; }
+  .tch-pips i { inline-size: 12px; block-size: 12px; border-radius: 50%; background: rgb(0 0 0 / .35); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .14); transition: background .18s ease, box-shadow .18s ease; }
+  .tch-pips i.on { background: var(--color-solar); box-shadow: 0 0 10px -2px var(--color-solar); }
+  /* It hangs from <body>, out of the screen's zoom: large screens get it here. */
+  @media (min-width: 2400px) { .modal.tch-dialog { zoom: 1.25; } }
+  /* The panel: a range's switch in UV, across the range; the choice in words on the preview card. */
+  .atn-range-grid > .atn-cash-row.tch-row { grid-column: 1 / -1; }
+  .tch-row.on { background: color-mix(in srgb, var(--color-uv) 12%, rgb(0 0 0 / .2)); }
+  .tch-row .atn-toggle-label .ico { color: var(--color-uv-soft); }
+  .tch-admin-chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 99px; background: color-mix(in oklab, var(--color-uv-soft) 18%, transparent); color: var(--color-uv-soft); font-size: 13px; font-weight: 700; }
+  :where(:root[data-motion='reduced']) { .tch-cell { animation: none; } .tch-option, .tch-tick, .tch-pips i { transition: none; } .tch-option:is(:hover, :active) { translate: none; } }
 }
 
 @layer components {

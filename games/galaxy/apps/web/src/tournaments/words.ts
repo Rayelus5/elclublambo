@@ -1,4 +1,4 @@
-import { datesOverlap, type Gift, type TournamentCard, type TournamentFee, type TournamentList, type TournamentMetric } from '@galaxy/shared';
+import { datesOverlap, type Gift, hasPrizeToCollect, type PrizeChoice, SKIN_PACKS, SKIN_PROBES, type TournamentCard, type TournamentFee, type TournamentList, type TournamentMetric } from '@galaxy/shared';
 import { listOf } from '../api/tournaments';
 import { copy } from '../copy/es';
 import type { Reward } from '../missions/ready';
@@ -16,6 +16,25 @@ export const isBest = (m: TournamentMetric) => m === 'best_run' || m === 'depth'
 /** The fee in words: «500 monedas». */
 export function feeWords(fee: TournamentFee): string {
   return copy.gifts.amount[fee.currency](fee.amount);
+}
+
+/** The shop pack a choice's options are, whole and in any order (its name: «Pack Navidad»); null when they are not one. */
+export function choicePack(options: readonly string[]): string | null {
+  const set = new Set(options);
+  const k = SKIN_PACKS.find((p) => set.size === SKIN_PROBES.length && SKIN_PROBES.every((probe) => set.has(`skin-${probe}-${p.line}`)));
+  return k ? t.choice.pack(k.pack) : null;
+}
+
+/**
+ * Skins to choose in words (plan «Torneo Navideño», C2): what the prize is («Pack Navidad completo», «Elige 3 skins del
+ * Pack Navidad») and what each skin that cannot be given pays (null: nothing).
+ */
+export function choiceWords(choice: Pick<PrizeChoice, 'options' | 'count' | 'perMissing'>): { title: string; rule: string | null } {
+  const pack = choicePack(choice.options);
+  const whole = choice.count >= choice.options.length;
+  const title = whole ? (pack ? t.choice.whole(pack) : t.choice.skins(choice.options.length)) : pack ? t.choice.pickPack(choice.count, pack) : t.choice.pickOf(choice.count, choice.options.length);
+  const rule = choice.perMissing ? (whole ? t.choice.perMissingWhole : t.choice.perMissingPick)(feeWords(choice.perMissing)) : null;
+  return { title, rule };
 }
 
 /** Why the viewer cannot sign up, in words; null when they can, or when they are in it (they get «Salir»). */
@@ -124,7 +143,7 @@ export function featuredOf(data: TournamentList | undefined): { card: Tournament
   const review = of('review').sort(byEnd);
   const scheduled = of('scheduled').sort(byStart);
   const steps: [HubPick, TournamentCard | undefined][] = [
-    ['collect', finished.find((c) => !!c.me?.rewards && c.me.rewards.gifts.length > 0 && !c.me.claimed)],
+    ['collect', finished.find((c) => hasPrizeToCollect(c.me?.rewards) && !c.me?.claimed)],
     ['playing', running.find(joined)],
     ['open', running.find((c) => c.join.open)],
     ['results', review.find(joined)],

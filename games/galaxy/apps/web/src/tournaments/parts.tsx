@@ -1,4 +1,4 @@
-import { type PrizeRange, type TournamentCard, tournamentPath } from '@galaxy/shared';
+import { hasPrizeToCollect, type PrizeRange, type TournamentCard, tournamentPath } from '@galaxy/shared';
 import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 import { useGacha } from '../api/economy';
@@ -11,6 +11,7 @@ import { giftWords } from '../gifts/words';
 import { Countdown } from '../ui/Countdown';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
+import { ChoiceMark } from './SkinChoice';
 import { blockText, dateTime, dayOf, exclusiveClashes, feeWords } from './words';
 
 // The pieces the tournaments' list and page share (plan «temporadas como fichas», part 5; DESIGN_SYSTEM §8
@@ -75,13 +76,14 @@ export function CashBadge({ eur }: { eur: number }) {
   );
 }
 
-/** The first prize ranges in short (the card): each range's places, its first gifts drawn and its money. */
+/** The first prize ranges in short (the card): each range's places, its skins to choose and first gifts drawn, its money. */
 export function PrizeStrip({ prizes, catalog, max = 3 }: { prizes: readonly PrizeRange[]; catalog: View; max?: number }) {
   if (prizes.length === 0) return <p className="tn-no-prizes">{t.noPrizes}</p>;
   return (
     <ul className="tn-prize-strip" aria-label={t.prizesTitle}>
       {prizes.slice(0, max).map((p) => {
-        const shown = p.gifts.slice(0, 2);
+        // Skins to choose take the first of the two places.
+        const shown = p.gifts.slice(0, p.choice ? 1 : 2);
         const more = p.gifts.length - shown.length;
         return (
           <li key={p.from} className={p.from === 1 ? 'first' : undefined}>
@@ -89,6 +91,7 @@ export function PrizeStrip({ prizes, catalog, max = 3 }: { prizes: readonly Priz
               {t.placesShort(p.from, p.to)}
             </span>
             <span className="tn-prize-gifts">
+              {p.choice ? <ChoiceMark choice={p.choice} /> : null}
               {shown.map((g, i) => (
                 <span key={i} className="tn-prize-gift" title={giftWords(g, catalog)}>
                   <GiftArt gift={g} catalog={catalog} compact />
@@ -142,8 +145,8 @@ export function MyStatus({ card }: { card: TournamentCard }) {
   );
 }
 
-/** Prizes waiting on a finished tournament's page (only gifts are collected; money is paid outside the game). */
-export const toCollect = (card: TournamentCard) => card.state === 'finished' && !!card.me?.rewards && card.me.rewards.gifts.length > 0 && !card.me.claimed;
+/** Prizes waiting on a finished tournament's page: gifts or skins to choose (money is paid outside the game). */
+export const toCollect = (card: TournamentCard) => card.state === 'finished' && hasPrizeToCollect(card.me?.rewards) && !card.me?.claimed;
 
 /**
  * What the viewer can do now: sign up (with its fee), leave, or why not; on a finished one with prizes waiting, the way
