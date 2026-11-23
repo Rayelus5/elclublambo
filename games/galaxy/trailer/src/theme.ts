@@ -20,7 +20,7 @@ export const DISPLAY = "'Bungee', sans-serif";
 export const SANS = "'Fredoka', system-ui, sans-serif";
 export const BRAILLE_BRAND = '⠛⠁⠇⠁⠭⠽ ⠎⠥⠗⠧⠊⠧⠕⠗';
 /** Where to play (one place to change it). */
-export const PLAY_URL = 'pre.elclub.party/galaxy';
+export const PLAY_URL = 'galaxysurvivor.es';
 
 export const MUSIC_SECONDS = beats.duration;
 /** Seconds at bar `b` (4 beats a bar), from the music's first beat. */
