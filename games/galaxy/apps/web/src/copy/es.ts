@@ -2,7 +2,7 @@ import type { Quirk } from '@galaxy/sim';
 import type { KeyLabels } from '../settings/keybinds';
 import type { InstallBrowser } from '../pwa/install';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
-import { type ApiErrorCode, pieceName, type PopupIssueCode, type PopupKind, type PopupState, type TournamentIssueCode, type TournamentMetric } from '@galaxy/shared';
+import { type ApiErrorCode, pieceName, type PopupIssueCode, type PopupKind, type PopupState, TOURNAMENT_MAX_DAYS, type TournamentIssueCode, type TournamentMetric } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
@@ -5635,6 +5635,8 @@ export const copy = {
     tournament_needs_superadmin: 'Esos premios son muy grandes o llevan dinero. Solo lo puede programar un superadmin',
     tournament_cash_not_found: 'Ese jugador no tiene un premio en metálico en ese torneo',
     tournament_cash_paid: 'Ese premio ya se marcó como pagado',
+    tournament_choice_invalid: 'Esa elección de skins no vale. Vuelve a elegirlas',
+    tournament_choice_owned: 'Ya tienes alguna de las skins que elegiste. Elige otra',
     popup_not_found: 'Esa encuesta o aviso ya no está',
     popup_closed: 'Esta encuesta ya está cerrada',
     popup_answered: 'Ya contestaste esta encuesta',
@@ -5650,9 +5652,11 @@ export const copy = {
   // What is wrong with a tournament's record (tournamentIssues in packages/shared): the panel shows it next to the field.
   tournamentIssues: {
     tournament_dates: 'Tiene que acabar después de empezar',
-    tournament_too_long: 'Un torneo dura 28 días como mucho',
+    tournament_too_long: `Un torneo dura ${TOURNAMENT_MAX_DAYS} días como mucho`,
     prize_range: 'El último puesto del tramo va después del primero',
     prize_empty: 'Ese tramo no da nada. Añade un regalo o dinero',
+    prize_choice_count: 'Da más skins de las que hay para elegir',
+    prize_choice_twice: 'Esa skin ya está entre las opciones',
     prizes_order: 'Los tramos de premios van en orden, del primer puesto al último',
     prizes_overlap: 'Ese tramo se solapa con el anterior',
     prizes_start: 'El primer tramo empieza en el puesto 1',

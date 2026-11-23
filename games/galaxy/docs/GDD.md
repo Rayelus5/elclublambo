@@ -602,11 +602,17 @@ Competiciones dentro de una temporada, cada una con **su propia clasificación**
 - Nivel mínimo y cupo opcionales.
 
 **La ficha [D].**
-- Dura **28 días como mucho** y cabe en su temporada, que tiene que estar programada.
-- Los tramos de premios empiezan en el puesto 1, van en orden y no se solapan. Cada uno da regalos (los del buzón, `Gift`) y, aparte, dinero opcional.
+- Dura **31 días como mucho** [U] (un mes entero, 2026-11-23) y cabe en su temporada, que tiene que estar programada.
+- Los tramos de premios empiezan en el puesto 1, van en orden y no se solapan. Cada uno da regalos (los del buzón, `Gift`), skins a elegir y, aparte, dinero opcional.
+- **Skins a elegir [U]** (`choice`, plan «Torneo Navideño»):
+  - el tramo da `count` skins entre unas opciones (hasta 12, por ejemplo un pack). Con `count` igual al número de opciones, las da todas, sin elegir;
+  - se eligen **al recoger**, en la página del torneo. Las que el ganador ya tiene, o que ya no están activas, no se pueden elegir;
+  - si le quedan tantas como le tocan o menos, se dan solas, sin ventana;
+  - **cada skin que falte** para llegar a `count` se paga con `perMissing` (moneda del monedero y cantidad; `null`, nada). Va en el mismo abono que el resto del premio;
+  - lo que se dio queda en la inscripción (`chosen` y `missing`). Si una compra llega en el mismo instante que la recogida, esa skin no se da ni se compensa: es muy improbable y no lleva bloqueo.
 - **Premio de participación** opcional: a quien jugó al menos `minRuns` partidas que cuentan.
 - Nada que acabe con la temporada o con un evento puede ser premio (sus puntos, su moneda, las señales de un evento): los premios no caducan.
-- **Programar** pide la contraseña. Con premios por encima de `mailLimits`, o con dinero, solo un superadmin.
+- **Programar** pide la contraseña. Con premios por encima de `mailLimits`, o con dinero, solo un superadmin. Las skins a elegir pesan como si se dieran todas sus opciones, y su compensación como si faltaran todas.
 
 **Ciclo [U+D].** Un proceso por minuto: programado → en curso (aviso a los inscritos) → en revisión al acabar → terminado.
 

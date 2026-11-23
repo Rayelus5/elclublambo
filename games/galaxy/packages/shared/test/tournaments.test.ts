@@ -4,6 +4,8 @@ import {
   type Gift,
   parseConfig,
   prizeForPlace,
+  SKIN_PROBES,
+  TOURNAMENT_MAX_DAYS,
   tournamentBigReasons,
   tournamentFitsSeason,
   tournamentIssues,
@@ -12,8 +14,8 @@ import {
 } from '../src';
 
 // Tournaments (plan «temporadas como fichas», part 5; GDD §13.3): the record an admin saves, its checks (ranges from 1
-// without overlaps, never a fee with money, 28 days at most, inside its season), the prize of each place and who takes
-// it when an account cannot win prizes.
+// without overlaps, never a fee with money, 31 days at most, inside its season), the prize of each place and who takes
+// it when an account cannot win prizes, and the skins a place lets its winner choose (plan «Torneo Navideño», C1).
 
 const coins = (amount: number): Gift => ({ kind: 'currency', currency: 'coins', amount });
 const BASE = {
@@ -39,10 +41,12 @@ describe('la ficha de un torneo', () => {
     expect(t.prizes[1]).toEqual({ from: 2, to: 3, gifts: [coins(2000)], cash: null });
   });
 
-  test('acaba después de empezar y dura 28 días como mucho', () => {
+  test('acaba después de empezar y dura 31 días como mucho', () => {
+    expect(TOURNAMENT_MAX_DAYS).toBe(31);
     expect(messages({ ...BASE, endsAt: BASE.startsAt })).toContain('tournament_dates');
-    expect(messages({ ...BASE, endsAt: '2027-01-01T17:00:01.000Z' })).toContain('tournament_too_long');
-    expect(messages({ ...BASE, startsAt: '2026-12-01T00:00:00.000Z', endsAt: '2026-12-29T00:00:00.000Z' })).toEqual([]);
+    // Exactly 31 days (all of December, Madrid time) is fine; one second more is not.
+    expect(messages({ ...BASE, startsAt: '2026-11-30T23:00:00.000Z', endsAt: '2026-12-31T23:00:00.000Z' })).toEqual([]);
+    expect(messages({ ...BASE, startsAt: '2026-11-30T23:00:00.000Z', endsAt: '2026-12-31T23:00:01.000Z' })).toContain('tournament_too_long');
   });
 
   test('los puestos con premio empiezan en 1, van en orden y no se solapan', () => {
@@ -178,5 +182,71 @@ describe('quién puede programarlo', () => {
     const open = tournamentRecordSchema.parse({ ...BASE, participation: { minRuns: 1, gifts: [coins(10)] } });
     expect(tournamentBigReasons(open, few, cosmetics)).toEqual(['recipients']);
     expect(tournamentBigReasons({ ...open, maxEntrants: 5 }, few, cosmetics)).toEqual([]);
+  });
+});
+
+describe('las skins a elegir (plan «Torneo Navideño», C1)', () => {
+  const NAVIDAD = SKIN_PROBES.map((p) => `skin-${p}-navidad`);
+  const signal = (amount: number): Gift => ({ kind: 'currency', currency: 'signal', amount });
+  const choice = (count: number, over: object = {}) => ({ piece: 'skin', options: NAVIDAD, count, perMissing: { currency: 'signal', amount: 10 }, ...over });
+  const withChoice = (c: object, gifts: Gift[] = []) => ({ ...BASE, prizes: [{ from: 1, to: 1, gifts, choice: c }] });
+  const cosmetics = parseConfig('cosmetics', {});
+  const live = (over: Partial<typeof cosmetics> = {}) => ({ cosmetics: { ...cosmetics, ...over }, probes: ['lumen'], events: [], season: { id: 'season-2', open: false }, now: new Date('2026-11-23T12:00:00.000Z') });
+
+  test('un tramo que solo da skins a elegir no está vacío', () => {
+    expect(messages(withChoice(choice(3)))).toEqual([]);
+    expect(messages(withChoice(choice(8, { perMissing: null })))).toEqual([]);
+    expect(tournamentRecordSchema.parse(withChoice(choice(1))).prizes[0]!.choice).toEqual({ piece: 'skin', options: NAVIDAD, count: 1, perMissing: { currency: 'signal', amount: 10 } });
+  });
+
+  test('no da más skins de las que hay para elegir ni repite opciones', () => {
+    expect(tournamentIssues(withChoice(choice(9)))).toContainEqual({ path: 'prizes.0.choice.count', message: 'prize_choice_count' });
+    expect(tournamentIssues(withChoice(choice(1, { options: [NAVIDAD[0], NAVIDAD[1], NAVIDAD[0]] })))).toContainEqual({ path: 'prizes.0.choice.options.2', message: 'prize_choice_twice' });
+    // Shapes the schema refuses: no options, a count of 0, a fee currency that is not the wallet's, more than 12.
+    expect(messages(withChoice(choice(1, { options: [] }))).length).toBeGreaterThan(0);
+    expect(messages(withChoice(choice(0))).length).toBeGreaterThan(0);
+    expect(messages(withChoice(choice(1, { perMissing: { currency: 'season:season-2', amount: 10 } }))).length).toBeGreaterThan(0);
+    expect(messages(withChoice(choice(1, { perMissing: { currency: 'signal', amount: 0 } }))).length).toBeGreaterThan(0);
+    expect(messages(withChoice(choice(1, { options: Array.from({ length: 13 }, (_, i) => `skin-${i}`) }))).length).toBeGreaterThan(0);
+    expect(messages(withChoice(choice(1, { piece: 'frame' }))).length).toBeGreaterThan(0);
+  });
+
+  test('una skin que no existe se ve siempre; una desactivada, con lo vivo', () => {
+    const unknown = withChoice(choice(1, { options: [NAVIDAD[0], 'skin-lumen-plata'] }));
+    // The schema keeps it (a stored tournament never stops reading); the check finds it.
+    expect(tournamentRecordSchema.safeParse(unknown).success).toBe(true);
+    expect(tournamentIssues(unknown)).toEqual([{ path: 'prizes.0.choice.options.1', message: 'gift_cosmetic_unknown' }]);
+    const off = live({ skins: cosmetics.skins.map((s) => (s.id === NAVIDAD[3] ? { ...s, enabled: false } : s)) });
+    expect(tournamentIssues(withChoice(choice(2)), { gifts: off })).toEqual([{ path: 'prizes.0.choice.options.3', message: 'gift_cosmetic_unknown' }]);
+    expect(tournamentIssues(withChoice(choice(2)), { gifts: live() })).toEqual([]);
+  });
+
+  test('las skins de tienda y la compensación pesan: el Torneo Navideño lo programa un superadmin', () => {
+    const limits = parseConfig('mailLimits', {});
+    const first = tournamentRecordSchema.parse(withChoice(choice(8), [signal(30)]));
+    expect(tournamentBigReasons(first, limits, cosmetics).sort()).toEqual(['cosmetic_shop', 'currency_signal']);
+    // The compensation alone, at its most (every option owned), is weighed too.
+    const reward = cosmetics.skins.find((s) => s.source === 'reward')!.id;
+    const cheap = tournamentRecordSchema.parse(withChoice(choice(1, { options: [reward], perMissing: { currency: 'signal', amount: limits.currency.signal + 1 } })));
+    expect(tournamentBigReasons(cheap, limits, cosmetics)).toEqual(['currency_signal']);
+    const fine = tournamentRecordSchema.parse(withChoice(choice(1, { options: [reward], perMissing: { currency: 'signal', amount: 10 } })));
+    expect(tournamentBigReasons(fine, limits, cosmetics)).toEqual([]);
+  });
+
+  test('el premio congelado lleva la elección; sin ella, el de antes, igual', () => {
+    const t = tournamentRecordSchema.parse({ ...BASE, prizes: [{ from: 1, to: 1, gifts: [signal(30)], choice: choice(8) }, { from: 2, to: 2, gifts: [], choice: choice(3) }, { from: 3, to: 3, gifts: [signal(20)] }] });
+    expect(tournamentRewardsFor(t, { place: 1, runs: 4, eligible: true })).toEqual({ place: 1, gifts: [signal(30)], cash: null, participation: false, choice: t.prizes[0]!.choice });
+    expect(tournamentRewardsFor(t, { place: 2, runs: 4, eligible: true })).toEqual({ place: 2, gifts: [], cash: null, participation: false, choice: t.prizes[1]!.choice });
+    // A range without one keeps the exact shape it had (no `choice` key at all).
+    expect(tournamentRewardsFor(t, { place: 3, runs: 4, eligible: true })).toStrictEqual({ place: 3, gifts: [signal(20)], cash: null, participation: false });
+  });
+
+  test('los registros guardados antes se leen igual que antes', () => {
+    const t = tournamentRecordSchema.parse(BASE);
+    expect(t.prizes).toStrictEqual([
+      { from: 1, to: 1, gifts: [coins(5000)], cash: null },
+      { from: 2, to: 3, gifts: [coins(2000)], cash: null },
+    ]);
+    expect(tournamentRecordSchema.parse(JSON.parse(JSON.stringify(t)))).toStrictEqual(t);
   });
 });

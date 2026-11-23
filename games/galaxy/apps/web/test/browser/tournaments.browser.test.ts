@@ -79,6 +79,7 @@ const page_ = (over: Partial<TournamentDetail> = {}): TournamentDetail => ({
   ...card(),
   rules: 'Vale cualquier sonda y cualquier sector.\nLas partidas en grupo también cuentan, con sus puntos repartidos.',
   details: null,
+  choiceState: null,
   reviewHours: 24,
   ranking,
   total: 214,

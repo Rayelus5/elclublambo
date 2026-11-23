@@ -7,6 +7,7 @@ import {
   madridMidnightOf,
   parseConfig,
   PROBE_TEST,
+  SKIN_PROBES,
   type TournamentClaimResult,
   type TournamentDecideManyResult,
   type TournamentDetail,
@@ -119,7 +120,7 @@ async function scheduled(rec: TournamentRecordInput, by: Staff = organizer): Pro
 const key = () => randomUUID();
 const join = (cookie: string, id: string, k = key()) => post(app.app, `/galaxy/api/tournaments/${id}/join`, undefined, { cookie, headers: { 'idempotency-key': k } });
 const leave = (cookie: string, id: string, k = key()) => post(app.app, `/galaxy/api/tournaments/${id}/leave`, undefined, { cookie, headers: { 'idempotency-key': k } });
-const claim = (cookie: string, id: string, k = key()) => post(app.app, `/galaxy/api/tournaments/${id}/claim`, undefined, { cookie, headers: { 'idempotency-key': k } });
+const claim = (cookie: string, id: string, k = key(), choice?: string[]) => post(app.app, `/galaxy/api/tournaments/${id}/claim`, choice ? { choice } : undefined, { cookie, headers: { 'idempotency-key': k } });
 const coinsOf = async (id: string) => Number((await app.db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', id).where('currency', '=', 'coins').executeTakeFirst())?.amount ?? 0);
 
 type RunSpec = { at: Date; depth?: number; kills?: number; cores?: number; outcome?: 'extracted' | 'died' | 'abandoned'; seconds?: number; sector?: string; probe?: string; suspicious?: boolean; coop?: boolean; simVersion?: string };
@@ -777,5 +778,118 @@ describe('la revisión, a fondo (revisión del PR, 2026-11-22)', () => {
     expect(await one()).toMatchObject({ simVersion: '0.0.1', simChanged: true, simVersions: [SIM_VERSION] });
     const list = (await get(app.app, '/galaxy/api/admin/tournaments', { cookie: admin.cookie })).json() as AdminTournamentList;
     expect(list.simVersion).toBe(SIM_VERSION);
+  });
+});
+
+describe('las skins a elegir (plan «Torneo Navideño», C1)', () => {
+  const NAVIDAD = SKIN_PROBES.map((p) => `skin-${p}-navidad`);
+  const signal = (amount: number) => ({ kind: 'currency' as const, currency: 'signal' as const, amount });
+  const choice = (count: number) => ({ piece: 'skin' as const, options: NAVIDAD, count, perMissing: { currency: 'signal' as const, amount: 10 } });
+  const signalsOf = async (id: string) => Number((await app.db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', id).where('currency', '=', 'signal').executeTakeFirst())?.amount ?? 0);
+  const skinsOf = async (id: string) => (await app.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', id).where('kind', '=', 'skin').where('value', 'in', NAVIDAD).execute()).map((r) => r.value).sort();
+  const own = (id: string, skins: string[]) => app.db.insertInto('galaxy.cosmetics').values(skins.map((value) => ({ account_id: id, kind: 'skin' as const, value }))).execute();
+  const entryOf = (t: string, id: string) => app.db.selectFrom('galaxy.tournament_entries').select(['claimed_at', 'rewards']).where('tournament_id', '=', t).where('account_id', '=', id).executeTakeFirstOrThrow();
+  const prizeLedger = async (t: string, id: string) =>
+    (await app.db.selectFrom('galaxy.ledger').select(['currency', 'delta', 'operation_key']).where('account_id', '=', id).where('reason', '=', 'tournament_prize').where('operation_key', 'like', `tournament:${t}:%`).execute()).map((r) => ({
+      ...r,
+      delta: Number(r.delta),
+    }));
+
+  test('se elige al recoger: sin elegir no se guarda nada, una que ya tienes vuelve a la ventana y lo que falta se paga en el mismo abono de señales', async () => {
+    const w = windowOf(27);
+    // The shop's skins and the signals past the mail's limits: only a superadmin schedules it.
+    const t = await scheduled(
+      record(27, {
+        metric: 'kills',
+        filters: { mode: 'coop' },
+        reviewHours: 0,
+        prizes: [
+          { from: 1, to: 1, gifts: [signal(30)], choice: choice(8) },
+          { from: 2, to: 2, gifts: [signal(25)], choice: choice(3) },
+          { from: 3, to: 3, gifts: [signal(15)] },
+        ],
+      }),
+      superadmin,
+    );
+    expect([...t.bigReasons].sort()).toEqual(['cosmetic_shop', 'currency_signal']);
+    const [a, b, d] = [await player('tcha'), await player('tchb'), await player('tchd')];
+    for (const p of [a, b, d]) expect((await join(p.cookie, t.id)).statusCode).toBe(200);
+    const start = { a: await signalsOf(a.id), b: await signalsOf(b.id), d: await signalsOf(d.id) };
+    await own(a.id, [NAVIDAD[0]!, NAVIDAD[3]!, NAVIDAD[7]!]);
+    await own(b.id, [NAVIDAD[2]!]);
+    await finishedRun(a.id, { at: w.at(2), kills: 300, coop: true });
+    await finishedRun(b.id, { at: w.at(2), kills: 200, coop: true });
+    await finishedRun(d.id, { at: w.at(3), kills: 100, coop: true });
+    await tick(w.at(1));
+    expect((await tick(w.at(49))).finished).toContain(t.id);
+    const slug = (await tournamentById(app.db, t.id)).record.slug;
+    const pageOf = async (cookie: string) => (await get(app.app, `/galaxy/api/tournaments/${slug}`, { cookie })).json() as TournamentDetail;
+
+    // The frozen prize carries the choice; the page says which options are already theirs.
+    const page = await pageOf(b.cookie);
+    expect(page.me?.rewards).toEqual({ place: 2, gifts: [signal(25)], cash: null, participation: false, choice: choice(3) });
+    expect(page.choiceState).toEqual({ owned: [NAVIDAD[2]], unavailable: [] });
+    expect((await pageOf(d.cookie)).choiceState).toBeNull();
+    const mail = await app.db
+      .selectFrom('galaxy.mailbox_receipts as r')
+      .innerJoin('galaxy.mailbox_messages as m', 'm.id', 'r.message_id')
+      .select('m.body')
+      .where('m.type', '=', 'tournament')
+      .where('r.account_id', '=', b.id)
+      .executeTakeFirstOrThrow();
+    expect(mail.body).toContain('Entra en la página del torneo para elegir tus skins');
+
+    // The second has to choose: without a choice, a 400 that keeps nothing (and the key can be used again).
+    const k = key();
+    const bare = await claim(b.cookie, t.id, k);
+    expect(bare.statusCode).toBe(400);
+    expect(bare.json().error).toBe('tournament_choice_invalid');
+    const untouched = await entryOf(t.id, b.id);
+    expect(untouched).toMatchObject({ claimed_at: null, rewards: { place: 2 } });
+    expect(untouched.rewards).not.toHaveProperty('chosen');
+    // One they already have: a 409, and the window opens again.
+    const mine = await claim(b.cookie, t.id, k, [NAVIDAD[0]!, NAVIDAD[1]!, NAVIDAD[2]!]);
+    expect(mine.statusCode).toBe(409);
+    expect(mine.json().error).toBe('tournament_choice_owned');
+    expect((await claim(b.cookie, t.id, k, [NAVIDAD[0]!, 'skin-lumen-fuego', NAVIDAD[1]!])).json().error).toBe('tournament_choice_invalid');
+    expect(await signalsOf(b.id)).toBe(start.b);
+
+    const got = await claim(b.cookie, t.id, k, [NAVIDAD[5]!, NAVIDAD[0]!, NAVIDAD[1]!]);
+    expect(got.statusCode, got.body).toBe(200);
+    expect((got.json() as TournamentClaimResult).items.map((i) => [i.gift, i.outcome])).toEqual([
+      [signal(25), 'granted'],
+      [{ kind: 'cosmetic', piece: 'skin', id: NAVIDAD[0] }, 'granted'],
+      [{ kind: 'cosmetic', piece: 'skin', id: NAVIDAD[1] }, 'granted'],
+      [{ kind: 'cosmetic', piece: 'skin', id: NAVIDAD[5] }, 'granted'],
+    ]);
+    expect(await skinsOf(b.id)).toEqual([NAVIDAD[0]!, NAVIDAD[1]!, NAVIDAD[2]!, NAVIDAD[5]!].sort());
+    expect(await signalsOf(b.id)).toBe(start.b + 25);
+    expect((await entryOf(t.id, b.id)).rewards).toMatchObject({ place: 2, chosen: [NAVIDAD[0], NAVIDAD[1], NAVIDAD[5]], missing: 0 });
+    // The same key and the same choice (in any order) answer the same; another choice with it is a conflict; a new key,
+    // already collected.
+    expect((await claim(b.cookie, t.id, k, [NAVIDAD[0]!, NAVIDAD[1]!, NAVIDAD[5]!])).json()).toEqual(got.json());
+    const other = await claim(b.cookie, t.id, k, [NAVIDAD[3]!, NAVIDAD[4]!, NAVIDAD[6]!]);
+    expect(other.statusCode).toBe(409);
+    expect(other.json().error).toBe('idempotency_conflict');
+    expect((await claim(b.cookie, t.id, key(), [NAVIDAD[3]!, NAVIDAD[4]!, NAVIDAD[6]!])).json().error).toBe('already_claimed');
+    expect(await signalsOf(b.id)).toBe(start.b + 25);
+    expect((await pageOf(b.cookie)).choiceState).toBeNull();
+
+    // The first had three of the pack: the other five and 30 + 30 signals in one credit, with nothing to choose.
+    const first = await claim(a.cookie, t.id);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(await skinsOf(a.id)).toEqual([...NAVIDAD].sort());
+    expect(await signalsOf(a.id)).toBe(start.a + 60);
+    expect(await prizeLedger(t.id, a.id)).toEqual([{ currency: 'signal', delta: 60, operation_key: `tournament:${t.id}:signal` }]);
+    expect((await entryOf(t.id, a.id)).rewards).toMatchObject({ chosen: [NAVIDAD[1], NAVIDAD[2], NAVIDAD[4], NAVIDAD[5], NAVIDAD[6]], missing: 3 });
+
+    // A choice sent for a prize that has none is refused; without it, it is collected as always.
+    const odd = await claim(d.cookie, t.id, key(), [NAVIDAD[0]!]);
+    expect(odd.statusCode).toBe(400);
+    expect(odd.json().error).toBe('tournament_choice_invalid');
+    // A body that is not a choice at all.
+    expect((await post(app.app, `/galaxy/api/tournaments/${t.id}/claim`, { choice: [], extra: 1 }, { cookie: d.cookie, headers: { 'idempotency-key': key() } })).json().error).toBe('invalid_input');
+    expect((await claim(d.cookie, t.id)).statusCode).toBe(200);
+    expect(await signalsOf(d.id)).toBe(start.d + 15);
   });
 });

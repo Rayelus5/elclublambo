@@ -245,6 +245,9 @@ export const API_ERROR_CODES = [
   'tournament_needs_superadmin',
   'tournament_cash_not_found',
   'tournament_cash_paid',
+  // Skins to choose as a tournament prize (plan «Torneo Navideño», C1).
+  'tournament_choice_invalid',
+  'tournament_choice_owned',
   // «Encuestas y avisos» (plan 2026-11-22, part A).
   'popup_not_found',
   'popup_closed',

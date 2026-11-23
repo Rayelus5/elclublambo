@@ -84,6 +84,7 @@ export * from './api/admin-shop';
 export * from './gacha/simulate';
 export * from './gifts/index';
 export * from './tournaments/record';
+export * from './tournaments/choice';
 export * from './api/tournaments';
 export * from './popups/index';
 export * from './api/popups';

@@ -497,10 +497,10 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 
 ### B11. Torneos
 
-**Qué es.** Un torneo es una fila de `galaxy.tournaments`, no una clave de configuración (GDD §13.3). La ficha es `tournamentRecordSchema` (`packages/shared/src/tournaments/record.ts`) y sus problemas, `tournamentIssues`, con el texto en `es.ts` (`tournamentIssues`). Cabe en una temporada programada, dura 28 días como mucho y nunca junta una entrada con dinero.
+**Qué es.** Un torneo es una fila de `galaxy.tournaments`, no una clave de configuración (GDD §13.3). La ficha es `tournamentRecordSchema` (`packages/shared/src/tournaments/record.ts`) y sus problemas, `tournamentIssues`, con el texto en `es.ts` (`tournamentIssues`). Cabe en una temporada programada, dura `TOURNAMENT_MAX_DAYS` (31) días como mucho y nunca junta una entrada con dinero.
 
 **La API** está descrita en `packages/shared/src/api/tournaments.ts`:
-- **Jugadores** en `/galaxy/api/tournaments`: lista, página, `join`, `leave` y `claim`, con clave de idempotencia.
+- **Jugadores** en `/galaxy/api/tournaments`: lista, página, `join`, `leave` y `claim`, con clave de idempotencia. `claim` lleva `{ choice }` cuando el premio deja elegir skins, y la página trae `choiceState` (las que ya tiene y las que ya no están).
 - **Admins** en `/galaxy/api/admin/tournaments`: validar, guardar borrador, programar, desprogramar (antes de empezar y sin inscritos), cancelar (devuelve las entradas), revisión, decidir una partida, descalificar, «Publicar ya» y marcar el dinero como pagado. Todo con motivo y auditado; lo que cambia el torneo o los premios pide la contraseña.
 
 **Prepararlo** en el panel (Administración › Torneos) o en una carpeta de `ops/launch/` con `torneo.json` (plantilla en `ops/plantillas/torneo/`, skill `galaxy-torneo`). La carpeta la valida `launch-config.test.ts` y `check-config` contra lo vivo. Con el OK del propietario, `tournament-draft` la guarda en PRE como borrador; la CLI nunca programa torneos.
@@ -512,6 +512,11 @@ Las galaxias se hacen al recogerlas, cada jugador las suyas, y la misma recogida
 - **Quien está fuera de la clasificación** (`leaderboard_excluded`) no puede inscribirse.
 - **El dinero** se paga fuera del juego. Escribe al ganador por el buzón y márcalo como pagado.
 - **Los premios** son regalos del buzón (B10), pero sin nada de temporada ni de evento: se recogen sin fecha.
+- **Skins a elegir** (`choice` en un tramo, GDD §13.3): `{ "piece": "skin", "options": [...], "count": N, "perMissing": { "currency": "signal", "amount": 10 } }`.
+  - Con `count` igual a las opciones da todas, sin elegir. Así se da un pack entero y se compensan las que el ganador ya tenga.
+  - Cada opción tiene que ser una skin con arte y activa (`gift_cosmetic_unknown`). Se pesan como regalos cosméticos y la compensación, como si faltaran todas: un pack de la tienda lo programa un superadmin.
+  - Avisos propios: `prize_choice_count` (da más skins que opciones) y `prize_choice_twice` (una opción repetida).
+  - Al recoger, `tournament_choice_invalid` (falta la elección o no encaja) y `tournament_choice_owned` (eligió una que ya tiene: la página se refresca).
 
 ### B12. Encuestas y avisos
 

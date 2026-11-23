@@ -3,6 +3,7 @@ import {
   type AdminTournamentCash,
   type AdminTournamentList,
   type AdminTournamentReview,
+  tournamentClaimBodySchema,
   type TournamentClaimResult,
   tournamentActionBodySchema,
   tournamentCashBodySchema,
@@ -84,8 +85,10 @@ export function registerTournamentRoutes(api: FastifyInstance, deps: TournamentD
     const s = requireSession(req);
     const key = idempotencyKey(req);
     const { id } = tournamentIdParamsSchema.parse(req.params);
+    // No body (nothing to pick, or an old client) is no choice.
+    const body = tournamentClaimBodySchema.parse(req.body ?? {});
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'claims', 60, 60);
-    return claimTournament(deps, s.accountId, id, key);
+    return claimTournament(deps, s.accountId, id, key, body);
   });
 
   // -------------------------------------------------------------------------------------------------------------------
