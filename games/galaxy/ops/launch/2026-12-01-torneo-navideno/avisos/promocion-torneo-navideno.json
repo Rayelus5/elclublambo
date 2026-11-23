@@ -1,0 +1,15 @@
+{
+  "record": {
+    "kind": "promotion",
+    "title": "Llega el Torneo Navideño",
+    "body": "Del 1 al 31 de diciembre, suma puntos con todas tus partidas y gana el Pack Navidad completo. El 2.º y el 3.º eligen skins navideñas y hay señales hasta el puesto 100. Apúntate desde el nivel 5 en Torneos y empieza a sumar",
+    "questions": [],
+    "link": { "kind": "route", "to": "/torneos", "label": "Ver el torneo" },
+    "audience": { "kind": "segment", "minLevel": 3 },
+    "startsAt": "2026-11-30T23:00:00.000Z",
+    "endsAt": "2026-12-07T23:00:00.000Z",
+    "priority": 2,
+    "reward": []
+  },
+  "image": "torneo-navideno.png"
+}

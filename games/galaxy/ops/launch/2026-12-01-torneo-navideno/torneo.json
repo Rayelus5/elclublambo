@@ -1,0 +1,58 @@
+{
+  "slug": "torneo-navideno",
+  "seasonId": "season-2",
+  "title": "Torneo Navideño",
+  "summary": "Suma puntos con todas tus partidas de diciembre y gana el Pack Navidad completo, skins navideñas a elegir y señales hasta el puesto 100",
+  "rules": "Cuentan todas las incursiones que terminas desde que te inscribes hasta el 31 de diciembre a las 23:59, en solitario o en grupo. Cada una suma sus puntos de temporada y gana quien más puntos acumule. Puedes inscribirte desde el nivel 5. Si te sales, pierdes tu puntuación y no puedes volver.\n\nPremios: el 1.º se lleva el Pack Navidad completo, con sus 8 skins, y 30 señales de galaxia. El 2.º elige 3 skins del pack y 25 señales. El 3.º elige 1 skin del pack y 20 señales. Del 4.º al 10.º, 15 señales, y del 11.º al 100.º, 10 señales.\n\nLas skins se eligen entre las que todavía no tienes. Por cada skin que no se te pueda dar porque ya la tienes, recibes 10 señales.\n\nAntes de los resultados revisamos las partidas de los puestos con premio durante al menos 24 horas. Los premios se recogen en la página del torneo y no caducan",
+  "bannerMedia": null,
+  "detailsMedia": null,
+  "startsAt": "2026-11-30T23:00:00.000Z",
+  "endsAt": "2026-12-31T23:00:00.000Z",
+  "exclusive": true,
+  "metric": "points",
+  "filters": { "sector": null, "probe": null, "mode": "any", "minLevel": 5 },
+  "entry": null,
+  "prizes": [
+    {
+      "from": 1,
+      "to": 1,
+      "gifts": [{ "kind": "currency", "currency": "signal", "amount": 30 }],
+      "cash": null,
+      "choice": {
+        "piece": "skin",
+        "options": ["skin-lumen-navidad", "skin-bastion-navidad", "skin-spark-navidad", "skin-sentinel-navidad", "skin-anchor-navidad", "skin-prism-navidad", "skin-comet-navidad", "skin-echo-navidad"],
+        "count": 8,
+        "perMissing": { "currency": "signal", "amount": 10 }
+      }
+    },
+    {
+      "from": 2,
+      "to": 2,
+      "gifts": [{ "kind": "currency", "currency": "signal", "amount": 25 }],
+      "cash": null,
+      "choice": {
+        "piece": "skin",
+        "options": ["skin-lumen-navidad", "skin-bastion-navidad", "skin-spark-navidad", "skin-sentinel-navidad", "skin-anchor-navidad", "skin-prism-navidad", "skin-comet-navidad", "skin-echo-navidad"],
+        "count": 3,
+        "perMissing": { "currency": "signal", "amount": 10 }
+      }
+    },
+    {
+      "from": 3,
+      "to": 3,
+      "gifts": [{ "kind": "currency", "currency": "signal", "amount": 20 }],
+      "cash": null,
+      "choice": {
+        "piece": "skin",
+        "options": ["skin-lumen-navidad", "skin-bastion-navidad", "skin-spark-navidad", "skin-sentinel-navidad", "skin-anchor-navidad", "skin-prism-navidad", "skin-comet-navidad", "skin-echo-navidad"],
+        "count": 1,
+        "perMissing": { "currency": "signal", "amount": 10 }
+      }
+    },
+    { "from": 4, "to": 10, "gifts": [{ "kind": "currency", "currency": "signal", "amount": 15 }], "cash": null },
+    { "from": 11, "to": 100, "gifts": [{ "kind": "currency", "currency": "signal", "amount": 10 }], "cash": null }
+  ],
+  "participation": null,
+  "reviewHours": 24,
+  "maxEntrants": null
+}
