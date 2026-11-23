@@ -1,9 +1,10 @@
 -- Galaxy Survivor: tournaments (migration *_galaxy_tournaments; plan «temporadas como fichas», part 5): a fee never goes
--- with a money prize and a tournament lasts 28 days at most; history stays (only drafts are deleted, with their rows);
+-- with a money prize and a tournament lasts 31 days at most (28 until 20261123130000); history stays (only drafts are
+-- deleted, with their rows);
 -- an entry's sign-up and what was set once stay; a money prize is marked paid once; the retention keeps the inputs of
 -- the runs an entrant played for a tournament not yet finished.
 begin;
-select plan(14);
+select plan(15);
 
 insert into galaxy.accounts (id, username, password_hash) values ('00000000-0000-4000-8000-0000000009e1', 'pgtap_tournament', 'x');
 insert into galaxy.tournaments (id, slug, season_id, title, starts_at, ends_at, state, metric, prizes)
@@ -17,8 +18,10 @@ select throws_ok($$insert into galaxy.tournaments (slug, season_id, title, start
 select lives_ok($$insert into galaxy.tournaments (slug, season_id, title, starts_at, ends_at, metric, entry, prizes)
   values ('pgtap-pago-ok', 'season-x', 'Pago', now(), now() + interval '1 day', 'points', '{"currency":"coins","amount":5}', '[{"from":1,"to":1,"gifts":[],"cash":null}]')$$,
   'a fee with prizes in gifts is fine');
+select lives_ok($$insert into galaxy.tournaments (slug, season_id, title, starts_at, ends_at, metric)
+  values ('pgtap-mes', 'season-x', 'Un mes', now(), now() + interval '31 days', 'points')$$, '31 days exactly is fine (the Christmas tournament)');
 select throws_ok($$insert into galaxy.tournaments (slug, season_id, title, starts_at, ends_at, metric)
-  values ('pgtap-largo', 'season-x', 'Largo', now(), now() + interval '29 days', 'points')$$, '23514', null, '28 days at most');
+  values ('pgtap-largo', 'season-x', 'Largo', now(), now() + interval '31 days 1 second', 'points')$$, '23514', null, '31 days at most');
 
 insert into galaxy.tournament_entries (tournament_id, account_id, joined_at, entry_key) values ('00000000-0000-4000-8000-00000000e001', '00000000-0000-4000-8000-0000000009e1', now() - interval '39 days', 'pgtap-entry-1');
 select throws_ok($$update galaxy.tournament_entries set joined_at = now() where tournament_id = '00000000-0000-4000-8000-00000000e001'$$, 'P0001', 'tournament_entry_fixed', 'the sign-up never moves');
