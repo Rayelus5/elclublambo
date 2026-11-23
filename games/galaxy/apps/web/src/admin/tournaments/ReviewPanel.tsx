@@ -6,6 +6,7 @@ import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
 import { giftWords } from '../../gifts/words';
+import { choiceWords } from '../../tournaments/words';
 import { Icon } from '../../ui/Icon';
 import { HScroll } from '../../ui/HScroll';
 import { range } from '../events/shared';
@@ -191,7 +192,9 @@ function Ranking({ view, live, onAsk, catalog }: { view: AdminTournamentReview; 
                     {r.rewards ? (
                       <span className="atn-prize-cell">
                         {r.rewards.place !== null ? <span className="admin-chip ok">{p.place(r.rewards.place)}</span> : r.rewards.participation ? <span className="admin-chip">{p.participationOnly}</span> : null}
-                        {catalog && r.rewards.gifts.length ? <span className="atn-prize-words">{r.rewards.gifts.map((g) => giftWords(g, catalog)).join(', ')}</span> : null}
+                        {catalog && (r.rewards.gifts.length || r.rewards.choice) ? (
+                          <span className="atn-prize-words">{[...(r.rewards.choice ? [choiceWords(r.rewards.choice).title] : []), ...r.rewards.gifts.map((g) => giftWords(g, catalog))].join(', ')}</span>
+                        ) : null}
                         {r.rewards.cash ? <b className="atn-money">{euros(r.rewards.cash.amountEur)}</b> : null}
                       </span>
                     ) : (

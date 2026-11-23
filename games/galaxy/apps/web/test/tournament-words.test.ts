@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
+import { type PrizeChoice, SKIN_PROBES } from '@galaxy/shared';
 import { copy } from '../src/copy/es';
-import { blockText, exclusiveClashes, featuredOf, feeWords, rewardOf, runGains } from '../src/tournaments/words';
+import { toCollect } from '../src/tournaments/parts';
+import { blockText, choiceWords, exclusiveClashes, featuredOf, feeWords, rewardOf, runGains } from '../src/tournaments/words';
 import { at, card, DAY, list, me } from './tournament-fixtures';
 
 // What the tournaments say in words and work out on their own (plan «temporadas como fichas», part 5): why you cannot
@@ -89,4 +91,33 @@ test('el inicio enseña el torneo que más te importa: premios, el que juegas, u
   expect(pick({ finished: [cancelled, collected] })).toEqual(['recogido', 'past']);
   expect(pick({ finished: [cancelled] })).toBeNull();
   expect(featuredOf(undefined)).toBeNull();
+});
+
+// Skins to choose as a prize (plan «Torneo Navideño», C2): a prize that is only skins to choose is still something to
+// collect, and it reads as its pack.
+const NAVIDAD = SKIN_PROBES.map((p) => `skin-${p}-navidad`);
+const choice = (count: number, over: Partial<PrizeChoice> = {}): PrizeChoice => ({ piece: 'skin', options: NAVIDAD, count, perMissing: { currency: 'signal', amount: 10 }, ...over });
+
+test('un premio que solo son skins a elegir también se recoge, y el inicio lo destaca', () => {
+  const rewards = { place: 3, gifts: [], cash: null, participation: false, choice: choice(1) };
+  const finished = card({ state: 'finished', endsAt: at(-DAY), join: { open: false, block: 'closed' }, me: me({ rank: 3, rewards }) });
+  expect(toCollect(finished)).toBe(true);
+  expect(toCollect({ ...finished, me: me({ rank: 3, rewards, claimed: true }) })).toBe(false);
+  expect(toCollect({ ...finished, me: me({ rank: 3, rewards: { ...rewards, choice: undefined } }) })).toBe(false);
+  expect(featuredOf(list({ finished: [finished] }))).toEqual({ card: finished, pick: 'collect' });
+});
+
+test('las skins a elegir se dicen con su pack: completo, o cuántas eliges, y lo que vale cada una que falte', () => {
+  expect(choiceWords(choice(8))).toEqual({ title: 'Pack Navidad completo', rule: 'Cada una que ya tengas se cambia por 10 señales de galaxia' });
+  expect(choiceWords(choice(3))).toEqual({ title: 'Elige 3 skins del Pack Navidad', rule: 'Eliges entre las que no tienes. Si no quedan bastantes, 10 señales de galaxia por cada una que falte' });
+  expect(choiceWords(choice(1)).title).toBe('Elige 1 skin del Pack Navidad');
+  // In any order, the eight of a line are its pack.
+  expect(choiceWords(choice(8, { options: [...NAVIDAD].reverse() })).title).toBe('Pack Navidad completo');
+  // Skins that are not a whole pack: how many, of how many.
+  const loose = ['skin-lumen-fuego', 'skin-spark-agua', 'skin-echo-rubi'];
+  expect(choiceWords(choice(3, { options: loose })).title).toBe('3 skins');
+  expect(choiceWords(choice(2, { options: loose })).title).toBe('Elige 2 skins de 3');
+  expect(choiceWords(choice(1, { options: ['skin-lumen-fuego'] })).title).toBe('1 skin');
+  // Nothing for the missing ones: no line.
+  expect(choiceWords(choice(3, { perMissing: null })).rule).toBeNull();
 });

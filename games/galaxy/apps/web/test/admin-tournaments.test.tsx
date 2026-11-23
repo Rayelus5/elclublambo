@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { type AdminSeason, type AdminTournament, type AdminTournamentCash, type AdminTournamentReview, CONFIG_KEYS, type MeResponse, parseConfig, type TournamentRecord } from '@galaxy/shared';
+import { type AdminSeason, type AdminTournament, type AdminTournamentCash, type AdminTournamentReview, CONFIG_KEYS, type MeResponse, parseConfig, SKIN_PROBES, type TournamentRecord } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,6 +10,7 @@ import { TournamentPage } from '../src/admin/tournaments/TournamentPage';
 import { TournamentsScreen } from '../src/admin/tournaments/TournamentsScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Torneos in the admin panel (plan «temporadas como fichas», part 5): the list by state with what can be done to each,
 // the money still to pay, the six-step wizard with the server's checks on its steps, and the review panel that decides
@@ -290,6 +291,61 @@ test('la entrada y el dinero nunca van juntos: con entrada no hay dinero en los 
   await user.click(screen.getByRole('switch', { name: t.fields.fee }));
   await user.click(step(t.steps.prizes));
   expect(screen.getByRole('switch', { name: `${t.cashLabel} ${t.places(1, 1)}` })).toBeEnabled();
+});
+
+// Skins to choose (plan «Torneo Navideño», C2): a range's switch opens the pack, how many and what each missing one
+// pays; the server checks it as it changes, and the draft is saved with it.
+test('un tramo puede dar skins a elegir de un pack, con lo que vale cada una que falte, y se valida y se guarda con ellas', async () => {
+  const user = userEvent.setup();
+  const fuego = SKIN_PROBES.map((probe) => `skin-${probe}-fuego`);
+  const { calls } = api(superadmin, {
+    'POST /galaxy/api/admin/tournaments/validate': () => jsonResponse(200, { ok: true, issues: [], bigReasons: [] }),
+    [`POST /galaxy/api/admin/tournaments/${ID.draft}`]: (body) => jsonResponse(200, tournament(ID.draft, 'draft', { version: 2 }, (body as { record: TournamentRecord }).record)),
+  });
+  renderAt(`/admin/torneos/${ID.draft}?paso=premios`, { '/admin/torneos/:id': <TournamentPage />, '/admin/torneos': <p>Lista</p> });
+  const toggle = await screen.findByRole('switch', { name: `${t.choice.label} ${t.places(1, 1)}` });
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  // A pack, how many and what each missing one pays.
+  await pickOption(user, screen.getByRole('combobox', { name: t.choice.pack }), copy.tournaments.choice.pack('Fuego'));
+  const count = screen.getByLabelText(t.choice.count);
+  await user.clear(count);
+  await user.type(count, '3');
+  await pickOption(user, screen.getByRole('combobox', { name: t.choice.currency }), copy.gifts.currency.coins);
+  const amount = screen.getByLabelText(t.choice.amount);
+  await user.clear(amount);
+  await user.type(amount, '250');
+  const want = { piece: 'skin', options: fuego, count: 3, perMissing: { currency: 'coins', amount: 250 } };
+  // The server checks the record with the choice in it.
+  await waitFor(() => expect(calls.filter((x) => x.path.endsWith('/validate')).map((x) => (x.body as { record: TournamentRecord }).record.prizes[0]!.choice)).toContainEqual(want));
+  // The review says it in the players' words.
+  await user.click(step(t.steps.review));
+  expect(screen.getByRole('region', { name: t.preview })).toHaveTextContent(copy.tournaments.choice.pickPack(3, 'Pack Fuego'));
+  await user.type(screen.getAllByLabelText(copy.admin.fields.reason)[0]!, 'Skins a elegir');
+  await user.click(screen.getByRole('button', { name: t.saveDraft }));
+  await waitFor(() => expect(calls.some((x) => x.path === `POST /galaxy/api/admin/tournaments/${ID.draft}`)).toBe(true));
+  const saved = calls.find((x) => x.path === `POST /galaxy/api/admin/tournaments/${ID.draft}`)!.body as { record: TournamentRecord };
+  expect(saved.record.prizes[0]).toEqual({ from: 1, to: 1, gifts: [{ kind: 'currency', currency: 'coins', amount: 5000 }], cash: null, choice: want });
+});
+
+test('quitar las skins a elegir deja el tramo como era, y una compensación de 0 no da nada', async () => {
+  const user = userEvent.setup();
+  const navidad = SKIN_PROBES.map((probe) => `skin-${probe}-navidad`);
+  const { calls } = api(superadmin, {
+    [`GET /galaxy/api/admin/tournaments/${ID.draft}`]: () => jsonResponse(200, tournament(ID.draft, 'draft', {}, { prizes: [{ from: 1, to: 1, gifts: [], cash: null, choice: { piece: 'skin', options: navidad, count: 8, perMissing: { currency: 'signal', amount: 10 } } }] })),
+    'POST /galaxy/api/admin/tournaments/validate': () => jsonResponse(200, { ok: true, issues: [], bigReasons: [] }),
+  });
+  renderAt(`/admin/torneos/${ID.draft}?paso=premios`, { '/admin/torneos/:id': <TournamentPage /> });
+  const toggle = await screen.findByRole('switch', { name: `${t.choice.label} ${t.places(1, 1)}` });
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByRole('combobox', { name: t.choice.pack })).toHaveTextContent(copy.tournaments.choice.pack('Navidad'));
+  const amount = screen.getByLabelText(t.choice.amount);
+  await user.clear(amount);
+  const last = () => (calls.filter((x) => x.path.endsWith('/validate')).at(-1)?.body as { record: TournamentRecord } | undefined)?.record.prizes[0];
+  await waitFor(() => expect(last()?.choice).toEqual({ piece: 'skin', options: navidad, count: 8, perMissing: null }));
+  await user.click(toggle);
+  await waitFor(() => expect(last()).toEqual({ from: 1, to: 1, gifts: [], cash: null }));
 });
 
 test('guardar y programar guarda el borrador a su versión y después lo programa con la versión nueva', async () => {

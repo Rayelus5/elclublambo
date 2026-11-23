@@ -7,6 +7,17 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-52-torneos-skins-a-elegir',
+    version: '1.52',
+    date: '2026-11-23',
+    title: 'Los torneos pueden premiar con skins que eliges tú',
+    summary: 'Algunos premios de torneo te dejan elegir tus skins al recogerlos, entre las que aún no tienes',
+    items: [
+      { kind: 'nuevo', text: 'Un premio de torneo puede darte skins a elegir de un pack. Al recogerlo eliges las que quieras entre las que aún no tienes' },
+      { kind: 'nuevo', text: 'Las skins que ya tienes salen apagadas, y si no quedan bastantes para tu premio te compensamos por cada una que falte' },
+    ],
+  },
+  {
     id: 'v1-51-premios-de-temporada',
     version: '1.51',
     date: '2026-11-22',

@@ -3,6 +3,9 @@ import {
   type AdminTournament,
   type MediaAsset,
   mediaUrl,
+  type PrizeChoice,
+  SKIN_PACKS,
+  SKIN_PROBES,
   TOURNAMENT_FEE_CURRENCIES,
   TOURNAMENT_MAX_DAYS,
   TOURNAMENT_METRICS,
@@ -23,6 +26,7 @@ import { useConfigKey } from '../../api/config';
 import { useAdminMedia } from '../../api/news';
 import { errorText, useMe } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { choicePack } from '../../tournaments/words';
 import { useGiftCatalog } from '../../gifts/useGiftCatalog';
 import { bigReasonText, type GiftCatalog } from '../../gifts/words';
 import { DateField } from '../../ui/DateField';
@@ -465,6 +469,17 @@ export function TournamentWizard({ seasons, taken, own, source, initial }: Wizar
                               {catalog ? <GiftsField gifts={p.gifts} catalog={catalog} title={t.giftsTitle(places)} onChange={(gifts) => setPrize(i, { gifts })} /> : null}
                             </div>
                             <CashRow places={places} cash={p.cash} blocked={!!draft.entry} onChange={(cash) => setPrize(i, { cash })} />
+                            <ChoiceRow
+                              places={places}
+                              choice={p.choice ?? null}
+                              onChange={(choice) =>
+                                setDraft((d) => ({
+                                  ...d,
+                                  // Off: the range keeps exactly the shape it had (no key).
+                                  prizes: d.prizes.map((x, k) => (k !== i ? x : choice ? { ...x, choice } : withoutChoice(x))),
+                                }))
+                              }
+                            />
                           </div>
                           <Problems issues={issues} path={`prizes.${i}`} />
                         </li>
@@ -708,6 +723,91 @@ function ModeRow({ value, onChange }: { value: TournamentFilters['mode']; onChan
       </span>
       <Segmented<TournamentFilters['mode']> aria-labelledby={`${id}-l`} value={value} options={TOURNAMENT_MODES.map((m) => ({ value: m, label: t.modes[m] }))} onChange={onChange} />
       <small className="cf-hint">{t.modeHints[value]}</small>
+    </div>
+  );
+}
+
+/** A range without its skins to choose: the key goes, as in the records saved before they existed. */
+function withoutChoice(p: TournamentRecord['prizes'][number]): TournamentRecord['prizes'][number] {
+  const { choice: _off, ...rest } = p;
+  return rest;
+}
+
+/** A pack's eight skins (the shop's lines, in the probes' order). */
+const packOptions = (line: string) => SKIN_PROBES.map((probe) => `skin-${probe}-${line}`);
+type FeeCurrency = (typeof TOURNAMENT_FEE_CURRENCIES)[number];
+
+/**
+ * Skins to choose (plan «Torneo Navideño», C2): a switch per range that opens the pack, how many the winner takes (all
+ * of them: no choosing) and what each one that cannot be given pays (0: nothing). Options that are not a whole pack
+ * (written by hand in a record) keep showing as «Otras skins» until a pack is picked.
+ */
+function ChoiceRow({ places, choice, onChange }: { places: string; choice: PrizeChoice | null; onChange: (c: PrizeChoice | null) => void }) {
+  const id = useId();
+  // The currency stays while the amount is 0 (no payment), so typing a new amount keeps it.
+  const [currency, setCurrency] = useState<FeeCurrency>(choice?.perMissing?.currency ?? 'signal');
+  const c = t.choice;
+  const packName = choice ? choicePack(choice.options) : null;
+  const line = SKIN_PACKS.find((k) => copy.tournaments.choice.pack(k.pack) === packName)?.line ?? '';
+  const packs = [...(choice && !line ? [{ value: '', label: c.other }] : []), ...SKIN_PACKS.map((k) => ({ value: k.line as string, label: copy.tournaments.choice.pack(k.pack) }))];
+  const amount = choice?.perMissing?.amount ?? 0;
+  const pay = (cur: FeeCurrency, n: number) => (n > 0 ? { currency: cur, amount: n } : null);
+  return (
+    <div className={`atn-cash-row tch-row${choice ? ' on' : ''}`}>
+      <div className="atn-toggle-head">
+        <span id={`${id}-l`} className="atn-toggle-label">
+          <Icon name="probe" />
+          <span>{c.label}</span>
+        </span>
+        <Switch
+          aria-label={`${c.label} ${places}`}
+          aria-describedby={`${id}-h`}
+          checked={!!choice}
+          onChange={(on) => onChange(on ? { piece: 'skin', options: packOptions('navidad'), count: 1, perMissing: pay(currency, 10) } : null)}
+        />
+      </div>
+      <p id={`${id}-h`} className="cf-hint">
+        {c.hint}
+      </p>
+      {choice ? (
+        <div className="cf-grid">
+          <div className="cf-field">
+            <label id={`${id}-pl`} htmlFor={`${id}-p`}>
+              {c.pack}
+            </label>
+            <Select
+              id={`${id}-p`}
+              size="sm"
+              block
+              aria-labelledby={`${id}-pl`}
+              value={line}
+              options={packs}
+              onChange={(v) => {
+                if (v) onChange({ ...choice, options: packOptions(v), count: Math.min(choice.count, SKIN_PROBES.length) });
+              }}
+            />
+          </div>
+          <NumberField label={c.count} value={choice.count} hint={c.countHint(choice.options.length)} onChange={(count) => onChange({ ...choice, count })} />
+          <div className="cf-field">
+            <label id={`${id}-cl`} htmlFor={`${id}-c`}>
+              {c.currency}
+            </label>
+            <Select
+              id={`${id}-c`}
+              size="sm"
+              block
+              aria-labelledby={`${id}-cl`}
+              value={choice.perMissing?.currency ?? currency}
+              options={TOURNAMENT_FEE_CURRENCIES.map((x) => ({ value: x, label: copy.gifts.currency[x] }))}
+              onChange={(v) => {
+                setCurrency(v as FeeCurrency);
+                onChange({ ...choice, perMissing: pay(v as FeeCurrency, amount) });
+              }}
+            />
+          </div>
+          <NumberField label={c.amount} value={amount} hint={choice.perMissing ? feeWords(choice.perMissing) : c.amountHint} onChange={(n) => onChange({ ...choice, perMissing: pay(choice.perMissing?.currency ?? currency, n) })} />
+        </div>
+      ) : null}
     </div>
   );
 }

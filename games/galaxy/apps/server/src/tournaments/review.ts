@@ -364,9 +364,10 @@ export function resultsMail(title: string, metric: TournamentMetric, who: { rank
   const parts: string[] = [];
   if (who.rank !== null && who.rewards.place !== null) parts.push(`Quedaste ${num.format(who.rank)}.º ${scoreWords(metric, who.score)}`);
   else parts.push(`Jugaste ${plural(who.runs, 'partida', 'partidas')} en el torneo`);
-  if (hasPrizeToCollect(who.rewards)) parts.push(who.rewards.place !== null ? 'Tus premios te esperan en la página del torneo' : 'Tu premio de participación te espera en la página del torneo');
   // Whether they will have to pick is only known when they collect (what they own by then); the prize tells if it can.
-  if (who.rewards.choice && choiceNeedsPick(who.rewards.choice)) parts.push('Entra en la página del torneo para elegir tus skins');
+  const pick = !!who.rewards.choice && choiceNeedsPick(who.rewards.choice);
+  if (hasPrizeToCollect(who.rewards))
+    parts.push(who.rewards.place === null ? 'Tu premio de participación te espera en la página del torneo' : pick ? 'Tus premios te esperan en la página del torneo, donde eliges tus skins' : 'Tus premios te esperan en la página del torneo');
   if (who.rewards.cash) parts.push('Un admin te escribirá por el buzón para el premio en metálico');
   return { title: `${title} ha terminado`.slice(0, 80), body: parts.join('. ') };
 }

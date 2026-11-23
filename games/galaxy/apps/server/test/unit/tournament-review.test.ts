@@ -69,15 +69,15 @@ describe('el aviso de los resultados', () => {
     );
   });
 
-  test('si el premio deja elegir skins, dice que se eligen en la página del torneo', () => {
+  test('si el premio deja elegir skins, dice en una sola frase que se eligen en la página del torneo', () => {
     const options = ['skin-lumen-navidad', 'skin-bastion-navidad', 'skin-spark-navidad'];
     const choice = (count: number) => ({ piece: 'skin' as const, options, count, perMissing: { currency: 'signal' as const, amount: 10 } });
     expect(resultsMail('Torneo Navideño', 'points', { rank: 2, score: 900, runs: 30, rewards: { place: 2, gifts: [{ kind: 'currency', currency: 'signal', amount: 25 }], cash: null, participation: false, choice: choice(1) } }).body).toBe(
-      'Quedaste 2.º con 900 puntos. Tus premios te esperan en la página del torneo. Entra en la página del torneo para elegir tus skins',
+      'Quedaste 2.º con 900 puntos. Tus premios te esperan en la página del torneo, donde eliges tus skins',
     );
     // Only skins to choose, no gifts: still a prize to collect.
     expect(resultsMail('Torneo Navideño', 'points', { rank: 3, score: 500, runs: 12, rewards: { place: 3, gifts: [], cash: null, participation: false, choice: choice(2) } }).body).toBe(
-      'Quedaste 3.º con 500 puntos. Tus premios te esperan en la página del torneo. Entra en la página del torneo para elegir tus skins',
+      'Quedaste 3.º con 500 puntos. Tus premios te esperan en la página del torneo, donde eliges tus skins',
     );
     // Every option given on its own (the whole pack): nothing to choose.
     expect(resultsMail('Torneo Navideño', 'points', { rank: 1, score: 15000, runs: 40, rewards: { place: 1, gifts: [], cash: null, participation: false, choice: choice(3) } }).body).toBe(

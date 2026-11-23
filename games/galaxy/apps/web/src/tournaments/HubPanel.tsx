@@ -8,6 +8,7 @@ import { usePlayerGiftView } from '../gifts/usePlayerGiftView';
 import { giftWords } from '../gifts/words';
 import { Icon } from '../ui/Icon';
 import { CashBadge, StateChip, TimeChip, TournamentArt } from './parts';
+import { ChoiceMark } from './SkinChoice';
 import { blockText, featuredOf, type HubPick } from './words';
 
 // The title screen's tournaments (the owner, 2026-11-22): a panel under the season's that takes the rest of the right
@@ -42,17 +43,18 @@ function lineOf(card: TournamentCard, pick: HubPick): string {
 
 const ctaOf = (pick: HubPick) => (pick === 'collect' ? h.cta.collect : pick === 'open' ? h.cta.join : pick === 'past' ? h.cta.results : h.cta.see);
 
-/** The first prize in short: its gifts drawn small and its money (only where the panel is tall enough). */
+/** The first prize in short: its skins to choose, its gifts drawn small and its money (only where the panel is tall enough). */
 function FirstPrize({ card }: { card: TournamentCard }) {
   const catalog = usePlayerGiftView();
   const first = card.prizes[0];
   if (!first) return null;
-  const shown = first.gifts.slice(0, 3);
+  const shown = first.gifts.slice(0, first.choice ? 2 : 3);
   const more = first.gifts.length - shown.length;
   return (
     <div className="htn-extra">
       <span className="htn-extra-label">{first.from === first.to ? h.firstPrize : t.places(first.from, first.to)}</span>
       <span className="htn-extra-gifts">
+        {first.choice ? <ChoiceMark choice={first.choice} /> : null}
         {shown.map((g, i) => (
           <span key={i} className="tn-prize-gift" title={giftWords(g, catalog)}>
             <GiftArt gift={g} catalog={catalog} compact />

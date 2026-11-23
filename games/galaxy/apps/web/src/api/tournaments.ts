@@ -62,12 +62,27 @@ export function useTournamentEntry() {
   });
 }
 
-/** Collects a finished tournament's prizes: the wallet, the pieces, the galaxies, the probes and the level follow. */
+/** What collecting sends: the tournament and, when its prize lets the winner pick, the skins picked. */
+export interface ClaimVars {
+  id: string;
+  choice?: readonly string[];
+}
+
+/**
+ * The claim's intent: the tournament and the picked skins in order (plan «Torneo Navideño», C2). Picking again after a
+ * lost answer is another request (the server says it was already collected), never the same key with another body.
+ */
+export const claimIntent = (v: ClaimVars) => `tournament:claim:${v.id}${v.choice?.length ? `:${[...v.choice].sort().join(',')}` : ''}`;
+
+/**
+ * Collects a finished tournament's prizes: the wallet, the pieces, the galaxies, the probes and the level follow. A body
+ * only with skins picked (nothing to pick sends none, as before).
+ */
 export function useClaimTournament() {
   const qc = useQueryClient();
-  const intent = (id: string) => `tournament:claim:${id}`;
   return useMutation({
-    mutationFn: (id: string) => api<TournamentClaimResult>(`/tournaments/${id}/claim`, { method: 'POST', headers: keyFor(intent(id)) }),
+    mutationFn: (v: ClaimVars) =>
+      api<TournamentClaimResult>(`/tournaments/${v.id}/claim`, { method: 'POST', headers: keyFor(claimIntent(v)), ...(v.choice?.length ? { body: { choice: [...v.choice] } } : {}) }),
     onSuccess: (r) => {
       settle(qc, r.wallet);
       refreshPieces(qc);
@@ -76,6 +91,6 @@ export function useClaimTournament() {
       void qc.invalidateQueries({ queryKey: ME_KEY });
     },
     onError: () => void qc.invalidateQueries({ queryKey: TOURNAMENTS_KEY }),
-    onSettled: (_r, error, id) => endIntent(intent(id), error),
+    onSettled: (_r, error, v) => endIntent(claimIntent(v), error),
   });
 }

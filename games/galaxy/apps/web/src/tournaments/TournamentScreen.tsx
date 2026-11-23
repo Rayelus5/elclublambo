@@ -1,12 +1,25 @@
-import { prizeForPlace, type TournamentDetail, type TournamentMetric, type TournamentRankRow, type TournamentRunRow } from '@galaxy/shared';
+import {
+  choiceNeedsPick,
+  type Gift,
+  hasPrizeToCollect,
+  prizeForPlace,
+  type TournamentClaimResult,
+  type TournamentDetail,
+  type TournamentFee,
+  type TournamentMetric,
+  type TournamentRankRow,
+  type TournamentRewards,
+  type TournamentRunRow,
+} from '@galaxy/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { ApiError } from '../api/client';
 import { useContentNames } from '../api/content-names';
 import { useGacha } from '../api/economy';
 import { listOf, useClaimTournament, useTournament, useTournaments } from '../api/tournaments';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
-import { GiftTile } from '../gifts/GiftArt';
+import { GiftArt, GiftTile } from '../gifts/GiftArt';
 import { usePlayerGiftView } from '../gifts/usePlayerGiftView';
 import { Avatar } from '../hub/Avatar';
 import { WalletBar } from '../hub/WalletBar';
@@ -18,6 +31,7 @@ import { Countdown } from '../ui/Countdown';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { CashBadge, EntryAction, MyStatus, StateChip, toCollect, TournamentArt, useEntryFlow } from './parts';
+import { autoNote, ChoiceDialog, ChoiceTile } from './SkinChoice';
 import { dateTime, feeWords, isBest, rewardOf } from './words';
 
 // A tournament's page (plan «temporadas como fichas», part 5; GDD §13.3; DESIGN_SYSTEM §8 quinquagies): the banner
@@ -25,7 +39,9 @@ import { dateTime, feeWords, isBest, rewardOf } from './words';
 // its start or end, the review in plain words, the final result with my prize and «Recoger», the cancel and its
 // refund); the ranking with its podium, its table from the fourth on and my row pinned under it (an account that
 // cannot win keeps its place with a mark); my runs that count; and beside them how it is won, in plain words, and its
-// prizes by place. Collecting sounds, flies to the wallet up top and is celebrated, as on the season screen.
+// prizes by place. Collecting sounds, flies to the wallet up top and is celebrated, as on the season screen. A prize
+// with skins to choose opens its window first (plan «Torneo Navideño», C2), unless what is left to give is exactly what
+// it gives: then it is collected at once, and the line says what the ones already owned pay.
 
 const t = copy.tournaments;
 type View = ReturnType<typeof usePlayerGiftView>;
@@ -89,8 +105,9 @@ function Prizes({ d, catalog }: { d: TournamentDetail; catalog: View }) {
           <li key={p.from} className={`r-${Math.min(p.from, 4)}`} aria-current={mine !== null && prizeForPlace([p], mine) ? 'true' : undefined}>
             <div className="tn-prize-row">
               <span className="tn-place-badge">{t.places(p.from, p.to)}</span>
-              {p.gifts.length > 0 ? (
+              {p.gifts.length > 0 || p.choice ? (
                 <ul className="gift-grid-list">
+                  {p.choice ? <ChoiceTile choice={p.choice} /> : null}
                   {p.gifts.map((g, i) => (
                     <GiftTile key={i} gift={g} catalog={catalog} />
                   ))}
@@ -323,8 +340,21 @@ function MyRuns({ d }: { d: TournamentDetail }) {
   );
 }
 
-/** The panel of the moment: when it starts or ends, the review, the result with my prize, or the cancel. */
-function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalog: View; onClaim: () => void; claiming: boolean }) {
+/** The skins a collected choice gave, as gifts (in the options' order), and what the missing ones paid. */
+function chosenOf(rewards: TournamentRewards): { skins: Gift[]; paid: { fee: TournamentFee; missing: number } | null } {
+  const c = rewards.choice;
+  if (!c) return { skins: [], paid: null };
+  const skins = (rewards.chosen ?? []).map((id): Gift => ({ kind: 'cosmetic', piece: c.piece, id }));
+  const missing = rewards.missing ?? 0;
+  const paid = c.perMissing && missing > 0 ? { fee: { currency: c.perMissing.currency, amount: c.perMissing.amount * missing }, missing } : null;
+  return { skins, paid };
+}
+
+/**
+ * The panel of the moment: when it starts or ends, the review, the result with my prize, or the cancel. `onClaim`
+ * collects, or opens the window when the prize asks to pick skins (`picks`).
+ */
+function Moment({ d, catalog, onClaim, claiming, picks }: { d: TournamentDetail; catalog: View; onClaim: () => void; claiming: boolean; picks: boolean }) {
   const id = useId();
   const me = d.me;
   if (d.state === 'scheduled' || d.state === 'running') {
@@ -368,9 +398,15 @@ function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalo
       </section>
     );
   }
-  // Finished: my result and what it gives.
+  // Finished: my result and what it gives (once collected, the skins it gave and what the missing ones paid).
   const rewards = me?.rewards ?? null;
   const gifts = rewards?.gifts ?? [];
+  const choice = rewards?.choice && !me?.claimed ? rewards.choice : null;
+  const got = rewards && me?.claimed ? chosenOf(rewards) : null;
+  const shown = [...gifts, ...(got?.skins ?? [])];
+  const blocked = d.choiceState ?? { owned: [], unavailable: [] };
+  // What collecting it gives now: how many there are to pick from, or what the ones already owned pay.
+  const note = !choice ? null : picks ? t.choice.left(choice.options.filter((id) => !blocked.owned.includes(id) && !blocked.unavailable.includes(id)).length) : autoNote(choice, blocked);
   return (
     <section className={`lip panel tn-moment s-finished${rewards ? ' won' : ''}`} aria-labelledby={id}>
       <span className="tn-moment-icon" aria-hidden="true">
@@ -395,11 +431,20 @@ function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalo
       </div>
       {rewards ? (
         <div className={`tn-my-prize${me?.claimed ? ' taken' : ''}`}>
-          {gifts.length > 0 ? (
+          {shown.length > 0 || choice || got?.paid ? (
             <ul className="gift-grid-list">
-              {gifts.map((g, i) => (
+              {choice ? <ChoiceTile choice={choice} size="md" {...(note ? { note } : {})} /> : null}
+              {shown.map((g, i) => (
                 <GiftTile key={i} gift={g} catalog={catalog} />
               ))}
+              {got?.paid ? (
+                <li className="gift-tile">
+                  <GiftArt gift={{ kind: 'currency', ...got.paid.fee }} catalog={catalog} />
+                  <span className="gift-tile-words">
+                    <span>{t.choice.paidFor(got.paid.missing, feeWords(got.paid.fee))}</span>
+                  </span>
+                </li>
+              ) : null}
             </ul>
           ) : null}
           {rewards.cash ? (
@@ -408,11 +453,11 @@ function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalo
               <small>{t.cashNote}</small>
             </p>
           ) : null}
-          {gifts.length > 0 ? (
+          {hasPrizeToCollect(rewards) ? (
             me?.claimed ? (
               <>
                 {/* The galaxies it gave wait in the collection. */}
-                {gifts.some((g) => g.kind === 'galaxy') ? (
+                {shown.some((g) => g.kind === 'galaxy') ? (
                   <Link to="/coleccion" className="lip pill small">
                     <Icon name="cards" />
                     <span>{copy.mail.reveal.toCollection}</span>
@@ -424,9 +469,18 @@ function Moment({ d, catalog, onClaim, claiming }: { d: TournamentDetail; catalo
                 </p>
               </>
             ) : (
-              <button type="button" className="lip pill pill-solar tn-claim" data-claim="tournament" disabled={claiming} aria-busy={claiming || undefined} aria-label={t.claimOf(d.title)} onClick={onClaim}>
+              <button
+                type="button"
+                className="lip pill pill-solar tn-claim"
+                data-claim="tournament"
+                disabled={claiming}
+                aria-busy={claiming || undefined}
+                aria-haspopup={picks ? 'dialog' : undefined}
+                aria-label={picks ? t.choice.pickAndClaimOf(d.title) : t.claimOf(d.title)}
+                onClick={onClaim}
+              >
                 <Icon name="trophy" />
-                <span>{t.claim}</span>
+                <span>{picks ? t.choice.pickAndClaim : t.claim}</span>
               </button>
             )
           ) : null}
@@ -447,6 +501,8 @@ export function TournamentScreen() {
   const fx = useClaimFx(reduced);
   const flow = useEntryFlow(all);
   const [big, setBig] = useState<{ key: number; name: string } | null>(null);
+  // The window that picks the skins of the prize.
+  const [picking, setPicking] = useState(false);
   const bigKey = useRef(0);
   useEffect(() => {
     if (!big) return;
@@ -454,25 +510,40 @@ export function TournamentScreen() {
     return () => clearTimeout(id);
   }, [big]);
   const d = q.data;
+  const choice = d?.state === 'finished' && !d.me?.claimed ? (d.me?.rewards?.choice ?? null) : null;
+  const blocked = d?.choiceState ?? { owned: [], unavailable: [] };
+  // Whether collecting asks first: more skins left to give than the prize gives.
+  const picks = !!choice && choiceNeedsPick(choice, blocked);
 
-  async function collect(): Promise<void> {
+  async function collect(picked?: string[]): Promise<void> {
     if (!d || !toCollect(d) || claim.isPending) return;
-    const gifts = d.me!.rewards!.gifts;
-    // The box the button has now: the answer replaces it with «Recogido».
-    const from = document.querySelector('[data-claim="tournament"]')?.getBoundingClientRect() ?? null;
+    // The box the button has now (the window's, when picking): the answer replaces it with «Recogido».
+    const from = (document.querySelector('[data-claim="tournament-choice"]') ?? document.querySelector('[data-claim="tournament"]'))?.getBoundingClientRect() ?? null;
+    let r: TournamentClaimResult;
     try {
-      await claim.mutateAsync(d.id);
-    } catch {
-      // The mutation shows its own error.
+      r = await claim.mutateAsync(picked ? { id: d.id, choice: picked } : { id: d.id });
+    } catch (e) {
+      // A skin picked that is theirs by now (bought meanwhile): the refusal reads the page again and the window stays,
+      // or opens, with it greyed out. Anything else, the mutation shows.
+      if (e instanceof ApiError && e.code === 'tournament_choice_owned') setPicking(true);
       return;
     }
-    const reward = rewardOf(gifts);
+    setPicking(false);
+    // What the server gave (the skins picked, the signals for the missing ones), not what the page expected.
+    const reward = rewardOf(r.items.map((i) => i.gift));
     playClaim(reward, true);
     fx.burst(from, reward);
     setBig({ key: ++bigKey.current, name: d.title });
   }
 
-  const error = q.error ?? claim.error;
+  const onClaim = () => {
+    if (!picks) return void collect();
+    claim.reset();
+    setPicking(true);
+  };
+  // In the window, a refusal is told inside it.
+  const asking = picking && picks && choice ? choice : null;
+  const error = q.error ?? (asking ? null : claim.error);
   return (
     <div className="screen-root tn-root">
       <div className="tn-screen tn-page">
@@ -534,7 +605,7 @@ export function TournamentScreen() {
             {flow.notice}
             <div className="tn-body">
               <div className="tn-main">
-                <Moment d={d} catalog={catalog} onClaim={() => void collect()} claiming={claim.isPending} />
+                <Moment d={d} catalog={catalog} onClaim={onClaim} claiming={claim.isPending} picks={picks} />
                 {d.state === 'cancelled' ? null : <Ranking d={d} />}
                 {d.me?.status === 'joined' && d.state !== 'scheduled' && d.state !== 'cancelled' ? <MyRuns d={d} /> : null}
               </div>
@@ -553,6 +624,16 @@ export function TournamentScreen() {
         </div>
       ) : null}
       {flow.dialogs}
+      {asking ? (
+        <ChoiceDialog
+          choice={asking}
+          blocked={blocked}
+          busy={claim.isPending}
+          error={claim.error ? errorText(claim.error, copy.errors) : null}
+          onConfirm={(picked) => void collect(picked)}
+          onClose={() => setPicking(false)}
+        />
+      ) : null}
     </div>
   );
 }

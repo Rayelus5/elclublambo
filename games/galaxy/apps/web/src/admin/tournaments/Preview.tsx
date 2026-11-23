@@ -1,5 +1,6 @@
 import { mediaUrl, type TournamentRecord, type TournamentState } from '@galaxy/shared';
 import { type GiftCatalog, giftWords } from '../../gifts/words';
+import { choiceWords } from '../../tournaments/words';
 import { Icon } from '../../ui/Icon';
 import { GiftLine } from '../GiftsField';
 import { euros, feeWords, shortDay, t, until } from './shared';
@@ -64,7 +65,8 @@ export function PlayerCard({ record, state, entrants, catalog, now }: { record: 
         {first ? (
           <div className="atn-card-prize">
             <b>{c.firstPrize}</b>
-            {catalog ? <GiftLine gifts={first.gifts} catalog={catalog} /> : null}
+            {first.choice ? <span className="tch-admin-chip">{choiceWords(first.choice).title}</span> : null}
+            {catalog && (first.gifts.length > 0 || !first.choice) ? <GiftLine gifts={first.gifts} catalog={catalog} /> : null}
             {first.cash ? <span className="atn-cash-chip">{euros(first.cash.amountEur)}</span> : null}
             {record.prizes.length > 1 ? <small>{c.morePrizes(record.prizes.length - 1)}</small> : null}
           </div>
@@ -97,7 +99,7 @@ export function PrizeTable({ record, catalog }: { record: TournamentRecord; cata
           <tr key={i}>
             <th scope="row">{t.places(p.from, p.to)}</th>
             <td>
-              {[...p.gifts.map((g) => giftWords(g, catalog)), ...(p.cash ? [euros(p.cash.amountEur)] : [])].join(', ') || t.noGifts}
+              {[...(p.choice ? [choiceWords(p.choice).title] : []), ...p.gifts.map((g) => giftWords(g, catalog)), ...(p.cash ? [euros(p.cash.amountEur)] : [])].join(', ') || t.noGifts}
             </td>
           </tr>
         ))}

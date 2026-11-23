@@ -3,6 +3,7 @@ import {
   DEFAULT_PODIUM,
   type Leaderboard,
   type RunResult,
+  SKIN_PROBES,
   type TournamentCard,
   type TournamentDetail,
   type TournamentList,
@@ -72,6 +73,17 @@ const card = (over: Partial<TournamentCard> = {}): TournamentCard => ({
   exclusiveWith: null,
   ...over,
 });
+// Skins to choose (plan «Torneo Navideño», C2): the Pack Navidad whole for the 1st, three to pick for the 2nd, one for the 3rd.
+const NAVIDAD = SKIN_PROBES.map((p) => `skin-${p}-navidad`);
+const signals = (amount: number) => [{ kind: 'currency' as const, currency: 'signal' as const, amount }];
+const pick = (count: number) => ({ piece: 'skin' as const, options: NAVIDAD, count, perMissing: { currency: 'signal' as const, amount: 10 } });
+const navidadPrizes: TournamentCard['prizes'] = [
+  { from: 1, to: 1, gifts: signals(30), cash: null, choice: pick(8) },
+  { from: 2, to: 2, gifts: signals(25), cash: null, choice: pick(3) },
+  { from: 3, to: 3, gifts: signals(20), cash: null, choice: pick(1) },
+  { from: 4, to: 10, gifts: signals(15), cash: null },
+  { from: 11, to: 100, gifts: signals(10), cash: null },
+];
 const NAMES = ['vega', 'lyra_nova', 'altair', 'deneb', 'rigel_23', 'sirius', 'sonda_rayo', 'betelgeuse_x', 'antares', 'polaris', 'capella', 'aldebaran', 'procyon', 'spica'];
 const ranking: TournamentRankRow[] = NAMES.map((username, i) => ({ rank: i + 1, username, avatar: null, frame: null, score: 12_400 - i * 610, eligible: username !== 'lyra_nova', place: i < 1 ? 1 : i === 1 ? null : i, me: username === 'sonda_rayo' }));
 const runs: TournamentRunRow[] = Array.from({ length: 9 }, (_, i) => ({ id: `r${i}`, finishedAt: at(-(i + 1) * 5 * 3_600_000), sector: i % 2 ? 'outer-nebula' : 'frost-rings', probe: 'lumen', coop: i % 3 === 2, outcome: i % 4 === 0 ? 'extracted' : 'died', depth: 4 + (i % 5), kills: 700 + i * 37, cores: i % 3, points: 380 + i * 41, value: 380 + i * 41 }));
@@ -92,7 +104,7 @@ const page_ = (over: Partial<TournamentDetail> = {}): TournamentDetail => ({
 const list: TournamentList = {
   running: [
     card(),
-    card({ id: '2', slug: 'caza-de-nucleos', title: 'Caza de Núcleos', summary: 'Purga todos los Núcleos que puedas en solitario', metric: 'cores', banner: null, exclusive: false, me: null, join: { open: true, block: null }, entrants: 88, maxEntrants: 120, filters: { sector: null, probe: null, mode: 'solo', minLevel: 10 } }),
+    card({ id: '2', slug: 'caza-de-nucleos', title: 'Caza de Núcleos', summary: 'Purga todos los Núcleos que puedas en solitario', metric: 'cores', banner: null, exclusive: false, me: null, join: { open: true, block: null }, entrants: 88, maxEntrants: 120, filters: { sector: null, probe: null, mode: 'solo', minLevel: 10 }, prizes: navidadPrizes }),
     card({ id: '3', slug: 'sprint-de-capas', title: 'Sprint de capas', summary: 'Una sola partida, la más honda', metric: 'depth', banner: banner('#ff9a3c', '#9c2238'), me: null, join: { open: false, block: 'exclusive' }, exclusiveWith: { slug: 'copa-de-hielo', title: 'Copa de hielo' }, entry: { currency: 'coins', amount: 500 }, prizes: prizes.map((p) => ({ ...p, cash: null })) }),
   ],
   upcoming: [card({ id: '4', slug: 'copa-de-fuego', title: 'Copa de fuego', state: 'scheduled', startsAt: at(5 * DAY), endsAt: at(10 * DAY), me: null, join: { open: true, block: null }, entry: { currency: 'coins', amount: 500 }, banner: null, entrants: 31, maxEntrants: 200, prizes: prizes.map((p) => ({ ...p, cash: null })) })],
@@ -118,6 +130,23 @@ const STATES: Record<string, TournamentDetail> = {
   }),
   cancelado: page_({ state: 'cancelled', ranking: [], total: 0, mine: null, myRuns: [], me: me({ refunded: true, rank: null }), entry: { currency: 'coins', amount: 500 }, join: { open: false, block: 'closed' }, prizes: prizes.map((p) => ({ ...p, cash: null })) }),
 };
+
+// The Torneo Navideño as its second place sees it once finished: three skins of the Pack Navidad to pick, two of them
+// already owned (plan «Torneo Navideño», C2).
+const CHOICE = page_({
+  ...STATES['terminado']!,
+  slug: 'torneo-navideno',
+  title: 'Torneo Navideño',
+  summary: 'Suma puntos con todas tus partidas de diciembre y gana el Pack Navidad',
+  banner: banner('#ff6b7a', '#0b7352'),
+  prizes: navidadPrizes,
+  participation: null,
+  me: me({ rank: 2, score: 11_790, rewards: { place: 2, gifts: signals(25), cash: null, participation: false, choice: pick(3) } }),
+  // Second on the podium.
+  ranking: ranking.map((r, i) => (i === 1 ? { ...r, username: 'sonda_rayo', eligible: true, place: 2, me: true } : r.me ? { ...r, username: 'antares_b', me: false } : r)),
+  mine: { ...ranking[1]!, username: 'sonda_rayo', eligible: true, place: 2, me: true },
+  choiceState: { owned: [NAVIDAD[0]!, NAVIDAD[6]!], unavailable: [] },
+});
 
 let root: Root | null = null;
 afterEach(() => {
@@ -208,6 +237,49 @@ for (const [w, h] of WIDTHS) {
       await shoot(`torneo-${state}-${w}`);
     }, 60_000);
   }
+
+  // Skins to choose (plan «Torneo Navideño», C2): the page with the prize to pick, and its window open with the owned
+  // ones greyed out and some picked. The window stays inside the screen and its grid never pushes it sideways.
+  test(`torneo eleccion a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(Routes, null, createElement(Route, { path: '/torneos/:slug', element: createElement(TournamentScreen) })), '/torneos/torneo-navideno', {
+      '/tournaments/torneo-navideno': CHOICE,
+      '/tournaments': list,
+      '/gacha': gacha,
+    });
+    await expect.poll(() => document.querySelector('[data-claim="tournament"]')).not.toBeNull();
+    await wait(700);
+    inside(w);
+    await shoot(`torneo-eleccion-${w}`);
+    document.querySelector<HTMLButtonElement>('[data-claim="tournament"]')!.click();
+    await expect.poll(() => document.querySelector('.tch-dialog')).not.toBeNull();
+    await wait(400);
+    const options = [...document.querySelectorAll<HTMLButtonElement>('.tch-option')];
+    expect(options).toHaveLength(8);
+    // The owned ones say so in words, greyed out.
+    const owned = options.filter((o) => o.getAttribute('aria-disabled') === 'true');
+    expect(owned).toHaveLength(2);
+    for (const o of owned) expect(o.textContent).toContain('Ya la tienes');
+    // Two picked of three, the focus on the next one.
+    options[2]!.click();
+    options[4]!.click();
+    options[5]!.focus();
+    await wait(300);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    const box = document.querySelector<HTMLElement>('.tch-dialog')!.getBoundingClientRect();
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(w + 0.5);
+    expect(box.bottom).toBeLessThanOrEqual(h + 0.5);
+    const grid = document.querySelector<HTMLElement>('.tch-grid')!;
+    expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth + 1);
+    if (shots) await page.screenshot({ path: `__shots__/torneo-eleccion-ventana-${w}.png` });
+    // The third one fills it: the rest wait, «Recoger con estas» is ready.
+    options[5]!.click();
+    await expect.poll(() => document.querySelectorAll('.tch-option.waits').length).toBe(3);
+    expect(document.querySelector<HTMLButtonElement>('[data-claim="tournament-choice"]')!.disabled).toBe(false);
+    await wait(300);
+    if (shots) await page.screenshot({ path: `__shots__/torneo-eleccion-llena-${w}.png` });
+  }, 60_000);
 }
 
 test('inscribirse explica todo en su diálogo, y recoger el premio vuela a la barra y se celebra', async () => {
