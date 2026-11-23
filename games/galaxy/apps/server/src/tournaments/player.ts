@@ -1,9 +1,15 @@
 import {
   awardPlaces,
+  choiceUnavailable,
+  type CosmeticsConfig,
   datesOverlap,
+  type Gift,
   mediaUrl,
+  type PrizeChoice,
+  resolvePrizeChoice,
   runContribution,
   type TournamentCard,
+  type TournamentClaimBody,
   type TournamentClaimResult,
   type TournamentDetail,
   type TournamentEntryResult,
@@ -30,8 +36,9 @@ import { cachedTournamentRanking, computeTournamentRanking, countedRunsSql, inva
 // Tournaments for players (plan «temporadas como fichas», part 5; GDD §13.3): the list in three tabs, a tournament's
 // page (its ranking with the podium and the player's own row, their runs that count, the review and the results),
 // signing up (the level, the cap, one exclusive tournament at a time, the fee), leaving (the score goes, and there is no
-// way back) and collecting the prizes once the results are out. Each write is idempotent by its key and serialised per
-// account, so two sign-ups at once can never both get into two exclusive tournaments.
+// way back) and collecting the prizes once the results are out (picking the skins a prize lets the winner choose). Each
+// write is idempotent by its key and serialised per account, so two sign-ups at once can never both get into two
+// exclusive tournaments.
 
 const TOP = 50;
 const FINISHED_SHOWN = 20;
@@ -222,6 +229,13 @@ export async function myCountedRuns(deps: TournamentDeps, t: TournamentRow, acco
   }));
 }
 
+/** The options of a choice the account already has, in the options' order. */
+async function ownedOptions(db: Kysely<DB>, accountId: string, choice: PrizeChoice): Promise<string[]> {
+  const rows = await db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', choice.piece).where('value', 'in', choice.options).execute();
+  const owned = new Set(rows.map((r) => r.value));
+  return choice.options.filter((id) => owned.has(id));
+}
+
 /** GET /galaxy/api/tournaments/:slug. */
 export async function tournamentDetail(deps: TournamentDeps, accountId: string, slug: string): Promise<TournamentDetail> {
   const now = deps.now();
@@ -262,6 +276,13 @@ export async function tournamentDetail(deps: TournamentDeps, accountId: string, 
       .executeTakeFirstOrThrow();
     review = { checks: c.checks, pending: c.pending };
   }
+  // Skins still to choose: what the window greys out (owned, or no longer live).
+  const choice = t.state === 'finished' && entry && !entry.claimed_at ? (entry.rewards as TournamentRewards | null)?.choice : undefined;
+  let choiceState: TournamentDetail['choiceState'] = null;
+  if (choice) {
+    const [owned, cosmetics] = await Promise.all([ownedOptions(deps.db, accountId, choice), deps.config.get('cosmetics')]);
+    choiceState = { owned, unavailable: choiceUnavailable(choice.options, cosmetics) };
+  }
   return {
     ...card,
     rules: t.record.rules,
@@ -272,6 +293,7 @@ export async function tournamentDetail(deps: TournamentDeps, accountId: string, 
     mine: mine ? strip(mine) : null,
     myRuns,
     review,
+    choiceState,
   };
 }
 
@@ -343,10 +365,17 @@ export async function leaveTournament(deps: TournamentDeps, accountId: string, i
 
 /**
  * Collects a finished tournament's prizes (POST …/:id/claim), once: the entry's guarded `claimed_at` is the payer's own
- * guard row, and the galaxies' seeds come from the server's key for that entry, never from the request.
+ * guard row, and the galaxies' seeds come from the server's key for that entry, never from the request. A prize with
+ * skins to choose resolves them here, with what the account owns and what is live now: a pick that does not fit throws,
+ * so nothing is kept and it can be sent again; what it gave is kept in the entry's rewards (`chosen`, `missing`), and
+ * the skins and the signals for the missing ones go in the same grant as the rest, under the same key (one credit per
+ * currency). The request's hash only carries the choice when there is one, so a resend from before is still the same.
  */
-export async function claimTournament(deps: TournamentDeps, accountId: string, id: string, key: string): Promise<TournamentClaimResult> {
-  return runOperation(deps.db, accountId, key, 'tournament.claim', requestHash({ tournament: id, action: 'claim' }), async (trx) => {
+export async function claimTournament(deps: TournamentDeps, accountId: string, id: string, key: string, body: TournamentClaimBody = {}): Promise<TournamentClaimResult> {
+  // Read with the pool before the transaction, as joining reads the account's config.
+  const cosmetics: CosmeticsConfig = await deps.config.get('cosmetics');
+  const hash = requestHash(body.choice ? { tournament: id, action: 'claim', choice: [...body.choice].sort() } : { tournament: id, action: 'claim' });
+  return runOperation(deps.db, accountId, key, 'tournament.claim', hash, async (trx) => {
     const now = deps.now();
     const t = await tournamentById(trx, id);
     if (t.state === 'draft') throw new HttpError(404, 'tournament_not_found');
@@ -357,7 +386,8 @@ export async function claimTournament(deps: TournamentDeps, accountId: string, i
       .where('tournament_id', '=', id)
       .where('account_id', '=', accountId)
       .where('claimed_at', 'is', null)
-      .where(sql<boolean>`jsonb_array_length(coalesce(rewards->'gifts', '[]'::jsonb)) > 0`)
+      // Something to collect in the game: gifts, or skins to choose (hasPrizeToCollect).
+      .where(sql<boolean>`(jsonb_array_length(coalesce(rewards->'gifts', '[]'::jsonb)) > 0 or jsonb_typeof(rewards->'choice') = 'object')`)
       .returning('rewards')
       .executeTakeFirst();
     if (!row) {
@@ -365,7 +395,19 @@ export async function claimTournament(deps: TournamentDeps, accountId: string, i
       throw had?.claimed_at ? new HttpError(409, 'already_claimed') : new HttpError(404, 'tournament_no_prize');
     }
     const rewards = row.rewards as TournamentRewards;
-    const { items } = await grantGifts(trx, accountId, rewards.gifts, {
+    let gifts: Gift[] = rewards.gifts;
+    if (rewards.choice) {
+      const c = rewards.choice;
+      const r = resolvePrizeChoice(c, { owned: await ownedOptions(trx, accountId, c), unavailable: choiceUnavailable(c.options, cosmetics) }, body.choice);
+      // Thrown inside the operation: everything rolls back and the entry stays to collect.
+      if ('error' in r) throw new HttpError(r.error === 'tournament_choice_owned' ? 409 : 400, r.error);
+      const skins = r.skins.map((id): Gift => ({ kind: 'cosmetic', piece: c.piece, id }));
+      const paid: Gift[] = r.compensation ? [{ kind: 'currency', currency: r.compensation.currency, amount: r.compensation.amount }] : [];
+      gifts = [...gifts, ...skins, ...paid];
+      const kept: TournamentRewards = { ...rewards, chosen: r.skins, missing: r.missing };
+      await trx.updateTable('galaxy.tournament_entries').set({ rewards: JSON.stringify(kept) }).where('tournament_id', '=', id).where('account_id', '=', accountId).execute();
+    } else if (body.choice) throw new HttpError(400, 'tournament_choice_invalid');
+    const { items } = await grantGifts(trx, accountId, gifts, {
       key: `tournament:${id}`,
       seedKey: `tournament:${id}:${accountId}`,
       reason: 'tournament_prize',

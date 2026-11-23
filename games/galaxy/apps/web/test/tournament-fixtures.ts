@@ -67,6 +67,7 @@ export const page = (over: Partial<TournamentDetail> = {}): TournamentDetail => 
   ...card(),
   rules: 'Vale cualquier sonda.\nLas partidas en grupo también cuentan.',
   details: null,
+  choiceState: null,
   reviewHours: 24,
   ranking: [row(1, 'vega', 4200), row(2, 'deneb', 3100), row(3, 'altair', 2800), row(4, 'rigel', 1900)],
   total: 4,

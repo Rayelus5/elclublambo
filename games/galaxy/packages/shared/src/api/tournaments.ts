@@ -2,17 +2,18 @@ import { z } from 'zod';
 import { usernameSchema } from '../account';
 import type { Gift } from '../gifts/schema';
 import type { CheckRow } from '../runs/replay-check';
-import type {
-  Participation,
-  PrizeRange,
-  TournamentBigReason,
-  TournamentFee,
-  TournamentFilters,
-  TournamentIssue,
-  TournamentMetric,
-  TournamentRecord,
-  TournamentRewards,
-  TournamentState,
+import {
+  type Participation,
+  PRIZE_CHOICE_MAX,
+  type PrizeRange,
+  type TournamentBigReason,
+  type TournamentFee,
+  type TournamentFilters,
+  type TournamentIssue,
+  type TournamentMetric,
+  type TournamentRecord,
+  type TournamentRewards,
+  type TournamentState,
 } from '../tournaments/record';
 
 // The tournaments' API (plan «temporadas como fichas», part 5; GDD §13.3). Players list them, open one (its ranking,
@@ -147,6 +148,12 @@ export interface TournamentDetail extends TournamentCard {
   myRuns: TournamentRunRow[];
   /** In review: how many runs are being checked, and how many are still waiting. */
   review: { checks: number; pending: number } | null;
+  /**
+   * Finished, the viewer's prize has skins to choose and it is not collected yet: which options they already have and
+   * which are no longer live (choiceNeedsPick says whether the window opens). Null otherwise. Only on the page: the
+   * cards share a synchronous `me` with the list.
+   */
+  choiceState: { owned: string[]; unavailable: string[] } | null;
 }
 
 /** POST /galaxy/api/tournaments/:id/join and /leave: the viewer's place now and their wallet. */
@@ -160,6 +167,21 @@ export interface TournamentClaimResult {
   items: { gift: Gift; outcome: 'granted' | 'owned' | 'skipped'; galaxies?: { id: string; name: string; tier: number; finish: string }[]; why?: string }[];
   wallet: { coins: number; dust: number; signal: number };
 }
+
+/**
+ * POST /galaxy/api/tournaments/:id/claim's body (plan «Torneo Navideño», C1): the skins picked when the prize lets the
+ * winner choose (none: nothing to pick, or an old client). Its order does not matter.
+ */
+export const tournamentClaimBodySchema = z
+  .object({
+    choice: z
+      .array(z.string().regex(/^[a-z0-9-]{1,60}$/))
+      .min(1)
+      .max(PRIZE_CHOICE_MAX)
+      .optional(),
+  })
+  .strict();
+export type TournamentClaimBody = z.output<typeof tournamentClaimBodySchema>;
 
 export const tournamentIdParamsSchema = z.object({ id: z.uuid() }).strict();
 export const tournamentSlugParamsSchema = z.object({ slug: z.string().regex(/^[a-z0-9-]{1,48}$/) }).strict();

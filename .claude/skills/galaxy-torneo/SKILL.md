@@ -1,6 +1,6 @@
 ---
 name: galaxy-torneo
-description: Preparar un torneo de Galaxy Survivor y dejarlo como borrador en PRE, y acompañar al propietario mientras se juega y se revisa. Cubre título, resumen y reglas, fechas dentro de una temporada, la medida con la que se gana (puntos, mejor partida, enemigos, partidas, capa, Núcleos, extracciones o puntos de temporada), filtros de sector, sonda y modo, exclusividad, entrada en moneda del juego, nivel mínimo y cupo, premios por puesto o por tramos con regalos de cualquier tipo o dinero, premio de participación y la revisión antes de pagar. Úsala cuando pidan «nuevo torneo», «torneo de fin de semana», «copa», «competición», «premios por puesto», «premio en metálico», «revisar un torneo» o «resultados del torneo», o new tournament, competition, cup.
+description: Preparar un torneo de Galaxy Survivor y dejarlo como borrador en PRE, y acompañar al propietario mientras se juega y se revisa. Cubre título, resumen y reglas, fechas dentro de una temporada, la medida con la que se gana (puntos, mejor partida, enemigos, partidas, capa, Núcleos, extracciones o puntos de temporada), filtros de sector, sonda y modo, exclusividad, entrada en moneda del juego, nivel mínimo y cupo, premios por puesto o por tramos con regalos de cualquier tipo, skins a elegir o dinero, premio de participación y la revisión antes de pagar. Úsala cuando pidan «nuevo torneo», «torneo de fin de semana», «copa», «competición», «premios por puesto», «premio en metálico», «revisar un torneo» o «resultados del torneo», o new tournament, competition, cup.
 ---
 
 # Torneo
@@ -37,7 +37,7 @@ ssh <PRE> "docker exec elclub-pre-galaxy-1 node dist/cli.js show-config content 
 Con AskUserQuestion. Los textos van en español, sin punto final ni símbolos especiales, y los títulos se proponen como opciones.
 - **Título** (≤60), **resumen** de la tarjeta (≤200) y **reglas** en claro (≤4000).
 - **Slug:** la dirección `/torneos/<slug>`. En minúsculas con guiones, 3–48 caracteres. Nunca repetido, tampoco con torneos terminados.
-- **Fechas:** a cualquier hora, 28 días como mucho, dentro de su temporada. El fin es exclusivo: «hasta el domingo incluido» acaba el lunes a las 00:00 de Madrid. Guárdalas en UTC con `.000Z`. En invierno, Madrid es UTC+1.
+- **Fechas:** a cualquier hora, 31 días como mucho, dentro de su temporada. El fin es exclusivo: «hasta el domingo incluido» acaba el lunes a las 00:00 de Madrid. Guárdalas en UTC con `.000Z`. En invierno, Madrid es UTC+1.
 - **Cómo se gana** (`metric`):
 
   | Medida | Qué cuenta |
@@ -58,6 +58,13 @@ Con AskUserQuestion. Los textos van en español, sin punto final ni símbolos es
 - **Premios por tramos de puestos:**
   - empiezan en el 1.º, van en orden y no se solapan; puede haber huecos;
   - cada tramo da regalos del buzón (`Gift`): monedas, polvo, señal, material, componentes, piezas cosméticas, galaxias, sondas o experiencia. Nunca nada que acabe con la temporada o con un evento (sus puntos, su moneda o señales de evento): los premios no caducan;
+  - **skins a elegir** opcionales por tramo (`choice`). El ganador elige `count` skins entre `options` al recoger; las que ya tiene salen apagadas. Con `count` igual a las opciones las recibe todas, sin elegir. Cada una que no se le pueda dar (ya la tiene o está desactivada) se paga con `perMissing`, o con nada si es `null`. Por ejemplo, «elige 3 skins del Pack Navidad, 10 señales por cada una que ya tengas»:
+    ```json
+    { "from": 2, "to": 2, "gifts": [{ "kind": "currency", "currency": "signal", "amount": 25 }], "cash": null,
+      "choice": { "piece": "skin", "count": 3, "perMissing": { "currency": "signal", "amount": 10 },
+        "options": ["skin-lumen-navidad", "skin-bastion-navidad", "skin-spark-navidad", "skin-sentinel-navidad", "skin-anchor-navidad", "skin-prism-navidad", "skin-comet-navidad", "skin-echo-navidad"] } }
+    ```
+    Para dar el pack entero, el mismo `choice` con `"count": 8`. Las skins de la tienda y una compensación grande piden un superadmin para programarlo;
   - dinero opcional por tramo (`cash: { amountEur, note }`). Lo paga un admin fuera del juego, que nunca pide datos bancarios. **Una entrada y un premio en dinero nunca van juntos.**
   - Quien tiene apagado «puede ganar premios» conserva su puesto con una marca, y su premio pasa al siguiente.
 - **Premio de participación:** opcional, para quien juega al menos `minRuns` partidas que cuentan.

@@ -1,13 +1,14 @@
 import { z } from 'zod';
-import type { CosmeticsConfig } from '../cosmetics/catalog';
+import { type CosmeticsConfig, skinParts } from '../cosmetics/catalog';
 import type { MailLimits } from '../gifts/limits';
 import { type BigGiftReason, bigGiftReasons, type GiftIssueCode, giftIssues, type GiftLive } from '../gifts/rules';
 import { type Gift, giftListSchema } from '../gifts/schema';
+import { choiceGifts } from './choice';
 
 // Tournaments (plan «temporadas como fichas», part 5; GDD §13.3): competitions an admin prepares inside a season, each
 // with its own ranking by the measure the admin picks, optional filters, an optional entry fee in game currency and
-// prizes by place (gifts of any kind and, apart, money an admin pays outside the game). Pure: the panel shows the same
-// problems the server enforces.
+// prizes by place (gifts of any kind, skins the winner chooses and, apart, money an admin pays outside the game). Pure:
+// the panel shows the same problems the server enforces.
 
 /** What a tournament ranks by (GDD §13.3): its own ranking over the runs that count, never missions or adjustments. */
 export const TOURNAMENT_METRICS = ['points', 'kills', 'runs', 'best_run', 'depth', 'cores', 'extractions', 'season_points'] as const;
@@ -23,8 +24,8 @@ export type TournamentState = (typeof TOURNAMENT_STATES)[number];
 export const TOURNAMENT_MODES = ['solo', 'coop', 'any'] as const;
 export type TournamentMode = (typeof TOURNAMENT_MODES)[number];
 
-/** The longest a tournament lasts [U]. */
-export const TOURNAMENT_MAX_DAYS = 28;
+/** The longest a tournament lasts [U]: a whole month (the owner, 2026-11-23, for the Torneo Navideño). */
+export const TOURNAMENT_MAX_DAYS = 31;
 /** The currencies an entry fee can be paid in (the wallet's own; never a season's or an event's). */
 export const TOURNAMENT_FEE_CURRENCIES = ['coins', 'dust', 'signal'] as const;
 
@@ -58,12 +59,44 @@ const euros = z
 export const cashPrizeSchema = z.object({ amountEur: euros, note: z.string().trim().max(200).default('') }).strict();
 export type CashPrize = z.output<typeof cashPrizeSchema>;
 
+/** The most options, and skins, a choice holds (a pack is eight). */
+export const PRIZE_CHOICE_MAX = 12;
+
+/**
+ * Skins the winner chooses when they collect (plan «Torneo Navideño», C1): `count` among `options` (`count` equal to the
+ * options: all of them, nothing to choose). The ones they already have, or that are off by then, cannot be given; each
+ * one short of `count` pays `perMissing` (null: nothing). Whether each option exists is checked by tournamentIssues, never
+ * here: a stored tournament must keep reading even if a skin goes away.
+ */
+export const prizeChoiceSchema = z
+  .object({
+    piece: z.literal('skin'),
+    options: z
+      .array(z.string().regex(/^[a-z0-9-]{1,60}$/))
+      .min(1)
+      .max(PRIZE_CHOICE_MAX),
+    count: z.number().int().min(1).max(PRIZE_CHOICE_MAX),
+    perMissing: tournamentFeeSchema.nullable(),
+  })
+  .strict()
+  .superRefine((c, ctx) => {
+    if (c.count > c.options.length) ctx.addIssue({ code: 'custom', path: ['count'], message: 'prize_choice_count' });
+    const seen = new Set<string>();
+    c.options.forEach((id, k) => {
+      if (seen.has(id)) ctx.addIssue({ code: 'custom', path: ['options', k], message: 'prize_choice_twice' });
+      seen.add(id);
+    });
+  });
+export type PrizeChoice = z.output<typeof prizeChoiceSchema>;
+
 export const prizeRangeSchema = z
   .object({
     from: z.number().int().min(1).max(10_000),
     to: z.number().int().min(1).max(10_000),
     gifts: giftListSchema(20).default([]),
     cash: cashPrizeSchema.nullable().default(null),
+    /** Optional, never defaulted: records saved before keep exactly their shape. */
+    choice: prizeChoiceSchema.optional(),
   })
   .strict();
 export type PrizeRange = z.output<typeof prizeRangeSchema>;
@@ -106,7 +139,7 @@ export const tournamentRecordSchema = z
     else if (span > TOURNAMENT_MAX_DAYS * DAY_MS) ctx.addIssue({ code: 'custom', path: ['endsAt'], message: 'tournament_too_long' });
     t.prizes.forEach((p, i) => {
       if (p.from > p.to) ctx.addIssue({ code: 'custom', path: ['prizes', i, 'to'], message: 'prize_range' });
-      if (p.gifts.length === 0 && !p.cash) ctx.addIssue({ code: 'custom', path: ['prizes', i], message: 'prize_empty' });
+      if (p.gifts.length === 0 && !p.cash && !p.choice) ctx.addIssue({ code: 'custom', path: ['prizes', i], message: 'prize_empty' });
       const prev = t.prizes[i - 1];
       if (prev && p.from < prev.from) ctx.addIssue({ code: 'custom', path: ['prizes', i, 'from'], message: 'prizes_order' });
       else if (prev && p.from <= prev.to) ctx.addIssue({ code: 'custom', path: ['prizes', i, 'from'], message: 'prizes_overlap' });
@@ -124,6 +157,8 @@ export const TOURNAMENT_ISSUE_CODES = [
   'tournament_too_long',
   'prize_range',
   'prize_empty',
+  'prize_choice_count',
+  'prize_choice_twice',
   'prizes_order',
   'prizes_overlap',
   'prizes_start',
@@ -199,6 +234,14 @@ export function tournamentIssues(input: unknown, ctx: TournamentContext = {}): T
       for (const issue of giftIssues(gifts, live)) if (issue.code !== 'season_closed' && issue.code !== 'event_closed') out.push({ path: `${path}.${issue.index}`, message: `gift_${issue.code}` });
     }
   }
+  // Skins to choose: each option a skin with art and, against what is live, one that can be given.
+  t.prizes.forEach((p, i) =>
+    p.choice?.options.forEach((id, k) => {
+      const path = `prizes.${i}.choice.options.${k}`;
+      if (!skinParts(id)) out.push({ path, message: 'gift_cosmetic_unknown' });
+      else if (ctx.gifts) for (const issue of giftIssues([{ kind: 'cosmetic', piece: 'skin', id }], ctx.gifts)) out.push({ path, message: `gift_${issue.code}` });
+    }),
+  );
   return out;
 }
 
@@ -239,6 +282,12 @@ export interface TournamentRewards {
   cash: CashPrize | null;
   /** It played enough for the participation prize. */
   participation: boolean;
+  /** Its place's skins to choose, frozen with the results (absent: none, and in results published before they existed). */
+  choice?: PrizeChoice;
+  /** Collected: the skins the choice gave, in the options' order. */
+  chosen?: string[];
+  /** Collected: how many skins of the choice could not be given (each one paid with its `perMissing`). */
+  missing?: number;
 }
 
 /** What an entrant takes: its place's prize and the participation prize; null when nothing (or it cannot win prizes). */
@@ -248,8 +297,10 @@ export function tournamentRewardsFor(t: Pick<TournamentRecord, 'prizes' | 'parti
   const participation = !!t.participation && who.runs >= t.participation.minRuns;
   const gifts = [...(range?.gifts ?? []), ...(participation ? t.participation!.gifts : [])];
   const cash = range?.cash ?? null;
-  if (gifts.length === 0 && !cash) return null;
-  return { place: range ? who.place : null, gifts, cash, participation };
+  const choice = range?.choice;
+  if (gifts.length === 0 && !cash && !choice) return null;
+  // The key only when there is a choice: everything else keeps the shape it always had.
+  return { place: range ? who.place : null, gifts, cash, participation, ...(choice ? { choice } : {}) };
 }
 
 export type TournamentBigReason = BigGiftReason | 'cash';
@@ -257,14 +308,17 @@ export type TournamentBigReason = BigGiftReason | 'cash';
 /**
  * Why scheduling a record needs a superadmin: any prize past the mail's limits for a superadmin, or any money. Each
  * winner takes their place's gifts and the participation prize together, so a range is weighed with it (to as many
- * players as places it has); the participation prize alone, to the cap (or to anyone when there is none).
+ * players as places it has); the participation prize alone, to the cap (or to anyone when there is none). Skins to
+ * choose weigh as every option given and, at their most, `count` skins paid with `perMissing`.
  */
 export function tournamentBigReasons(t: Pick<TournamentRecord, 'prizes' | 'participation' | 'maxEntrants'>, limits: MailLimits, cosmetics: CosmeticsConfig): TournamentBigReason[] {
   const out = new Set<TournamentBigReason>();
   const extra = t.participation?.gifts ?? [];
   for (const p of t.prizes) {
     if (p.cash) out.add('cash');
-    if (p.gifts.length > 0) for (const r of bigGiftReasons([...p.gifts, ...extra], p.to - p.from + 1, limits, cosmetics)) out.add(r);
+    const c = p.choice;
+    const own: Gift[] = [...p.gifts, ...(c ? choiceGifts(c) : []), ...(c?.perMissing ? [{ kind: 'currency' as const, currency: c.perMissing.currency, amount: c.perMissing.amount * c.count }] : [])];
+    if (own.length > 0) for (const r of bigGiftReasons([...own, ...extra], p.to - p.from + 1, limits, cosmetics)) out.add(r);
   }
   if (t.participation) for (const r of bigGiftReasons(t.participation.gifts, t.maxEntrants ?? Number.MAX_SAFE_INTEGER, limits, cosmetics)) out.add(r);
   return [...out];
