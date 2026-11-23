@@ -8,6 +8,7 @@ import {
   parseConfig,
   PROBE_TEST,
   SKIN_PROBES,
+  TOURNAMENT_MAX_DAYS,
   type TournamentClaimResult,
   type TournamentDecideManyResult,
   type TournamentDetail,
@@ -221,6 +222,18 @@ describe('preparar y programar', () => {
     expect(refused.json()).toMatchObject({ error: 'tournament_needs_superadmin', reasons: ['cash'] });
     const ok = await post(app.app, `/galaxy/api/admin/tournaments/${t.id}/schedule`, { version: t.version, reason: 'Listo', password: superadmin.password }, { cookie: superadmin.cookie });
     expect(ok.json()).toMatchObject({ state: 'scheduled' });
+  });
+
+  test('un torneo de 31 días justos se guarda: la base de datos admite lo mismo que la ficha (Torneo Navideño, 23/11)', async () => {
+    const startsAt = new Date(Date.parse(SEASON_START) + 24 * H);
+    const span = TOURNAMENT_MAX_DAYS * 24 * H;
+    const rec = record(2, { startsAt: startsAt.toISOString(), endsAt: new Date(startsAt.getTime() + span).toISOString() });
+    const made = await post(app.app, '/galaxy/api/admin/tournaments', { record: rec, reason: 'Un mes entero' }, { cookie: superadmin.cookie });
+    expect(made.statusCode, made.body).toBe(201);
+    // One second more is refused by the record before it ever reaches the table.
+    const longer = record(3, { startsAt: rec.startsAt, endsAt: new Date(startsAt.getTime() + span + 1000).toISOString() });
+    const refused = await post(app.app, '/galaxy/api/admin/tournaments', { record: longer, reason: 'Más de un mes' }, { cookie: superadmin.cookie });
+    expect(refused.statusCode).toBe(400);
   });
 });
 
