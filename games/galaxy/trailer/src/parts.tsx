@@ -111,7 +111,7 @@ export function Stars({ seed = 7, count = 180 }: { seed?: number; count?: number
   );
 }
 
-/** The game's logo: GALAXY in white, SURVIVOR in Solar, outlined; the braille line; the «Beta Abierta» tag. */
+/** The game's logo: GALAXY in white, SURVIVOR in Solar, outlined; the braille line; the «Beta Cerrada» tag (closed beta since 2026-11-24: by invitation only). */
 export function Logo({ scale = 1, braille = 1, tag = 1, children }: { scale?: number; braille?: number; tag?: number; children?: ReactNode }) {
   const big: CSSProperties = { fontFamily: DISPLAY, fontSize: 190 * scale, lineHeight: 0.88, textShadow: `${OUTLINE(C.outline, 10 * scale)}, 0 ${18 * scale}px 0 #0c0d2b, 0 ${30 * scale}px ${60 * scale}px rgba(0,0,0,.55)` };
   return (
@@ -119,7 +119,7 @@ export function Logo({ scale = 1, braille = 1, tag = 1, children }: { scale?: nu
       <div style={{ ...big, color: C.ink }}>GALAXY</div>
       <div style={{ ...big, color: C.solar }}>SURVIVOR</div>
       <div style={{ marginTop: 22 * scale, marginLeft: 8 * scale, fontSize: 46 * scale, letterSpacing: '0.12em', color: C.ice, opacity: braille, textShadow: '0 0 18px rgba(150,205,255,.7)', fontFamily: "'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif" }}>{BRAILLE_BRAND}</div>
-      <div style={{ position: 'absolute', left: 860 * scale, top: -6 * scale, transform: `rotate(-6deg) scale(${tag})`, transformOrigin: '20% 50%', opacity: Math.min(1, tag), whiteSpace: 'nowrap', fontFamily: SANS, fontWeight: 700, fontSize: 44 * scale, background: C.nova, color: '#fff', padding: `${10 * scale}px ${28 * scale}px`, borderRadius: 22 * scale, boxShadow: `0 ${10 * scale}px 0 ${C.novaLip}` }}>Beta Abierta</div>
+      <div style={{ position: 'absolute', left: 860 * scale, top: -6 * scale, transform: `rotate(-6deg) scale(${tag})`, transformOrigin: '20% 50%', opacity: Math.min(1, tag), whiteSpace: 'nowrap', fontFamily: SANS, fontWeight: 700, fontSize: 44 * scale, background: C.nova, color: '#fff', padding: `${10 * scale}px ${28 * scale}px`, borderRadius: 22 * scale, boxShadow: `0 ${10 * scale}px 0 ${C.novaLip}` }}>Beta Cerrada</div>
       {children}
     </div>
   );

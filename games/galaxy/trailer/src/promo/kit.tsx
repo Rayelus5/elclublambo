@@ -108,7 +108,7 @@ export function Fine({ size, children, width, align }: { size: number; children:
   return <div style={{ fontFamily: SANS, fontWeight: 500, fontSize: size, lineHeight: 1.35, color: '#aab2dc', maxWidth: width, textAlign: align, textShadow: '0 1px 0 rgba(5,6,26,.9)' }}>{children}</div>;
 }
 
-/** A tilted sticker, like «Beta Abierta» on the logo. */
+/** A tilted sticker, like «Beta Cerrada» on the logo. */
 export function Sticker({ text, size, tilt = -4, bg = C.solar, ink = '#2a1a00', lip = '#a8701a', glow = 'rgba(255,201,74,.45)' }: { text: string; size: number; tilt?: number; bg?: string; ink?: string; lip?: string; glow?: string }) {
   return (
     <div style={{ display: 'inline-block', whiteSpace: 'nowrap', transform: `rotate(${tilt}deg)`, fontFamily: DISPLAY, fontSize: size, lineHeight: 1, color: ink, background: bg, padding: `${size * 0.32}px ${size * 0.6}px`, borderRadius: size * 0.3, boxShadow: `0 ${size * 0.14}px 0 ${lip}, 0 0 ${size * 1.2}px ${glow}` }}>
