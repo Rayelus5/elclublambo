@@ -107,7 +107,7 @@ function Row({
         {r.status === "closed" && r.drawRefused ? (
           <p className="flex max-w-md items-start gap-1.5 text-[13px] text-warning">
             <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            {`No se pudo hacer el sorteo: ${drawRefusalText(r.drawRefused)} El cron lo reintenta cada hora.`}
+            {`No se pudo hacer el sorteo: ${drawRefusalText(r.drawRefused)} El cron lo reintenta en su próxima pasada.`}
           </p>
         ) : null}
         {banned ? (
