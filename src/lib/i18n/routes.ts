@@ -21,17 +21,28 @@ export type RouteKey =
 
 type Params = { id?: string; target?: string; chainId?: string | number; hash?: string };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Los patrones de los parámetros del mapa, sin anclas: los usan estas validaciones y las reglas de next.config
+ * (route-rules.ts), que los escriben como `:id(<patrón>)`.
+ */
+export const PARAM_PATTERNS = {
+  id: "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+  alias: "[a-z0-9_]{3,20}",
+  address: "0x[0-9a-fA-F]{40}",
+  hash: "0x[0-9a-fA-F]{64}",
+} as const;
+
+const UUID = new RegExp(`^${PARAM_PATTERNS.id}$`);
 
 // Tras `{id}` solo estos segmentos, y pasan tal cual (R-A).
-const ID_SUFFIXES = new Set(["opengraph-image", "twitter-image", "entries"]);
+export const ID_SUFFIXES: readonly string[] = ["opengraph-image", "twitter-image", "entries"];
 // Tras `{target}` de ElClub Pay.
-const PAY_SUFFIXES = new Set(["opengraph-image", "twitter-image", "badge"]);
+export const PAY_SUFFIXES: readonly string[] = ["opengraph-image", "twitter-image", "badge"];
 // Herramientas de un solo segmento bajo `tools` (sin sufijos).
 const FLAT_TOOLS = new Set(["pay", "vouches", "approvals", "multisend", "gas"]);
-const ALIAS = /^[a-z0-9_]{3,20}$/;
-const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+const ALIAS = new RegExp(`^${PARAM_PATTERNS.alias}$`);
+const ADDRESS = new RegExp(`^${PARAM_PATTERNS.address}$`);
+const TX_HASH = new RegExp(`^${PARAM_PATTERNS.hash}$`);
 
 // Segmentos estructurales: interno (inglés) -> URL pública por idioma.
 const SEGMENTS: Record<string, Record<Lang, string>> = {
@@ -82,7 +93,7 @@ function isValidPay(segs: string[]): boolean {
   }
   if (!ALIAS.test(target) && !ADDRESS.test(target)) return false;
   if (segs.length === 2) return true;
-  return segs.length === 3 && PAY_SUFFIXES.has(segs[2] ?? "");
+  return segs.length === 3 && PAY_SUFFIXES.includes(segs[2] ?? "");
 }
 
 /** ¿Es una lista de segmentos internos (ingleses) del mapa cerrado? */
@@ -96,7 +107,7 @@ function isValidInternal(segs: string[], strictId = true): boolean {
   if (segs[0] !== "tools" || segs[1] !== "giveaways") return false;
   if (segs.length === 2) return true;
   if (segs.length === 3) return segs[2] === "new" || isId(segs[2]);
-  if (segs.length === 4) return isId(segs[2]) && ID_SUFFIXES.has(segs[3] ?? "");
+  if (segs.length === 4) return isId(segs[2]) && ID_SUFFIXES.includes(segs[3] ?? "");
   return false;
 }
 

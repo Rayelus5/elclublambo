@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
-import { decidePublicRoute, isInternalImagePath, isUnknownTopSegment, legacyClubRedirect } from "@/lib/i18n/public-routing";
+import { isInternalImagePath, isUnknownTopSegment } from "@/lib/i18n/public-routing";
+import { toInternalPath } from "@/lib/i18n/routes";
 import { clubPath } from "@/lib/club/paths";
 import { isMissingPublicGiveaway } from "@/lib/public-giveaways/exists";
 import { isInvalidPayPath, isMissingPayAlias } from "@/lib/pay/exists";
@@ -28,11 +29,9 @@ export async function proxy(request: NextRequest) {
   // Without the header /status/* stays a 404; forging it only shows the status page, which opens nothing.
   if (isInternalStatusRequest(request.nextUrl.pathname, request.method, request.headers)) return NextResponse.next();
 
-  // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
-  // the same path and query, before anything else: no session read, no gate. On the public origin (behind the tunnel
-  // request.nextUrl is the bind address).
-  const legacy = legacyClubRedirect(request.nextUrl.pathname, request.nextUrl.search);
-  if (legacy !== null) return NextResponse.redirect(new URL(legacy, publicOrigin(request)), 308);
+  // The fixed public routing is next.config's (src/lib/i18n/route-rules.ts), resolved by the router without running any
+  // function: the old club URLs (R1) and direct /es/* visits 308 before the proxy runs, and the Spanish public URLs
+  // ("/", "/donar", /herramientas…) are rewritten to the internal /es tree after it. So this proxy sees the public URL.
 
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
   // Set on the request itself (overwrites anything the client sent) so the cookie refresh below still forwards with it.
@@ -147,22 +146,6 @@ export async function proxy(request: NextRequest) {
   }
   bannerNow = gate.banner;
 
-  // Public part (bilingual tree): "/" is always the landing and "/donar" the public donate page (the club lives under
-  // /foro, R1-R3); Spanish public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their
-  // canonical URL (308). Decided before the gates: it is served the same with or without a session.
-  const route = decidePublicRoute(pathname);
-  if (route.kind === "redirect") {
-    const url = redirectUrl(route.to, request.nextUrl.search);
-    return remember(applySessionHeaders(NextResponse.redirect(url, 308), sessionCookies, sessionHeaders));
-  }
-  if (route.kind === "rewrite") {
-    // An unknown giveaway id: the page streams under <Suspense> (its notFound() would answer 200), so 404 here.
-    if ((await isMissingPublicGiveaway(route.to)) || (await isMissingPayAlias(route.to))) return notFound();
-    const url = request.nextUrl.clone();
-    url.pathname = route.to;
-    return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
-  }
-
   // A single unknown segment (/xx, /typo) is the custom 404 for everyone: an anonymous visitor is not invited to sign in
   // to the forum (I1). Club routes, langs, the public ES map and the app's own top-level files are never "unknown".
   if (!user && isUnknownTopSegment(pathname)) return notFound();
@@ -189,11 +172,13 @@ export async function proxy(request: NextRequest) {
   // one. The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot
   // open. /foro/mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
-  // got the same 404 above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
-  // Same for an alias nobody owns (/en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
+  // got the same 404 above; the old club segments 308'd in next.config). An unknown public giveaway id is a 404 with or
+  // without a session, in both languages (checked on the internal path: next.config rewrites the Spanish URL after this).
+  // Same for an alias nobody owns (/pay/<alias>, /en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
+  const internalPath = toInternalPath(pathname)?.internal ?? pathname;
   if (
-    (await isMissingPublicGiveaway(pathname)) ||
-    (await isMissingPayAlias(pathname)) ||
+    (await isMissingPublicGiveaway(internalPath)) ||
+    (await isMissingPayAlias(internalPath)) ||
     isInvalidPayPath(pathname) ||
     (user &&
       (isUnknownTopSegment(pathname) ||

@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 
 // R1: every club link goes through clubPath. A hand-written legacy club path ("/c/…", "/perfil", …) in source is a bug.
 const ROOT = process.cwd();
-const ALLOW = new Set(["src/lib/club/paths.ts", "src/lib/i18n/public-routing.ts"]);
+// The modules that define the legacy redirects themselves (route-rules.ts: the next.config rules that 308 them to /foro).
+const ALLOW = new Set(["src/lib/club/paths.ts", "src/lib/i18n/public-routing.ts", "src/lib/i18n/route-rules.ts"]);
 const LEGACY =
   /(?<!clubPath\()["'`]\/(?:c\/|perfil|settings|u\/|sorteos|dao|mercado|guia|invites|notifications|tickets|moderation|admin|login|invite\/|no-access|banned|bienvenida|donar\/)/;
 

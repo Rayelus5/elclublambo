@@ -45,19 +45,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+// The /es → canonical 308s and the old club URLs → /foro 308s are next.config redirects now, answered before the proxy
+// with a path as destination, so the bind address cannot leak (tests/unit/i18n/route-rules.test.ts).
 describe("proxy redirects behind the tunnel", () => {
-  it("308s a direct /es visit to its Spanish URL on the public host", async () => {
-    const res = await docker("/es/tools");
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://pre.elclub.party/herramientas");
-  });
-
-  it("keeps the query string on the 308", async () => {
-    const res = await docker("/es/tools?x=1&y=2");
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://pre.elclub.party/herramientas?x=1&y=2");
-  });
-
   it("sends an anonymous visitor of a club page to the public /foro/login with next", async () => {
     const res = await docker("/foro/c/general?a=1");
     expect(res.status).toBe(307);
@@ -71,30 +61,9 @@ describe("proxy redirects behind the tunnel", () => {
     expect(res.headers.get("location")).toBe("https://pre.elclub.party/foro/bienvenida?next=%2Fforo%2Fc%2Fgeneral%3Fa%3D1");
   });
 
-  // R1: the club moved under /foro; old links (shared invites, bookmarks, delivered push notifications) 308 there,
-  // same path and query, before any session gate.
-  it.each([
-    ["/c/abc?m=1", "/foro/c/abc?m=1"],
-    ["/invite/Zx_9?x=1", "/foro/invite/Zx_9?x=1"],
-    ["/login", "/foro/login"],
-    ["/bienvenida?next=%2Fc%2Fx", "/foro/bienvenida?next=%2Fc%2Fx"],
-    ["/donar/x", "/foro/donar/x"],
-  ])("308s the old club URL %s to %s on the public host, signed out", async (from, to) => {
-    const res = await docker(from);
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe(`https://pre.elclub.party${to}`);
-  });
-
-  it("308s an old club URL before the welcome gate (signed in, welcome pending)", async () => {
-    state.user = { id: "u1" };
-    const res = await docker("/c/abc?m=1");
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://pre.elclub.party/foro/c/abc?m=1");
-  });
-
-  it("keeps rewrites internal (Spanish URL served from the /es tree, no redirect)", async () => {
+  it("lets a Spanish public URL through without any redirect (next.config rewrites it after the proxy)", async () => {
     const res = await docker("/herramientas");
     expect(res.headers.get("location")).toBeNull();
-    expect(res.headers.get("x-middleware-rewrite")).toContain("/es/tools");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 });

@@ -48,9 +48,14 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/api/v2/check/token")).toBe(false);
     expect(isPublicPath("/api/other")).toBe(false);
   });
-  it.each(["/", "/foro", "/foro/loginx", "/foro/invites", "/foro/invite", "/foro/admin/members", "/foro/u/0xabc", "/foro/banned2", "/foro/c/x"])("%s private", (p) =>
+  it.each(["/foro", "/foro/loginx", "/foro/invites", "/foro/invite", "/foro/admin/members", "/foro/u/0xabc", "/foro/banned2", "/foro/c/x"])("%s private", (p) =>
     expect(isPublicPath(p)).toBe(false),
   );
+  // next.config rewrites "/" (the landing) to the public tree after the proxy: public as an exact path, never a prefix.
+  it("/ is public as an exact path only", () => {
+    expect(isPublicPath("/")).toBe(true);
+    expect(isPublicPath("/foro/invites")).toBe(false);
+  });
   it.each(["/login", "/invite/abc", "/no-access", "/banned"])("the old root gate page %s is no longer public (it 308s)", (p) =>
     expect(isPublicPath(p)).toBe(false),
   );
