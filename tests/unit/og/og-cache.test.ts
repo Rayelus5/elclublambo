@@ -2,8 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Share cards cost a full image render each (the heaviest request of the site) and are fetched by every link preview and
-// crawler. The ones that only depend on the language are built once at build time; the per-link ones carry an s-maxage so
-// the CDN answers the repeats without running a function.
+// crawler. Every card carries an s-maxage, so the CDN answers the repeats without running a function.
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/og", () => ({
@@ -18,20 +17,22 @@ vi.mock("@/lib/public-giveaways/queries", () => ({ getPublicGiveaway: async () =
 
 type ImageModule = {
   default: (props: { params: Promise<Record<string, string>> }) => Promise<{ options: { headers?: Record<string, string> } }>;
-  generateStaticParams?: () => unknown;
 };
 
 const sMaxAge = (cacheControl: string | undefined) => Number(/s-maxage=(\d+)/.exec(cacheControl ?? "")?.[1] ?? 0);
 
+// Turbopack does not prerender metadata image routes under [lang] (a re-exported generateStaticParams is ignored), so
+// the language-only cards are cached by the CDN too, for a week: they only change with a deployment, which starts afresh.
 describe("share cards of the landing and /start", () => {
   it.each([
-    ["landing opengraph", () => import("@/app/(public)/[lang]/opengraph-image")],
-    ["landing twitter", () => import("@/app/(public)/[lang]/twitter-image")],
-    ["start opengraph", () => import("@/app/(public)/[lang]/start/opengraph-image")],
-    ["start twitter", () => import("@/app/(public)/[lang]/start/twitter-image")],
-  ])("%s: built at build time for both languages", async (_name, load) => {
+    ["landing opengraph", () => import("@/app/(public)/[lang]/opengraph-image"), { lang: "es" }],
+    ["landing twitter", () => import("@/app/(public)/[lang]/twitter-image"), { lang: "en" }],
+    ["start opengraph", () => import("@/app/(public)/[lang]/start/opengraph-image"), { lang: "es" }],
+    ["start twitter", () => import("@/app/(public)/[lang]/start/twitter-image"), { lang: "en" }],
+  ] as const)("%s: cached by the CDN for a week", async (_name, load, params) => {
     const mod = (await load()) as unknown as ImageModule;
-    expect(await mod.generateStaticParams?.()).toEqual([{ lang: "es" }, { lang: "en" }]);
+    const res = await mod.default({ params: Promise.resolve({ ...params }) });
+    expect(sMaxAge(res.options.headers?.["Cache-Control"])).toBeGreaterThanOrEqual(7 * 24 * 3600);
   });
 });
 
