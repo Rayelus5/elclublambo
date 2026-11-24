@@ -1,21 +1,12 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { clubPath } from "@/lib/club/paths";
 import { getDictionary } from "@/lib/i18n";
 import { localizedPath } from "@/lib/i18n/routes";
+import type { NotFoundVariant } from "@/lib/status/not-found-variant";
 import { StatusShell } from "./status-shell";
 
-export type NotFoundVariant = "es" | "en" | "foro";
-
-/** A-R14: the variant from the proxy's `x-pathname` (path + query). `/en…` → en, the club → foro (Spanish), else es. */
-export function notFoundVariant(xPathname: string | null): NotFoundVariant {
-  const path = (xPathname ?? "").split(/[?#]/)[0] ?? "";
-  const first = path.split("/").filter(Boolean)[0];
-  if (first === "en") return "en";
-  if (`/${first}` === clubPath()) return "foro";
-  return "es";
-}
+export { notFoundBootScript, notFoundVariant, type NotFoundVariant } from "@/lib/status/not-found-variant";
 
 export function NotFoundView({ variant }: { variant: NotFoundVariant }) {
   const lang = variant === "en" ? "en" : "es";
@@ -43,9 +34,4 @@ export function NotFoundView({ variant }: { variant: NotFoundVariant }) {
       </div>
     </StatusShell>
   );
-}
-
-/** The root 404 reads the request header, so it lives inside the not-found page's <Suspense>. */
-export async function NotFoundFromRequest() {
-  return <NotFoundView variant={notFoundVariant((await headers()).get("x-pathname"))} />;
 }
