@@ -54,15 +54,47 @@ describe("NotFoundView", () => {
   });
 });
 
+// The 404 is static (served by the CDN, no function per 404): its three variants are in the HTML and the URL picks one
+// before the first paint (html[data-nf], set by the inline boot script, or by NotFoundVariantSync on a client navigation).
 describe("src/app/not-found.tsx", () => {
-  it("is noindex and picks the variant from x-pathname", async () => {
+  it("is noindex, never reads the request, and holds the three variants", async () => {
     vi.resetModules();
-    vi.doMock("next/headers", () => ({ headers: async () => new Headers({ "x-pathname": "/foro/c/nada" }) }));
+    vi.doMock("next/headers", () => ({
+      headers: async () => {
+        throw new Error("the 404 must not read the request");
+      },
+    }));
     const page = await import("@/app/not-found");
     expect((page.metadata.robots as { index: boolean }).index).toBe(false);
-    const { NotFoundFromRequest } = await import("@/components/status/not-found-view");
-    render(await NotFoundFromRequest());
-    expect(screen.getByRole("heading", { level: 1, name: es.notFoundForoTitle })).toBeInTheDocument();
+    const { container } = render(page.default());
+    expect([...container.querySelectorAll("[data-nf-variant]")].map((el) => el.getAttribute("data-nf-variant"))).toEqual(["es", "en", "foro"]);
+    expect(container.querySelector('[data-nf-variant="en"] h1')?.textContent).toBe(en.notFoundTitle);
+    expect(container.querySelector('[data-nf-variant="foro"] h1')?.textContent).toBe(es.notFoundForoTitle);
     vi.doUnmock("next/headers");
+  });
+});
+
+describe("notFoundBootScript", () => {
+  it.each(["/en/x", "/en", "/foro/c/x", "/foro", "/x", "/herramientas/nada", "/enigma", "/forografia", "/"])(
+    "%s: sets html[data-nf] to the same variant as notFoundVariant",
+    async (path) => {
+      const { notFoundBootScript } = await import("@/components/status/not-found-view");
+      window.history.pushState({}, "", path);
+      delete document.documentElement.dataset.nf;
+      new Function(notFoundBootScript())();
+      expect(document.documentElement.dataset.nf).toBe(notFoundVariant(path));
+    },
+  );
+});
+
+describe("NotFoundVariantSync", () => {
+  it("sets the variant on a client navigation (the inline script is inert there) and clears it when the 404 goes", async () => {
+    const { NotFoundVariantSync } = await import("@/components/status/not-found-variant-sync");
+    window.history.pushState({}, "", "/en/tools/giveaways/x");
+    document.documentElement.dataset.nf = "foro";
+    const { unmount } = render(<NotFoundVariantSync />);
+    expect(document.documentElement.dataset.nf).toBe("en");
+    unmount();
+    expect(document.documentElement.dataset.nf).toBeUndefined();
   });
 });
