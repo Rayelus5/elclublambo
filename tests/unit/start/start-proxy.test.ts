@@ -156,11 +156,6 @@ describe("proxy on /donar and /pay (P3)", () => {
     expect(state.rpcs).not.toContain("my_membership_status");
   });
 
-  it("still gates what /donar never was: a deeper /donar/x is the club's (next.config 308s it to /foro first)", async () => {
-    const res = await call("/donar/x");
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
-  });
-
   it("gates the club donations page at /foro/donar (here the mocked pending welcome)", async () => {
     state.user = { id: "u1" };
     const res = await call("/foro/donar");

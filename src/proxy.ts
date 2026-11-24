@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { isInternalImagePath, isUnknownTopSegment } from "@/lib/i18n/public-routing";
 import { toInternalPath } from "@/lib/i18n/routes";
-import { clubPath } from "@/lib/club/paths";
+import { clubPath, clubRelative } from "@/lib/club/paths";
 import { isMissingPublicGiveaway } from "@/lib/public-giveaways/exists";
 import { isInvalidPayPath, isMissingPayAlias } from "@/lib/pay/exists";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
@@ -151,6 +151,9 @@ export async function proxy(request: NextRequest) {
   if (!user && isUnknownTopSegment(pathname)) return notFound();
 
   if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
+    // Only the club asks for a sign-in: /foro/* and /out (its external-link page). Any other unknown URL is the 404 for
+    // everyone, deep ones too: scanners probe /wp-admin/…, /.git/… all day, and each login redirect cost a rendered page.
+    if (clubRelative(pathname) === null && pathname !== "/out") return notFound();
     const url = redirectUrl(clubPath("/login"), new URLSearchParams({ next: pathname }));
     return remember(applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders));
   }
