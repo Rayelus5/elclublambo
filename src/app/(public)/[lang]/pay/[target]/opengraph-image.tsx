@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { getDictionary, isLang } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 import { localizedPath } from "@/lib/i18n/routes";
+import { OG_URL_CACHE } from "@/lib/og/cache";
 import { ogFonts } from "@/lib/og/fonts";
 import { payTitleName } from "@/lib/pay/target";
 import { siteOrigin } from "@/lib/start/site";
@@ -70,6 +71,6 @@ export default async function Image({ params }: { params: Promise<{ lang: string
         </div>
       </div>
     ),
-    { ...size, fonts },
+    { ...size, fonts, headers: { "Cache-Control": OG_URL_CACHE } },
   );
 }
