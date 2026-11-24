@@ -82,11 +82,23 @@ describe("proxy · unknown top-level segment (item 1)", () => {
     }
   });
 
-  it("anonymous visitors still go to /foro/login for the forum itself", async () => {
+  it("anonymous visitors still go to /foro/login for the forum itself and its external-link page", async () => {
     state.user = null;
-    for (const p of ["/foro", "/foro/perfil", "/foro/c/general"]) {
+    for (const p of ["/foro", "/foro/perfil", "/foro/c/general", "/out?u=https%3A%2F%2Fexample.com"]) {
       const res = await call(p);
-      expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
+      expect(new URL(res.headers.get("location")!).pathname, p).toBe("/foro/login");
+    }
+  });
+
+  // Scanners probe deep URLs all day (/wp-admin/…, /.git/…): sending them to the login cost a redirect plus a rendered
+  // login page each. Outside the club an unknown URL is just the 404, as for a single segment.
+  it("an anonymous visitor of an unknown deep URL outside the club gets the 404, not the login", async () => {
+    state.user = null;
+    for (const p of ["/wp-admin/setup-config.php", "/.well-known/security.txt", "/.git/config", "/es/tools/nope", "/cgi-bin/x/y"]) {
+      const res = await call(p);
+      expect(res.status, p).toBe(404);
+      expect(rewrittenTo(res), p).toBe(NOT_FOUND_PATH);
+      expect(res.headers.get("location"), p).toBeNull();
     }
   });
 
