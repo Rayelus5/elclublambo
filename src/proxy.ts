@@ -195,9 +195,41 @@ export async function proxy(request: NextRequest) {
   return remember(response);
 }
 
-// Only Next's own assets and the files that really exist in public/ (the service worker and the brand SVGs) skip the
-// proxy. An extension is no exemption: /foro/x.png is a dynamic route like any other and goes through every gate (M1).
-// tests/unit/admin/proxy-matcher.test.ts checks this list against public/.
+// What skips the proxy (each run is billed Active CPU on Vercel; tests/unit/admin/proxy-matcher.test.ts):
+// - Next's own assets and the files that really exist in public/ (the service worker and the brand SVGs). An extension
+//   is no exemption: /foro/x.png is a dynamic route like any other and goes through every gate (M1).
+// - robots.txt and sitemap.xml, and the share cards of the public tree (/es|/en/…/opengraph-image…): static or cached
+//   by the CDN, never gated (the maintenance gate already let them through).
+// - The router's prefetches (next-router-prefetch): 1-2 per <Link> in view, they multiplied the proxy runs by 8-24 per
+//   visit. The navigation itself carries no prefetch header and is gated as before; layouts check the session.
+// - /api/cron/*: the handler authenticates itself (bearer CRON_SECRET) and the gates let it through anyway.
+// Server Actions (next-action, or a form POST) and the other APIs always run it, so a forged prefetch header cannot skip
+// the maintenance gate or a tool switch. The values must be literals (Next reads them at build time).
 export const config = {
-  matcher: ["/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$).*)"],
+  matcher: [
+    {
+      source:
+        "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source:
+        "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
+      has: [{ type: "header", key: "next-action" }],
+    },
+    {
+      source:
+        "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
+      has: [{ type: "header", key: "content-type", value: "multipart/form-data.*" }],
+    },
+    {
+      source:
+        "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
+      has: [{ type: "header", key: "content-type", value: "application/x-www-form-urlencoded.*" }],
+    },
+    "/api/((?!cron(?:/|$)).*)",
+  ],
 };
