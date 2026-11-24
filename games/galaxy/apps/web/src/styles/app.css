@@ -85,6 +85,9 @@
   /* A screen scrolls only downwards: anything wider (a track, a table, a list of cards) scrolls inside its own module, so the
      page never grows sideways (the owner's rule, 2026-11-08). */
   .screen-root { position: fixed; inset: 0; overflow: hidden; }
+  /* Every screen's top bar sits where the home's does (the owner, 2026-11-24): the same space above it on every page, and
+     bars at least as tall as the home's (its wallet pill, 52 px), so their buttons line up from one screen to the next. */
+  :root { --bar-top: clamp(14px, 2.4vh, 22px); }
   .backdrop { position: absolute; inset: 0; overflow: hidden; --tint: rgb(60 80 160); transition: --tint 5s ease;
     background: radial-gradient(85% 85% at 64% 48%, #0a0d22 0%, #05060f 62%, #020309 100%); }
   .backdrop .dust { position: absolute; inset: 0; background: var(--dust) center / cover; image-rendering: pixelated; opacity: .4; }
@@ -318,7 +321,7 @@
   .hub { --gap: clamp(12px, 2.6vh, 28px); position: relative; height: 100%; overflow-y: auto; display: grid;
     grid-template-columns: minmax(0, 660px) minmax(24px, 1fr) minmax(340px, 400px);
     grid-template-rows: auto minmax(var(--gap), 1fr) auto minmax(0, 1.4fr);
-    padding: clamp(14px, 2.4vh, 22px) 40px clamp(16px, 3vh, 28px) 56px; }
+    padding: var(--bar-top) 40px clamp(16px, 3vh, 28px) 56px; }
   @media (min-width: 2560px) { .hub { zoom: 1.25; } }
   .hub-main { grid-column: 1; grid-row: 3; display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
   .hub-main > .notice { margin: 0; }
@@ -332,9 +335,13 @@
   .pill-solar { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); --lip-c: var(--color-solar-lip); }
   .pill-uv { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: var(--color-ink); --lip-c: var(--color-uv-lip); }
   .pill-terminal:not(:disabled) { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); color: var(--color-on-terminal); --lip-c: var(--color-terminal-lip); }
+  .pill.icon-only { width: 48px; padding: 0; justify-content: center; }
+  /* The daily free pull on the deep scan's shortcut (the owner, 2026-11-24): a red dot on its corner, as the friends'
+     request, so the button is as wide with it or without it. */
+  .free-pull-dot { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 14px; block-size: 14px; border-radius: 50%; background: var(--color-nova); box-shadow: 0 0 0 3px var(--color-panel-lip), 0 0 10px rgb(255 107 122 / .6); pointer-events: none; }
   .badge-new { font-size: 12.5px; font-weight: 700; background: var(--color-on-solar); color: var(--color-solar); padding: 3px 9px; border-radius: 99px; }
 
-  .topbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-left: -16px; }
+  .topbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-block-size: 52px; margin-left: -16px; }
   .topbar .group { display: flex; gap: 12px; align-items: center; }
   /* Narrow screens: the locked shortcuts keep only their icon (the name stays for screen readers). With Discord next to
      Noticias the bar needs about 1740 px with every name. */
@@ -644,10 +651,12 @@
 
   /* ---------- Collection (DESIGN_SYSTEM §6–7) ---------- */
   .collection-root { background: radial-gradient(90% 70% at 62% 0%, #11153a 0%, var(--color-void) 62%); }
-  .collection { position: relative; height: 100%; overflow-y: auto; padding: 20px 40px 140px 56px; display: flex; flex-direction: column; gap: 18px; }
+  .collection { position: relative; height: 100%; overflow-y: auto; padding: var(--bar-top) 40px 140px 56px; display: flex; flex-direction: column; gap: 18px; }
   @media (min-width: 2560px) { .collection { zoom: 1.25; } }
-  .collection-bar { display: flex; align-items: center; gap: 18px; margin-left: -16px; }
+  .collection-bar { display: flex; align-items: center; gap: 18px; min-block-size: 52px; margin-left: -16px; }
   .collection-bar .hud { flex: none; }
+  /* The wallet closes the bar on the right, whatever comes before it (the scanner's sat beside its title). */
+  .collection-bar > .hud:last-child { margin-inline-start: auto; }
   .collection-bar h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .02em; }
   /* One toolbar (the owner, 2026-11-14: «lo más minimalista e intuitivo posible»): the rarity chips; under them «Filtros»
      (with how many are on) and the order, and the actions on the right; the filters' panel when opened. */
@@ -1407,7 +1416,7 @@
   :where(:root[data-motion='reduced']) { .probe-reveal-art { animation: none; } .probe-test-dots li { transition: none; } }
   /* The station (DESIGN_SYSTEM §8 septies): two decks of five rooms in a side cut, the hull a riveted steel frame. */
   .station-root { overflow-x: hidden; overflow-y: auto; }
-  .station { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
+  .station { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
   /* The hull sits in the middle of the height the header leaves. */
   .station-hull { margin-block: auto; }
   .station-hull { position: relative; padding: 22px; border-radius: 26px; background: linear-gradient(180deg, #1d2148, #12153a); border: 3px solid var(--color-panel-lip); box-shadow: inset 0 3px 0 rgb(255 255 255 / .08), inset 0 -6px 0 rgb(0 0 0 / .3), 0 18px 40px rgb(0 0 0 / .45); }
@@ -1501,7 +1510,7 @@
   /* The Laboratorio (DESIGN_SYSTEM §8 octies): a lab blueprint, four branches in dark glass over a grid, each node
      indented under the one that opens it with a connector in its branch's colour. */
   .lab-root { overflow-x: hidden; overflow-y: auto; }
-  .lab { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
+  .lab { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
   .lab-closed { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
   .lab-closed p { margin: 0; color: var(--color-ink-soft); font-size: 17px; }
   .lab-tree { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
@@ -1725,7 +1734,7 @@
 
   /* §8 ter: the hangar and the results. */
   .hangar-root { overflow-x: hidden; overflow-y: auto; }
-  .hangar { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: 24px clamp(20px, 3vw, 48px) 40px; display: grid; align-content: start; gap: 22px; }
+  .hangar { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: var(--bar-top) clamp(20px, 3vw, 48px) 40px; display: grid; align-content: start; gap: 22px; }
   .hangar .collection-bar h1 { font: 400 clamp(28px, 3vw, 40px) var(--font-display); margin: 0; }
   .hangar-help { font-size: 14px; }
   .hangar-stats img { image-rendering: pixelated; }
@@ -1867,7 +1876,7 @@
   /* The dome is the Aseprite strip at an integer scale (--px: ×5, ×6 on wide screens, ×7 on very wide and tall
      ones); the cards float over its six pedestals, each placed by its pedestal's centre in art pixels (--x). */
   .planetarium-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 40% 0%, #121a46 0%, var(--color-void) 65%); }
-  .planetarium { --px: 5; box-sizing: border-box; width: min(100%, 1760px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.2vw, 40px) 40px; display: flex; flex-direction: column; gap: 20px; }
+  .planetarium { --px: 5; box-sizing: border-box; width: min(100%, 1760px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 2.2vw, 40px) 40px; display: flex; flex-direction: column; gap: 20px; }
   .planetarium .collection-bar { margin-left: 0; }
   .planetarium-body { display: flex; align-items: flex-start; gap: 20px; }
   .planetarium-side { flex: 1; min-width: 232px; max-width: 380px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -1953,7 +1962,7 @@
   .podium li[aria-current="true"] .podium-avatar { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-ice) 70%, transparent)); }
   /* The leaderboard screen. */
   .leaderboard-root, .profile-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
-  .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
+  .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
   .lb-tabs { margin: 0; max-width: 860px; }
   .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 20px; align-items: start; }
@@ -2201,7 +2210,7 @@
   /* A clan's emblem: the Aseprite strip of its six colours (32×32 each) at ×1 or ×2; the colour is the x position. */
   .clan-emblem { display: inline-block; flex: none; inline-size: var(--size, 64px); block-size: var(--size, 64px); background: no-repeat 0 0 / 600% 100%; image-rendering: pixelated; }
   .clans-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 70% 0%, #1d1450 0%, var(--color-void) 62%); }
-  .clans { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
+  .clans { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .clans .collection-bar { margin-left: 0; }
   .clan-tag { display: inline-block; padding: 1px 7px; border-radius: 6px; background: rgb(0 0 0 / .35); color: var(--color-ink-soft); font: 700 12px var(--font-sans); letter-spacing: .06em; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .clan-mine { display: flex; align-items: center; gap: 14px; padding: 12px 18px; max-width: 520px; color: var(--color-ink); text-decoration: none; }
@@ -2439,7 +2448,7 @@
   :where(:root[data-motion='reduced']) { .chat-cont-time { transition: none; } }
   /* The market (M5c-1): the trading post at ×3 (×4 on large screens), the gate, the filters, the listings, selling and one's own. */
   .market-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 50% 0%, #2a1a0c 0%, var(--color-void) 62%); }
-  .market { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
+  .market { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .market .collection-bar { margin-left: 0; }
   .market-commission { margin: 0; color: var(--color-ink-mute); font-size: 14px; }
   .market-banner { align-self: center; inline-size: 768px; block-size: 144px; max-inline-size: 100%; border-radius: 12px; background: no-repeat 0 0 / 400% 100%; image-rendering: pixelated; animation: market-frames 1.2s steps(4) infinite; box-shadow: 0 0 0 3px var(--color-panel-lip), 0 18px 40px rgb(0 0 0 / .45); }
@@ -4144,7 +4153,7 @@
   /* Missions and achievements (DESIGN_SYSTEM §8 quinvicies). */
   .missions-root { overflow-x: hidden; overflow-y: auto; }
   /* One column that never grows past the screen: a wide child (the season's track) scrolls inside it. */
-  .missions { inline-size: min(100% - 32px, 980px); margin: 0 auto; padding: 28px 0 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .missions { inline-size: min(100% - 32px, 980px); margin: 0 auto; padding: var(--bar-top) 0 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .missions h1 { margin: 0; font: 400 34px var(--font-display); }
   .mission-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .mission-card { --r: 18px; --lip-h: 5px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 240px) auto; align-items: center; gap: 12px 18px; padding: 14px 18px; }
@@ -4687,7 +4696,7 @@
   /* The probe workshop (the owner's «taller espacial»): the roster, the bay painted in Aseprite with the probe on its
      cradle, and the sheet. A grid of three columns that never overlap; the bay keeps whole pixels (JS picks --px). */
   .workshop-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(70% 60% at 50% 30%, #17204a, var(--color-void) 70%); }
-  .workshop { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: 24px clamp(20px, 3vw, 48px) 32px; display: grid; grid-template-rows: auto 1fr; gap: 20px; }
+  .workshop { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: var(--bar-top) clamp(20px, 3vw, 48px) 32px; display: grid; grid-template-rows: auto 1fr; gap: 20px; }
   .workshop .collection-bar h1 { font: 400 clamp(28px, 3vw, 40px) var(--font-display); margin: 0; }
   .workshop-loading { margin: 0; color: var(--color-ink-soft); }
   .workshop-grid { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(340px, 440px); gap: 22px; align-items: stretch; min-block-size: min(780px, calc(100dvh - 140px)); }
@@ -4810,7 +4819,7 @@
   .lobby { position: relative; z-index: 1; box-sizing: border-box; block-size: 100%; display: grid;
     grid-template-columns: auto minmax(0, 1fr) clamp(320px, 22vw, 420px); grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas: 'top top top' 'rail stage side' 'foot foot foot'; gap: clamp(10px, 1.6vh, 18px) clamp(12px, 1.2vw, 22px);
-    padding: clamp(10px, 1.6vh, 18px) clamp(14px, 1.6vw, 32px) clamp(12px, 2vh, 22px); }
+    padding: var(--bar-top) clamp(14px, 1.6vw, 32px) clamp(12px, 2vh, 22px); }
   @media (min-width: 2400px) { .lobby { zoom: 1.25; } }
   .lobby-top { grid-area: top; display: flex; align-items: center; gap: 12px; min-inline-size: 0; }
   .lobby-top .topbar { flex: 1; min-inline-size: 0; margin-left: 0; }
@@ -4818,8 +4827,8 @@
   /* Up to 1440 px the bar's gaps tighten too: an admin's bar carries one more button (the panel), and with a wider
      fallback font it pushed the mail button 4 px off a 1280 px screen (seen in CI, 2026-11-16). */
   @media (max-width: 1440px) { .lobby-top .me > div { display: none; } .lobby-top .me { padding-right: 4px; } .lobby-top .topbar { gap: 10px; } .lobby-top .topbar .group { gap: 8px; } }
-  /* The lobby's bar also carries «Volver al inicio»: with every name it needs about 1680 px, so up to 1799 px its
-     shortcuts keep only their icon (the name stays for screen readers), as the home's do below 1600. */
+  /* The lobby's bar also carries Volver (its arrow only since 2026-11-24): up to 1799 px its shortcuts keep only their
+     icon (the name stays for screen readers), so an admin's bar with every button still fits. */
   @media (max-width: 1799px) {
     .lobby-top .pill.fold { width: 48px; padding: 0; justify-content: center; }
     .lobby-top .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -5211,8 +5220,8 @@
   /* The resource shop (shop and lab plan, F5; the approved F0 mockup): the featured offer, the welcome pack and the
      first purchase's extra, a tab per currency, a 3×2 grid of packs that never grows sideways, the payment dialog and
      the chips flying to the wallet. */
-  .shop-screen { box-sizing: border-box; inline-size: min(100%, 1480px); margin: 0 auto; padding: 26px clamp(16px, 3vw, 40px) 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
-  .shop-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 22px; }
+  .shop-screen { box-sizing: border-box; inline-size: min(100%, 1480px); margin: 0 auto; padding: var(--bar-top) clamp(16px, 3vw, 40px) 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
+  .shop-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 22px; min-block-size: 52px; }
   .shop-title { margin: 0; font: 400 42px var(--font-display); text-shadow: 0 4px 0 var(--color-panel-lip); }
   .shop-wallet { --r: 99px; --lip-h: 4px; margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 5px 10px; }
   .shop-closed { display: grid; justify-items: center; gap: 10px; padding: 56px 24px; text-align: center; }
@@ -5973,12 +5982,23 @@
 
   /* The screens: a warm ember sky over the void; one column that never grows sideways (wide tables scroll inside). */
   .tn-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(70% 55% at 80% -8%, #3d1c0d 0%, transparent 62%), radial-gradient(60% 50% at 0% 0%, #1d1545 0%, transparent 60%), var(--color-void); }
-  .tn-screen { box-sizing: border-box; inline-size: min(100%, 1560px); min-block-size: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 48px; display: flex; flex-direction: column; gap: 18px; }
+  .tn-screen { box-sizing: border-box; inline-size: min(100%, 1560px); min-block-size: 100%; margin: 0 auto; padding: var(--bar-top) clamp(16px, 2.6vw, 44px) 48px; display: flex; flex-direction: column; gap: 18px; }
   /* Large screens: a quarter bigger, as the home. */
   @media (min-width: 2400px) { .tn-screen { zoom: 1.25; } }
   .tn-screen .collection-bar { margin-left: 0; flex-wrap: wrap; row-gap: 12px; }
   .tn-screen .collection-bar h1 { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tn-screen .collection-bar .tn-wallet { --r: 99px; --lip-h: 4px; margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; }
+  /* Large screens: the top bar keeps the home's size and height on every screen (the owner, 2026-11-24). The home grows a
+     quarter from 2560 px, the lobby and the tournaments from 2400: between the two their bar stays the home's size. The
+     screens that never grow get their bar a quarter bigger from 2560, as the home's. */
+  @media (min-width: 2400px) and (max-width: 2559px) {
+    .lobby, .tn-screen { padding-top: calc(var(--bar-top) * .8); }
+    .lobby-top, .tn-screen > .collection-bar { zoom: .8; }
+  }
+  @media (min-width: 2560px) {
+    :is(.missions, .station, .lab, .workshop, .hangar, .planetarium, .leaderboard, .profile, .clans, .market, .shop-screen) { padding-top: calc(var(--bar-top) * 1.25); }
+    :is(.missions, .station, .lab, .workshop, .hangar, .planetarium, .leaderboard, .profile, .clans, .market) > .collection-bar, .shop-screen > .shop-bar { zoom: 1.25; }
+  }
   .tn-tabs { margin: 0; inline-size: min(100%, 620px); }
   .tn-tabs :is(a, button) { display: flex; gap: 8px; }
   .tn-tab-count { display: inline-grid; place-items: center; min-inline-size: 22px; block-size: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: rgb(255 255 255 / .1); font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }

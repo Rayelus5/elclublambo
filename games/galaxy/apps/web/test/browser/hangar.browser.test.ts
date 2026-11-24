@@ -234,6 +234,26 @@ for (const [w, h] of [
   }, 60_000);
 }
 
+// The lobby's Volver is its arrow only (the owner, 2026-11-24: «así ocupa menos»), a round button as tall as the bar's;
+// its name and its tooltip still say where it leads.
+test('el botón de volver del lobby es solo el icono y sigue diciendo adónde lleva', async () => {
+  await page.viewport(1920, 1080);
+  mount(createElement(HangarScreen));
+  const back = await vi.waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.lobby-back');
+    if (!el) throw new Error('sin volver');
+    return el;
+  }, { timeout: 10_000 });
+  const box = back.getBoundingClientRect();
+  expect(back.textContent?.trim()).toBe('');
+  expect(back.querySelector('svg, .ico')).not.toBeNull();
+  expect(back.getAttribute('aria-label')).toBe('Volver al inicio');
+  expect(back.getAttribute('title')).toBe('Volver al inicio');
+  expect(back.getAttribute('href')).toBe('/');
+  expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(1);
+  expect(box.width).toBeLessThanOrEqual(50);
+}, 60_000);
+
 test('resultados a 1280×720', async () => {
   await page.viewport(1280, 720);
   mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {} }))));

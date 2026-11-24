@@ -22,11 +22,32 @@ export function backLabel(href: string): string {
  * «Volver» (M6d-1): to the screen this visit came from (the trail), or to `fallback` when it came straight here by
  * address; `to` instead fixes it (a page that hangs from another always goes back to it: the room to the hangar).
  * It says where it leads (the owner's report: a «Volver al hangar» that went elsewhere). A link, so it keeps its href,
- * opens in a new tab and reads as a link.
+ * opens in a new tab and reads as a link. `iconOnly` shows just the arrow (the lobby's bar, the owner, 2026-11-24: «así
+ * ocupa menos»); its name and its tooltip still say where it leads.
  */
-export function BackLink({ fallback = '/', to, className = 'lip pill', children }: { fallback?: string; to?: string; className?: string; children?: ReactNode }) {
+export function BackLink({
+  fallback = '/',
+  to,
+  className = 'lip pill',
+  iconOnly = false,
+  children,
+}: {
+  fallback?: string;
+  to?: string;
+  className?: string;
+  iconOnly?: boolean;
+  children?: ReactNode;
+}) {
   const previous = usePreviousStep();
   const href = to ?? previous?.href ?? fallback;
+  if (iconOnly) {
+    const label = backLabel(href);
+    return (
+      <Link to={href} className={`${className} icon-only`} data-sfx="back" aria-label={label} title={label}>
+        <Icon name="back" />
+      </Link>
+    );
+  }
   return (
     <Link to={href} className={className} data-sfx="back">
       {children ?? (
