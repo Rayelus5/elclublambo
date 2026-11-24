@@ -18,7 +18,7 @@ import { WalletBar } from './WalletBar';
 const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
- * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan with its free-pull notice, only
+ * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan with its free-pull dot, only
  * where the page has no scanner button of its own: the title menu has it as a big button),
  * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1), Comunidad opens the chat sheet (M5b-2)
  * and Noticias the notices and multipliers (open beta). Balances are read as whole sentences.
@@ -58,10 +58,16 @@ export function TopBar({
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
         {scanner ? (
-          <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
+          <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner" title={freePull ? copy.hub.freePull : undefined}>
             <Icon name="radar" outline />
             <span>{copy.hub.scanner}</span>
-            {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
+            {/* The free pull: a red dot on the corner, so the button keeps its width (the owner, 2026-11-24). */}
+            {freePull ? (
+              <>
+                <span className="free-pull-dot" aria-hidden="true" />
+                <span className="sr-only">{copy.hub.freePull}</span>
+              </>
+            ) : null}
           </Link>
         ) : null}
         <Link to="/mercado" className="lip pill fold enter" style={delay('1s')}>

@@ -122,6 +122,10 @@ for (const [width, height] of [
       const crt = document.querySelector<HTMLElement>('.scanner-terminal .crt')!.getBoundingClientRect().height;
       expect(crt / zoom).toBeCloseTo(Math.min(620, Math.max(190, height / zoom - 470)), 0);
       noOverflow();
+      // The wallet on the bar's right end, not beside the title (the owner, 2026-11-24).
+      const bar = document.querySelector('.collection-bar')!.getBoundingClientRect();
+      const purse = document.querySelector('.collection-bar > .hud')!.getBoundingClientRect();
+      expect(Math.abs(purse.right - bar.right)).toBeLessThanOrEqual(1);
       await new Promise((r) => setTimeout(r, 900));
       if (shots) await page.screenshot({ path: `__shots__/scanner-${which}-${width}.png` });
     });

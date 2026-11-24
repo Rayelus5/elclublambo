@@ -113,3 +113,41 @@ for (const [w, folded] of [
     if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: `__shots__/topbar-friends-${w}.png`, element: host });
   }, 30_000);
 }
+
+// The daily free pull (the owner, 2026-11-24): a red dot on the deep scan's top-right corner, no «Tirada gratis» label
+// beside its name, so the button is as wide with it or without it; its name still says it to a screen reader.
+test('la tirada gratis es una bolita roja en la esquina y el botón del escáner no cambia de ancho', async () => {
+  await page.viewport(1920, 1080);
+  vi.stubGlobal('fetch', () => new Promise(() => {}));
+  document.body.classList.add('ready', 'settled');
+  const me: MeResponse = { id: 'a1', username: 'vega', roles: [], mfa: false, level: 17, avatar: 'crew-cat', frame: null };
+  const widths: number[] = [];
+  for (const freePull of [false, true]) {
+    root?.unmount();
+    document.body.innerHTML = '';
+    const host = document.createElement('div');
+    host.style.cssText = 'padding:24px';
+    document.body.append(host);
+    root = createRoot(host);
+    flushSync(() => root!.render(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(MemoryRouter, null, createElement(TopBar, { me, wallet, freePull })))));
+    await new Promise((r) => setTimeout(r, 600));
+    const scanner = host.querySelector<HTMLElement>('[data-tour="scanner"]')!;
+    const box = scanner.getBoundingClientRect();
+    widths.push(box.width);
+    expect(host.querySelector('.badge-new')).toBeNull();
+    const dot = scanner.querySelector<HTMLElement>('.free-pull-dot');
+    if (!freePull) {
+      expect(dot).toBeNull();
+      continue;
+    }
+    expect(dot).not.toBeNull();
+    const d = dot!.getBoundingClientRect();
+    // On the top-right corner, sticking out a little, and red.
+    expect(d.left + d.width / 2).toBeGreaterThan(box.right - 12);
+    expect(d.top + d.height / 2).toBeLessThan(box.top + 12);
+    expect(getComputedStyle(dot!).backgroundColor).toBe('rgb(255, 107, 122)');
+    expect(scanner.textContent).toContain('Tirada gratis');
+    if (import.meta.env['VITE_TOPBAR_SHOTS']) await page.screenshot({ path: '__shots__/topbar-tirada-gratis.png', element: scanner.closest<HTMLElement>('nav')! });
+  }
+  expect(widths[1]).toBe(widths[0]);
+}, 30_000);

@@ -89,7 +89,7 @@ export function Lobby({
       </div>
       <div className="lobby">
         <div className="lobby-top">
-          <BackLink fallback="/" className="lip pill lobby-back" />
+          <BackLink fallback="/" className="lip pill lobby-back" iconOnly />
           <h1 className="sr-only">{copy.hangar.title}</h1>
           {me ? <TopBar me={me} wallet={gacha?.wallet} freePull={gacha?.freePullAvailable ?? false} /> : null}
         </div>
