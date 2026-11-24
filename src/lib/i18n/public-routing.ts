@@ -1,6 +1,6 @@
 import { toInternalPath, toPublicPath } from "./routes";
 import { isLang } from "./config";
-import { clubPath } from "@/lib/club/paths";
+import { clubPath } from "../club/paths";
 
 export type PublicDecision =
   | { kind: "rewrite"; to: string }

@@ -48,6 +48,9 @@ describe("isPublicPath for the landing", () => {
     expect(isPublicPath(p)).toBe(true),
   );
   it.each(["/startx", "/starting", "/robots.txtx", "/robots", "/entities", "/herramientasx", "/es"])("%s stays private", (p) => expect(isPublicPath(p)).toBe(false));
+  // The landing and the public donate page: exact paths only ("/" is no prefix, /donar/x is the club's).
+  it.each(["/", "/donar"])("%s is public (exact)", (p) => expect(isPublicPath(p)).toBe(true));
+  it.each(["/donar/x", "/donarx", "/foro"])("%s is not made public by the exact entries", (p) => expect(isPublicPath(p)).toBe(false));
 });
 
 describe("proxy on /start", () => {
@@ -57,17 +60,19 @@ describe("proxy on /start", () => {
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("rewrites /start to the internal Spanish tree without a session", async () => {
+  // The rewrite to the internal tree is next.config's (tests/unit/i18n/route-rules.test.ts): the proxy lets it through.
+  it("lets /start through without a session (no login redirect)", async () => {
     const res = await call("/start");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/start");
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("serves /start to a member whose welcome is pending (no /bienvenida redirect)", async () => {
     state.user = { id: "u1" };
     const res = await call("/start");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/start");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("serves the internal OG image without a session", async () => {
@@ -89,16 +94,17 @@ describe("proxy on /start", () => {
 });
 
 describe("proxy on the public tree", () => {
-  it("rewrites / to /es for an anonymous visitor (landing, no login redirect)", async () => {
+  // next.config rewrites / to /es after the proxy: the proxy sees "/" itself and must never send it to the login.
+  it("lets / (the landing) through for an anonymous visitor, no login redirect", async () => {
     const res = await call("/");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("does not redirect /herramientas to /login", async () => {
     const res = await call("/herramientas");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/tools");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("serves /en/tools as is, without a session", async () => {
@@ -107,19 +113,13 @@ describe("proxy on the public tree", () => {
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("redirects /es/tools to /herramientas with a 308", async () => {
-    const res = await call("/es/tools");
-    expect(res.status).toBe(308);
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/herramientas");
-  });
-
   // R1-R3: the club lives under /foro, so "/" is the landing for everyone and costs no membership read.
-  it("shows the landing at / to an active member too, without reading the membership", async () => {
+  it("shows the landing at / to an active member whose welcome is pending, without reading the membership", async () => {
     state.user = { id: "u1" };
     state.membership = "active";
     const res = await call("/");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
     expect(state.rpcs).not.toContain("my_membership_status");
   });
 
@@ -127,31 +127,38 @@ describe("proxy on the public tree", () => {
     state.user = { id: "u1" };
     state.membership = "none";
     const res = await call("/");
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es");
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 });
 
 describe("proxy on /donar and /pay (P3)", () => {
-  it("shows the public donate page to an anonymous visitor (rewrite, no login redirect)", async () => {
+  it("shows the public donate page to an anonymous visitor (no login redirect)", async () => {
     const res = await call("/donar");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("shows the public donate page to a signed-in non-member", async () => {
     state.user = { id: "u1" };
     state.membership = "none";
     const res = await call("/donar");
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("shows the public donate page to an active member too (R1-R3), without reading the membership", async () => {
+  it("shows the public donate page to an active member whose welcome is pending (R1-R3), without reading the membership", async () => {
     state.user = { id: "u1" };
     state.membership = "active";
     const res = await call("/donar");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
     expect(state.rpcs).not.toContain("my_membership_status");
+  });
+
+  it("still gates what /donar never was: a deeper /donar/x is the club's (next.config 308s it to /foro first)", async () => {
+    const res = await call("/donar/x");
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
   });
 
   it("gates the club donations page at /foro/donar (here the mocked pending welcome)", async () => {
@@ -163,12 +170,6 @@ describe("proxy on /donar and /pay (P3)", () => {
   it("serves /pay/<address> without a session", async () => {
     const res = await call("/pay/0xAbCdEf0123456789abcdef0123456789ABCDEF01");
     expect(res.headers.get("location")).toBeNull();
-    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/pay/0xAbCdEf0123456789abcdef0123456789ABCDEF01");
-  });
-
-  it("redirects /es/donate to /donar with a 308", async () => {
-    const res = await call("/es/donate");
-    expect(res.status).toBe(308);
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/donar");
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 });

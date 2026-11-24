@@ -118,11 +118,12 @@ describe("proxy · unknown public giveaway (item 2)", () => {
     }
   });
 
-  it("an existing giveaway is served (ES rewrite to the internal tree, EN passes)", async () => {
+  it("an existing giveaway is served (both pass; next.config rewrites the Spanish URL after the proxy)", async () => {
     state.user = null;
     const es = await call(`/herramientas/sorteos/${ID}`);
     expect(es.status).toBe(200);
-    expect(rewrittenTo(es)).toBe(`/es/tools/giveaways/${ID}`);
+    expect(es.headers.get("x-middleware-next")).toBe("1");
+    expect(state.giveawayReads).toEqual([`public_giveaways:${ID}`]);
     const en = await call(`/en/tools/giveaways/${ID}`);
     expect(en.status).toBe(200);
     expect(en.headers.get("x-middleware-next")).toBe("1");
