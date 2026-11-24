@@ -114,8 +114,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(list: TournamentList) {
-  const routes: Record<string, unknown> = { '/leaderboard?tab=general': board, '/tournaments': list };
+function mount(list: TournamentList, extra: Record<string, unknown> = {}) {
+  const routes: Record<string, unknown> = { '/leaderboard?tab=general': board, '/tournaments': list, ...extra };
   vi.stubGlobal('fetch', (url: string) => {
     const key = Object.keys(routes).find((k) => String(url).endsWith(k));
     // Everything else stays loading, as on a slow line: the column must hold its shape meanwhile too.
@@ -136,8 +136,8 @@ function mount(list: TournamentList) {
   );
 }
 
-async function settle(list: TournamentList) {
-  mount(list);
+async function settle(list: TournamentList, extra: Record<string, unknown> = {}) {
+  mount(list, extra);
   document.body.classList.add('ready', 'settled');
   await gameFonts();
   await expect.poll(() => document.querySelector('.season-summary .podium')).not.toBeNull();
@@ -203,3 +203,39 @@ for (const [name, cta, line] of STATES) {
     }, 45_000);
   }
 }
+
+// «Tienda de temporada» with rewards to collect (the owner, 2026-11-24): a red dot on its top-right corner, whole inside
+// the panel, and the button as wide as without it.
+test('la Tienda de temporada lleva una bolita roja en la esquina cuando hay recompensas por recoger', async () => {
+  await page.viewport(1920, 1080);
+  const empty = { season: null, score: 0, tier: null, currency: { name: 'Esquirlas', balance: 0 }, steps: [], shop: [], closing: null };
+  const r = { coins: 300, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, skin: null };
+  const ready = { ...empty, season: { id: board.season!.id, name: board.season!.name, startsAt: board.season!.startsAt, endsAt: board.season!.endsAt, tiers: board.season!.tiers }, steps: [{ at: 100, reward: r, reached: true, claimed: false }] };
+  const widths: number[] = [];
+  for (const view of [empty, ready]) {
+    root?.unmount();
+    document.body.innerHTML = '';
+    await settle(LISTS['dentro']!, { '/season': view });
+    const button = document.querySelector<HTMLElement>('.more-season')!;
+    const box = button.getBoundingClientRect();
+    widths.push(box.width);
+    if (view === empty) {
+      expect(button.querySelector('.alert-dot')).toBeNull();
+      continue;
+    }
+    const dot = await vi.waitFor(() => {
+      const el = button.querySelector<HTMLElement>('.alert-dot');
+      if (!el) throw new Error('sin bolita');
+      return el;
+    });
+    const d = dot.getBoundingClientRect();
+    expect(d.left + d.width / 2).toBeGreaterThan(box.right - 12);
+    expect(d.top + d.height / 2).toBeLessThan(box.top + 12);
+    expect(getComputedStyle(dot).backgroundColor).toBe('rgb(255, 107, 122)');
+    const panel = document.querySelector<HTMLElement>('.season-summary')!.getBoundingClientRect();
+    expect(d.right).toBeLessThanOrEqual(panel.right);
+    expect(d.top).toBeGreaterThanOrEqual(panel.top);
+    if (shots) await page.screenshot({ path: '__shots__/hub-tienda-temporada-bolita.png', element: document.querySelector<HTMLElement>('.season-summary')! });
+  }
+  expect(widths[1]).toBe(widths[0]);
+}, 60_000);

@@ -64,7 +64,7 @@ export function TopBar({
             {/* The free pull: a red dot on the corner, so the button keeps its width (the owner, 2026-11-24). */}
             {freePull ? (
               <>
-                <span className="free-pull-dot" aria-hidden="true" />
+                <span className="alert-dot" aria-hidden="true" />
                 <span className="sr-only">{copy.hub.freePull}</span>
               </>
             ) : null}

@@ -603,6 +603,7 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - el podio con los tres primeros;
 - «Tu puesto», con el emblema y el nombre de tu tramo y «Te faltan 1395 puntos para Plata»;
 - los jugadores;
+- «Tienda de temporada» (UV), con una bolita Nova en la esquina de arriba a la derecha mientras haya algo por recoger en la temporada: un escalón de la ruta alcanzado y sin recoger, o los premios de cierre de la anterior. Su nombre lo dice también («Tienda de temporada, tienes recompensas por recoger»);
 - «Ver clasificación completa».
 
 Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ranking» lleva a la clasificación, y el avatar de la barra superior lleva a tu perfil y dice tu nivel en Terminal.
