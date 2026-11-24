@@ -47,7 +47,8 @@ Si mergeas a `main` sin los secretos de GitHub, el workflow falla en el job `mig
      GitHub: push a main ──► verify ──► migrate (supabase db push) ──► deploy
 ```
 
-- **Vercel** sirve la web y ejecuta el cron horario `/api/cron/dao` (`0 * * * *`). Las funciones corren en `dub1` (Dublín),
+- **Vercel** sirve la web y ejecuta el cron diario `/api/cron/dao` (`0 4 * * *`, las 04:00 UTC: el plan Hobby solo admite
+  crons diarios y uno horario hace fallar el despliegue). Las funciones corren en `dub1` (Dublín),
   al lado de la base de datos.
 - **Supabase Cloud** guarda todo: base de datos, login, imágenes y Realtime. Región West EU (Ireland),
   `eu-west-1`.
@@ -253,8 +254,8 @@ Desde tu PC usa **solo** `--dry-run`. Quien aplica las migraciones a producción
 
 ### 2.10 Plan Free: pausa y copias
 
-- Supabase Free **pausa el proyecto tras 7 días sin actividad**. El cron horario de Vercel consulta la base de datos
-  cada hora, así que en la práctica no se pausa. Si alguna vez se pausa (por ejemplo, porque el cron falla una
+- Supabase Free **pausa el proyecto tras 7 días sin actividad**. El cron diario de Vercel consulta la base de datos
+  cada día, así que en la práctica no se pausa. Si alguna vez se pausa (por ejemplo, porque el cron falla una
   semana), lo reactivas desde el panel con **Restore project**.
 - Free **no tiene copias descargables**. Haz las tuyas a mano (paso 11).
 
@@ -635,8 +636,8 @@ así que en la app no tienes que tocar nada. A partir de ahora cada pago desde l
 2. **Login y una propina.** Entra con dos cuentas de prueba tuyas (la segunda con una invitación de la primera) y
    manda una propina de 0.01 USDC de una a la otra en Base mainnet.
    **Comprueba:** la propina aparece confirmada tras unas pocas confirmaciones.
-3. **Cron.** En Vercel → proyecto → **Settings → Cron Jobs** aparece `/api/cron/dao` cada hora. Después de la
-   siguiente hora en punto, en **Logs** filtra por `/api/cron/dao`.
+3. **Cron.** En Vercel → proyecto → **Settings → Cron Jobs** aparece `/api/cron/dao` una vez al día. Después de las
+   04:00 UTC (Hobby lo lanza a cualquier minuto de esa hora), en **Logs** filtra por `/api/cron/dao`.
    **Comprueba:** la petición responde 200 con un JSON.
 4. **RPC.** Repite `pnpm check:rpc` (paso 1) de vez en cuando, y siempre que cambies de plan o de
    proveedor.
@@ -703,7 +704,7 @@ grande.
 - **Después de vaciar la base de datos** (por ejemplo, si restauras en un proyecto nuevo), vuelve a `/settings/economia`
   y comprueba que ve Base y Arbitrum: la migración habilita las cuatro redes y el build decide cuáles se usan.
 - **La finalidad tarda.** Los pagos de retiradas y los sorteos se cierran en una pasada posterior del cron,
-  no al instante. Es normal que algo quede "pendiente" hasta la siguiente hora.
+  no al instante. Es normal que algo quede "pendiente" hasta la siguiente pasada (en producción, una al día).
 - **Migraciones compatibles hacia atrás.** El workflow aplica las migraciones (`migrate`) y solo después construye y
   publica el código nuevo (`deploy`, que tarda unos minutos). En ese intervalo el código **antiguo** sigue sirviendo
   tráfico sobre el esquema **nuevo**. Una migración que borre o renombre algo que el código antiguo usa (una

@@ -183,7 +183,8 @@ async function handle(request: Request) {
   return Response.json({ chains, polls, giveaways, rateLimits });
 }
 
-/** Vercel Cron runs this hourly; a run scans Safe operations, settles and finalizes per chain (F5-R14). */
+/** Vercel Cron runs this daily in production (Hobby allows no more); the preproduction cron container, hourly. A run scans
+ * Safe operations, settles and finalizes per chain (F5-R14). */
 export const maxDuration = 300;
 export const POST = handle;
 export const GET = handle;
