@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getDictionary, isLang } from "@/lib/i18n";
+import { ogLangParams } from "@/lib/og/cache";
 import { ogFonts } from "@/lib/og/fonts";
 import { colors } from "@/styles/tokens";
 
@@ -8,6 +9,9 @@ import { colors } from "@/styles/tokens";
 export const alt = "ElClub. Private forum / Foro privado · Base · Arbitrum";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+
+// Only the language changes the card: both are built at build time, never per request.
+export const generateStaticParams = ogLangParams;
 
 export default async function Image({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: rawLang } = await params;
