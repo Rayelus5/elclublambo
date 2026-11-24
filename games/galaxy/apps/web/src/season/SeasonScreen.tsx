@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { refreshPieces } from '../api/cosmetics';
 import { GACHA_KEY, useGacha } from '../api/economy';
+import { SEASON_KEY } from '../api/season';
 import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { GiftArt } from '../gifts/GiftArt';
@@ -36,7 +37,6 @@ import { PreviewBanner } from './SeasonPreview';
 // them, and the closing prizes say what each one is for (the tier, the podium, a range of places).
 
 const t = copy.season;
-export const SEASON_KEY = ['season'] as const;
 /** A purchase over this share of the balance asks first. */
 const EXPENSIVE_SHARE = 0.5;
 

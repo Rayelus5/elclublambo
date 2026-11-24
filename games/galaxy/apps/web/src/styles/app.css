@@ -336,9 +336,9 @@
   .pill-uv { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: var(--color-ink); --lip-c: var(--color-uv-lip); }
   .pill-terminal:not(:disabled) { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); color: var(--color-on-terminal); --lip-c: var(--color-terminal-lip); }
   .pill.icon-only { width: 48px; padding: 0; justify-content: center; }
-  /* The daily free pull on the deep scan's shortcut (the owner, 2026-11-24): a red dot on its corner, as the friends'
-     request, so the button is as wide with it or without it. */
-  .free-pull-dot { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 14px; block-size: 14px; border-radius: 50%; background: var(--color-nova); box-shadow: 0 0 0 3px var(--color-panel-lip), 0 0 10px rgb(255 107 122 / .6); pointer-events: none; }
+  /* A red dot on a button's top-right corner, as the friends' request (the owner, 2026-11-24): the deep scan's daily free
+     pull and the season's rewards to collect. The button is as wide with it or without it. */
+  .alert-dot { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 14px; block-size: 14px; border-radius: 50%; background: var(--color-nova); box-shadow: 0 0 0 3px var(--color-panel-lip), 0 0 10px rgb(255 107 122 / .6); pointer-events: none; }
   .badge-new { font-size: 12.5px; font-weight: 700; background: var(--color-on-solar); color: var(--color-solar); padding: 3px 9px; border-radius: 99px; }
 
   .topbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-block-size: 52px; margin-left: -16px; }

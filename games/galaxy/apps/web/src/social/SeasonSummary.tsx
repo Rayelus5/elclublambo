@@ -1,5 +1,6 @@
 import { type CSSProperties, useId } from 'react';
 import { Link } from 'react-router';
+import { seasonToCollect, useSeasonView } from '../api/season';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -19,6 +20,8 @@ export function SeasonSummary() {
   const me = v?.me ?? null;
   const tier = v?.season && me ? tierOf(me.value, v.season.tiers) : null;
   const next = v?.season && me ? nextTier(me.value, v.season.tiers) : null;
+  // Rewards waiting on the season's screen (the owner, 2026-11-24): a red dot on «Tienda de temporada».
+  const ready = seasonToCollect(useSeasonView({ enabled: !!v?.season }).data) > 0;
   return (
     <aside className="lip panel season-summary enter" style={{ '--d': '1.1s' } as CSSProperties} aria-labelledby={title}>
       <div className="hd">
@@ -58,8 +61,9 @@ export function SeasonSummary() {
             <p className="empty">{t.noPoints}</p>
           )}
           <p className="season-players">{t.players(v.total)}</p>
-          <Link to="/temporada" className="lip more more-season">
+          <Link to="/temporada" className="lip more more-season" aria-label={ready ? t.routeReady : undefined} title={ready ? t.routeReady : undefined}>
             {t.route}
+            {ready ? <span className="alert-dot" aria-hidden="true" /> : null}
           </Link>
           <Link to="/clasificacion" className="lip more">
             {t.seeAll}

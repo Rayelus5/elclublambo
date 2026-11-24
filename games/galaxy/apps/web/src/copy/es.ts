@@ -91,7 +91,8 @@ function seasonReward(r: { coins: number; dust: number; signal: number; shards: 
 export const copy = {
   brand: 'Galaxy Survivor',
   brailleBrand: '⠛⠁⠇⠁⠭⠽ ⠎⠥⠗⠧⠊⠧⠕⠗',
-  beta: 'Beta Abierta',
+  // The game is played by invitation only (the owner, 2026-11-24).
+  beta: 'Beta Cerrada',
   tabs: { entrar: 'Entrar', crear: 'Crear cuenta' },
   fields: {
     username: 'Usuario',
@@ -3346,6 +3347,8 @@ export const copy = {
     shardsLabel: (n: number) => `+${fmt(n)} de moneda de temporada`,
     rankingTile: 'Temporada',
     route: 'Tienda de temporada',
+    /** Its name while the season has rewards to collect (its red dot; the owner, 2026-11-24). */
+    routeReady: 'Tienda de temporada, tienes recompensas por recoger',
     // The leaderboard's season card (2026-11-21): the whole card leads to the season's route and shop.
     seeRoute: 'Ver ruta y tienda',
     seasonLeft: (d: number, h: number, m: number, s: number) =>

@@ -135,7 +135,7 @@ test('la tirada gratis es una bolita roja en la esquina y el botón del escáner
     const box = scanner.getBoundingClientRect();
     widths.push(box.width);
     expect(host.querySelector('.badge-new')).toBeNull();
-    const dot = scanner.querySelector<HTMLElement>('.free-pull-dot');
+    const dot = scanner.querySelector<HTMLElement>('.alert-dot');
     if (!freePull) {
       expect(dot).toBeNull();
       continue;
