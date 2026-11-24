@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const refresh = vi.hoisted(() => vi.fn());
@@ -60,6 +60,61 @@ describe("Receipt", () => {
     render(<Receipt lang="en" {...base} result={ok(true)} />);
     vi.advanceTimersByTime(10_000);
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // Each refresh re-renders the page on the server (a function run). A receipt left open on a transaction that never
+  // finalizes refreshed every 5 s forever: now it slows down, rests while hidden and stops after 30 minutes.
+  it("slows down after the first minute, to once a minute at most", () => {
+    vi.useFakeTimers();
+    render(<Receipt lang="en" {...base} result={ok(false)} />);
+    vi.advanceTimersByTime(60_000);
+    expect(refresh).toHaveBeenCalledTimes(12);
+    for (const [ms, total] of [[10_000, 13], [20_000, 14], [40_000, 15], [60_000, 16], [60_000, 17]] as const) {
+      vi.advanceTimersByTime(ms - 1);
+      expect(refresh).toHaveBeenCalledTimes(total - 1);
+      vi.advanceTimersByTime(1);
+      expect(refresh).toHaveBeenCalledTimes(total);
+    }
+  });
+
+  it("does not refresh while the tab is hidden, and refreshes at once when it comes back", () => {
+    vi.useFakeTimers();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    render(<Receipt lang="en" {...base} result={ok(false)} />);
+    vi.advanceTimersByTime(30_000);
+    expect(refresh).not.toHaveBeenCalled();
+    visibility.mockReturnValue("visible");
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    visibility.mockRestore();
+  });
+
+  it("stops after 30 minutes and offers «Check again», which checks and starts over", () => {
+    vi.useFakeTimers();
+    render(<Receipt lang="en" {...base} result={ok(false)} />);
+    expect(screen.queryByRole("button", { name: en.checkAgain })).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(30 * 60_000);
+    });
+    const calls = refresh.mock.calls.length;
+    act(() => {
+      vi.advanceTimersByTime(10 * 60_000);
+    });
+    expect(refresh).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole("button", { name: en.checkAgain }));
+    expect(refresh).toHaveBeenCalledTimes(calls + 1);
+    expect(screen.queryByRole("button", { name: en.checkAgain })).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(refresh).toHaveBeenCalledTimes(calls + 2);
+  });
+
+  it("does not promise a fixed interval any more", () => {
+    expect(en.pendingText).not.toMatch(/\d+ seconds/);
+    expect(es.pendingText).not.toMatch(/\d+ segundos/);
   });
 
   it("tx_not_found and rpc_unavailable retry 3 times then stop; other errors never retry", () => {
