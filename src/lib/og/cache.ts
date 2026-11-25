@@ -4,7 +4,8 @@
 
 /**
  * A card drawn from the URL alone (the landing, /start, a pay link): the CDN keeps it a week. It only changes with a
- * deployment, and a new deployment starts with an empty cache.
+ * deployment, and on Vercel a new deployment starts with an empty cache. In preproduction, Cloudflare (the tunnel) does
+ * not cache an extensionless URL like these by default, only if a cache rule says so.
  */
 export const OG_URL_CACHE = "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400";
 

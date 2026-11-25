@@ -113,7 +113,7 @@ async function safeCycle(db: Admin, cycle: Cycle, drand: { down: boolean }): Pro
 }
 
 /**
- * P1-R12, hourly from /api/cron/dao (before the legacy branch, so it runs while the legacy DAO is paused): close the
+ * P1-R12, on every run of /api/cron/dao (before the legacy branch, so it runs while the legacy DAO is paused): close the
  * due giveaways, then draw every closed one whose drand round exists; then the same for the public giveaways (P2). A
  * failed close is logged and the draws still run. Each cycle is isolated: a failed read of its closed giveaways (or
  * anything else it throws) is logged and counted in its `failed`, and the other cycle still runs. Each draw is isolated
