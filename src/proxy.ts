@@ -202,9 +202,13 @@ export async function proxy(request: NextRequest) {
 // - Next's own assets and the files that really exist in public/ (the service worker and the brand SVGs). An extension
 //   is no exemption: /foro/x.png is a dynamic route like any other and goes through every gate (M1).
 // - robots.txt and sitemap.xml, and the share cards of the public tree (/es|/en/…/opengraph-image…): static or cached
-//   by the CDN, never gated (the maintenance gate already let them through).
-// - The router's prefetches (next-router-prefetch): 1-2 per <Link> in view, they multiplied the proxy runs by 8-24 per
-//   visit. The navigation itself carries no prefetch header and is gated as before; layouts check the session.
+//   by the CDN. The maintenance gate already let them through; the card of a switched-off tool is served now too (a
+//   public image, nothing to act on).
+// - The router's prefetches: 1-2 per <Link> in view, they multiplied the proxy runs by 8-24 per visit. Only a real one
+//   skips it: next-router-prefetch together with rsc: 1, which Next answers with the RSC prefetch payload (the App Shell),
+//   never the HTML page. A GET that only carries next-router-prefetch is rendered as a full page, so it runs the proxy
+//   (the second entry), and so does a browser document prefetch (purpose: prefetch). The navigation itself carries no
+//   prefetch header and is gated as before; layouts check the session.
 // - /api/cron/*: the handler authenticates itself (bearer CRON_SECRET) and the gates let it through anyway.
 // Server Actions (next-action, or a form POST) and the other APIs always run it, so a forged prefetch header cannot skip
 // the maintenance gate or a tool switch. The values must be literals (Next reads them at build time).
@@ -213,10 +217,13 @@ export const config = {
     {
       source:
         "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
+      missing: [{ type: "header", key: "next-router-prefetch" }],
+    },
+    {
+      source:
+        "/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$|robots\\.txt$|sitemap\\.xml$|api/|(?:es|en)/(?:.*/)?(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$).*)",
+      has: [{ type: "header", key: "next-router-prefetch" }],
+      missing: [{ type: "header", key: "rsc", value: "1" }],
     },
     {
       source:
