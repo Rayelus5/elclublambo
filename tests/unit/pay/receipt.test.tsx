@@ -91,6 +91,31 @@ describe("Receipt", () => {
     visibility.mockRestore();
   });
 
+  it("a quick back-and-forth between tabs does not refresh again before the current wait is over", () => {
+    vi.useFakeTimers();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    const toggle = (state: "hidden" | "visible") => {
+      visibility.mockReturnValue(state);
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    };
+    render(<Receipt lang="en" {...base} result={ok(false)} />);
+    vi.advanceTimersByTime(30_000);
+    toggle("visible");
+    expect(refresh).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 5; i++) {
+      toggle("hidden");
+      toggle("visible");
+    }
+    expect(refresh).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+    visibility.mockRestore();
+  });
+
   it("stops after 30 minutes and offers «Check again», which checks and starts over", () => {
     vi.useFakeTimers();
     render(<Receipt lang="en" {...base} result={ok(false)} />);
@@ -112,9 +137,11 @@ describe("Receipt", () => {
     expect(refresh).toHaveBeenCalledTimes(calls + 2);
   });
 
-  it("does not promise a fixed interval any more", () => {
+  it("says how long the page checks by itself, not a fixed interval", () => {
     expect(en.pendingText).not.toMatch(/\d+ seconds/);
     expect(es.pendingText).not.toMatch(/\d+ segundos/);
+    expect(en.pendingText).toContain("half an hour");
+    expect(es.pendingText).toContain("media hora");
   });
 
   it("tx_not_found and rpc_unavailable retry 3 times then stop; other errors never retry", () => {

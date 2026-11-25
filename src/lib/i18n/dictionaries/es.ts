@@ -790,7 +790,7 @@ export const es = {
       verified: "Comprobado en la cadena",
       verifiedText: "Este pago está confirmado en la cadena. Lo hemos leído de ella, no de nuestros datos.",
       pending: "Pendiente",
-      pendingText: "La transacción aún no tiene las confirmaciones necesarias. Esta página se actualiza sola mientras la tengas abierta.",
+      pendingText: "La transacción aún no tiene las confirmaciones necesarias. Esta página se comprueba sola durante media hora.",
       checkAgain: "Comprobar de nuevo",
       from: "De",
       to: "A",
