@@ -33,6 +33,7 @@ export function ReceiptRefresh({ everyMs = 5000, maxTicks, checkAgainLabel }: Pr
   useEffect(() => {
     if (gaveUp) return;
     const startedAt = Date.now();
+    let lastRefreshAt = startedAt;
     let ticks = 0;
     let done = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,6 +48,7 @@ export function ReceiptRefresh({ everyMs = 5000, maxTicks, checkAgainLabel }: Pr
       if (expired()) return giveUp();
       if (document.visibilityState === "hidden") return schedule();
       ticks += 1;
+      lastRefreshAt = Date.now();
       router.refresh();
       if (maxTicks !== undefined && ticks >= maxTicks) {
         done = true;
@@ -58,8 +60,11 @@ export function ReceiptRefresh({ everyMs = 5000, maxTicks, checkAgainLabel }: Pr
       if (expired()) return giveUp();
       timer = setTimeout(tick, delayFor(ticks));
     };
+    // Back to the tab: at once if the current wait is over (the pending timer was resting), otherwise the timer stays,
+    // so switching tabs back and forth costs no extra refresh.
     const onVisible = () => {
       if (done || document.visibilityState !== "visible" || timer === undefined) return;
+      if (Date.now() - lastRefreshAt < delayFor(ticks)) return;
       clearTimeout(timer);
       tick();
     };
