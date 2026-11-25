@@ -161,6 +161,13 @@ describe("public routing in next.config", () => {
     expect(await decidedByConfig("/invite/Zx_9-a", "?ref=2")).toEqual({ kind: "redirect", to: "/foro/invite/Zx_9-a?ref=2", status: 308 });
   });
 
+  // Next matches next.config routes case-insensitively by default, and the proxy (which still decides the switches and
+  // the 404s on the raw path) is case-sensitive: /HERRAMIENTAS/GAS would be served while the proxy saw an unknown URL.
+  // The testing helper above always matches case-sensitively, so this pins the option itself.
+  it("matches case-sensitively, like the proxy did", () => {
+    expect(nextConfig.experimental?.caseSensitiveRoutes).toBe(true);
+  });
+
   it("redirects to a path, never to an absolute URL (behind the tunnel the bind address must not leak)", async () => {
     const routes = await nextConfig.redirects!();
     for (const r of routes) expect(r.destination.startsWith("/"), r.source).toBe(true);

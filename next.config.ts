@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    // The redirects and rewrites below match like the proxy that used to do them: case-sensitively. Otherwise
+    // /HERRAMIENTAS/GAS would be served while the proxy (switches, 404s) sees an unknown URL.
+    caseSensitiveRoutes: true,
+  },
   async headers() {
     // Full CSP + security headers (F5-R3/R4), derived from NEXT_PUBLIC_* env when this config loads.
     return [{ source: "/:path*", headers: securityHeaders(headerEnvFromProcess()) }];
