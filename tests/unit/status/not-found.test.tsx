@@ -1,5 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+const nav = vi.hoisted(() => ({ pathname: "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname }));
+
 import { NotFoundView, notFoundVariant } from "@/components/status/not-found-view";
 import { getDictionary } from "@/lib/i18n";
 
@@ -88,6 +92,18 @@ describe("notFoundBootScript", () => {
 });
 
 describe("NotFoundVariantSync", () => {
+  it("follows a client navigation from one 404 to another in a different section (same instance)", async () => {
+    const { NotFoundVariantSync } = await import("@/components/status/not-found-variant-sync");
+    window.history.pushState({}, "", "/en/x");
+    nav.pathname = "/en/x";
+    const { rerender } = render(<NotFoundVariantSync />);
+    expect(document.documentElement.dataset.nf).toBe("en");
+    window.history.pushState({}, "", "/foro/y");
+    nav.pathname = "/foro/y";
+    rerender(<NotFoundVariantSync />);
+    expect(document.documentElement.dataset.nf).toBe("foro");
+  });
+
   it("sets the variant on a client navigation (the inline script is inert there) and clears it when the 404 goes", async () => {
     const { NotFoundVariantSync } = await import("@/components/status/not-found-variant-sync");
     window.history.pushState({}, "", "/en/tools/giveaways/x");
