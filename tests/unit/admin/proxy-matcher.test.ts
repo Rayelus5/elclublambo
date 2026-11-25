@@ -53,19 +53,26 @@ describe("proxy matcher (M1)", () => {
 // Each <Link> in view prefetches its route (1-2 requests per link): running the whole proxy on each one multiplied the
 // Middleware invocations by 8-24 per visit. The prefetches skip it; the navigation itself (no prefetch header) does not.
 describe("proxy matcher: what skips the proxy (Active CPU)", () => {
-  it.each(["1", "2", "3"])("skips the router's prefetches of pages (next-router-prefetch: %s)", (value) => {
+  // The router's prefetches always carry rsc: 1 with next-router-prefetch (1, 2 or 3; segment-cache/cache.js).
+  it.each(["1", "2", "3"])("skips the router's prefetches of pages (next-router-prefetch: %s, rsc: 1)", (value) => {
     for (const url of ["/", "/herramientas/gas", "/en/tools", "/foro", "/foro/c/x", `/herramientas/sorteos/${ID}`]) {
-      expect(matches(url, { "next-router-prefetch": value }), url).toBe(false);
+      expect(matches(url, { rsc: "1", "next-router-prefetch": value }), url).toBe(false);
       expect(matches(url, { rsc: "1" }), `${url} (navigation)`).toBe(true);
     }
   });
 
-  it("skips a browser prefetch hint (purpose: prefetch)", () => {
-    expect(matches("/herramientas", { purpose: "prefetch" })).toBe(false);
+  // Without rsc Next renders the full HTML page: a forged prefetch header must not skip maintenance, the switches, the
+  // login and welcome gates or the x-pathname overwrite. A browser document prefetch (purpose) is a full render too, and
+  // the proxy refreshes its session cookies.
+  it("still runs on a GET that only claims to be a prefetch (no rsc) and on a browser document prefetch", () => {
+    for (const url of ["/foro/c/x", "/herramientas/gas", "/out"]) {
+      expect(matches(url, { "next-router-prefetch": "1" }), url).toBe(true);
+      expect(matches(url, { purpose: "prefetch" }), url).toBe(true);
+    }
   });
 
   it("still runs on a Server Action, even with a forged prefetch header (maintenance and switches gate actions)", () => {
-    const prefetch = { "next-router-prefetch": "1" };
+    const prefetch = { rsc: "1", "next-router-prefetch": "1" };
     expect(matches("/herramientas/sorteos/nuevo", { ...prefetch, "next-action": "7f00aa" })).toBe(true);
     expect(matches("/foro/c/x", { ...prefetch, "content-type": "multipart/form-data; boundary=x" })).toBe(true);
     expect(matches("/donar", { ...prefetch, "content-type": "application/x-www-form-urlencoded" })).toBe(true);
