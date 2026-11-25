@@ -10,7 +10,7 @@ const sb = vi.hoisted(() => ({
   session: null as unknown,
   status: { data: "active", error: null } as { data: unknown; error: unknown },
   blocked: { data: false, error: null } as { data: unknown; error: unknown },
-  listener: null as null | ((event: string) => void),
+  listener: null as null | ((event: string, session?: unknown) => void),
   rpcs: [] as string[],
 }));
 
@@ -18,7 +18,7 @@ vi.mock("@/lib/supabase/browser", () => ({
   createBrowserClient: () => ({
     auth: {
       getSession: async () => ({ data: { session: sb.session } }),
-      onAuthStateChange: (cb: (event: string) => void) => {
+      onAuthStateChange: (cb: (event: string, session?: unknown) => void) => {
         sb.listener = cb;
         return { data: { subscription: { unsubscribe: () => (sb.listener = null) } } };
       },
@@ -80,6 +80,19 @@ describe("PublicHeaderLive", () => {
     sb.blocked = blocked;
     render(<PublicHeaderLive lang="es" />);
     expect(await screen.findByRole("button", { name: "connect" })).toBeInTheDocument();
+  });
+
+  // auth-js emits SIGNED_IN at start-up and on every return to the tab for the same user: no new reads for those.
+  it("does not read again on a SIGNED_IN for the user it already shows", async () => {
+    sb.session = signedIn;
+    render(<PublicHeaderLive lang="es" />);
+    await screen.findByRole("link", { name: "Ir al foro" });
+    const reads = sb.rpcs.length;
+    await act(async () => sb.listener?.("SIGNED_IN", sb.session));
+    expect(sb.rpcs.length).toBe(reads);
+    sb.session = { user: { ...signedIn.user, id: "u2" } };
+    await act(async () => sb.listener?.("SIGNED_IN", sb.session));
+    await waitFor(() => expect(sb.rpcs.length).toBeGreaterThan(reads));
   });
 
   it("follows a sign-out (and a sign-in) without reloading the page", async () => {
