@@ -46,7 +46,7 @@ type ChainReport = {
  * First, once per run and before anything else (ruling F4e-R4): finalize the polls whose close has passed (DB-only,
  * chain-independent), then close and draw the giveaways (P1-R12, also while the legacy DAO is paused), then sweep the expired rate-limit hits (F5, DB-only, isolated the same way). Then per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
  * burn the recorded ones at finality) → raffles (F4d: close due raffles, draw at the finalized first block after the
- * close, detect and finalize prize payouts, unpaid notices) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
+ * close, detect and finalize prize payouts, unpaid notices) → NAV snapshot (at most hourly, throttled in SQL) → settlement of pending donations at
  * market NAV. The scan comes first so every payout already mined is linked before anything is valued (and the
  * valuations read the Safe at the cursor it just reached while withdrawals are approved and unpaid). After
  * every chain, each chain's lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window
@@ -115,7 +115,7 @@ async function handle(request: Request) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
       try {
-        // R-M3: only the cron's hourly runs count toward the stuck-scan alert
+        // R-M3: only the cron's runs count toward the stuck-scan alert
         report.scan = await scanSafeOperations(chainId, { cron: true });
         // F4-R1: a "scan_gap" did not move the cursor, so (like a failed scan) it bounds no expiry
         if (report.scan && typeof report.scan === "object") {

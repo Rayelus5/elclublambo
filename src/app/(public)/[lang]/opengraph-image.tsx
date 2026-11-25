@@ -10,7 +10,6 @@ export const alt = "ElClub. Herramientas cripto gratis y seguras / Free and safe
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-
 export default async function Image({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: raw } = await params;
   const t = getDictionary(isLang(raw) ? raw : "es").landing;

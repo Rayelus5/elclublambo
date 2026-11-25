@@ -112,9 +112,9 @@ export async function proxy(request: NextRequest) {
     return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   };
 
-  // Administración (A-R7-A-R9): maintenance closes the site and a switched-off tool answers 503, before the public
-  // routing and the session gates. A direct /es/* URL is not a tool URL: it 308s below to its canonical URL, and that
-  // request is gated here. /status/* is only reachable through the proxy itself.
+  // Administración (A-R7-A-R9): maintenance closes the site and a switched-off tool answers 503, before the session
+  // gates. A direct /es/* URL never gets here: next.config 308s it to its canonical URL first, and that request is
+  // gated here. /status/* is only reachable through the proxy itself.
   const siteState = await getSiteState();
   const now = Date.now();
   const access = user && isMaintenanceActive(siteState.maintenance, now) ? await maintenanceAccess(supabase, user) : "none";

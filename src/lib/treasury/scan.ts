@@ -29,7 +29,7 @@ const TRANSFER = parseAbiItem("event Transfer(address indexed from, address inde
 const DEPOSIT = parseAbiItem("event Deposit(address indexed dst, uint256 wad)");
 const WITHDRAWAL = parseAbiItem("event Withdrawal(address indexed src, uint256 wad)");
 
-/** Snapshot pairs diffed per run (about a day of hourly snapshots). */
+/** Snapshot pairs diffed per run (about a day of snapshots at the hourly cadence; snapshots are throttled to one an hour). */
 const ETH_PAIRS_PER_RUN = 24;
 
 type Client = ReturnType<typeof legacyChainClient>;
@@ -102,7 +102,7 @@ export async function scanSafeOperations(
       // F4-R1: the cursor moves only when these logs explain every balance change of the range
       const checked = await continuity(db, client, chain, safe, tokens, weth, start, toBlock, transfers);
       if (checked === "gap") {
-        // R-M3: only the cron's hourly runs count toward the stuck alert (a treasurer's catch-up scan at the tip can
+        // R-M3: only the cron's runs count toward the stuck alert (a treasurer's catch-up scan at the tip can
         // hit a transient gap and must not raise it)
         if (opts.cron) {
           const { error: gapError } = await db.rpc("record_scan_gap", { p_chain: chain });

@@ -53,7 +53,7 @@ export interface TreasuryAlertsData {
   scanStuck: ScanGap | null;
 }
 
-/** F4-R1: the scan is reported stuck after this many consecutive gap runs (the cron runs hourly)… */
+/** F4-R1: the scan is reported stuck after this many consecutive gap runs of the cron (hourly in preproduction, daily in production)… */
 export const SCAN_GAP_RUNS = 3;
 /** …or once the first gap is this old. */
 export const SCAN_GAP_HOURS = 3;
