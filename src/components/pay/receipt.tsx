@@ -44,7 +44,6 @@ export function Receipt({ lang, chain, hash, result, recipient }: Props) {
       <h1 id="receipt-title" className="font-display text-2xl font-bold text-fg sm:text-3xl">
         {t.title}
       </h1>
-      {refreshing ? <ReceiptRefresh /> : null}
       {retryError ? <ReceiptRefresh maxTicks={3} /> : null}
 
       {result.status === "error" ? (
@@ -60,6 +59,7 @@ export function Receipt({ lang, chain, hash, result, recipient }: Props) {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-warning">{t.pending}</p>
             <p className="text-sm text-fg">{t.pendingText}</p>
+            <ReceiptRefresh checkAgainLabel={t.checkAgain} />
           </div>
         </div>
       ) : null}

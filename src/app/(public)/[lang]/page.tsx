@@ -8,8 +8,8 @@ import { isLang, OG_LOCALE } from "@/lib/i18n/config";
 import { alternatesFor } from "@/lib/i18n/routes";
 import { isProductionSite, siteOrigin } from "@/lib/start/site";
 
-// Bloqueante a propósito (ver el layout): el idioma se lee antes de pintar. Sin sesión; los interruptores (A-R16) se
-// leen por petición dentro de <Suspense>, después de connection().
+// Bloqueante a propósito (ver el layout): el idioma se lee antes de pintar. Sin sesión; los interruptores (A-R16) salen
+// de la caché etiquetada (site-state-cached.ts), así que la página es estática y Administración la renueva al cambiarlos.
 export const instant = false;
 
 export async function generateMetadata({ params }: PageProps<"/[lang]">): Promise<Metadata> {

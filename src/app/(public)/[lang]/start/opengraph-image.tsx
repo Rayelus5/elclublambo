@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getDictionary, isLang } from "@/lib/i18n";
+import { OG_URL_CACHE } from "@/lib/og/cache";
 import { ogFonts } from "@/lib/og/fonts";
 import { colors } from "@/styles/tokens";
 
@@ -61,6 +62,7 @@ export default async function Image({ params }: { params: Promise<{ lang: string
     {
       ...size,
       fonts,
+      headers: { "Cache-Control": OG_URL_CACHE },
     },
   );
 }

@@ -34,7 +34,7 @@ export default async function ToolsPage({ params }: PageProps<"/[lang]/tools">) 
         <h1 className="font-display text-3xl font-bold text-fg">{t.title}</h1>
         <p className="max-w-prose text-base text-fg-muted">{t.lead}</p>
       </header>
-      {/* A-R16: the switches are read per request, inside Suspense; the fallback keeps the grid's height. */}
+      {/* A-R16: the switches come from the tagged cache (static shell, renewed by Administración); the fallback keeps the grid's height. */}
       <Suspense fallback={<ul aria-label={t.listLabel} className="min-h-96" />}>
         <ToolGridLive lang={lang} />
       </Suspense>

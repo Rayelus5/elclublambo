@@ -7,10 +7,12 @@ import { clubPath, LEGACY_LOGIN_PATH } from "@/lib/club/paths";
 // "/api/v1x" is not public). /api/team-access («Acceso del equipo» during maintenance) checks the session itself.
 // The club's gate pages (login, invite, no-access, banned) live under /foro (R1).
 // The public part is served the same with or without a session, and the welcome gate skips it too: /start, the English
-// tree (/en/*), the Spanish tools (/herramientas/*), ElClub Pay (/pay/*), /robots.txt and /sitemap.xml. "/" and "/donar"
-// are not listed: the proxy rewrites them to the public tree before the gate. The internal OG/Twitter images under /es/*
-// are let through by the proxy (isInternalImagePath).
+// tree (/en/*), the Spanish tools (/herramientas/*), ElClub Pay (/pay/*), /robots.txt and /sitemap.xml, plus "/" (the
+// landing) and "/donar" (the public donate page) as exact paths: next.config rewrites both to the public tree after the
+// proxy, and "/donar/<x>" stays the club's. The internal OG/Twitter images under /es/* are let through by the proxy
+// (isInternalImagePath).
 const CLUB_INVITE = clubPath("/invite");
+const PUBLIC_EXACT = ["/", "/donar"] as const;
 const PUBLIC_PREFIXES = [
   clubPath("/login"),
   CLUB_INVITE,
@@ -49,6 +51,7 @@ export function safeClubNextPath(next: string | null): string {
 
 /** `/foro/invite` alone is not public: only `/foro/invite/*`. Other prefixes match exactly or with subpaths. */
 export function isPublicPath(pathname: string): boolean {
+  if ((PUBLIC_EXACT as readonly string[]).includes(pathname)) return true;
   return PUBLIC_PREFIXES.some((p) => {
     if (pathname.startsWith(`${p}/`)) return true;
     return p !== CLUB_INVITE && pathname === p;

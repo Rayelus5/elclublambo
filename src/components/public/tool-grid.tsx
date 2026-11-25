@@ -1,7 +1,6 @@
-import { connection } from "next/server";
 import { BadgeCheck, Fuel, Gift, ScanSearch, Send, ShieldOff, Wallet, type LucideIcon } from "lucide-react";
 import { ToolCard } from "@/components/public/tool-card";
-import { getSiteState } from "@/lib/admin/site-state";
+import { getCachedSiteState } from "@/lib/admin/site-state-cached";
 import { SWITCH_KEYS, type ToolKey } from "@/lib/admin/state";
 import { getDictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
@@ -35,10 +34,9 @@ export function ToolGrid({ lang, off }: { lang: Lang; off: ReadonlySet<ToolKey> 
   );
 }
 
-/** The switches that are off, read at request time (A-R16): never at build, always after `connection()`. */
+/** The switches that are off (A-R16), from the tagged cache: the page stays static, Administración expires it on change. */
 export async function offTools(): Promise<ReadonlySet<ToolKey>> {
-  await connection();
-  const { switches } = await getSiteState();
+  const { switches } = await getCachedSiteState();
   return new Set(SWITCH_KEYS.filter((k): k is ToolKey => k !== "registration" && !switches[k]));
 }
 

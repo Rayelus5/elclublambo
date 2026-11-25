@@ -6,8 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { PublicGiveawayView } from "@/lib/public-giveaways/types";
 
 /**
- * P2-R11: opening a giveaway that is due and whose drand round already exists closes and draws it (idempotent, the hourly
- * cron does the same). True when something changed, so the page reads again. Never throws. After the close the status is
+ * P2-R11: opening a giveaway that is due and whose drand round already exists closes and draws it (idempotent, the
+ * cron does the same on each run). True when something changed, so the page reads again. Never throws. After the close the status is
  * read again: a giveaway the close just voided (or that is no longer closed) is not drawn. No revalidatePath here: this
  * runs while a page renders, where Next refuses it; the page is dynamic and simply re-reads.
  */

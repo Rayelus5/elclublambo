@@ -22,6 +22,11 @@ export function invalidateSiteState(): void {
 }
 
 async function read(fetcher: typeof fetch): Promise<SiteState> {
+  return (await readSiteState(fetcher)) ?? OPEN_STATE;
+}
+
+/** One read of the site state, or null (logged) when it fails: each caller decides what a failure means. */
+export async function readSiteState(fetcher: typeof fetch = fetch): Promise<SiteState | null> {
   try {
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
     const res = await fetcher(`${serverSupabaseUrl()}/rest/v1/rpc/site_state`, {
@@ -35,7 +40,7 @@ async function read(fetcher: typeof fetch): Promise<SiteState> {
     return parseSiteState(await res.json());
   } catch (e) {
     console.error("[site-state] read failed", safeError(e));
-    return OPEN_STATE;
+    return null;
   }
 }
 
