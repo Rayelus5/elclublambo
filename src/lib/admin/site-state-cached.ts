@@ -10,6 +10,13 @@ export const SITE_STATE_TAG = "site-state";
 export async function getCachedSiteState(): Promise<SiteState> {
   "use cache";
   cacheTag(SITE_STATE_TAG);
+  // No network while `next build` prerenders (A-R16): the preproduction Docker build stalled on this read until the
+  // "use cache" fill timed out. The open state, for minutes: the first request after that renders the page again at
+  // runtime with the real switches, and the proxy gates every switched-off tool in the meantime.
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    cacheLife("minutes");
+    return OPEN_STATE;
+  }
   const state = await readSiteState();
   if (state === null) {
     // A failed read opens everything (like the proxy), but only for minutes: a blip, or a build without the database,
