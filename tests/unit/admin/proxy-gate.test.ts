@@ -33,6 +33,8 @@ vi.mock("@supabase/ssr", () => ({
 
 vi.mock("@/lib/admin/site-state", async (importOriginal) => ({ ...(await importOriginal<object>()), getSiteState: async () => s.site }));
 
+import { getRedirectUrl, unstable_getResponseFromNextConfig } from "next/experimental/testing/server";
+import nextConfig from "../../../next.config";
 import { proxy } from "@/proxy";
 import { __resetAccessCache } from "@/lib/admin/access";
 import { __resetStatusPageCache } from "@/lib/admin/status-page";
@@ -247,11 +249,11 @@ describe("proxy: tool switches", () => {
     expect(res.headers.get("retry-after")).toBeNull();
   });
 
-  it("a direct /es URL of a switched-off tool 308s to its canonical URL, which is then cut", async () => {
+  it("a direct /es URL of a switched-off tool 308s (next.config, before the proxy) to its canonical URL, which is then cut", async () => {
     s.site = GAS_OFF;
-    const first = await req("/es/tools/gas");
+    const first = await unstable_getResponseFromNextConfig({ url: "http://localhost:3000/es/tools/gas", nextConfig });
     expect(first.status).toBe(308);
-    const location = new URL(first.headers.get("location")!);
+    const location = new URL(getRedirectUrl(first)!);
     expect(location.pathname).toBe("/herramientas/gas");
     const second = await req(location.pathname);
     expect(second.status).toBe(503);

@@ -90,7 +90,7 @@ export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
             <a href="#sorteos" className={`${linkClass} break-words`}>{`No se pudo hacer el sorteo: ${r.title}`}</a>
           </span>
           <span className="pl-6 text-[13px] text-fg-muted">
-            {`${drawRefusalText(r.code)} El cron lo reintenta cada hora; si no se resuelve, cancélalo.`}
+            {`${drawRefusalText(r.code)} El cron lo reintenta en su próxima pasada; si no se resuelve, cancélalo.`}
           </span>
         </li>
       ))}

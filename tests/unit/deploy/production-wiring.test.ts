@@ -22,13 +22,14 @@ function job(name: string): string {
 }
 
 describe("vercel.json", () => {
-  it("pins region, no git deployments and the hourly cron", () => {
+  // Hobby only allows daily crons (an hourly one makes the deployment fail). 04:00 UTC: night in Spain.
+  it("pins region, no git deployments and the daily cron", () => {
     expect(JSON.parse(read("vercel.json"))).toEqual({
       $schema: "https://openapi.vercel.sh/vercel.json",
       framework: "nextjs",
       regions: ["dub1"],
       git: { deploymentEnabled: false },
-      crons: [{ path: "/api/cron/dao", schedule: "0 * * * *" }],
+      crons: [{ path: "/api/cron/dao", schedule: "0 4 * * *" }],
     });
   });
 });

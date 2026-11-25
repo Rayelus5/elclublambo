@@ -74,10 +74,11 @@ describe("proxy · unknown pay alias", () => {
     expect(state.reads[0]).toBe("public_profile_view:nobody");
   });
 
-  it("an existing alias is served (ES rewrite, EN passes)", async () => {
+  it("an existing alias is served (both pass; next.config rewrites the Spanish URL after the proxy)", async () => {
     const es = await call("/pay/rayelus");
     expect(es.status).toBe(200);
-    expect(rewrittenTo(es)).toBe("/es/pay/rayelus");
+    expect(es.headers.get("x-middleware-next")).toBe("1");
+    expect(state.reads[0]).toBe("public_profile_view:rayelus");
     const en = await call("/en/pay/rayelus");
     expect(en.status).toBe(200);
     expect(en.headers.get("x-middleware-next")).toBe("1");

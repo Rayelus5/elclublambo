@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { isLang } from "@/lib/i18n";
+import { OG_LIVE_CACHE } from "@/lib/og/cache";
 import { ogFonts } from "@/lib/og/fonts";
 import { ogContent } from "@/lib/public-giveaways/og";
 import { getPublicGiveaway } from "@/lib/public-giveaways/queries";
@@ -74,6 +75,6 @@ export default async function Image({ params }: { params: Promise<{ lang: string
         </div>
       </div>
     ),
-    { ...size, fonts },
+    { ...size, fonts, headers: { "Cache-Control": OG_LIVE_CACHE } },
   );
 }

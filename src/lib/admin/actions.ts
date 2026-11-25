@@ -2,11 +2,12 @@
 
 // Acciones de la pestaña «Administración». Las RPC `admin_*` vuelven a comprobar el bit 512 y lo auditan; aquí solo se
 // valida la forma. Tras cada cambio se tira la caché del estado del sitio para que el proxy lo vea en segundos.
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { clubPath } from "@/lib/club/paths";
 import { rpcErrorCode } from "@/lib/errors";
 import { hashPassword, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/admin/password";
 import { invalidateSiteState } from "@/lib/admin/site-state";
+import { SITE_STATE_TAG } from "@/lib/admin/site-state-cached";
 import { SWITCH_KEYS, type SwitchKey } from "@/lib/admin/state";
 import { Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
@@ -33,6 +34,8 @@ async function call(fn: string, args: Record<string, unknown>): Promise<Result> 
   const { error } = await supabase.rpc(fn, args);
   if (error) return { ok: false, error: rpcErrorCode(error) };
   invalidateSiteState();
+  // The landing and the tools hub are static with the switches inside (site-state-cached.ts): render them again now.
+  updateTag(SITE_STATE_TAG);
   revalidatePath(clubPath("/settings/administracion"));
   return { ok: true };
 }

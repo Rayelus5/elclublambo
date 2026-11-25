@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LANGS, isLang } from "@/lib/i18n/config";
 import { PublicHeader } from "@/components/public/public-header";
-import { PublicHeaderSlot } from "@/components/public/public-header-slot";
+import { PublicHeaderLive } from "@/components/public/public-header-live";
 import { PublicFooter } from "@/components/public/public-footer";
 import { InlineScript } from "@/components/landing/inline-script";
 import { introBootScript } from "@/lib/landing/intro";
@@ -34,8 +34,10 @@ export default async function PublicLangLayout({ children, params }: LayoutProps
           not in the root <head>: the maintenance page is served at / too and must never get the attribute. Inert when
           this layout renders on the client (a client navigation into the public tree). */}
       <InlineScript html={introBootScript()} />
+      {/* The session is resolved in the browser (PublicHeaderLive): nothing here reads the request, so the public pages
+          stay static. The boundary is for usePathname, which suspends while prerendering routes with unknown params. */}
       <Suspense fallback={<PublicHeader lang={lang} session="pending" />}>
-        <PublicHeaderSlot lang={lang} />
+        <PublicHeaderLive lang={lang} />
       </Suspense>
       {children}
       <PublicFooter lang={lang} />

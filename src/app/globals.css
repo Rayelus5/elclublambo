@@ -481,6 +481,19 @@ body {
   }
 }
 
+/* The static 404 (app/not-found.tsx, A-R14) holds its three variants; html[data-nf], set from the URL before the first
+   paint, shows one. Without the attribute (no script yet, or none at all) the Spanish one shows. */
+[data-nf-variant] {
+  display: none;
+}
+
+html:not([data-nf]) [data-nf-variant="es"],
+html[data-nf="es"] [data-nf-variant="es"],
+html[data-nf="en"] [data-nf-variant="en"],
+html[data-nf="foro"] [data-nf-variant="foro"] {
+  display: contents;
+}
+
 /* First-visit intro of the public home (components/landing/intro-gate.tsx, lib/landing/intro.ts). The overlay is always
    in the server HTML but only shows while the inline boot script (or the intro itself) sets html[data-intro]: "on" while
    it waits, "revealing" while the tile wave uncovers the landing. Scroll stays locked until the attribute goes. */

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const revalidatePath = vi.hoisted(() => vi.fn());
-vi.mock("next/cache", () => ({ revalidatePath }));
+const updateTag = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath, updateTag }));
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 const invalidateSiteState = vi.hoisted(() => vi.fn());
@@ -40,10 +41,12 @@ describe("setSwitchAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("calls admin_set_switch, drops the site-state cache and revalidates the tab", async () => {
+  it("calls admin_set_switch, drops the site-state caches (the proxy's and the static pages' tag) and revalidates the tab", async () => {
     expect(await setSwitchAction("gas", false)).toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("admin_set_switch", { p_key: "gas", p_enabled: false });
     expect(invalidateSiteState).toHaveBeenCalledTimes(1);
+    // The landing and the hub are static with the switches inside: the next request renders them again.
+    expect(updateTag).toHaveBeenCalledWith("site-state");
     expect(revalidatePath).toHaveBeenCalledWith("/foro/settings/administracion");
   });
 
@@ -51,6 +54,7 @@ describe("setSwitchAction", () => {
     rpc.mockResolvedValue({ error: { message: "forbidden" } });
     expect(await setSwitchAction("gas", false)).toEqual({ ok: false, error: "forbidden" });
     expect(invalidateSiteState).not.toHaveBeenCalled();
+    expect(updateTag).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

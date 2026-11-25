@@ -3,5 +3,5 @@
   "framework": "nextjs",
   "regions": ["dub1"],
   "git": { "deploymentEnabled": false },
-  "crons": [{ "path": "/api/cron/dao", "schedule": "0 * * * *" }]
+  "crons": [{ "path": "/api/cron/dao", "schedule": "0 4 * * *" }]
 }
