@@ -16,6 +16,8 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'mejora', text: 'Cada carta de «Elige una mejora» dice qué te da ese nivel: cada número que cambia, con lo que tienes y lo que te llevas en verde' },
       { kind: 'mejora', text: 'Las evoluciones dicen primero su rasgo, como «Se divide al impactar», y las armas nuevas sus números de partida' },
       { kind: 'mejora', text: 'En las partidas en grupo la tira de mejoras enseña todos los cambios de cada carta, también los de las evoluciones' },
+      { kind: 'arreglo', text: 'Los portátiles con la pantalla escalada (al 125 % o al 150 %) ya entran al juego: antes les salía el aviso de los móviles' },
+      { kind: 'mejora', text: 'En el móvil, el aviso de que se juega en ordenador es más claro y te deja enviarte el enlace para abrirlo luego en tu ordenador' },
     ],
   },
   {

@@ -309,6 +309,20 @@ const PATHS = {
       <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2h9.2L17.5 7M10.2 10.5v5.5M13.8 10.5v5.5" />
     </>
   ),
+  // A computer (the phone notice, 2026-11-27).
+  monitor: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="11.5" rx="2" />
+      <path d="M9 20h6M12 16v4" />
+    </>
+  ),
+  // Send to another app or person (the phone notice, 2026-11-27).
+  share: (
+    <>
+      <path d="M12 14.5V4M7.5 8.2 12 3.7l4.5 4.5" />
+      <path d="M8 11H6.5A1.5 1.5 0 0 0 5 12.5v6A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5H16" />
+    </>
+  ),
   copy: (
     <>
       <rect x="8.5" y="8.5" width="11" height="11" rx="2.4" />

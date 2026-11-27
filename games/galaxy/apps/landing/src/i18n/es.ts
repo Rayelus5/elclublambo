@@ -150,8 +150,9 @@ export const ES: Dict = {
     note: 'Se juega en ordenador con teclado y ratón',
   },
   mobile: {
+    badge: 'Solo en ordenador',
     title: 'Se juega en ordenador',
-    text: 'Galaxy Survivor necesita una pantalla grande, teclado y ratón. Guárdate el enlace y juega desde tu ordenador',
+    text: 'Galaxy Survivor es un juego de acción para teclado y ratón. Guárdate el enlace y juega desde tu ordenador',
     share: 'Compartir el enlace',
     copy: 'Copiar el enlace',
     copied: 'Enlace copiado',

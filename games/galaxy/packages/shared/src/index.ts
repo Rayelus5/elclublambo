@@ -90,3 +90,4 @@ export * from './popups/index';
 export * from './api/popups';
 export * from './links';
 export * from './web/titles';
+export * from './device';

@@ -27,7 +27,7 @@ export interface Dict {
   news: Stop & { version: (version: string, date: string) => string };
   faq: { kicker: string; title: string; items: { q: string; a: string }[] };
   final: { title: string; text: string; note: string };
-  mobile: { title: string; text: string; share: string; copy: string; copied: string; close: string; shareText: string };
+  mobile: { badge: string; title: string; text: string; share: string; copy: string; copied: string; close: string; shareText: string };
   footer: { tagline: string; game: string; community: string; legal: string; news: string; faq: string; discord: string };
   notFound: { title: string; description: string; h1: string; text: string; back: string };
   /** The notice on the old address (pre.elclub.party/galaxy) once the game has moved. */

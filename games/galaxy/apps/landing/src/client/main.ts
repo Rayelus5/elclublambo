@@ -4,6 +4,8 @@
 // replaces «Jugar gratis» on phones (the game needs a computer, like the game's own DesktopGate).
 // Everything is set through classes, attributes and CSSOM, which the server's CSP allows.
 
+import { isMobileDevice } from '@galaxy/shared/device';
+
 const root = document.documentElement;
 root.classList.add('js');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -42,9 +44,10 @@ const clips = new IntersectionObserver(
 );
 document.querySelectorAll<HTMLVideoElement>('video.clip').forEach((v) => clips.observe(v));
 
-// «Jugar gratis» on a phone or tablet: the same rule as the game's DesktopGate (a fine pointer and a 1280×720 screen).
+// «Jugar gratis» on a phone or tablet: the same rule as the game's DesktopGate (@galaxy/shared/device). The device
+// decides, never the screen's size: laptops at 125 % or 150 % report a smaller screen and must play (2026-11-27).
 const dialog = document.getElementById('desktop-only') as HTMLDialogElement | null;
-const canPlay = () => matchMedia('(pointer: fine)').matches && screen.width >= 1280 && screen.height >= 720;
+const canPlay = () => !isMobileDevice(window);
 document.addEventListener('click', (ev) => {
   const link = (ev.target as Element | null)?.closest?.('[data-play]');
   if (!link || !dialog || canPlay()) return;

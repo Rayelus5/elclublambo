@@ -76,12 +76,31 @@ test('credenciales malas muestran el aviso en el formulario', async ({ page }) =
   await expect(page.getByRole('alert')).toHaveText('Usuario o contraseña incorrectos. Revísalos y vuelve a probar');
 });
 
-test.describe('pantalla pequeña', () => {
-  // The gate checks the SCREEN (a 1366×768 laptop with browser chrome must get in): shrink both.
+// The device decides, never the screen's size (2026-11-27): a laptop at 125 % or 150 % reports a small screen and
+// plays; a phone sees the notice.
+test.describe('un ordenador con la pantalla pequeña', () => {
   test.use({ viewport: { width: 1024, height: 700 }, screen: { width: 1024, height: 700 } });
-  test('muestra el aviso de solo ordenador', async ({ page }) => {
+  test('juega: entra en la pantalla de acceso', async ({ page }) => {
+    await page.goto('/galaxy/entrar');
+    await expect(page.getByLabel('Usuario')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Galaxy Survivor se juega en ordenador' })).toHaveCount(0);
+  });
+});
+
+test.describe('un móvil', () => {
+  test.use({
+    viewport: { width: 412, height: 839 },
+    screen: { width: 412, height: 915 },
+    deviceScaleFactor: 2.625,
+    isMobile: true,
+    hasTouch: true,
+    userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36',
+  });
+  test('ve el aviso de solo ordenador con el enlace para su ordenador', async ({ page }) => {
     await page.goto('/galaxy/entrar');
     await expect(page.getByRole('heading', { name: 'Galaxy Survivor se juega en ordenador' })).toBeVisible();
+    await expect(page.getByText('Solo en ordenador')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Conoce el juego' })).toHaveAttribute('href', '/');
   });
 });
 
