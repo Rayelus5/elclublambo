@@ -11,6 +11,7 @@ import { amountsText } from '../../shop/ProductCard';
 import { Select } from '../../ui/Select';
 import { ActionDialog } from '../ActionDialog';
 import { DataTable, Pager } from '../DataTable';
+import { withCrumbs } from '../../ui/crumbs';
 
 // The resource shop in the panel (shop and lab plan, F5b; DESIGN_SYSTEM §8 sedecies): what it earns and its state,
 // every purchase (synced with Stripe when its webhook never came), the alerts to review, the blocked accounts (and
@@ -290,7 +291,7 @@ export function ShopAdminScreen() {
           url={dialog.url}
           title={dialog.title}
           submit={dialog.submit}
-          intro={dialog.intro ? <p className="panel-note">{dialog.intro}</p> : undefined}
+          intro={dialog.intro ? <p className="panel-note">{withCrumbs(dialog.intro)}</p> : undefined}
           password={() => dialog.password}
           result={
             dialog.result

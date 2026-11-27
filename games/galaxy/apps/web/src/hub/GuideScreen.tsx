@@ -3,6 +3,7 @@ import { copy } from '../copy/es';
 import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
 import { type KeyLabels, useKeyLabels } from '../settings/keybinds';
+import { withCrumbs } from '../ui/crumbs';
 
 // The Guía (GDD §12.2; M7c, DESIGN_SYSTEM §8 octovicies): chapters to read at any time, each with a small animated
 // example (CSS; still with reduced motion). Short: what to do, never a wall of text.
@@ -103,7 +104,7 @@ export function GuideScreen() {
               {(c.points as readonly (string | ((k: KeyLabels) => string))[]).map((p) => {
                 // A point that names keys says the player's own (Ajustes › Controles).
                 const text = typeof p === 'function' ? p(keys) : p;
-                return <li key={text}>{text}</li>;
+                return <li key={text}>{withCrumbs(text)}</li>;
               })}
             </ul>
           </article>

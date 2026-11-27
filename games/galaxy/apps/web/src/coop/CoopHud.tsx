@@ -2,11 +2,14 @@ import type { CoopPlayer } from '@galaxy/shared';
 import type { Content, HudSnapshot, Offer } from '@galaxy/sim';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { playUi } from '../audio/ui-sfx';
+import { gainRows, offerGains } from '../arena/hud/gains';
+import { GainRows } from '../arena/hud/GainRows';
 import { describeOffer } from '../arena/hud/LevelUp';
 import { spriteDataUrl } from '../arena/sprites';
 import { teamTint } from '../arena/stage/palette';
 import { usePrefs } from '../settings/prefs';
 import { copy } from '../copy/es';
+import { Icon } from '../ui/Icon';
 import { CARD_GUARD_MS, cardKey, typing } from '../ui/keys';
 import { useKeyLabels } from '../settings/keybinds';
 
@@ -110,6 +113,11 @@ export function CoopCards({
       <div className="coop-cards-row">
         {offer.map((o, i) => {
           const d = describeOffer(content, o);
+          const rows = gainRows(offerGains(content, o));
+          // What it does (Nov plan A1) shows on a new card and the repair; on a level-up you know the power already, so
+          // the room goes to every number it changes (the owner, 2026-11-27: «que la gente sepa lo que está eligiendo»).
+          const fresh = o.level === 1 && o.kind !== 'heal' && o.kind !== 'evolve';
+          const showText = rows.length === 0 || fresh;
           return (
             <button
               key={`${o.kind}:${o.id}`}
@@ -120,17 +128,20 @@ export function CoopCards({
               className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : o.level === 1 && o.kind !== 'heal' ? ' fresh' : ''}${taken?.index === i ? ' chosen' : ''}`}
               onClick={() => take(i)}
               aria-pressed={taken ? taken.index === i : undefined}
+              title={d.text}
             >
-              <span className="levelup-key" aria-hidden="true">
-                {i + 1}
+              <span className="coop-card-head">
+                <span className="levelup-key" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <img src={spriteDataUrl(d.icon, 3)} alt="" width={36} height={36} />
+                <span className="coop-card-text">
+                  <b>{d.name}</b>
+                  {d.tag ? <small>{d.tag}</small> : null}
+                </span>
               </span>
-              <img src={spriteDataUrl(d.icon, 4)} alt="" width={48} height={48} />
-              <span className="coop-card-text">
-                <b>{d.name}</b>
-                {d.tag ? <small>{d.tag}</small> : null}
-                {/* What it does, as in solo runs (Nov plan A1): clamped to three lines over the running world. */}
-                <span className="coop-card-desc">{d.text}</span>
-              </span>
+              <span className={showText ? 'coop-card-desc' : 'sr-only'}>{d.text}</span>
+              <GainRows rows={rows} className="compact" />
             </button>
           );
         })}
@@ -206,13 +217,13 @@ export function SpectateBar({
     <div className="coop-spectate" style={{ ['--tint' as string]: hex(teamTint(watching, cvd)) }}>
       {can.length > 1 ? (
         <button type="button" className="coop-spectate-arrow" aria-label={t.watchPrev} onClick={() => step(-1)}>
-          ‹
+          <Icon name="back" />
         </button>
       ) : null}
       <span role="status">{t.watching(name)}</span>
       {can.length > 1 ? (
         <button type="button" className="coop-spectate-arrow" aria-label={t.watchNext} onClick={() => step(1)}>
-          ›
+          <Icon name="next" />
         </button>
       ) : null}
     </div>

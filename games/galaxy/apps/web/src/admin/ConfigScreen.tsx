@@ -17,6 +17,7 @@ import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
 import { ADVANCED_KEYS, CATEGORIES, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
+import { withCrumbs } from '../ui/crumbs';
 
 const t = copy.admin.config;
 const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 'trades', 'chat', 'friends'] as const;
@@ -289,7 +290,7 @@ export function ConfigEditor({ row, options = {} }: { row: ConfigKeyRow; options
               {changes.length ? (
                 <ul className="admin-changes">
                   {changes.map((c) => (
-                    <li key={c}>{c}</li>
+                    <li key={c}>{withCrumbs(c)}</li>
                   ))}
                 </ul>
               ) : (

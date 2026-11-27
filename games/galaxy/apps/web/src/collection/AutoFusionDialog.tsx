@@ -145,7 +145,7 @@ export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters:
                   <span className="af-tiers">
                     <i data-tier={s.from} aria-hidden="true" />
                     {copy.tiers[s.from]}
-                    <span aria-hidden="true"> → </span>
+                    <Icon name="arrow" className="ico af-arrow" />
                     <i data-tier={s.to} aria-hidden="true" />
                     {copy.tiers[s.to]}
                   </span>

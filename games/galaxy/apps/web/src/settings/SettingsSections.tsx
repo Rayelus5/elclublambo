@@ -22,7 +22,8 @@ import { installable, installBrowser, promptInstall, useInstall } from '../pwa/i
 import { ELEMENT_GLYPH } from '../arena/stage/palette';
 import { CHAT_NOTIFY_KEYS, COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
-import { type Action, ACTIONS, keyCap, keyLabel, resetKeybinds, setBinding, useKeybinds } from './keybinds';
+import { type Action, ACTIONS, keyLabel, resetKeybinds, setBinding, useKeybinds } from './keybinds';
+import { KeyCapLabel } from '../ui/KeyCap';
 
 // What each tab of the settings holds (GDD §17.4; open beta; redesigned in the «escáner pro» plan, part A), shared by
 // the Ajustes screen and the run's pause so both are always the same: sound, display, accessibility, the run, and help
@@ -463,7 +464,7 @@ function Controls() {
                         setTimeout(() => setCapture({ action: a, slot }), 0);
                       }}
                     >
-                      {waiting ? t.controlsCapture : keyCap(code) || '—'}
+                      {waiting ? t.controlsCapture : <KeyCapLabel code={code} empty="—" />}
                     </button>
                     {code && !waiting ? (
                       <button type="button" className="controls-clear" aria-label={t.controlsClear(name(a), slot + 1)} onClick={() => setBinding(a, slot, null)}>

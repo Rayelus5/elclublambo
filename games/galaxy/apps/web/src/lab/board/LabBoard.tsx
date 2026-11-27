@@ -542,9 +542,7 @@ function NodePanel({ node, view, parentName, pending, onUpgrade, onClose }: { no
           <small>{tb.now}</small>
           <b>{tb.gain(node.effect.kind, node.now)}</b>
         </div>
-        <span className="lab-side-arrow" aria-hidden="true">
-          ➜
-        </span>
+        <Icon name="arrow" className="ico lab-side-arrow" />
         <div>
           <small>{tb.next}</small>
           <b>{next ? tb.gain(node.effect.kind, node.now + node.nextGain) : t.maxed}</b>

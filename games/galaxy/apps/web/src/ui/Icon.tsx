@@ -337,6 +337,13 @@ const PATHS = {
       <path d="M9.5 5.5L16 12l-6.5 6.5" />
     </>
   ),
+  // From one value to the next (2026-11-27, the owner: icons, never «→» as text): «12 [arrow] 15».
+  arrow: (
+    <>
+      <path d="M4.5 12h14" />
+      <path d="M13 6.5L18.5 12 13 17.5" />
+    </>
+  ),
   tick: (
     <>
       <path d="M5 12.5l4.5 4.5L19 7.5" />

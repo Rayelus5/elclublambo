@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-53-mejoras-que-dan',
+    version: '1.53',
+    date: '2026-11-27',
+    title: 'Las mejoras dicen qué te da cada nivel',
+    summary: 'Al elegir una mejora ves cada número que cambia, lo que tienes y lo que te llevas',
+    items: [
+      { kind: 'mejora', text: 'Cada carta de «Elige una mejora» dice qué te da ese nivel: cada número que cambia, con lo que tienes y lo que te llevas en verde' },
+      { kind: 'mejora', text: 'Las evoluciones dicen primero su rasgo, como «Se divide al impactar», y las armas nuevas sus números de partida' },
+      { kind: 'mejora', text: 'En las partidas en grupo la tira de mejoras enseña todos los cambios de cada carta, también los de las evoluciones' },
+    ],
+  },
+  {
     id: 'v1-52-torneos-skins-a-elegir',
     version: '1.52',
     date: '2026-11-23',

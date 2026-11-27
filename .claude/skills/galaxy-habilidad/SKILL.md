@@ -87,7 +87,7 @@ pnpm -C games/galaxy typecheck && pnpm -C games/galaxy lint
 ## 6. Verificación
 
 - **Mira las capturas** de `apps/web/test/browser/__shots__/arsenal-*.png` (caso B): el disparo se ve y contrasta con el fondo. En los dos casos, el icono se lee en `sprites.png`.
-- **Comprueba la carta de mejora:** el nombre y la descripción (sin punto final). La carta de evolución dice «Evoluciona tu <arma>» y la descripción de la evolución; no muestra qué la activa, así que la descripción puede decirlo.
+- **Comprueba la carta de mejora:** el nombre y la descripción (sin punto final). Lo que da cada nivel (las filas verdes de antes y después) sale solo de `levels`: no hay que escribirlo, pero cada nivel debe cambiar algún número que su tipo lea (`WEAPON_FIELDS`), o la carta no tendrá filas; `apps/web/test/gains.test.ts` lo comprueba con el contenido por defecto. Una stat nueva necesita su frase y su nombre en `copy.arena.gains` (`STAT_GAIN` y `ROW_STAT` en `es.ts`): el compilador lo pide. La carta de evolución dice «Evoluciona tu <arma>» y la descripción de la evolución; no muestra qué la activa, así que la descripción puede decirlo.
 - **Si subiste `SIM_VERSION`**, añade la entrada en `docs/DEPLOY_PRE.md`.
 
 ## 7. Entrega y publicación

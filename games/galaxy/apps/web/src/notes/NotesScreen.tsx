@@ -8,6 +8,7 @@ import { useSyncReady } from '../settings/sync';
 import { BackLink } from '../ui/BackLink';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
+import { withCrumbs } from '../ui/crumbs';
 
 // «Notas de versión» (plan «notas de versión»; the owner: «para que los jugadores puedan ver de forma detallada todos
 // los cambios que ha habido a lo largo del tiempo, de forma clara, breve y completa»). One version at a time, with its
@@ -250,7 +251,7 @@ export function NoteArticle({ note: n, index = 0, fresh = false, headingId, arti
             </h3>
             <ul>
               {items.map((x, k) => (
-                <li key={k}>{x.text}</li>
+                <li key={k}>{withCrumbs(x.text)}</li>
               ))}
             </ul>
           </section>
