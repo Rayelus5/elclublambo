@@ -18,6 +18,9 @@ export interface MemberInit {
   /** Nov plan C2: how they show on the pads (null: their name's drawing / no frame). */
   avatar?: string | null;
   frame?: string | null;
+  /** An admin or superadmin with TOTP: leading alone, they may launch a group run to try changes (2026-11-27). Never in
+   *  the room's views. */
+  tester?: boolean;
 }
 
 interface Member extends MemberInit {
@@ -268,8 +271,9 @@ export class RoomManager {
       members: seats,
       max: ROOM_MAX,
       createdAt: new Date(room.createdAt).toISOString(),
-      // Two or more connected, every mate ready (2026-11-17: alone, the player plays solo instead).
-      canStart: coopOpen && room.state === 'lobby' && roomStartBlock(seats) === null,
+      // Two or more connected, every mate ready (2026-11-17: alone, the player plays solo instead); an admin leading
+      // alone may launch, to try changes (2026-11-27).
+      canStart: coopOpen && room.state === 'lobby' && roomStartBlock(seats, { adminAlone: members.find((m) => m.accountId === room.leader)?.tester === true }) === null,
       run: room.runId ? { id: room.runId } : null,
     };
   }

@@ -59,7 +59,6 @@ export function WherePanel({ view }: { view: HangarView }) {
             </li>
           ))}
         </ul>
-        <small>{copy.hangar.layers(Math.round(sector.layerSeconds / 60))}</small>
       </div>
       <ul className="lobby-sectors" aria-label={copy.hangar.sectorPicker}>
         {view.sectors.map((s) => {

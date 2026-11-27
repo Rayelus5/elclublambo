@@ -23,3 +23,12 @@ test('una sala necesita al menos dos jugadores para despegar, y que los compañe
   // Four, one not ready.
   expect(roomStartBlock([m({ leader: true }), m({ ready: true }), m(), m({ ready: true })])).toBe('ready');
 });
+
+// An admin may launch a group run alone, to try changes (the owner, 2026-11-27); a player alone still may not.
+test('un admin que lidera solo su sala puede despegar; un jugador solo, no', () => {
+  expect(roomStartBlock([m({ leader: true })], { adminAlone: true })).toBeNull();
+  expect(roomStartBlock([m({ leader: true })], { adminAlone: false })).toBe('alone');
+  // With company, the usual rule: everyone ready.
+  expect(roomStartBlock([m({ leader: true }), m()], { adminAlone: true })).toBe('ready');
+  expect(roomStartBlock([m({ leader: true }), m({ ready: true })], { adminAlone: true })).toBeNull();
+});

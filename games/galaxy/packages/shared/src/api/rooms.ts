@@ -17,9 +17,11 @@ export const ROOM_MIN = 2;
  * Why a room cannot launch yet, or null: `alone` while it has fewer than two players, `ready` while a mate has not
  * said «Listo» (the leader launches, it needs none). A mate whose connection drops still counts: a blip must not block
  * the launch, the lobby sweep takes out whoever stays gone, and the run's start waits for everyone to connect.
+ * `adminAlone`: the leader is an admin (with TOTP), who may launch alone to try changes (the owner, 2026-11-27); the run
+ * pays and counts like any group run.
  */
-export function roomStartBlock(members: readonly { ready: boolean; leader: boolean }[]): 'alone' | 'ready' | null {
-  if (members.length < ROOM_MIN) return 'alone';
+export function roomStartBlock(members: readonly { ready: boolean; leader: boolean }[], opts: { adminAlone?: boolean } = {}): 'alone' | 'ready' | null {
+  if (members.length < ROOM_MIN && !(opts.adminAlone && members.length === 1)) return 'alone';
   if (!members.every((m) => m.ready || m.leader)) return 'ready';
   return null;
 }

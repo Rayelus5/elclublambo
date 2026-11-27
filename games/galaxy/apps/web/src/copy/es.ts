@@ -3077,6 +3077,8 @@ export const copy = {
     roomsCountLabel: (n: number, max: number) => `${n} de ${max} salas abiertas en el servidor`,
     roomsFull: 'Todas las salas están ocupadas. Únete a una con hueco o juega en solitario',
     needMate: 'Necesitas al menos un compañero para despegar en grupo',
+    // An admin alone in their room (2026-11-27): the server lets them launch, to try changes.
+    aloneAdmin: 'Vas solo: como admin puedes despegar para probar',
     playSolo: 'Jugar en solitario',
     createTitle: 'Crear una sala',
     kindLabel: 'Tipo de sala',
@@ -4211,7 +4213,6 @@ export const copy = {
     back: 'Volver',
     sector: 'Sector',
     fauna: 'Fauna',
-    layers: (min: number) => `Capas de ${fmt(min)} min, con su Núcleo y su extracción`,
     sectorPicker: 'Sectores',
     sectorChosen: 'Elegido',
     species: (n: number) => `${n} especies`,
