@@ -55,7 +55,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 
 ## 2. Restricciones
 
-- **Plataforma [U]:** solo escritorio, puntero fino, mínimo 1280×720, y **adaptado a pantallas anchas** (de 16:10 a ultrapanorámicas). Solo español.
+- **Plataforma [U]:** solo ordenador, con teclado y ratón o trackpad. Lo decide el **dispositivo**, nunca el tamaño de su pantalla (2026-11-27): un portátil con la pantalla escalada al 125 % o 150 % entra aunque el navegador la vea menor de 1280×720, y los móviles y tablets ven «se juega en ordenador». Diseñado para 1280×720 en adelante y **adaptado a pantallas anchas** (de 16:10 a ultrapanorámicas). Solo español.
 - **Entorno [U]:** solo PRE de momento, base de datos del Supabase autoalojado de PRE (esquema `galaxy`, ver §18).
 - **Cuentas [U]:** usuario + contraseña, sin email.
 - **Proceso (regla del proyecto):** TDD estricto con Superpowers; todo frontend pasa antes por ui-ux-pro-max; prohibidos los estilos genéricos de IA.
@@ -1068,7 +1068,7 @@ Se mantiene la arquitectura de `BRIEF.md` §4, validada. Resumen y cambios:
   - arrays tipados y rejilla espacial;
   - RNG con semilla, nunca `Math.random`;
   - **N sondas y comandos de entrada por tick** **[D]**, para poder reproducir partidas y añadir el cooperativo.
-- **Solo escritorio:** el cliente exige puntero fino y un mínimo de 1280×720. La adaptación a pantallas anchas está en §17.2.
+- **Solo ordenador:** el cliente pregunta si el dispositivo es un móvil o una tablet (`isMobileDevice`, en shared: las pistas del navegador, su agente, un iPad que se presenta como Mac, o una pantalla solo táctil sin ratón ni trackpad), y la portada usa la misma regla para «Jugar gratis». El tamaño de la pantalla no cuenta: una ventana pequeña en un ordenador juega con scroll. La adaptación a pantallas anchas está en §17.2.
 
 ### 18.5 Base de datos [U+D]
 

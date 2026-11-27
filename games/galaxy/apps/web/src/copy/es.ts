@@ -271,11 +271,19 @@ export const copy = {
     submit: 'Cambiar contraseña',
     back: 'Volver a entrar',
   },
+  // The phone and tablet notice (2026-11-27: the device decides, not the screen's size; a bolder screen).
   desktop: {
     // The landing of galaxysurvivor.es, which tells a phone visitor what the game is (the move, 2026-11-17).
     landing: 'Conoce el juego',
+    badge: 'Solo en ordenador',
     title: 'Galaxy Survivor se juega en ordenador',
-    body: 'Abre el juego en una pantalla de al menos 1280×720 con ratón o trackpad.',
+    body: 'Es un juego de acción para teclado y ratón. Ábrelo en tu ordenador y entra con tu cuenta',
+    linkLabel: 'El enlace para tu ordenador',
+    share: 'Enviarme el enlace',
+    shareText: 'Galaxy Survivor: para jugar en mi ordenador',
+    copy: 'Copiar el enlace',
+    copied: 'Enlace copiado',
+    copyFailed: 'No se pudo copiar: apúntalo de aquí arriba',
   },
   // The admin panel (GDD §16; M6a).
   admin: {

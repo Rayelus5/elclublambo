@@ -40,11 +40,17 @@ function footer(locale: Locale, onHome: boolean) {
 </div></footer>`;
 }
 
-/** The notice «Jugar gratis» opens on phones and tablets (client/main.ts), with a share and a copy of the link. */
+/**
+ * The notice «Jugar gratis» opens on phones and tablets (client/main.ts), with a share and a copy of the link. Bolder
+ * since 2026-11-27, like the game's own notice: a small fleet of probes and «Solo en ordenador» over the title.
+ */
 function mobileNotice(locale: Locale) {
   const m = locale.dict.mobile;
-  return `<dialog id="desktop-only" class="lip panel dlg" aria-labelledby="dlg-title">
+  const fleet = ['probe-spark', 'probe-lumen', 'probe-prism'].map((p) => `<span class="spr spr-${p}"></span>`).join('');
+  return `<dialog id="desktop-only" class="lip panel dlg dlg-mobile" aria-labelledby="dlg-title">
 <form method="dialog" class="dlg-x-form"><button class="dlg-x" aria-label="${esc(m.close)}" value="close">✕</button></form>
+<div class="dlg-fleet" aria-hidden="true">${fleet}</div>
+<span class="dlg-badge">${esc(m.badge)}</span>
 <h2 id="dlg-title">${esc(m.title)}</h2>
 <p>${esc(m.text)}</p>
 <div class="dlg-acts"><button class="lip btn btn-solar" type="button" data-share data-share-text="${esc(m.shareText)}">${esc(m.share)}</button><button class="lip btn btn-ghost" type="button" data-copy data-copied="${esc(m.copied)}">${esc(m.copy)}</button></div>

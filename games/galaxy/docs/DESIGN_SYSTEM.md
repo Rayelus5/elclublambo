@@ -155,7 +155,7 @@ box-shadow:
 
 ## 6. Composición y pantallas anchas
 
-- **Mínimo** 1280×720 con puntero fino; por debajo se muestra la pantalla «Galaxy Survivor se juega en ordenador».
+- **Diseñado para** 1280×720 en adelante; una ventana más pequeña en un ordenador juega con scroll. **Solo ordenador:** lo decide el dispositivo, no el tamaño de la pantalla (2026-11-27). En un móvil o una tablet sale el aviso: la partida de fondo moviéndose despacio, el logo, tres sondas flotando con su llama detrás y una tarjeta con «Solo en ordenador» en Solar, «Galaxy Survivor se juega en ordenador», la dirección del juego para apuntarla, «Enviarme el enlace» (la hoja de compartir del móvil) y «Copiar el enlace», y «Conoce el juego» a la portada. En vertical es una columna; tumbado, el logo y la flota a la izquierda y la tarjeta a la derecha.
 - **Anclajes:** la columna principal se ancla al borde izquierdo (56 px de margen) y los paneles laterales al derecho (40 px). El centro es de la escena: allí viven la estación y la galaxia.
 - **Anchas (21:9, 32:9):** los paneles no se estiran; crece el cielo. A partir de 2560 px de ancho la interfaz escala con `clamp()` hasta un 125 %.
 - **En la arena de combate** la zona jugable tiene un tope de 21:9 y lo que sobra es decoración (GDD §17.2).
