@@ -176,6 +176,8 @@ describe('salas', () => {
       const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
       const cookie = sessionCookie(await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) }));
       await put(ctx.app, '/galaxy/api/tutorial', { action: 'skip' }, { cookie });
+      // Playing asks for the probe test first, as for any player.
+      await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('bastion')) }, { cookie });
       return { cookie, id: '', username };
     };
     const mod = await signIn('moderator');
