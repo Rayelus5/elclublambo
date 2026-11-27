@@ -169,6 +169,30 @@ describe('salas', () => {
     expect((await act(b, '/start')).json()).toMatchObject({ error: 'room_not_leader' });
   });
 
+  // An admin with TOTP may launch a group run alone, to try changes (the owner, 2026-11-27): the run starts as usual.
+  test('un admin con TOTP despega solo en su sala; un moderador solo, no', async () => {
+    const signIn = async (role: 'admin' | 'moderator') => {
+      const { username, password, totpSecret } = await createAdminViaCli(ctx.db, role);
+      const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
+      const cookie = sessionCookie(await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) }));
+      await put(ctx.app, '/galaxy/api/tutorial', { action: 'skip' }, { cookie });
+      // Playing asks for the probe test first, as for any player.
+      await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('bastion')) }, { cookie });
+      return { cookie, id: '', username };
+    };
+    const mod = await signIn('moderator');
+    const modRoom = await create(mod, 'private');
+    expect(modRoom.canStart).toBe(false);
+    expect((await act(mod, '/start')).json()).toMatchObject({ error: 'room_alone' });
+    await act(mod, '/leave');
+    const admin = await signIn('admin');
+    const room = await create(admin, 'private');
+    expect(room.canStart).toBe(true);
+    const res = await act(admin, '/start');
+    expect(res.statusCode, res.body).toBe(200);
+    expect((res.json() as RoomView).run).not.toBeNull();
+  });
+
   test('quien cambia de sonda en el hangar la cambia en la sala, y los demás lo ven al momento', async () => {
     const [a, b] = [await player(), await player()];
     // b's test gives Bastión and Chispa is granted: b may fly either.

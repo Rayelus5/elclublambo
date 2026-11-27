@@ -45,8 +45,13 @@ export function requireSession(req: FastifyRequest): SessionInfo {
 /** Admin powers need an admin role and a session opened with TOTP. */
 export function requireAdmin(req: FastifyRequest): SessionInfo {
   const s = requireSession(req);
-  if (!s.mfa || !s.roles.some((r) => r === 'admin' || r === 'superadmin')) throw new HttpError(403, 'forbidden');
+  if (!isAdminSession(s)) throw new HttpError(403, 'forbidden');
   return s;
+}
+
+/** An admin or superadmin whose session was opened with TOTP: what `requireAdmin` lets through. */
+export function isAdminSession(s: Pick<SessionInfo, 'roles' | 'mfa'>): boolean {
+  return s.mfa && s.roles.some((r) => r === 'admin' || r === 'superadmin');
 }
 
 /** Moderation needs a staff role (moderator, admin or superadmin) and a session opened with TOTP (GDD §16.1). */

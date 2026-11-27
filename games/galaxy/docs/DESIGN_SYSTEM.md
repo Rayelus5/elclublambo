@@ -302,7 +302,7 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
 
 - **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
   - **Sector** (M3b-3, GDD §5.5).
-    - **Arriba, el elegido:** nombre, la insignia «Temporada» en Ultravioleta si lo es, la descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción».
+    - **Arriba, el elegido:** nombre, la insignia «Temporada» en Ultravioleta si lo es, la descripción, el Núcleo con su sprite en una caja roja suave y la fauna en losas de 56 px.
     - **Debajo, las losas de los 5 sectores:** las mismas que las de las sondas, con el sprite de su Núcleo a 1× (40 px).
       - **Abiertos:** su línea es «Elegido» (Solar), «Temporada» (Ultravioleta suave) o «N especies».
       - **Cerrados:** lo que los abre, «Derrota a <Núcleo del sector anterior>», con su barra 0/1. Una temporada cerrada dice «Fuera de temporada», sin barra.

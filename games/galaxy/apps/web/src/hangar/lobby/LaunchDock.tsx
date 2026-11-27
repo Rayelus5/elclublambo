@@ -67,7 +67,8 @@ export function LaunchDock({
     if (room.leader === me) {
       cta = <Big label={t.start} disabled={!room.canStart || action.isPending} busy={action.isPending} onClick={() => action.mutate({ kind: 'start' })} tour="launch" />;
       solo = roomStartBlock(room.members) === 'alone';
-      if (solo) hint = t.needMate;
+      // Alone, only an admin may launch (the server says so with canStart; 2026-11-27).
+      if (solo) hint = room.canStart ? t.aloneAdmin : t.needMate;
       else if (!room.canStart) hint = t.waitReady;
     } else {
       const ready = !!self?.ready;

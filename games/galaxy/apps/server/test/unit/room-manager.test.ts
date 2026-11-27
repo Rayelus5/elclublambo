@@ -64,3 +64,19 @@ test('una sala que no cambia en el plazo se cierra en el barrido', () => {
   expect(rooms.sweep(() => true).closed).toEqual([room]);
   expect(rooms.all()).toEqual([]);
 });
+
+// An admin (with TOTP) leading a room alone may launch it, to try changes (the owner, 2026-11-27); a player may not,
+// and the room's public view never says who is an admin.
+test('un admin solo en su sala puede despegar; si lidera otro jugador, no', () => {
+  const { rooms } = manager();
+  const room = rooms.create({ ...who(1), tester: true }, 'public', 'outer-nebula');
+  const view = () => rooms.view(room, () => true, true);
+  expect(view().canStart).toBe(true);
+  expect(JSON.stringify(view())).not.toContain('tester');
+  // A mate who is not ready blocks it, as always.
+  rooms.join(room, who(2));
+  expect(view().canStart).toBe(false);
+  // The admin leaves: the player left alone may not launch.
+  rooms.leave('a1');
+  expect(view().canStart).toBe(false);
+});

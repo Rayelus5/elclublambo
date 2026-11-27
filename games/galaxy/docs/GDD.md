@@ -752,6 +752,7 @@ Competiciones dentro de una temporada, cada una con **su propia clasificación**
 
 - **Quién [U]:**
   - de 2 a 4 jugadores: solo en la sala no se despega, y el lobby ofrece «Jugar en solitario», que sale de la sala (2026-11-17);
+  - un admin con TOTP sí puede despegar solo en su sala, para probar cambios; la partida paga y cuenta como cualquier partida en grupo (2026-11-27);
   - se juega en grupo tras acabar o saltar el tutorial y con el nivel que fije el admin;
   - solo se entra antes de despegar;
   - basta con que el líder tenga abierto el sector.

@@ -16,7 +16,8 @@ import {
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
-import { requireSession, requireStaff } from '../auth/guards';
+import { isAdminSession, requireSession, requireStaff } from '../auth/guards';
+import type { SessionInfo } from '../auth/sessions';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
@@ -121,13 +122,13 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     throw new HttpError(403, a.reason === 'disabled' ? 'coop_disabled' : a.reason === 'tutorial' ? 'coop_tutorial' : 'coop_level', a.reason === 'level' ? { minLevel: a.minLevel } : {});
   }
 
-  async function memberOf(s: { accountId: string; username: string }): Promise<MemberInit> {
+  async function memberOf(s: SessionInfo): Promise<MemberInit> {
     const [level, hangar, look] = await Promise.all([
       accountLevel(db, s.accountId, await deps.config.get('account')),
       ensureHangar(db, s.accountId),
       db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
     ]);
-    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, skin: await wornSkin(db, s.accountId, hangar.probe), avatar: look?.avatar ?? null, frame: look?.frame ?? null };
+    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, skin: await wornSkin(db, s.accountId, hangar.probe), avatar: look?.avatar ?? null, frame: look?.frame ?? null, tester: isAdminSession(s) };
   }
 
   async function sectorOpenTo(accountId: string, sector: string): Promise<boolean> {
@@ -356,7 +357,7 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     if (room.leader !== s.accountId) throw new HttpError(403, 'room_not_leader');
     if (room.state !== 'lobby') throw new HttpError(409, 'room_started');
     const view = rooms.view(room, online, true);
-    // Alone in the room (2026-11-17, the owner): a group run needs company; the web offers solo mode instead.
+    // Alone in the room (2026-11-17, the owner): a group run needs company, but an admin may launch alone (2026-11-27).
     if (!view.canStart) throw new HttpError(409, roomStartBlock(view.members) === 'alone' ? 'room_alone' : 'room_not_ready');
     // Marked before anything waits: a second press (or tab) meanwhile is refused, never launched twice.
     room.state = 'starting';

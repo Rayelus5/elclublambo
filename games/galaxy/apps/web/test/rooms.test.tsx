@@ -177,6 +177,18 @@ test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta q
   expect(await screen.findByRole('button', { name: copy.hangar.launch })).toBeInTheDocument();
 });
 
+// An admin leading a room alone may launch it to try changes (the owner, 2026-11-27): the server says it can start,
+// «Despegar» is on, and the hint says why; «Jugar en solitario» stays.
+test('un admin solo en su sala puede despegar en grupo para probar', async () => {
+  const alone = room({ members: [room().members[0]!], canStart: true });
+  mockApi({ ...base(rooms({ mine: alone })), 'GET /galaxy/api/auth/me': () => jsonResponse(200, { ...me, roles: ['admin'], mfa: true }) });
+  lobby();
+  expect(await screen.findByRole('button', { name: t.start })).toBeEnabled();
+  expect(screen.getByText(t.aloneAdmin)).toBeInTheDocument();
+  expect(screen.queryByText(t.needMate)).toBeNull();
+  expect(screen.getByRole('button', { name: t.playSolo })).toBeInTheDocument();
+});
+
 test('en grupo se ve el servidor con su ping y cuántas salas hay abiertas', async () => {
   mockApi(base(rooms({ rooms: { count: 7, max: 10 } })));
   lobby('/incursion?modo=grupo');
