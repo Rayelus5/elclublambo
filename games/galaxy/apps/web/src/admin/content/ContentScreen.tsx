@@ -18,6 +18,7 @@ import { ContentEditor } from './ContentEditor';
 import { describeContent } from './descriptors';
 import { changedFields } from './drafts';
 import { Impact, QuickSim, Warnings } from './Review';
+import { withCrumbs } from '../../ui/crumbs';
 
 // The run content's page (the content editor, 2026-11-16, P2): changes go through server-side drafts. The list of open
 // drafts, a new one, the published versions (any can come back as a new draft); an open draft (?borrador=<id>) is
@@ -418,7 +419,7 @@ function DraftBody({ id, first, live, onClose }: { id: string; first: DraftView;
           ) : (
             <ul>
               {changes.map((c) => (
-                <li key={c}>{c}</li>
+                <li key={c}>{withCrumbs(c)}</li>
               ))}
             </ul>
           )}

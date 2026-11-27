@@ -189,9 +189,10 @@ export function keyLabel(code: Binding): string {
   return code;
 }
 
-const CAPS: Record<string, string> = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Mouse0: 'Clic izq', Mouse1: 'Clic central', Mouse2: 'Clic der', NumpadEnter: 'Enter num' };
+// The arrow keys' caps draw an icon (ui/KeyCap.tsx); their names here are words, never text arrows.
+const CAPS: Record<string, string> = { ArrowUp: 'Arriba', ArrowDown: 'Abajo', ArrowLeft: 'Izquierda', ArrowRight: 'Derecha', Mouse0: 'Clic izq', Mouse1: 'Clic central', Mouse2: 'Clic der', NumpadEnter: 'Enter num' };
 
-/** A key's short name for a key cap («↑», «Clic izq»); the full one is keyLabel. */
+/** A key's short name for a key cap («Clic izq»); the full one is keyLabel. On screen, KeyCapLabel draws the arrow keys. */
 export function keyCap(code: Binding): string {
   if (!code) return '';
   return CAPS[code] ?? keyLabel(code);

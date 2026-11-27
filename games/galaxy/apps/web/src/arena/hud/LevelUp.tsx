@@ -2,6 +2,8 @@ import type { Content, Offer } from '@galaxy/sim';
 import { useEffect, useRef, useState } from 'react';
 import { copy } from '../../copy/es';
 import { Dialog } from '../../ui/Dialog';
+import { gainRows, offerGains } from './gains';
+import { GainRows } from './GainRows';
 import { spriteDataUrl } from '../sprites';
 import { CARD_GUARD_MS, cardKey, typing } from '../../ui/keys';
 import { isAction, useKeyLabels } from '../../settings/keybinds';
@@ -143,6 +145,8 @@ export function LevelUp({ offer, content, onPick }: { offer: Offer[]; content: C
               <b>{d.name}</b>
               {d.tag && <span className="levelup-tag">{d.tag}</span>}
               <span className="levelup-text">{d.text}</span>
+              {/* What this level gives, before and after (the owner, 2026-11-27). */}
+              <GainRows rows={gainRows(offerGains(content, o))} />
             </button>
           );
         })}

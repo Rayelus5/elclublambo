@@ -139,7 +139,8 @@ test('en Avanzado, quitar una entrada con nombre se ve como un cambio, y la pest
   const first = Object.keys(parseConfig('probes', {}).unlocks)[0]!;
   const name = DEFAULT_CONTENT.probes.find((p) => p.id === first)!.name;
   await user.click(within(unlocks).getByRole('button', { name: `Quitar ${name}` }));
-  expect(await screen.findByText(`Se quita Qué desbloquea cada sonda › ${name}`)).toBeInTheDocument();
+  // The place's « › » is an arrow icon (2026-11-27): screen readers hear «…, name».
+  expect(await screen.findByText((_, el) => el?.tagName === 'LI' && el.textContent === `Se quita Qué desbloquea cada sonda, ${name}`)).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: t.jsonTab }));
   const json = (screen.getByRole('textbox', { name: t.editor }) as HTMLTextAreaElement).value;
   expect(JSON.parse(json).unlocks[first]).toBeUndefined();

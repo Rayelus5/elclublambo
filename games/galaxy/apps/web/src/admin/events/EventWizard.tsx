@@ -13,6 +13,7 @@ import { issuesByPath } from '../forms/issues';
 import { emptyOf } from '../forms/schema';
 import { PublishFields } from '../PublishFields';
 import { type Banner, bannerFor, duration, eventSchema, pick, rewardText, scannerOf, t, totals, warningText } from './shared';
+import { withCrumbs } from '../../ui/crumbs';
 
 // The event wizard (polish phase 4): an event in five steps (its data and dates, its goals with their rewards, what a
 // player takes home, its optional scanner, and a review with the player's view, «Qué cambia» and the warnings), then
@@ -311,7 +312,7 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
               {changes.length ? (
                 <ul className="admin-changes">
                   {changes.map((c) => (
-                    <li key={c}>{c}</li>
+                    <li key={c}>{withCrumbs(c)}</li>
                   ))}
                 </ul>
               ) : (

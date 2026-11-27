@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
-import { useKeybinds, useKeyLabels, keyLabel } from '../../settings/keybinds';
+import { useKeybinds, useKeyLabels } from '../../settings/keybinds';
+import { KeyCapLabel } from '../../ui/KeyCap';
 
 // The tutorial's briefing (polish phase 3): before the first run moves, four things to know, shown rather than told
 // (keys that light up in turn, the probe firing on its own, the data crystals, the dash's key and its jump), and
@@ -14,7 +15,7 @@ export function Briefing({ onLaunch, onSkip }: { onLaunch: () => void; onSkip: (
   // The player's own keys (Ajustes › Controles), as the hints say them.
   const k = useKeyLabels();
   const binds = useKeybinds();
-  const cap = (code: string | null) => keyLabel(code) || '·';
+  const cap = (code: string | null) => <KeyCapLabel code={code} empty="·" />;
   useEffect(() => go.current?.focus(), []);
   return (
     <div className="briefing" role="dialog" aria-modal="true" aria-labelledby="briefing-title">

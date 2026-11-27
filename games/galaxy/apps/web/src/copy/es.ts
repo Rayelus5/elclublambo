@@ -1,7 +1,7 @@
 import type { Quirk } from '@galaxy/sim';
 import type { KeyLabels } from '../settings/keybinds';
 import type { InstallBrowser } from '../pwa/install';
-import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
+import type { ElementId, FamilyId, PhenomenonId, Special, StatKey, WeaponKind, WeaponLevel } from '@galaxy/sim';
 import { type ApiErrorCode, pieceName, type PopupIssueCode, type PopupKind, type PopupState, TOURNAMENT_MAX_DAYS, type TournamentIssueCode, type TournamentMetric } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
@@ -15,6 +15,133 @@ export const quirkText = (q: Quirk): string => (copy.probeTest.quirks[q.kind] as
 const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
 /** Two decimals for the rates under 1 % that one would round away (a mythic's 0,05 %). */
 const percentFine = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 2 });
+
+/** A number never parts from its unit (« % », « s »). */
+const NB = ' ';
+/** Up to `max` decimals, the Spanish way (0,55). */
+const dec = (n: number, max = 2) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: max }).format(n);
+/** A share as a whole percent (9 %, not 9,09 %), or with one decimal under 3 when it is not whole (a 2,5 % step). */
+const share = (r: number) => {
+  const v = Math.abs(r) * 100;
+  return dec(v >= 3 ? Math.round(v) : Math.round(v * 10) / 10, 1);
+};
+const sign = (n: number) => (n < 0 ? '−' : '+');
+const plural = (n: number, one: string, many: string) => (Math.abs(n) === 1 ? one : many);
+
+/** What a weapon fires, for «+1 orbe» (each kind its own word). */
+const SHOT_UNIT: Record<WeaponKind, [string, string]> = {
+  bolt: ['proyectil', 'proyectiles'],
+  nova: ['onda', 'ondas'],
+  lance: ['lanza', 'lanzas'],
+  orbit: ['orbe', 'orbes'],
+  trail: ['estela', 'estelas'],
+  ricochet: ['disco', 'discos'],
+  drone: ['dron', 'drones'],
+  beam: ['rayo', 'rayos'],
+  cone: ['cono', 'conos'],
+  radial: ['proyectil', 'proyectiles'],
+  homing: ['misil', 'misiles'],
+  mine: ['mina', 'minas'],
+  boomerang: ['bumerán', 'bumeranes'],
+  field: ['campo', 'campos'],
+  strike: ['impacto', 'impactos'],
+  turret: ['torreta', 'torretas'],
+  harpoon: ['arpón', 'arpones'],
+  sling: ['proyectil', 'proyectiles'],
+  decoy: ['señuelo', 'señuelos'],
+  lighthouse: ['haz', 'haces'],
+  mortar: ['proyectil', 'proyectiles'],
+};
+const shots = (n: number, kind: WeaponKind) => plural(n, SHOT_UNIT[kind][0], SHOT_UNIT[kind][1]);
+
+/** A weapon's number that grows by a share (+20 % de daño). */
+const grows = (what: string) => (from: number, to: number) => `${sign(to - from)}${share(from > 0 ? to / from - 1 : 1)}${NB}% de ${what}`;
+const WEAPON_GAIN: Record<keyof WeaponLevel, (from: number, to: number, kind: WeaponKind) => string> = {
+  damage: grows('daño'),
+  // Less wait is better: how much sooner it fires again.
+  cooldown: (from, to) => `Se recarga un ${share(1 - to / from)}${NB}% ${to < from ? 'antes' : 'más tarde'}`,
+  count: (from, to, kind) => `${sign(to - from)}${dec(Math.abs(to - from))} ${shots(to - from, kind)}`,
+  pierce: (from, to) => `Atraviesa ${dec(Math.abs(to - from))} ${plural(to - from, 'enemigo', 'enemigos')} ${to > from ? 'más' : 'menos'}`,
+  speed: grows('velocidad'),
+  area: grows('área'),
+  duration: (from, to) => `Dura ${dec(Math.abs(to - from))}${NB}s ${to > from ? 'más' : 'menos'}`,
+  range: grows('alcance'),
+  bounces: (from, to) => `${sign(to - from)}${dec(Math.abs(to - from))} ${plural(to - from, 'rebote', 'rebotes')}`,
+  knockback: grows('empuje'),
+  // Less time between hits is better: how much more often it hits.
+  interval: (from, to) => `Golpea un ${share(from / to - 1)}${NB}% ${to < from ? 'más' : 'menos'} a menudo`,
+};
+/** What a passive adds at a level (`v`), and where it gets (`total`). */
+const STAT_GAIN: Record<StatKey, (v: number, total: number) => string> = {
+  maxHp: (v) => `${sign(v)}${share(v)}${NB}% de vida máxima`,
+  speed: (v) => `${sign(v)}${share(v)}${NB}% de velocidad`,
+  cooldown: (v) => `Las armas se recargan un ${share(v)}${NB}% antes`,
+  damage: (v) => `${sign(v)}${share(v)}${NB}% de daño`,
+  area: (v) => `${sign(v)}${share(v)}${NB}% de área`,
+  pickup: (v) => `${sign(v)}${share(v)}${NB}% de radio de recogida`,
+  projectiles: (v) => `${sign(v)}${dec(Math.abs(v))} ${plural(v, 'proyectil', 'proyectiles')} en cada arma`,
+  regen: (v) => `${sign(v)}${dec(Math.abs(v), 2)} de vida por segundo`,
+  armor: (v) => `Ignoras un ${share(v)}${NB}% más del daño`,
+  crit: (v) => `${sign(v)}${share(v)}${NB}% de probabilidad de crítico`,
+  critDamage: (v) => `${sign(v)}${share(v)}${NB}% de daño crítico`,
+  xp: (v) => `${sign(v)}${share(v)}${NB}% de experiencia`,
+  luck: (v) => `${sign(v)}${share(v)}${NB}% de suerte`,
+  lifesteal: (v) => `Recuperas un ${share(v)}${NB}% más del daño que haces`,
+  velocity: (v) => `${sign(v)}${share(v)}${NB}% de velocidad y alcance de los proyectiles`,
+  duration: (v) => `${sign(v)}${share(v)}${NB}% de duración`,
+  pierce: (v) => `Los proyectiles atraviesan ${dec(Math.abs(v))} ${plural(v, 'enemigo', 'enemigos')} más`,
+  elemental: (v) => `${sign(v)}${share(v)}${NB}% de fuerza elemental`,
+  barrier: (v) => `${sign(v)}${share(v)}${NB}% de tu vida como escudo`,
+  curse: (v) => `${sign(v)}${share(v)}${NB}% de enemigos y de botín`,
+  evasion: (v) => `${sign(v)}${share(v)}${NB}% de esquivar golpes`,
+  bossDamage: (v) => `${sign(v)}${share(v)}${NB}% de daño a Núcleos y élites`,
+  execute: (_v, total) => `Rematas a los enemigos corrientes con un ${share(total)}${NB}% de vida o menos`,
+  knockback: (v) => `${sign(v)}${share(v)}${NB}% de empuje`,
+  movingDamage: (v) => `${sign(v)}${share(v)}${NB}% de daño mientras te mueves`,
+};
+
+/** The name of each number in a card's before-and-after rows (design C, the owner's pick, 2026-11-27). */
+const ROW_FIELD: Record<Exclude<keyof WeaponLevel, 'count'>, string> = {
+  damage: 'Daño',
+  cooldown: 'Recarga',
+  pierce: 'Perforación',
+  speed: 'Velocidad',
+  area: 'Área',
+  duration: 'Duración',
+  range: 'Alcance',
+  bounces: 'Rebotes',
+  knockback: 'Empuje',
+  interval: 'Intervalo',
+};
+const ROW_SECONDS = new Set<keyof WeaponLevel>(['cooldown', 'duration', 'interval']);
+const ROW_STAT: Record<StatKey, string> = {
+  maxHp: 'Vida máxima',
+  speed: 'Velocidad',
+  cooldown: 'Recarga de las armas',
+  damage: 'Daño',
+  area: 'Área',
+  pickup: 'Radio de recogida',
+  projectiles: 'Proyectiles extra',
+  regen: 'Vida por segundo',
+  armor: 'Daño que ignoras',
+  crit: 'Crítico',
+  critDamage: 'Daño crítico',
+  xp: 'Experiencia',
+  luck: 'Suerte',
+  lifesteal: 'Robo de vida',
+  velocity: 'Velocidad de proyectiles',
+  duration: 'Duración',
+  pierce: 'Perforación extra',
+  elemental: 'Fuerza elemental',
+  barrier: 'Escudo',
+  curse: 'Enemigos y botín',
+  evasion: 'Esquivar',
+  bossDamage: 'Daño a Núcleos',
+  execute: 'Remate',
+  knockback: 'Empuje',
+  movingDamage: 'Daño en movimiento',
+};
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Every text of the web (DESIGN_SYSTEM §9): short, direct, no trailing period in titles. */
 /** «Te falta 1 componente» / «Te faltan 30 de polvo y 15 componentes»: the verb agrees with what is missing. */
@@ -5203,6 +5330,28 @@ export const copy = {
     levelShort: (n: number) => `Nv ${n}`,
     heal: 'Reparación',
     healDescription: 'Recuperas el 30 % de la vida',
+    // What each level-up gives (the owner, 2026-11-27): the green line of each card (arena/hud/gains.ts).
+    gains: {
+      weapon: (field: keyof WeaponLevel, from: number, to: number, kind: WeaponKind) => WEAPON_GAIN[field](from, to, kind),
+      // A new weapon's starting numbers.
+      base: (field: 'damage' | 'cooldown' | 'count', v: number, kind: WeaponKind) =>
+        field === 'damage' ? `${dec(v, 1)} de daño` : field === 'cooldown' ? `cada ${dec(v)}${NB}s` : `${dec(v)} ${shots(v, kind)}`,
+      stat: (stat: StatKey, v: number, total: number) => STAT_GAIN[stat](v, total),
+      // The before-and-after rows: each number's name and its value as the card shows it.
+      rowLabel: (field: keyof WeaponLevel, kind: WeaponKind) => (field === 'count' ? capital(SHOT_UNIT[kind][1]) : ROW_FIELD[field]),
+      rowValue: (field: keyof WeaponLevel, v: number) => (ROW_SECONDS.has(field) ? `${dec(v)}${NB}s` : dec(v)),
+      statLabel: (stat: StatKey) => ROW_STAT[stat],
+      // A passive's running total: «+15 %», «−6 %» on the cooldown, «+1» for whole units, «+0,3/s» for regeneration.
+      statValue: (stat: StatKey, v: number) =>
+        stat === 'regen' ? `+${dec(v)}/s` : stat === 'projectiles' || stat === 'pierce' ? `+${dec(v)}` : `${stat === 'cooldown' ? '−' : '+'}${dec(Math.round(v * 1000) / 10, 1)}${NB}%`,
+      special: {
+        split: 'Se divide al impactar',
+        echo: 'Cada golpe se repite',
+        vortex: 'Atrae a los enemigos',
+        pierceAll: 'Atraviesa a todos los enemigos',
+        chain: 'El golpe salta entre enemigos',
+      } satisfies Record<Special, string>,
+    },
     pause: 'Pausa',
     pauseButton: 'Pausar la incursión',
     resume: 'Continuar',
